@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Toma de Lote Supermercados
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="toma-lote-supermercados.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="contenedor">
+
+        <!-- TITULO -->
+
+        <div class="header">
+
+            <h1>
+                TOMA DE LOTE SUPERMERCADOS
+            </h1>
+
+        </div>
+
+        <!-- DATA MODULADO -->
+
+        <div class="card">
+
+            <h2>
+                1. CARGAR DATA MODULADO
+            </h2>
+
+            <div class="data-modulado">
+
+                <div class="upload-box">
+
+                    <input
+                        type="file"
+                        id="archivoDataModulado"
+                    >
+
+                </div>
+
+                <div class="detalle-archivo">
+
+                    <p>
+                        Archivo:
+                        <span id="nombreDataModulado">
+                            -
+                        </span>
+                    </p>
+
+                    <p>
+                        Fecha:
+                        <span>
+                            -
+                        </span>
+                    </p>
+
+                    <p>
+                        Registros:
+                        <span id="totalRegistros">
+                            -
+                        </span>
+                    </p>
+
+                    <p>
+                        Viajes:
+                        <span id="totalViajes">
+                            -
+                        </span>
+                    </p>
+
+                </div>
+
+                <div class="estado-ok">
+
+                    <h3>
+                        ✓ Procesado correctamente
+                    </h3>
+
+                    <p>
+                        Se generaron los viajes disponibles.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- CARGAR ARCHIVOS -->
+
+        <div class="card">
+
+            <h2>
+                2. CARGAR ARCHIVOS POR VIAJE
+            </h2>
+
+            <div class="viaje-grid">
+
+                <div>
+
+                    <label>
+                        Viaje
+                    </label>
+
+                    <select id="cmbViaje">
+
+                        <option>
+                            Seleccione viaje
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div>
+
+                    <label>
+                        Modulación
+                    </label>
+
+                    <input
+                        type="file"
+                        id="archivoModulacion"
+                    >
+
+                </div>
+
+                <div>
+
+                    <label>
+                        Fase
+                    </label>
+
+                    <input
+                        type="file"
+                        id="archivoFase"
+                    >
+
+                </div>
+
+                <div>
+
+                    <button id="btnProcesar">
+
+                        PROCESAR VIAJE
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- TABLA -->
+
+        <div class="card">
+
+            <h2>
+                VIAJES GENERADOS
+            </h2>
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Viaje</th>
+                        <th>Entregas</th>
+                        <th>Total HU</th>
+                        <th>Modulación</th>
+                        <th>Fase</th>
+                        <th>Estado</th>
+                        <th>Usuario</th>
+                        <th>Acción</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="tblViajes">
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+    <script src="toma-lote-supermercados.js"></script>
+
+</body>
+
+</html>

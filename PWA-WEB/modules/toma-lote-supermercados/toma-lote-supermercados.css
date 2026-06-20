@@ -1,0 +1,233 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+
+body{
+    background:#eef2f7;
+    padding:15px;
+}
+
+.contenedor{
+    width:100%;
+}
+
+/* HEADER */
+
+.header{
+
+    background:white;
+
+    padding:22px 25px;
+
+    border-radius:15px;
+
+    margin-bottom:15px;
+
+    box-shadow:0 2px 8px rgba(0,0,0,.05);
+
+}
+
+.header h1{
+
+    color:#0D47A1;
+
+    font-size:24px;
+
+}
+
+/* CARD */
+
+.card{
+
+    background:white;
+
+    border-radius:15px;
+
+    padding:20px;
+
+    margin-bottom:15px;
+
+    box-shadow:0 2px 8px rgba(0,0,0,.05);
+
+}
+
+.card h2{
+
+    color:#0D47A1;
+
+    font-size:22px;
+
+    margin-bottom:20px;
+
+}
+
+/* DATA MODULADO */
+
+.data-modulado{
+
+    display:grid;
+
+    grid-template-columns:
+        280px
+        1fr
+        350px;
+
+    gap:20px;
+
+    align-items:center;
+
+}
+
+.upload-box{
+
+    border:2px dashed #d8dde7;
+
+    border-radius:12px;
+
+    padding:35px;
+
+    text-align:center;
+
+}
+
+.detalle-archivo{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:12px;
+
+}
+
+.detalle-archivo span{
+
+    font-weight:700;
+
+    color:#0D47A1;
+
+}
+
+.estado-ok{
+
+    background:#f0faf4;
+
+    border:1px solid #d7f0df;
+
+    border-radius:12px;
+
+    padding:25px;
+
+}
+
+.estado-ok h3{
+
+    color:#15803d;
+
+    margin-bottom:10px;
+
+}
+
+/* VIAJE */
+
+.viaje-grid{
+
+    display:grid;
+
+    grid-template-columns:
+        1.2fr
+        1fr
+        1fr
+        220px;
+
+    gap:15px;
+
+    align-items:end;
+
+}
+
+.viaje-grid label{
+
+    display:block;
+
+    margin-bottom:8px;
+
+    font-weight:600;
+
+}
+
+.viaje-grid select,
+.viaje-grid input{
+
+    width:100%;
+
+    padding:12px;
+
+    border:1px solid #d5dbe5;
+
+    border-radius:10px;
+
+}
+
+#btnProcesar{
+
+    width:100%;
+
+    height:46px;
+
+    border:none;
+
+    border-radius:10px;
+
+    background:#16a34a;
+
+    color:white;
+
+    font-weight:700;
+
+    cursor:pointer;
+
+}
+
+/* TABLA */
+
+table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+}
+
+thead{
+
+    background:#f8fafc;
+
+}
+
+th{
+
+    padding:14px;
+
+    text-align:left;
+
+    color:#374151;
+
+}
+
+td{
+
+    padding:14px;
+
+    border-top:1px solid #e5e7eb;
+
+}
+
+tbody tr:hover{
+
+    background:#f9fafb;
+
+}

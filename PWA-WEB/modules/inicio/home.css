@@ -1,0 +1,331 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+
+body{
+    background:#eef2f7;
+}
+
+.layout{
+    display:flex;
+    height:100vh;
+}
+
+/* ======================================== */
+/* SIDEBAR */
+/* ======================================== */
+
+.sidebar{
+
+    width:280px;
+
+    background:#0D47A1;
+
+    color:white;
+
+    display:flex;
+    flex-direction:column;
+
+    box-shadow:
+        2px 0 10px rgba(
+            0,
+            0,
+            0,
+            .08
+        );
+
+}
+
+.logo{
+
+    padding:30px;
+
+    border-bottom:
+        1px solid rgba(
+            255,
+            255,
+            255,
+            .15
+        );
+
+}
+
+.logo h1{
+
+    font-size:34px;
+
+    font-weight:800;
+
+    line-height:1.1;
+
+}
+
+.logo span{
+
+    display:block;
+
+    margin-top:15px;
+
+    font-size:16px;
+
+    color:#dbeafe;
+
+}
+
+/* ======================================== */
+/* PERFIL */
+/* ======================================== */
+
+.perfil-sidebar{
+
+    padding:20px 30px;
+
+    border-bottom:
+        1px solid rgba(
+            255,
+            255,
+            255,
+            .15
+        );
+
+}
+
+.nombre-sidebar{
+
+    font-size:16px;
+
+    font-weight:700;
+
+    color:white;
+
+}
+
+.rol-sidebar{
+
+    margin-top:5px;
+
+    font-size:13px;
+
+    color:#dbeafe;
+
+}
+
+/* ======================================== */
+/* MENU */
+/* ======================================== */
+
+.menu{
+
+    padding:20px;
+
+    display:flex;
+    flex-direction:column;
+
+    gap:5px;
+
+}
+
+.menu a{
+
+    text-decoration:none;
+
+    color:white;
+
+    padding:14px 18px;
+
+    border-radius:12px;
+
+    font-size:16px;
+
+    transition:.3s;
+
+}
+
+.menu a:hover{
+
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            .15
+        );
+
+}
+
+.menu hr{
+
+    border:none;
+
+    border-top:
+        1px solid rgba(
+            255,
+            255,
+            255,
+            .15
+        );
+
+    margin:15px 0;
+
+}
+
+.titulo-modulos{
+
+    margin-top:10px;
+
+    margin-bottom:10px;
+
+    font-size:12px;
+
+    font-weight:700;
+
+    letter-spacing:1px;
+
+    color:#dbeafe;
+
+}
+
+/* ======================================== */
+/* CONTENIDO */
+/* ======================================== */
+
+.contenido{
+
+    flex:1;
+
+    padding:25px;
+
+}
+
+/* ======================================== */
+/* TOPBAR */
+/* ======================================== */
+
+.topbar{
+
+    background:white;
+
+    border-radius:20px;
+
+    padding:25px 30px;
+
+    margin-bottom:25px;
+
+    box-shadow:
+        0 5px 15px rgba(
+            0,
+            0,
+            0,
+            .05
+        );
+
+}
+
+.topbar h2{
+
+    font-size:42px;
+
+    color:#1f2937;
+
+}
+
+/* ======================================== */
+/* CARDS */
+/* ======================================== */
+
+.cards{
+
+    display:grid;
+
+    grid-template-columns:
+        repeat(
+            auto-fit,
+            minmax(
+                300px,
+                1fr
+            )
+        );
+
+    gap:25px;
+
+}
+
+.card{
+
+    background:white;
+
+    border-radius:20px;
+
+    padding:30px;
+
+    min-height:220px;
+
+    box-shadow:
+        0 5px 20px rgba(
+            0,
+            0,
+            0,
+            .05
+        );
+
+    transition:.3s;
+
+    cursor:pointer;
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:space-between;
+
+}
+
+.card:hover{
+
+    transform:
+        translateY(-5px);
+
+    box-shadow:
+        0 10px 25px rgba(
+            0,
+            0,
+            0,
+            .08
+        );
+
+}
+
+.card h3{
+
+    color:#0D47A1;
+
+    font-size:24px;
+
+    line-height:1.3;
+
+}
+
+.card p{
+
+    color:#6b7280;
+
+    font-size:16px;
+
+    line-height:1.6;
+
+}
+
+.card::after{
+
+    content:"Abrir módulo →";
+
+    color:#0D47A1;
+
+    font-weight:600;
+
+    font-size:15px;
+
+}
