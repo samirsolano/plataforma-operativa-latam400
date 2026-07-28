@@ -52,7 +52,7 @@ h1{
 
     text-align:center;
 
-    color:#0D47A1;
+    color:#C62828;
 
     font-size:72px;
 
@@ -118,7 +118,7 @@ input{
 
 input:focus{
 
-    border-color:#0D47A1;
+    border-color:#C62828;
 
 }
 
@@ -132,7 +132,7 @@ button{
 
     border-radius:15px;
 
-    background:#0D47A1;
+    background:#C62828;
 
     color:white;
 
@@ -148,6 +148,6 @@ button{
 
 button:hover{
 
-    background:#1565C0;
+    background:#B71C1C;
 
 }
