@@ -47,17 +47,29 @@
 
             <!-- PERFIL -->
 
-            <div class="perfil-sidebar">
+            <div class="perfil-sidebar" id="btnPerfil">
 
-                <div class="nombre-sidebar">
+                <div class="nombre-sidebar" id="nombreUsuario">
 
-                    Samuel Solano
+                    -
 
                 </div>
 
-                <div class="rol-sidebar">
+                <div class="rol-sidebar" id="rolUsuario">
 
-                    Administrador
+                    -
+
+                </div>
+
+                <div class="menu-usuario" id="menuUsuario">
+
+                    <a href="#">
+                        Cambiar Contraseña
+                    </a>
+
+                    <a href="#" id="btnCerrarSesion">
+                        Cerrar Sesión
+                    </a>
 
                 </div>
 
@@ -85,16 +97,6 @@
 
                 <a href="#">
                     Sugerencias y Anomalías
-                </a>
-
-                <hr>
-
-                <a href="#">
-                    Cambiar Contraseña
-                </a>
-
-                <a href="#">
-                    Cerrar Sesión
                 </a>
 
                 <hr>
@@ -191,6 +193,8 @@
 
     </div>
 
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
     <script src="home.js"></script>
 
 </body>
