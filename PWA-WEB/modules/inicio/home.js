@@ -1,47 +1,82 @@
-console.log(
-    "Home cargado"
-);
+console.log("Home cargado");
 
-const btnPerfil =
-    document.getElementById(
-        "btnPerfil"
-    );
+// Si no hay sesión activa, esto redirige automáticamente al login
+const sesion = requerirSesion();
 
-const menuUsuario =
-    document.getElementById(
-        "menuUsuario"
-    );
+if(sesion){
 
-btnPerfil.addEventListener(
-    "click",
-    function(e){
+    document.getElementById("nombreUsuario").textContent =
+        sesion.nombre_completo;
 
-        e.stopPropagation();
+    document.getElementById("rolUsuario").textContent =
+        sesion.rol;
 
-        if(
-            menuUsuario.style.display ===
-            "block"
-        ){
+}
 
-            menuUsuario.style.display =
-                "none";
+const btnPerfil = document.getElementById("btnPerfil");
+const menuUsuario = document.getElementById("menuUsuario");
 
-        }else{
+btnPerfil.addEventListener("click", function(e){
 
-            menuUsuario.style.display =
-                "block";
+    e.stopPropagation();
 
-        }
-
+    if(menuUsuario.style.display === "block"){
+        menuUsuario.style.display = "none";
+    }else{
+        menuUsuario.style.display = "block";
     }
-);
 
-document.addEventListener(
-    "click",
-    function(){
+});
 
-        menuUsuario.style.display =
-            "none";
+document.addEventListener("click", function(){
+    menuUsuario.style.display = "none";
+});
 
+document.getElementById("btnCerrarSesion").addEventListener("click", function(e){
+
+    e.preventDefault();
+    e.stopPropagation();
+    cerrarSesion();
+
+});
+console.log("Home cargado");
+
+// Si no hay sesión activa, esto redirige automáticamente al login
+const sesion = requerirSesion();
+
+if(sesion){
+
+    document.getElementById("nombreUsuario").textContent =
+        sesion.nombre_completo;
+
+    document.getElementById("rolUsuario").textContent =
+        sesion.rol;
+
+}
+
+const btnPerfil = document.getElementById("btnPerfil");
+const menuUsuario = document.getElementById("menuUsuario");
+
+btnPerfil.addEventListener("click", function(e){
+
+    e.stopPropagation();
+
+    if(menuUsuario.style.display === "block"){
+        menuUsuario.style.display = "none";
+    }else{
+        menuUsuario.style.display = "block";
     }
-);
+
+});
+
+document.addEventListener("click", function(){
+    menuUsuario.style.display = "none";
+});
+
+document.getElementById("btnCerrarSesion").addEventListener("click", function(e){
+
+    e.preventDefault();
+    e.stopPropagation();
+    cerrarSesion();
+
+});
