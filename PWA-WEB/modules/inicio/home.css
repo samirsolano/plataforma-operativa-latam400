@@ -22,7 +22,7 @@ body{
 
     width:280px;
 
-    background:#0D47A1;
+    background:#C62828;
 
     color:white;
 
@@ -71,7 +71,7 @@ body{
 
     font-size:16px;
 
-    color:#dbeafe;
+    color:#fbd8d8;
 
 }
 
@@ -89,6 +89,22 @@ body{
             255,
             255,
             .15
+        );
+
+    position:relative;
+
+    cursor:pointer;
+
+}
+
+.perfil-sidebar:hover{
+
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            .08
         );
 
 }
@@ -109,7 +125,57 @@ body{
 
     font-size:13px;
 
-    color:#dbeafe;
+    color:#fbd8d8;
+
+}
+
+.menu-usuario{
+
+    display:none;
+
+    position:absolute;
+
+    top:100%;
+
+    left:20px;
+
+    right:20px;
+
+    background:white;
+
+    border-radius:12px;
+
+    overflow:hidden;
+
+    box-shadow:
+        0 10px 25px rgba(
+            0,
+            0,
+            0,
+            .2
+        );
+
+    z-index:10;
+
+}
+
+.menu-usuario a{
+
+    display:block;
+
+    padding:14px 18px;
+
+    color:#1f2937;
+
+    text-decoration:none;
+
+    font-size:14px;
+
+}
+
+.menu-usuario a:hover{
+
+    background:#f3f4f6;
 
 }
 
@@ -184,7 +250,7 @@ body{
 
     letter-spacing:1px;
 
-    color:#dbeafe;
+    color:#fbd8d8;
 
 }
 
@@ -300,7 +366,7 @@ body{
 
 .card h3{
 
-    color:#0D47A1;
+    color:#C62828;
 
     font-size:24px;
 
@@ -322,7 +388,7 @@ body{
 
     content:"Abrir módulo →";
 
-    color:#0D47A1;
+    color:#C62828;
 
     font-weight:600;
 
