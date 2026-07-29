@@ -16,6 +16,11 @@
     <link rel="stylesheet" href="recursos.css">
     <link rel="stylesheet" href="replanificacion.css">
     <link rel="stylesheet" href="hora-x-hora.css">
+    <link rel="stylesheet" href="sap.css">
+
+    <!-- SheetJS: lee archivos Excel (.xlsx/.xls) en el navegador.
+         Reemplaza a DriveApp/SpreadsheetApp, que solo existen en Apps Script. -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 </head>
 
@@ -590,10 +595,101 @@
         </div>
 
         <div id="modSAP" style="display:none;">
-            <div class="modulo-en-construccion">
-                <h2>📥 Cargar Data SAP</h2>
-                <p>Este módulo se está construyendo. Próximamente disponible.</p>
+
+          <div class="sap-topbar">
+            <div class="sap-breadcrumb">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FC000D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>
+              <span>Planificación y Avance</span>
+              <span class="sap-breadcrumb-sep">›</span>
+              <span class="sap-breadcrumb-actual">Cargar Data SAP</span>
             </div>
+            <button class="sap-btn-ayuda" type="button" onclick="mostrarAlertaModal('El archivo debe tener el formato y columnas que usa SAP para picking, extracción, reposición y almacenamiento.', 'info')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4"/><line x1="12" y1="17" x2="12" y2="17"/></svg>
+              Ayuda
+            </button>
+          </div>
+
+          <div class="sap-header">
+            <div class="sap-header-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17a4.5 4.5 0 0 1-1-8.9A5 5 0 0 1 17 7a4 4 0 0 1 0 8"/><polyline points="9 15 12 12 15 15"/><line x1="12" y1="12" x2="12" y2="20"/></svg>
+            </div>
+            <div>
+              <h2 class="sap-titulo">Cargar Data SAP</h2>
+              <p class="sap-subtitulo">Sube el archivo extraído desde SAP para actualizar la información</p>
+            </div>
+          </div>
+
+          <div class="sap-card">
+
+            <div class="sap-card-top">
+              <div class="sap-card-top-left">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FC000D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <div>
+                  <div class="sap-card-top-titulo">Seleccionar archivo</div>
+                  <div class="sap-card-top-sub">Solo archivos Excel (.xlsx, .xls)</div>
+                </div>
+              </div>
+              <div class="sap-badge" id="sapBadge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c0392b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16"/></svg>
+                <span id="sapBadgeTexto">Ningún archivo seleccionado</span>
+              </div>
+            </div>
+
+            <div class="sap-dropzone" id="sapDropzone">
+              <div class="sap-dropzone-icon">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FC000D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+              </div>
+              <div class="sap-dropzone-titulo">Arrastra y suelta tu archivo aquí</div>
+              <div class="sap-dropzone-sub">o haz clic para buscar en tu equipo</div>
+              <button type="button" class="sap-btn-seleccionar" onclick="event.stopPropagation(); document.getElementById('archivoSAP').click();">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                Seleccionar archivo
+              </button>
+              <input type="file" id="archivoSAP" accept=".xlsx,.xls" style="display:none">
+            </div>
+
+            <div class="sap-info-fila">
+              <span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8b96a3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="8"/></svg>
+                Tamaño máximo permitido: 50 MB
+              </span>
+              <span>Formatos permitidos: .xlsx, .xls</span>
+            </div>
+
+            <button class="sap-btn-subir" id="sapBtnSubir" onclick="subirArchivoSAP()" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              SUBIR ARCHIVO SAP
+            </button>
+
+          </div>
+
+          <div class="sap-importante">
+            <div class="sap-importante-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <div class="sap-importante-cuerpo">
+              <div class="sap-importante-titulo">Información importante</div>
+              <div class="sap-importante-columnas">
+                <div class="sap-col">
+                  <div class="sap-item">✓ Asegúrate que el archivo esté en formato Excel (.xlsx o .xls)</div>
+                  <div class="sap-item">✓ El archivo debe tener la estructura de columnas requerida por el sistema</div>
+                </div>
+                <div class="sap-col">
+                  <div class="sap-item">✓ Los datos se validarán antes de ser procesados</div>
+                  <div class="sap-item">✓ El proceso puede tardar unos minutos dependiendo del tamaño del archivo</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sap-footer">
+            <span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b96a3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px;"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z"/></svg>
+              Sistema de Planificación y Avance · LATAM 400 CL - ALICORP
+            </span>
+            <span><span class="sap-dot"></span> Última actualización de interfaz: <span id="sapUltimaActualizacion">—</span></span>
+          </div>
+
         </div>
 
         <div id="modDashboard" style="display:none;">
@@ -772,6 +868,8 @@
 <script src="replanificacion.js"></script>
 <script src="hora-x-hora-logica.js"></script>
 <script src="hora-x-hora.js"></script>
+<script src="sap-logica.js"></script>
+<script src="sap.js"></script>
 
 </body>
 
