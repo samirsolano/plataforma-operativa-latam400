@@ -489,8 +489,10 @@ function pintarResultado5S(detalleDia){
         const fila = document.createElement("div");
         fila.className = "fila-5s";
 
+        const icono = pct >= 80 ? "✅" : pct >= 60 ? "🟡" : "🔴";
+
         fila.innerHTML = `
-            <div class="etiqueta-5s">${NOMBRES_5S[s]}</div>
+            <div class="etiqueta-5s">${icono} ${NOMBRES_5S[s]}</div>
             <div class="barra-5s">
                 <div class="relleno-5s" style="width:${pct}%; background:${colorPorPorcentaje(pct)};"></div>
             </div>
