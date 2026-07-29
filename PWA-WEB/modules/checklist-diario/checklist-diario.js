@@ -211,10 +211,11 @@ function pintarKPIs(cabeceraDia, colaboradoresTurno){
     document.getElementById("lblCumplimientoPct").textContent = cumplimiento10 + "%";
     document.getElementById("lblTerminadosAntes").textContent = terminadosAntes10;
     document.getElementById("lblPendientesA10").textContent = pendientesA10;
+    document.getElementById("lblMetaCumplimiento").textContent = programados;
 
     const donutCumplimiento = document.getElementById("donutCumplimiento");
     donutCumplimiento.style.setProperty("--valor", cumplimiento10);
-    donutCumplimiento.style.setProperty("--color", colorPorPorcentaje(cumplimiento10));
+    donutCumplimiento.style.setProperty("--color", "#f59e0b");
 
     document.getElementById("lblAvanceGeneralPct").textContent = avanceGeneral + "%";
     document.getElementById("lblAvanceTerminados").textContent = ejecutados;
@@ -334,7 +335,7 @@ function pintarUltimasAuditorias(cabeceraDia){
             <td>${r.NOMBRE || "-"}</td>
             <td>
                 <span class="badge ${aprobado ? "aprobado" : "no-aprobado"}">
-                    ${r.PORCENTAJE || 0}% ${aprobado ? "✓" : "⚠"}
+                    ${r.PORCENTAJE || 0}% <span class="icono ${aprobado ? "icono-check-green" : "icono-alert-amber"}"></span>
                 </span>
             </td>
         `;
@@ -406,7 +407,7 @@ function pintarPendientes(cabeceraDia, colaboradoresTurno){
     });
 
     if(!totalPendientes){
-        cont.innerHTML = `<p class="sin-datos">✓ Todos los checklist del turno fueron completados.</p>`;
+        cont.innerHTML = `<p class="sin-datos"><span class="icono icono-check-green"></span> Todos los checklist del turno fueron completados.</p>`;
     }
 
     document.getElementById("lblTotalPendientes").textContent = totalPendientes;
@@ -489,10 +490,10 @@ function pintarResultado5S(detalleDia){
         const fila = document.createElement("div");
         fila.className = "fila-5s";
 
-        const icono = pct >= 80 ? "✅" : pct >= 60 ? "🟡" : "🔴";
+        const claseIcono = pct >= 80 ? "icono-check-green" : pct >= 60 ? "icono-alert-amber" : "icono-alert-red";
 
         fila.innerHTML = `
-            <div class="etiqueta-5s">${icono} ${NOMBRES_5S[s]}</div>
+            <div class="etiqueta-5s"><span class="icono ${claseIcono}"></span> ${NOMBRES_5S[s]}</div>
             <div class="barra-5s">
                 <div class="relleno-5s" style="width:${pct}%; background:${colorPorPorcentaje(pct)};"></div>
             </div>
