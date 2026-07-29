@@ -1,0 +1,358 @@
+const HXH_METAS = {
+  PICKING: 70,
+  EXTRACCION: 350,
+  REPO: 40,
+  ALMACENAMIENTO: 500,
+  TURNO_TN: 360
+};
+
+const HXH_NOMBRES = {
+  PICKING: "PICKING",
+  EXTRACCION: "EXTRACCIÓN",
+  REPO: "REPOSICIÓN",
+  ALMACENAMIENTO: "ALMACENAMIENTO"
+};
+
+function abrirHoraXHora(){
+  document.getElementById("modHoraHora").style.display = "block";
+
+  const hoy = new Date().toISOString().split("T")[0];
+  if (!document.getElementById("hxhFecha").value){
+    document.getElementById("hxhFecha").value = hoy;
+  }
+
+  cargarSupervisoresHxh();
+  cargarHoraXHora();
+}
+
+// Lista de supervisores: solo para mostrar en el encabezado como referencia.
+async function cargarSupervisoresHxh(){
+  const select = document.getElementById("hxhSupervisorSelect");
+  if (!select || select.dataset.cargado) return;
+
+  try{
+
+    const lista = await obtenerSupervisoresRecursos();
+
+    (lista || []).forEach(function(nombre){
+      const opt = document.createElement("option");
+      opt.value = nombre;
+      opt.textContent = "Supervisor: " + nombre;
+      select.appendChild(opt);
+    });
+
+    select.dataset.cargado = "1";
+
+  }catch(e){ /* silencioso: es solo referencia */ }
+
+}
+
+function actualizarSubtituloHxh(){
+  const fechaISO = document.getElementById("hxhFecha").value;
+  const turno = document.getElementById("hxhTurno").value;
+  const sup = document.getElementById("hxhSupervisorSelect")
+    ? document.getElementById("hxhSupervisorSelect").value
+    : "";
+
+  let fecha = fechaISO;
+  if (fechaISO){
+    const [anio, mes, dia] = fechaISO.split("-");
+    fecha = dia + "/" + mes + "/" + anio;
+  }
+
+  const partes = [];
+  if (sup) partes.push("Supervisor: " + sup);
+  partes.push("Fecha: " + fecha);
+  partes.push("Turno: " + (turno === "NOCHE" ? "NOCHE" : "DÍA"));
+
+  document.getElementById("hxhSupervisor").textContent = partes.join("  •  ");
+}
+
+async function cargarHoraXHora(){
+
+  const fecha = document.getElementById("hxhFecha").value;
+  const turno = document.getElementById("hxhTurno").value;
+
+  if (!fecha){
+    mostrarAlertaModal("Selecciona una fecha", "warning");
+    return;
+  }
+
+  try{
+
+    const data = await obtenerHoraXHora(fecha, turno);
+
+    try{
+      window.hxhComentarios = await obtenerComentariosHxh(fecha, turno);
+    }catch(e){
+      window.hxhComentarios = {};
+    }
+
+    renderHoraXHora(data, fecha, turno);
+
+    const ahora = new Date();
+    document.getElementById("hxhUltimaActualizacion").textContent =
+      ahora.toLocaleString("es-PE", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+
+  }catch(err){
+    mostrarAlertaModal("Error: " + err.message, "error");
+  }
+
+}
+
+function hxhColorCelda(valor, max){
+  if (!valor || valor <= 0) return "";
+  const ratio = max > 0 ? valor / max : 0;
+  if (ratio < 0.2) return "background:#fdecea; color:#000;";
+  if (ratio < 0.45) return "background:#fdf2d0; color:#000;";
+  if (ratio < 0.7) return "background:#eaf5e0; color:#000;";
+  return "background:#c8e6c0; color:#000;";
+}
+
+function hxhFormato(n, unidad){
+  const decimales = unidad === "PAL" ? 0 : 2;
+  return Number(n || 0).toLocaleString("es-PE", { maximumFractionDigits: decimales, minimumFractionDigits: decimales });
+}
+
+function hxhNombreCorto(nombre){
+  if (!nombre) return "";
+  const primera = nombre.trim().split(/\s+/)[0];
+  return primera.replace(/[,;.]+$/, "");
+}
+
+function hxhTablaHtml(tabla, unidad, proceso, comentarios){
+
+  const maxCelda = Math.max(1, ...tabla.filas.flatMap(function(f){
+    return tabla.horas.map(function(h){ return f.valores[h]; });
+  }));
+
+  let html = '<table class="hxh-t"><tr><th>Auxiliar</th>';
+  tabla.horas.forEach(function(h){
+    html += "<th>" + String(h).padStart(2, "0") + "</th>";
+  });
+  html += "<th>Total</th></tr>";
+
+  tabla.filas.forEach(function(f){
+    html += '<tr><td title="' + f.auxiliar + '">' + hxhNombreCorto(f.auxiliar) + "</td>";
+    tabla.horas.forEach(function(h){
+
+      const v = f.valores[h];
+      const style = hxhColorCelda(v, maxCelda);
+
+      const clave = proceso + "|" + f.auxiliar + "|" + h;
+      const comentario = comentarios ? comentarios[clave] : null;
+
+      const attrs = v > 0
+        ? ' class="hxh-celda-com" data-proceso="' + proceso + '" data-auxiliar="' + f.auxiliar.replace(/"/g, "&quot;") + '" data-hora="' + h + '"'
+        : "";
+
+      const badge = comentario
+        ? '<span class="hxh-com-badge" title="' + comentario.replace(/"/g, "&quot;") + '">💬</span>'
+        : "";
+
+      html += '<td style="' + style + '"' + attrs + '>' + (v > 0 ? hxhFormato(v, unidad) : "-") + badge + "</td>";
+
+    });
+    html += "<td><b>" + hxhFormato(f.total, unidad) + "</b></td></tr>";
+  });
+
+  html += '<tr class="hxh-total"><td>TOTAL</td>';
+  tabla.horas.forEach(function(h){
+    html += "<td>" + hxhFormato(tabla.totales.valores[h], unidad) + "</td>";
+  });
+  html += "<td>" + hxhFormato(tabla.totales.total, unidad) + "</td></tr>";
+
+  html += "</table>";
+
+  return html;
+
+}
+
+function hxhGaugeSvg(valor, meta){
+
+  const pct = meta > 0 ? Math.min(1, valor / meta) : 0;
+  const angulo = pct * 180;
+  const grandes = angulo > 180 ? 1 : 0;
+  const rad = (Math.PI / 180) * angulo;
+  const x = 100 - 80 * Math.cos(rad);
+  const y = 100 - 80 * Math.sin(rad);
+
+  return '<svg width="200" height="110" viewBox="0 0 200 110">' +
+    '<path d="M20,100 A80,80 0 0 1 180,100" fill="none" stroke="#eef1f4" stroke-width="14"/>' +
+    '<path d="M20,100 A80,80 0 ' + grandes + ' 1 ' + x.toFixed(1) + ',' + y.toFixed(1) + '" fill="none" stroke="#0d2b4e" stroke-width="14"/>' +
+    "</svg>";
+
+}
+
+function renderHoraXHora(data, fecha, turno){
+
+  document.getElementById("hxhTablaPicking").innerHTML =
+    hxhTablaHtml(data.PICKING, "TN", "PICKING", window.hxhComentarios);
+
+  document.getElementById("hxhTablaExtraccion").innerHTML =
+    hxhTablaHtml(data.EXTRACCION, "PAL", "EXTRACCION", window.hxhComentarios);
+  document.getElementById("hxhTablaRepo").innerHTML =
+    hxhTablaHtml(data.REPO.tablaPal, "PAL", "REPO", window.hxhComentarios);
+  document.getElementById("hxhTablaAlmacenamiento").innerHTML =
+    hxhTablaHtml(data.ALMACENAMIENTO, "PAL", "ALMACENAMIENTO", window.hxhComentarios);
+
+  const top3 = data.PICKING.filas.slice(0, 3);
+  let htmlTop3 = "";
+  top3.forEach(function(f, i){
+    htmlTop3 += '<div class="hxh-top3-fila">' +
+      '<span class="hxh-top3-pos">' + (i + 1) + '</span>' +
+      '<span class="hxh-top3-nombre">' + f.auxiliar + '</span>' +
+      '<span class="hxh-top3-valor">' + hxhFormato(f.total) + ' TN</span>' +
+      '</div>';
+  });
+  document.getElementById("hxhTop3").innerHTML = htmlTop3 || "<div style='padding:10px;font-size:12px;'>Sin datos</div>";
+
+  function setTop(id, fila, unidad){
+    const el = document.getElementById(id);
+    el.querySelector(".hxh-top-nombre").textContent = fila ? fila.auxiliar : "—";
+    el.querySelector(".hxh-top-valor").textContent = fila ? hxhFormato(fila.total, unidad) + " " + unidad : "—";
+  }
+  setTop("hxhTopPicking", data.PICKING.filas[0], "TN");
+  setTop("hxhTopExtraccion", data.EXTRACCION.filas[0], "PAL");
+  setTop("hxhTopAlmacenamiento", data.ALMACENAMIENTO.filas[0], "PAL");
+
+  const HXH_ICO_PICKING = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1f6feb" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>';
+  const HXH_ICO_EXTRACCION = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e8449" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.3"/><circle cx="18.5" cy="18.5" r="2.3"/></svg>';
+  const HXH_ICO_ALMACENAMIENTO = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6c3483" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-8h6v8"/></svg>';
+  const HXH_ICO_NARANJA = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e67e22" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>';
+
+  const kpis = [
+    { proceso: "PICKING", unidad: "TN", color: "#0d2b4e", clase: "azul", icono: HXH_ICO_PICKING },
+    { proceso: "EXTRACCION", unidad: "PAL", color: "#1e8449", clase: "verde", icono: HXH_ICO_EXTRACCION },
+    { proceso: "ALMACENAMIENTO", unidad: "PAL", color: "#6c3483", clase: "morado", icono: HXH_ICO_ALMACENAMIENTO }
+  ];
+
+  let htmlKpis = "";
+  kpis.forEach(function(k){
+    const total = data[k.proceso].totales.total;
+    const meta = HXH_METAS[k.proceso];
+    const pct = meta > 0 ? Math.min(100, Math.round((total / meta) * 100)) : 0;
+    htmlKpis += '<div class="hxh-kpi">' +
+      '<div class="hxh-kpi-label">' + HXH_NOMBRES[k.proceso] + ' (' + k.unidad + ')</div>' +
+      '<div class="hxh-kpi-valor" style="color:' + k.color + '">' + hxhFormato(total, k.unidad) + '</div>' +
+      '<div class="hxh-kpi-meta">META: ' + meta + ' ' + k.unidad + '</div>' +
+      '<div class="hxh-barra"><div class="hxh-barra-fill" style="width:' + pct + '%;background:' + k.color + ';"></div></div>' +
+      '</div>';
+  });
+  document.getElementById("hxhKpis").innerHTML = htmlKpis;
+
+  let htmlLateral = "";
+  kpis.forEach(function(k){
+    const total = data[k.proceso].totales.total;
+    const meta = HXH_METAS[k.proceso];
+    const pct = meta > 0 ? Math.round((total / meta) * 100) : 0;
+    htmlLateral += '<div class="hxh-lateral-item">' +
+      '<div class="hxh-ico hxh-ico-' + k.clase + '">' + k.icono + '</div>' +
+      '<div>' +
+        '<div class="hxh-lateral-label">AVANCE ' + HXH_NOMBRES[k.proceso] + '</div>' +
+        '<div class="hxh-lateral-valor">' + pct + '%</div>' +
+      '</div>' +
+      '</div>';
+  });
+
+  const tnAlmacenamiento = data.ALMACENAMIENTO.totalTN || 0;
+  htmlLateral += '<div class="hxh-lateral-item">' +
+    '<div class="hxh-ico hxh-ico-naranja">' + HXH_ICO_NARANJA + '</div>' +
+    '<div>' +
+      '<div class="hxh-lateral-label">TN ALMACENAMIENTO</div>' +
+      '<div class="hxh-lateral-valor" style="color:#e67e22">' + hxhFormato(tnAlmacenamiento) + '</div>' +
+    '</div>' +
+    '</div>';
+
+  document.getElementById("hxhLateral").innerHTML = htmlLateral;
+
+  const tnTurno = data.PICKING.totales.total + data.REPO.totales.total;
+  const cumplimiento = HXH_METAS.TURNO_TN > 0
+    ? Math.round((tnTurno / HXH_METAS.TURNO_TN) * 1000) / 10
+    : 0;
+
+  document.getElementById("hxhGauge").innerHTML =
+    hxhGaugeSvg(tnTurno, HXH_METAS.TURNO_TN) +
+    '<div class="hxh-gauge-valor">' + hxhFormato(tnTurno) + ' TN</div>' +
+    '<div class="hxh-gauge-label">de ' + HXH_METAS.TURNO_TN + '.00 TN</div>' +
+    '<div class="hxh-gauge-cumpl">CUMPLIMIENTO ' + cumplimiento + '%</div>';
+
+  actualizarSubtituloHxh();
+
+}
+
+// =====================================================================
+// COMENTARIOS POR CELDA
+// =====================================================================
+
+document.addEventListener("click", function(e){
+
+  const celda = e.target.closest(".hxh-celda-com");
+  if(!celda) return;
+
+  abrirModalComentario(
+    celda.dataset.proceso,
+    celda.dataset.auxiliar,
+    Number(celda.dataset.hora)
+  );
+
+});
+
+let _hxhComentarioActual = null;
+
+function abrirModalComentario(proceso, auxiliar, hora){
+
+  const fecha = document.getElementById("hxhFecha").value;
+  const turno = document.getElementById("hxhTurno").value;
+
+  _hxhComentarioActual = {
+    fecha: fecha,
+    turno: turno,
+    proceso: proceso,
+    auxiliar: auxiliar,
+    hora: hora
+  };
+
+  const clave = proceso + "|" + auxiliar + "|" + hora;
+  const existente = (window.hxhComentarios && window.hxhComentarios[clave]) || "";
+
+  document.getElementById("hxhComTitulo").textContent =
+    auxiliar + " · " + String(hora).padStart(2, "0") + ":00 · " + HXH_NOMBRES[proceso];
+
+  document.getElementById("hxhComTexto").value = existente;
+
+  document.getElementById("hxhModalComentario").style.display = "flex";
+
+}
+
+function cerrarModalComentario(){
+
+  document.getElementById("hxhModalComentario").style.display = "none";
+  _hxhComentarioActual = null;
+
+}
+
+async function guardarModalComentario(){
+
+  if(!_hxhComentarioActual) return;
+
+  const texto = document.getElementById("hxhComTexto").value.trim();
+
+  if(!texto){
+    mostrarAlertaModal("Escribe un comentario antes de guardar.", "warning");
+    return;
+  }
+
+  const registro = Object.assign({}, _hxhComentarioActual, { comentario: texto });
+
+  try{
+
+    await guardarComentarioHxh(registro);
+    cerrarModalComentario();
+    cargarHoraXHora();
+
+  }catch(err){
+    mostrarAlertaModal("Error al guardar: " + err.message, "error");
+  }
+
+}

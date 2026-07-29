@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="planificacion-avance.css">
     <link rel="stylesheet" href="recursos.css">
     <link rel="stylesheet" href="replanificacion.css">
+    <link rel="stylesheet" href="hora-x-hora.css">
 
 </head>
 
@@ -603,10 +604,144 @@
         </div>
 
         <div id="modHoraHora" style="display:none;">
-            <div class="modulo-en-construccion">
-                <h2>🕒 Hora x Hora</h2>
-                <p>Este módulo se está construyendo. Próximamente disponible.</p>
+
+          <div class="hxh-topbar">
+
+            <div class="hxh-topbar-brand">
+              <span class="hxh-topbar-logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
+              <div>
+                <div class="hxh-topbar-titulo">REPORTE DE PRODUCTIVIDAD</div>
+                <div class="hxh-topbar-subtitulo" id="hxhSupervisor">Fecha: — · Turno: —</div>
+              </div>
             </div>
+
+            <div class="hxh-topbar-controles">
+
+              <input type="date" id="hxhFecha" onchange="cargarHoraXHora()">
+
+              <select id="hxhTurno" onchange="cargarHoraXHora()">
+                <option value="DIA">☀ TURNO DÍA</option>
+                <option value="NOCHE" selected>🌙 TURNO NOCHE</option>
+              </select>
+
+              <select id="hxhSupervisorSelect" onchange="actualizarSubtituloHxh()" title="Solo referencia: no filtra la tabla">
+                <option value="">Supervisor: Todos</option>
+              </select>
+
+              <button class="hxh-btn-primario" onclick="cargarHoraXHora()">🔄 Actualizar</button>
+              <button class="hxh-btn-claro" onclick="alternarPantallaCompleta()" title="Ver en pantalla completa">⛶ Pantalla completa</button>
+              <button class="hxh-btn-claro" onclick="volverModuloAnterior()">← Volver</button>
+
+            </div>
+
+          </div>
+
+          <div class="hxh-cuerpo">
+
+            <div class="hxh-col-izq">
+
+              <div class="hxh-gauge-card">
+                <div id="hxhGauge"></div>
+              </div>
+
+              <div class="hxh-lateral" id="hxhLateral"></div>
+
+            </div>
+
+            <div class="hxh-col-der">
+
+              <div class="hxh-tops">
+
+                <div class="hxh-top hxh-top-azul" id="hxhTopPicking">
+                  <div class="hxh-top-icono"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d4af37" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3a2 2 0 0 1-2 4h-1"/><path d="M7 5H4a2 2 0 0 0 2 4h1"/></svg></div>
+                  <div class="hxh-top-texto">
+                    <div class="hxh-top-label">TOP PICKING</div>
+                    <div class="hxh-top-nombre">—</div>
+                    <div class="hxh-top-valor">— TN</div>
+                  </div>
+                </div>
+
+                <div class="hxh-top hxh-top-verde" id="hxhTopExtraccion">
+                  <div class="hxh-top-icono"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d4af37" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3a2 2 0 0 1-2 4h-1"/><path d="M7 5H4a2 2 0 0 0 2 4h1"/></svg></div>
+                  <div class="hxh-top-texto">
+                    <div class="hxh-top-label">TOP EXTRACCIÓN</div>
+                    <div class="hxh-top-nombre">—</div>
+                    <div class="hxh-top-valor">— PAL</div>
+                  </div>
+                </div>
+
+                <div class="hxh-top hxh-top-morado" id="hxhTopAlmacenamiento">
+                  <div class="hxh-top-icono"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d4af37" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3a2 2 0 0 1-2 4h-1"/><path d="M7 5H4a2 2 0 0 0 2 4h1"/></svg></div>
+                  <div class="hxh-top-texto">
+                    <div class="hxh-top-label">TOP ALMACENAMIENTO</div>
+                    <div class="hxh-top-nombre">—</div>
+                    <div class="hxh-top-valor">— PAL</div>
+                  </div>
+                </div>
+
+                <div class="hxh-actualizacion">
+                  <div class="hxh-operacion-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b96a3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ÚLTIMA ACTUALIZACIÓN</div>
+                  <div class="hxh-actualizacion-estado"><span class="hxh-dot"></span> Actualizado</div>
+                  <div class="hxh-actualizacion-hora" id="hxhUltimaActualizacion">—</div>
+                </div>
+
+              </div>
+
+              <div class="hxh-kpis" id="hxhKpis"></div>
+
+              <div class="hxh-main">
+
+                <div class="hxh-tabla-picking">
+                  <div class="hxh-tabla-header hxh-bg-picking">PRODUCTIVIDAD PICKING (TONELADAS POR HORA)</div>
+                  <div id="hxhTablaPicking"></div>
+                </div>
+
+                <div class="hxh-panel-derecho">
+                  <div class="hxh-tabla-header hxh-bg-oscuro">TOP 3 PICKING (TN)</div>
+                  <div id="hxhTop3"></div>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <div class="hxh-secundarias">
+            <div class="hxh-tabla-sec">
+              <div class="hxh-tabla-header hxh-bg-extraccion">PRODUCTIVIDAD EXTRACCIÓN (PAL)</div>
+              <div id="hxhTablaExtraccion"></div>
+            </div>
+            <div class="hxh-tabla-sec">
+              <div class="hxh-tabla-header hxh-bg-reposicion">PRODUCTIVIDAD REPOSICIÓN (PAL)</div>
+              <div id="hxhTablaRepo"></div>
+            </div>
+            <div class="hxh-tabla-sec">
+              <div class="hxh-tabla-header hxh-bg-almacenamiento">PRODUCTIVIDAD ALMACENAMIENTO (PAL)</div>
+              <div id="hxhTablaAlmacenamiento"></div>
+            </div>
+          </div>
+
+          <div class="hxh-footer">
+            <span>ℹ Los datos se actualizan al presionar "Actualizar"</span>
+            <span>Sistema de Productividad LATAM 400 CL - ALICORP</span>
+          </div>
+
+          <div id="hxhModalComentario" class="hxh-modal-overlay" style="display:none;">
+            <div class="hxh-modal-caja">
+              <div class="hxh-modal-header">
+                <span>💬 Comentario</span>
+                <button onclick="cerrarModalComentario()">✕</button>
+              </div>
+              <div class="hxh-modal-sub" id="hxhComTitulo"></div>
+              <textarea id="hxhComTexto" rows="4" placeholder="Escribe el motivo o la observación..."></textarea>
+              <div class="hxh-modal-footer">
+                <button class="hxh-btn-claro" onclick="cerrarModalComentario()">Cancelar</button>
+                <button class="hxh-btn-primario" onclick="guardarModalComentario()">Guardar</button>
+              </div>
+            </div>
+          </div>
+
         </div>
 
     </main>
@@ -635,6 +770,8 @@
 <script src="recursos.js"></script>
 <script src="replanificacion-logica.js"></script>
 <script src="replanificacion.js"></script>
+<script src="hora-x-hora-logica.js"></script>
+<script src="hora-x-hora.js"></script>
 
 </body>
 

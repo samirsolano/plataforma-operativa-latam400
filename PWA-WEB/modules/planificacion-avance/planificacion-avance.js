@@ -71,6 +71,14 @@ function cerrarModalGlobal(confirmado){
 
 function abrirModulo(modulo, boton){
 
+    // Si venía del modo "pantalla completa" de Hora x Hora, se sale al cambiar de módulo
+    document.body.classList.remove("hxh-pantalla-completa");
+
+    // Guarda el módulo/botón que estaba activo ANTES de este cambio,
+    // para que "Volver" (usado en Hora x Hora) pueda regresar a él.
+    window.moduloPrevio = window.moduloActual || null;
+    window.botonPrevio = window.botonActual || null;
+
     fechaSeleccionada = document.getElementById("fecha").value;
 
     const turnoCrudo = document.getElementById("turno").value;
@@ -127,9 +135,50 @@ function abrirModulo(modulo, boton){
             break;
 
         case "horahora":
-            document.getElementById("modHoraHora").style.display = "block";
+            abrirHoraXHora();
             break;
 
+    }
+
+    // Queda registrado como el módulo/botón activo, para la próxima vez que se use "Volver"
+    window.moduloActual = modulo;
+    window.botonActual = boton;
+
+}
+
+/**
+ * Botón "Volver" (usado en Hora x Hora): regresa al módulo que estaba
+ * abierto justo antes de entrar aquí. Si no hay ninguno registrado
+ * (por ejemplo, se entró directo por URL), vuelve al Dashboard.
+ */
+function volverModuloAnterior(){
+
+    if(window.moduloPrevio && window.botonPrevio){
+        abrirModulo(window.moduloPrevio, window.botonPrevio);
+        return;
+    }
+
+    const botonDashboard = document.querySelector('.menu button[onclick*="dashboard"]');
+
+    if(botonDashboard){
+        abrirModulo("dashboard", botonDashboard);
+    }
+
+}
+
+/**
+ * "Pantalla completa" para Hora x Hora: NO es el fullscreen nativo del
+ * navegador, es ocultar el sidebar rojo para que el dashboard ocupe
+ * toda la ventana (ideal para un monitor/TV de pared).
+ */
+function alternarPantallaCompleta(){
+
+    const activo = document.body.classList.toggle("hxh-pantalla-completa");
+
+    const boton = document.querySelector('.hxh-topbar-controles button[onclick*="alternarPantallaCompleta"]');
+
+    if(boton){
+        boton.innerHTML = activo ? "⛶ Salir de pantalla completa" : "⛶ Pantalla completa";
     }
 
 }
