@@ -1,0 +1,540 @@
+// ========================================
+// SESIÓN
+// ========================================
+
+const sesion = requerirSesion();
+
+if(sesion){
+
+    document.getElementById("nombreUsuario").textContent = sesion.nombre_completo;
+    document.getElementById("rolUsuario").textContent = sesion.rol;
+
+    if(sesion.rol !== "Administrador"){
+        document.getElementById("linkUsuarios").style.display = "none";
+    }
+
+}
+
+const btnPerfil = document.getElementById("btnPerfil");
+const menuUsuario = document.getElementById("menuUsuario");
+
+btnPerfil.addEventListener("click", function(e){
+
+    e.stopPropagation();
+    menuUsuario.style.display = menuUsuario.style.display === "block" ? "none" : "block";
+
+});
+
+document.addEventListener("click", function(){
+    menuUsuario.style.display = "none";
+});
+
+document.getElementById("btnCerrarSesion").addEventListener("click", function(e){
+
+    e.preventDefault();
+    e.stopPropagation();
+    cerrarSesion();
+
+});
+
+// ========================================
+// ZONAS CONOCIDAS
+// ========================================
+
+const ZONAS_5S = ["Zona 1", "Zona 2", "Zona 3", "Zona 4", "Zona 5", "Zona 6"];
+
+const NOMBRES_5S = {
+    "1S": "Seiri (Clasificar)",
+    "2S": "Seiton (Ordenar)",
+    "3S": "Seiso (Limpiar)",
+    "4S": "Seiketsu (Estandarizar)",
+    "5S": "Shitsuke (Disciplina)"
+};
+
+// ========================================
+// FILTROS
+// ========================================
+
+const inputFecha = document.getElementById("selectFecha");
+const selectTurno = document.getElementById("selectTurno");
+const btnActualizar = document.getElementById("btnActualizar");
+const mensajeCarga = document.getElementById("mensajeCarga");
+const contenidoDashboard = document.getElementById("contenidoDashboard");
+
+function fechaHoyISO(){
+
+    const ahora = new Date();
+    const offset = ahora.getTimezoneOffset() * 60000;
+
+    return new Date(ahora.getTime() - offset).toISOString().slice(0, 10);
+
+}
+
+inputFecha.value = fechaHoyISO();
+
+btnActualizar.addEventListener("click", cargarDashboard);
+inputFecha.addEventListener("change", cargarDashboard);
+selectTurno.addEventListener("change", cargarDashboard);
+
+// ========================================
+// CARGA PRINCIPAL
+// ========================================
+
+async function cargarDashboard(){
+
+    mensajeCarga.style.display = "block";
+    mensajeCarga.textContent = "Cargando datos del Sheet...";
+    contenidoDashboard.classList.add("oculto");
+
+    try{
+
+        const [cabecera, detalle, colaboradores] = await Promise.all([
+            leerHojaCSV("CABECERA_AUDITORIA"),
+            leerHojaCSV("DETALLE_AUDITORIA"),
+            leerHojaCSV("COLABORADORES")
+        ]);
+
+        const fechaSeleccionada = inputFecha.value;
+        const turnoSeleccionado = selectTurno.value;
+
+        const cabeceraDia = cabecera.filter(function(r){
+
+            return fechaSheetAISO(r.FECHA) === fechaSeleccionada &&
+                normalizarTurno5S(r.TURNO) === turnoSeleccionado;
+
+        });
+
+        const idsDia = new Set(cabeceraDia.map(r => r.ID_AUDITORIA));
+
+        const detalleDia = detalle.filter(r => idsDia.has(r.ID_AUDITORIA));
+
+        const colaboradoresTurno = colaboradores.filter(
+            r => normalizarTurno5S(r.TURNO) === turnoSeleccionado
+        );
+
+        pintarKPIs(cabeceraDia, colaboradoresTurno);
+        pintarAvancePorZona(cabeceraDia, colaboradoresTurno);
+        pintarUltimasAuditorias(cabeceraDia);
+        pintarPendientes(cabeceraDia, colaboradoresTurno);
+        pintarTopHallazgos(detalleDia);
+        pintarResultado5S(detalleDia);
+        pintarEvidencias(detalleDia, cabeceraDia);
+        pintarFooter(cabeceraDia, colaboradoresTurno);
+
+        document.querySelector(".ultima-actualizacion")?.remove();
+
+        mensajeCarga.style.display = "none";
+        contenidoDashboard.classList.remove("oculto");
+
+    }catch(error){
+
+        console.error(error);
+
+        mensajeCarga.textContent =
+            "No se pudo cargar el Sheet. Verifique que siga público y vuelva a intentar.";
+
+    }
+
+}
+
+// ========================================
+// PASILLOS DISTINTOS AUDITADOS
+// ========================================
+// Un mismo pasillo puede tener varios registros (reintentos).
+// Para "cuántos checklist están hechos" contamos pasillos
+// distintos, no filas crudas de CABECERA_AUDITORIA.
+
+function clavePasillo(r){
+    return normalizarZona5S(r.ZONA) + "||" + String(r.PASILLO || "").trim();
+}
+
+function pasillosDistintos(filas){
+    return new Set(filas.map(clavePasillo));
+}
+
+// ========================================
+// KPIs
+// ========================================
+
+function pintarKPIs(cabeceraDia, colaboradoresTurno){
+
+    const programados = colaboradoresTurno.length;
+    const ejecutados = pasillosDistintos(cabeceraDia).size;
+    const pendientes = Math.max(programados - ejecutados, 0);
+    const avanceGeneral = programados ? Math.round((ejecutados / programados) * 100) : 0;
+
+    const terminadosAntes10 = pasillosDistintos(
+        cabeceraDia.filter(r => horaAntesDe10AM(r.HORA_FIN))
+    ).size;
+    const pendientesA10 = Math.max(programados - terminadosAntes10, 0);
+    const cumplimiento10 = programados ? Math.round((terminadosAntes10 / programados) * 100) : 0;
+
+    document.getElementById("lblProgramados").textContent = programados;
+    document.getElementById("lblEjecutados").textContent = ejecutados;
+    document.getElementById("lblEjecutadosPct").textContent =
+        (programados ? Math.round((ejecutados / programados) * 100) : 0) + "% del total";
+
+    document.getElementById("lblPendientes").textContent = pendientes;
+    document.getElementById("lblPendientesPct").textContent =
+        (programados ? Math.round((pendientes / programados) * 100) : 0) + "% del total";
+
+    document.getElementById("lblCumplimientoPct").textContent = cumplimiento10 + "%";
+    document.getElementById("lblTerminadosAntes").textContent = terminadosAntes10;
+    document.getElementById("lblPendientesA10").textContent = pendientesA10;
+
+    const donutCumplimiento = document.getElementById("donutCumplimiento");
+    donutCumplimiento.style.setProperty("--valor", cumplimiento10);
+    donutCumplimiento.style.setProperty("--color", colorPorPorcentaje(cumplimiento10));
+
+    document.getElementById("lblAvanceGeneralPct").textContent = avanceGeneral + "%";
+    document.getElementById("lblAvanceTerminados").textContent = ejecutados;
+    document.getElementById("lblAvancePendientes").textContent = pendientes;
+
+    const donutAvance = document.getElementById("donutAvance");
+    donutAvance.style.setProperty("--valor", avanceGeneral);
+    donutAvance.style.setProperty("--color", colorPorPorcentaje(avanceGeneral));
+
+}
+
+function colorPorPorcentaje(pct){
+
+    if(pct >= 80) return "#16a34a";
+    if(pct >= 60) return "#f59e0b";
+    return "#dc2626";
+
+}
+
+// ========================================
+// AVANCE POR ZONA
+// ========================================
+
+function pintarAvancePorZona(cabeceraDia, colaboradoresTurno){
+
+    const tbody = document.getElementById("tblAvanceZona");
+    tbody.innerHTML = "";
+
+    const filas = ZONAS_5S.map(function(zona){
+
+        const totalZona = colaboradoresTurno.filter(
+            r => normalizarZona5S(r.ZONA) === zona
+        ).length;
+
+        const auditadosZona = pasillosDistintos(
+            cabeceraDia.filter(r => normalizarZona5S(r.ZONA) === zona)
+        ).size;
+
+        const pendientesZona = Math.max(totalZona - auditadosZona, 0);
+        const avanceZona = totalZona ? Math.round((auditadosZona / totalZona) * 100) : 0;
+
+        return { zona, totalZona, auditadosZona, pendientesZona, avanceZona };
+
+    }).filter(z => z.totalZona > 0);
+
+    if(!filas.length){
+        tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">Sin colaboradores para este turno.</td></tr>`;
+        return;
+    }
+
+    filas.forEach(function(f){
+
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+            <td>${f.zona}</td>
+            <td>${f.auditadosZona} / ${f.totalZona}</td>
+            <td>${f.pendientesZona}</td>
+            <td>
+                <div class="barra-avance">
+                    <div class="barra-avance-relleno" style="width:${f.avanceZona}%; background:${colorPorPorcentaje(f.avanceZona)};"></div>
+                </div>
+            </td>
+        `;
+
+        tbody.appendChild(tr);
+
+    });
+
+}
+
+// ========================================
+// ÚLTIMAS AUDITORÍAS
+// ========================================
+
+function pintarUltimasAuditorias(cabeceraDia){
+
+    const tbody = document.getElementById("tblUltimasAuditorias");
+    tbody.innerHTML = "";
+
+    if(!cabeceraDia.length){
+        tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">No hay auditorías registradas para este filtro.</td></tr>`;
+        return;
+    }
+
+    const ordenadas = [...cabeceraDia].sort(
+        (a, b) => (b.ID_AUDITORIA || "").localeCompare(a.ID_AUDITORIA || "")
+    ).slice(0, 8);
+
+    ordenadas.forEach(function(r){
+
+        const tr = document.createElement("tr");
+        const aprobado = String(r.RESULTADO || "").trim().toUpperCase() === "APROBADO";
+
+        tr.innerHTML = `
+            <td>${r.HORA_FIN || "-"}</td>
+            <td>${normalizarZona5S(r.ZONA)}</td>
+            <td>${r.PASILLO || "-"}</td>
+            <td>${r.NOMBRE || "-"}</td>
+            <td>
+                <span class="badge ${aprobado ? "aprobado" : "no-aprobado"}">
+                    ${r.PORCENTAJE || 0}% ${aprobado ? "✓" : "⚠"}
+                </span>
+            </td>
+        `;
+
+        tbody.appendChild(tr);
+
+    });
+
+}
+
+// ========================================
+// CHECKLIST PENDIENTES
+// ========================================
+
+function pintarPendientes(cabeceraDia, colaboradoresTurno){
+
+    const cont = document.getElementById("contPendientes");
+    cont.innerHTML = "";
+
+    let totalPendientes = 0;
+
+    ZONAS_5S.forEach(function(zona){
+
+        const colabsZona = colaboradoresTurno.filter(
+            r => normalizarZona5S(r.ZONA) === zona
+        );
+
+        if(!colabsZona.length){
+            return;
+        }
+
+        const pasillosAuditados = new Set(
+            cabeceraDia
+                .filter(r => normalizarZona5S(r.ZONA) === zona)
+                .map(r => String(r.PASILLO || "").trim())
+        );
+
+        const pendientesZona = colabsZona.filter(
+            r => !pasillosAuditados.has(String(r.PASILLO || "").trim())
+        );
+
+        if(!pendientesZona.length){
+            return;
+        }
+
+        totalPendientes += pendientesZona.length;
+
+        const bloque = document.createElement("div");
+        bloque.className = "zona-pendiente";
+
+        let html = `
+            <div class="zona-pendiente-titulo">
+                <span>${zona}</span>
+                <span class="cantidad">${pendientesZona.length}</span>
+            </div>
+        `;
+
+        pendientesZona.slice(0, 5).forEach(function(p){
+            html += `<div class="item-pendiente">${p.PASILLO || "-"} — ${p.NOMBRE || "-"}</div>`;
+        });
+
+        if(pendientesZona.length > 5){
+            html += `<div class="item-pendiente">+ ${pendientesZona.length - 5} más...</div>`;
+        }
+
+        bloque.innerHTML = html;
+        cont.appendChild(bloque);
+
+    });
+
+    if(!totalPendientes){
+        cont.innerHTML = `<p class="sin-datos">✓ Todos los checklist del turno fueron completados.</p>`;
+    }
+
+    document.getElementById("lblTotalPendientes").textContent = totalPendientes;
+
+}
+
+// ========================================
+// TOP HALLAZGOS
+// ========================================
+
+function pintarTopHallazgos(detalleDia){
+
+    const tbody = document.getElementById("tblTopHallazgos");
+    tbody.innerHTML = "";
+
+    const conteo = {};
+
+    detalleDia.forEach(function(r){
+
+        if(String(r.CUMPLE || "").trim().toUpperCase() === "NO"){
+
+            const pregunta = String(r.PREGUNTA || "").trim();
+            conteo[pregunta] = (conteo[pregunta] || 0) + 1;
+
+        }
+
+    });
+
+    const top = Object.entries(conteo)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+    if(!top.length){
+        tbody.innerHTML = `<tr><td colspan="3" class="sin-datos">Sin hallazgos registrados.</td></tr>`;
+        return;
+    }
+
+    top.forEach(function([pregunta, cantidad], index){
+
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${pregunta}</td>
+            <td>${cantidad}</td>
+        `;
+
+        tbody.appendChild(tr);
+
+    });
+
+}
+
+// ========================================
+// RESULTADO POR 5S
+// ========================================
+
+function pintarResultado5S(detalleDia){
+
+    const cont = document.getElementById("cont5S");
+    cont.innerHTML = "";
+
+    Object.keys(NOMBRES_5S).forEach(function(s){
+
+        const filas = detalleDia.filter(r => String(r.S || "").trim() === s);
+
+        const cumpleSi = filas.filter(
+            r => String(r.CUMPLE || "").trim().toUpperCase() === "SI"
+        ).length;
+
+        const pct = filas.length ? Math.round((cumpleSi / filas.length) * 100) : 0;
+
+        const fila = document.createElement("div");
+        fila.className = "fila-5s";
+
+        fila.innerHTML = `
+            <div class="etiqueta-5s">${NOMBRES_5S[s]}</div>
+            <div class="barra-5s">
+                <div class="relleno-5s" style="width:${pct}%; background:${colorPorPorcentaje(pct)};"></div>
+            </div>
+            <div class="valor-5s">${pct}%</div>
+        `;
+
+        cont.appendChild(fila);
+
+    });
+
+}
+
+// ========================================
+// EVIDENCIAS
+// ========================================
+
+function idDriveDesdeLink(link){
+
+    const match = String(link || "").match(/[-\w]{25,}/);
+    return match ? match[0] : null;
+
+}
+
+function pintarEvidencias(detalleDia, cabeceraDia){
+
+    const cont = document.getElementById("contEvidencias");
+    cont.innerHTML = "";
+
+    const cabeceraPorId = {};
+    cabeceraDia.forEach(r => cabeceraPorId[r.ID_AUDITORIA] = r);
+
+    const conFoto = detalleDia
+        .filter(r => r.LINK_FOTO && String(r.LINK_FOTO).trim() !== "")
+        .slice(0, 4);
+
+    if(!conFoto.length){
+        cont.innerHTML = `<p class="sin-datos">Sin evidencias fotográficas registradas.</p>`;
+        return;
+    }
+
+    conFoto.forEach(function(r){
+
+        const idDrive = idDriveDesdeLink(r.LINK_FOTO);
+
+        if(!idDrive){
+            return;
+        }
+
+        const cab = cabeceraPorId[r.ID_AUDITORIA] || {};
+        const url = "https://drive.google.com/thumbnail?id=" + idDrive + "&sz=w400";
+
+        const div = document.createElement("div");
+        div.className = "evidencia";
+
+        div.innerHTML = `
+            <img src="${url}" alt="Evidencia ${r.S || ""}" loading="lazy">
+            <div class="evidencia-etiqueta">
+                ${normalizarZona5S(cab.ZONA)} · ${cab.PASILLO || ""} · ${r.S || ""}
+            </div>
+        `;
+
+        cont.appendChild(div);
+
+    });
+
+    if(!cont.children.length){
+        cont.innerHTML = `<p class="sin-datos">Sin evidencias fotográficas registradas.</p>`;
+    }
+
+}
+
+// ========================================
+// FOOTER RESUMEN
+// ========================================
+
+function pintarFooter(cabeceraDia, colaboradoresTurno){
+
+    const programados = colaboradoresTurno.length;
+    const ejecutados = pasillosDistintos(cabeceraDia).size;
+    const pendientes = Math.max(programados - ejecutados, 0);
+    const avanceGeneral = programados ? Math.round((ejecutados / programados) * 100) : 0;
+
+    const terminadosAntes10 = pasillosDistintos(
+        cabeceraDia.filter(r => horaAntesDe10AM(r.HORA_FIN))
+    ).size;
+    const cumplimiento10 = programados ? Math.round((terminadosAntes10 / programados) * 100) : 0;
+
+    document.getElementById("footMeta").textContent = programados;
+    document.getElementById("footEjecutados").textContent = ejecutados;
+    document.getElementById("footPendientes").textContent = pendientes;
+    document.getElementById("footCumplimiento").textContent = cumplimiento10 + "%";
+    document.getElementById("footAvance").textContent = avanceGeneral + "%";
+
+}
+
+// ========================================
+// INICIO
+// ========================================
+
+if(sesion){
+    cargarDashboard();
+}

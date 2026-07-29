@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Check List Diario - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="checklist-diario.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <div class="logo">
+
+                <h1>PLATAFORMA</h1>
+                <h1>OPERATIVA</h1>
+
+                <span>LATAM 400 CL</span>
+
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+
+                </div>
+
+            </div>
+
+            <nav class="menu">
+
+                <a href="../inicio/home.html">Inicio</a>
+                <a href="#">Productividad Diaria</a>
+                <a href="checklist-diario.html" class="activo">Check List Diario</a>
+                <a href="#">Sugerencias y Anomalías</a>
+
+                <a href="../usuarios/usuarios.html" id="linkUsuarios">Usuarios</a>
+
+                <hr>
+
+                <div class="titulo-modulos">MÓDULOS FUTUROS</div>
+
+                <a href="#">Reportes</a>
+                <a href="#">Configuración</a>
+
+            </nav>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="contenido">
+
+            <header class="topbar">
+
+                <div class="topbar-titulo">
+
+                    <h2>DAS DIARIO – OPERATIVO 5S</h2>
+
+                    <p>
+                        Objetivo: Completar todos los checklist programados antes de las 10:00 AM
+                    </p>
+
+                </div>
+
+                <div class="topbar-filtros">
+
+                    <div class="filtro">
+
+                        <label>Fecha</label>
+
+                        <input type="date" id="selectFecha">
+
+                    </div>
+
+                    <div class="filtro">
+
+                        <label>Turno</label>
+
+                        <select id="selectTurno">
+                            <option value="DIA">Día</option>
+                            <option value="NOCHE">Noche</option>
+                            <option value="INTERMEDIO">Intermedio</option>
+                        </select>
+
+                    </div>
+
+                    <button id="btnActualizar" class="btn-actualizar" title="Actualizar">
+                        ⟳
+                    </button>
+
+                </div>
+
+            </header>
+
+            <p id="mensajeCarga" class="mensaje-carga">
+                Cargando datos del Sheet...
+            </p>
+
+            <div id="contenidoDashboard" class="oculto">
+
+                <!-- KPIs -->
+
+                <section class="kpis">
+
+                    <div class="kpi-card">
+
+                        <div class="kpi-titulo">
+                            Checklist Programados
+                        </div>
+
+                        <div class="kpi-valor azul" id="lblProgramados">-</div>
+
+                        <div class="kpi-nota">Meta del turno</div>
+
+                    </div>
+
+                    <div class="kpi-card">
+
+                        <div class="kpi-titulo">
+                            Checklist Ejecutados
+                        </div>
+
+                        <div class="kpi-valor verde" id="lblEjecutados">-</div>
+
+                        <div class="kpi-nota" id="lblEjecutadosPct">- del total</div>
+
+                    </div>
+
+                    <div class="kpi-card">
+
+                        <div class="kpi-titulo">
+                            Pendientes
+                        </div>
+
+                        <div class="kpi-valor rojo" id="lblPendientes">-</div>
+
+                        <div class="kpi-nota" id="lblPendientesPct">- del total</div>
+
+                    </div>
+
+                    <div class="kpi-card kpi-donut">
+
+                        <div class="kpi-titulo">
+                            Cumplimiento 10:00 AM
+                        </div>
+
+                        <div class="donut" id="donutCumplimiento">
+
+                            <div class="donut-centro">
+                                <span class="donut-porcentaje" id="lblCumplimientoPct">-</span>
+                            </div>
+
+                        </div>
+
+                        <div class="kpi-nota">
+                            Terminados antes: <b id="lblTerminadosAntes">-</b><br>
+                            Pendientes a las 10:00: <b id="lblPendientesA10">-</b>
+                        </div>
+
+                    </div>
+
+                    <div class="kpi-card kpi-donut">
+
+                        <div class="kpi-titulo">
+                            Avance General (Día)
+                        </div>
+
+                        <div class="donut" id="donutAvance">
+
+                            <div class="donut-centro">
+                                <span class="donut-porcentaje" id="lblAvanceGeneralPct">-</span>
+                            </div>
+
+                        </div>
+
+                        <div class="kpi-nota">
+                            Terminados: <b id="lblAvanceTerminados">-</b> /
+                            Pendientes: <b id="lblAvancePendientes">-</b>
+                        </div>
+
+                    </div>
+
+                </section>
+
+                <!-- FILA 2 -->
+
+                <section class="grid-tres">
+
+                    <div class="card">
+
+                        <h3>Avance por Zona (Día)</h3>
+
+                        <table>
+
+                            <thead>
+                                <tr>
+                                    <th>Zona</th>
+                                    <th>Auditados</th>
+                                    <th>Pendientes</th>
+                                    <th>Avance</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="tblAvanceZona"></tbody>
+
+                        </table>
+
+                    </div>
+
+                    <div class="card">
+
+                        <h3>Últimas Auditorías (Día)</h3>
+
+                        <table>
+
+                            <thead>
+                                <tr>
+                                    <th>Hora</th>
+                                    <th>Zona</th>
+                                    <th>Puesto/Área</th>
+                                    <th>Auditor</th>
+                                    <th>% Resultado</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="tblUltimasAuditorias"></tbody>
+
+                        </table>
+
+                    </div>
+
+                    <div class="card">
+
+                        <h3>Checklist Pendientes</h3>
+
+                        <div id="contPendientes"></div>
+
+                        <div class="total-pendientes">
+                            Total Pendientes: <b id="lblTotalPendientes">-</b>
+                        </div>
+
+                    </div>
+
+                </section>
+
+                <!-- FILA 3 -->
+
+                <section class="grid-tres">
+
+                    <div class="card">
+
+                        <h3>Top Hallazgos del Día</h3>
+
+                        <table>
+
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Hallazgo</th>
+                                    <th>Cantidad</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="tblTopHallazgos"></tbody>
+
+                        </table>
+
+                    </div>
+
+                    <div class="card">
+
+                        <h3>Resultado por 5S (Día)</h3>
+
+                        <div id="cont5S"></div>
+
+                    </div>
+
+                    <div class="card">
+
+                        <h3>Últimas Evidencias del Día</h3>
+
+                        <div id="contEvidencias" class="galeria-evidencias"></div>
+
+                    </div>
+
+                </section>
+
+                <!-- FOOTER RESUMEN -->
+
+                <footer class="footer-resumen">
+
+                    <span>Meta del día: <b id="footMeta">-</b> checklist</span>
+                    <span>Ejecutados: <b id="footEjecutados">-</b></span>
+                    <span>Pendientes: <b id="footPendientes">-</b></span>
+                    <span>Cumplimiento 10:00 AM: <b id="footCumplimiento">-</b></span>
+                    <span>Avance general: <b id="footAvance">-</b></span>
+
+                </footer>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script src="../../shared/auth.js"></script>
+    <script src="../../shared/sheets-config.js"></script>
+    <script src="checklist-diario.js"></script>
+
+</body>
+
+</html>
