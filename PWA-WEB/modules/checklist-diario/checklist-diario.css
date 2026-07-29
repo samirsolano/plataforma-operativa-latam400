@@ -459,9 +459,8 @@ table{
 th{
     text-align:left;
     color:#6b7280;
-    font-size:9.5px;
-    text-transform:uppercase;
-    letter-spacing:.3px;
+    font-size:10px;
+    font-weight:600;
     padding:4px 3px;
     border-bottom:2px solid #f3f4f6;
 }
