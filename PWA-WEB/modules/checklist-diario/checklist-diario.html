@@ -110,6 +110,11 @@
 
                     </div>
 
+                    <div class="ultima-actualizacion">
+                        Última actualización:<br>
+                        <b id="lblUltimaActualizacion">-</b>
+                    </div>
+
                     <button id="btnActualizar" class="btn-actualizar" title="Actualizar">
                         ⟳
                     </button>
@@ -164,10 +169,10 @@
 
                     </div>
 
-                    <div class="kpi-card kpi-donut">
+                    <div class="kpi-card kpi-donut kpi-destacada">
 
                         <div class="kpi-titulo">
-                            Cumplimiento 10:00 AM
+                            ⏰ Cumplimiento 10:00 AM
                         </div>
 
                         <div class="donut" id="donutCumplimiento">
@@ -229,6 +234,15 @@
 
                             <tbody id="tblAvanceZona"></tbody>
 
+                            <tfoot>
+                                <tr class="fila-total">
+                                    <td>TOTAL</td>
+                                    <td id="lblTotalAuditados">-</td>
+                                    <td id="lblTotalPendientesZona">-</td>
+                                    <td id="lblTotalAvance">-</td>
+                                </tr>
+                            </tfoot>
+
                         </table>
 
                     </div>
@@ -253,11 +267,19 @@
 
                         </table>
 
+                        <button class="btn-ver-mas" id="btnVerAuditorias">
+                            Ver todas las auditorías →
+                        </button>
+
                     </div>
 
                     <div class="card">
 
-                        <h3>Checklist Pendientes</h3>
+                        <h3>🔔 Checklist Pendientes</h3>
+
+                        <p class="etiqueta-supervisor">
+                            Supervisor: <b>Alonso</b>
+                        </p>
 
                         <div id="contPendientes"></div>
 
@@ -291,6 +313,10 @@
 
                         </table>
 
+                        <button class="btn-ver-mas" id="btnVerHallazgos">
+                            Ver todos los hallazgos →
+                        </button>
+
                     </div>
 
                     <div class="card">
@@ -307,6 +333,10 @@
 
                         <div id="contEvidencias" class="galeria-evidencias"></div>
 
+                        <button class="btn-ver-mas" id="btnVerEvidencias">
+                            Ver todas las evidencias →
+                        </button>
+
                     </div>
 
                 </section>
@@ -315,11 +345,19 @@
 
                 <footer class="footer-resumen">
 
-                    <span>Meta del día: <b id="footMeta">-</b> checklist</span>
-                    <span>Ejecutados: <b id="footEjecutados">-</b></span>
-                    <span>Pendientes: <b id="footPendientes">-</b></span>
-                    <span>Cumplimiento 10:00 AM: <b id="footCumplimiento">-</b></span>
-                    <span>Avance general: <b id="footAvance">-</b></span>
+                    <div class="footer-resumen-textos">
+
+                        <span>Meta del día: <b id="footMeta">-</b> checklist</span>
+                        <span>Ejecutados: <b id="footEjecutados">-</b></span>
+                        <span>Pendientes: <b id="footPendientes">-</b></span>
+                        <span>Cumplimiento 10:00 AM: <b id="footCumplimiento">-</b></span>
+                        <span>Avance general: <b id="footAvance">-</b></span>
+
+                    </div>
+
+                    <div class="footer-barra">
+                        <div class="footer-barra-relleno" id="footBarraRelleno"></div>
+                    </div>
 
                 </footer>
 

@@ -76,6 +76,29 @@ btnActualizar.addEventListener("click", cargarDashboard);
 inputFecha.addEventListener("change", cargarDashboard);
 selectTurno.addEventListener("change", cargarDashboard);
 
+// Estado de las listas "ver más" (se resetea en cada carga).
+let mostrarTodasAuditorias = false;
+let mostrarTodosHallazgos = false;
+let mostrarTodasEvidencias = false;
+
+document.getElementById("btnVerAuditorias").addEventListener("click", function(){
+    mostrarTodasAuditorias = !mostrarTodasAuditorias;
+    pintarUltimasAuditorias(ultimaCabeceraDia);
+});
+
+document.getElementById("btnVerHallazgos").addEventListener("click", function(){
+    mostrarTodosHallazgos = !mostrarTodosHallazgos;
+    pintarTopHallazgos(ultimoDetalleDia);
+});
+
+document.getElementById("btnVerEvidencias").addEventListener("click", function(){
+    mostrarTodasEvidencias = !mostrarTodasEvidencias;
+    pintarEvidencias(ultimoDetalleDia, ultimaCabeceraDia);
+});
+
+let ultimaCabeceraDia = [];
+let ultimoDetalleDia = [];
+
 // ========================================
 // CARGA PRINCIPAL
 // ========================================
@@ -112,6 +135,12 @@ async function cargarDashboard(){
             r => normalizarTurno5S(r.TURNO) === turnoSeleccionado
         );
 
+        ultimaCabeceraDia = cabeceraDia;
+        ultimoDetalleDia = detalleDia;
+        mostrarTodasAuditorias = false;
+        mostrarTodosHallazgos = false;
+        mostrarTodasEvidencias = false;
+
         pintarKPIs(cabeceraDia, colaboradoresTurno);
         pintarAvancePorZona(cabeceraDia, colaboradoresTurno);
         pintarUltimasAuditorias(cabeceraDia);
@@ -121,7 +150,8 @@ async function cargarDashboard(){
         pintarEvidencias(detalleDia, cabeceraDia);
         pintarFooter(cabeceraDia, colaboradoresTurno);
 
-        document.querySelector(".ultima-actualizacion")?.remove();
+        document.getElementById("lblUltimaActualizacion").textContent =
+            new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
 
         mensajeCarga.style.display = "none";
         contenidoDashboard.classList.remove("oculto");
@@ -254,6 +284,15 @@ function pintarAvancePorZona(cabeceraDia, colaboradoresTurno){
 
     });
 
+    const totalAuditados = filas.reduce((acc, f) => acc + f.auditadosZona, 0);
+    const totalZonas = filas.reduce((acc, f) => acc + f.totalZona, 0);
+    const totalPendientesZ = filas.reduce((acc, f) => acc + f.pendientesZona, 0);
+    const totalAvance = totalZonas ? Math.round((totalAuditados / totalZonas) * 100) : 0;
+
+    document.getElementById("lblTotalAuditados").textContent = totalAuditados + " / " + totalZonas;
+    document.getElementById("lblTotalPendientesZona").textContent = totalPendientesZ;
+    document.getElementById("lblTotalAvance").textContent = totalAvance + "%";
+
 }
 
 // ========================================
@@ -263,16 +302,25 @@ function pintarAvancePorZona(cabeceraDia, colaboradoresTurno){
 function pintarUltimasAuditorias(cabeceraDia){
 
     const tbody = document.getElementById("tblUltimasAuditorias");
+    const btnVer = document.getElementById("btnVerAuditorias");
     tbody.innerHTML = "";
 
     if(!cabeceraDia.length){
         tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">No hay auditorías registradas para este filtro.</td></tr>`;
+        btnVer.style.display = "none";
         return;
     }
 
-    const ordenadas = [...cabeceraDia].sort(
+    const todasOrdenadas = [...cabeceraDia].sort(
         (a, b) => (b.ID_AUDITORIA || "").localeCompare(a.ID_AUDITORIA || "")
-    ).slice(0, 8);
+    );
+
+    const ordenadas = mostrarTodasAuditorias ? todasOrdenadas : todasOrdenadas.slice(0, 8);
+
+    btnVer.style.display = todasOrdenadas.length > 8 ? "block" : "none";
+    btnVer.textContent = mostrarTodasAuditorias
+        ? "Ver menos ↑"
+        : "Ver todas las auditorías (" + todasOrdenadas.length + ") →";
 
     ordenadas.forEach(function(r){
 
@@ -372,6 +420,7 @@ function pintarPendientes(cabeceraDia, colaboradoresTurno){
 function pintarTopHallazgos(detalleDia){
 
     const tbody = document.getElementById("tblTopHallazgos");
+    const btnVer = document.getElementById("btnVerHallazgos");
     tbody.innerHTML = "";
 
     const conteo = {};
@@ -387,14 +436,20 @@ function pintarTopHallazgos(detalleDia){
 
     });
 
-    const top = Object.entries(conteo)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5);
+    const todosOrdenados = Object.entries(conteo).sort((a, b) => b[1] - a[1]);
 
-    if(!top.length){
+    if(!todosOrdenados.length){
         tbody.innerHTML = `<tr><td colspan="3" class="sin-datos">Sin hallazgos registrados.</td></tr>`;
+        btnVer.style.display = "none";
         return;
     }
+
+    const top = mostrarTodosHallazgos ? todosOrdenados : todosOrdenados.slice(0, 5);
+
+    btnVer.style.display = todosOrdenados.length > 5 ? "block" : "none";
+    btnVer.textContent = mostrarTodosHallazgos
+        ? "Ver menos ↑"
+        : "Ver todos los hallazgos (" + todosOrdenados.length + ") →";
 
     top.forEach(function([pregunta, cantidad], index){
 
@@ -462,19 +517,28 @@ function idDriveDesdeLink(link){
 function pintarEvidencias(detalleDia, cabeceraDia){
 
     const cont = document.getElementById("contEvidencias");
+    const btnVer = document.getElementById("btnVerEvidencias");
     cont.innerHTML = "";
 
     const cabeceraPorId = {};
     cabeceraDia.forEach(r => cabeceraPorId[r.ID_AUDITORIA] = r);
 
-    const conFoto = detalleDia
-        .filter(r => r.LINK_FOTO && String(r.LINK_FOTO).trim() !== "")
-        .slice(0, 4);
+    const todasConFoto = detalleDia.filter(
+        r => r.LINK_FOTO && String(r.LINK_FOTO).trim() !== ""
+    );
 
-    if(!conFoto.length){
+    const conFoto = mostrarTodasEvidencias ? todasConFoto : todasConFoto.slice(0, 4);
+
+    if(!todasConFoto.length){
         cont.innerHTML = `<p class="sin-datos">Sin evidencias fotográficas registradas.</p>`;
+        btnVer.style.display = "none";
         return;
     }
+
+    btnVer.style.display = todasConFoto.length > 4 ? "block" : "none";
+    btnVer.textContent = mostrarTodasEvidencias
+        ? "Ver menos ↑"
+        : "Ver todas las evidencias (" + todasConFoto.length + ") →";
 
     conFoto.forEach(function(r){
 
@@ -528,6 +592,10 @@ function pintarFooter(cabeceraDia, colaboradoresTurno){
     document.getElementById("footPendientes").textContent = pendientes;
     document.getElementById("footCumplimiento").textContent = cumplimiento10 + "%";
     document.getElementById("footAvance").textContent = avanceGeneral + "%";
+
+    const barra = document.getElementById("footBarraRelleno");
+    barra.style.width = avanceGeneral + "%";
+    barra.style.background = colorPorPorcentaje(avanceGeneral);
 
 }
 
