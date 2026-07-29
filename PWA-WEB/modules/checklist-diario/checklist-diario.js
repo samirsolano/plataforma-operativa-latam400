@@ -213,17 +213,28 @@ function pintarKPIs(cabeceraDia, colaboradoresTurno){
     document.getElementById("lblPendientesA10").textContent = pendientesA10;
     document.getElementById("lblMetaCumplimiento").textContent = programados;
 
-    const donutCumplimiento = document.getElementById("donutCumplimiento");
-    donutCumplimiento.style.setProperty("--valor", cumplimiento10);
-    donutCumplimiento.style.setProperty("--color", "#f59e0b");
+    pintarAnilloDonut("donutCumplimiento", cumplimiento10, "#f59e0b");
 
     document.getElementById("lblAvanceGeneralPct").textContent = avanceGeneral + "%";
     document.getElementById("lblAvanceTerminados").textContent = ejecutados;
     document.getElementById("lblAvancePendientes").textContent = pendientes;
 
-    const donutAvance = document.getElementById("donutAvance");
-    donutAvance.style.setProperty("--valor", avanceGeneral);
-    donutAvance.style.setProperty("--color", colorPorPorcentaje(avanceGeneral));
+    pintarAnilloDonut("donutAvance", avanceGeneral, colorPorPorcentaje(avanceGeneral));
+
+}
+
+// Anillo SVG: circunferencia = 2 * PI * r (r=42 en el viewBox 0 0 100 100).
+const CIRCUNFERENCIA_DONUT = 2 * Math.PI * 42;
+
+function pintarAnilloDonut(id, porcentaje, color){
+
+    const circulo = document.getElementById(id);
+    const avance = Math.max(0, Math.min(100, porcentaje));
+    const offset = CIRCUNFERENCIA_DONUT * (1 - avance / 100);
+
+    circulo.style.setProperty("--color", color);
+    circulo.style.strokeDasharray = CIRCUNFERENCIA_DONUT;
+    circulo.style.strokeDashoffset = offset;
 
 }
 

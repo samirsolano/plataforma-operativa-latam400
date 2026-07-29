@@ -135,8 +135,12 @@
 
                     <div class="kpi-card">
 
-                        <div class="kpi-titulo">
-                            Checklist Programados
+                        <div class="kpi-card-header">
+
+                            <div class="kpi-titulo">Checklist Programados</div>
+
+                            <span class="icono icono-lg icono-clipboard-blue"></span>
+
                         </div>
 
                         <div class="kpi-valor azul" id="lblProgramados">-</div>
@@ -147,8 +151,12 @@
 
                     <div class="kpi-card">
 
-                        <div class="kpi-titulo">
-                            Checklist Ejecutados
+                        <div class="kpi-card-header">
+
+                            <div class="kpi-titulo">Checklist Ejecutados</div>
+
+                            <span class="icono icono-lg icono-clipboard-check-green"></span>
+
                         </div>
 
                         <div class="kpi-valor verde" id="lblEjecutados">-</div>
@@ -176,10 +184,15 @@
                     <div class="kpi-card kpi-donut kpi-destacada">
 
                         <div class="kpi-titulo">
-                            <span class="icono icono-clock-amber"></span> Cumplimiento 10:00 AM
+                            <span class="icono icono-clock-dark"></span> Cumplimiento 10:00 AM
                         </div>
 
-                        <div class="donut" id="donutCumplimiento">
+                        <div class="donut">
+
+                            <svg class="donut-svg" viewBox="0 0 100 100">
+                                <circle class="donut-track" cx="50" cy="50" r="42"></circle>
+                                <circle class="donut-progreso" id="donutCumplimiento" cx="50" cy="50" r="42"></circle>
+                            </svg>
 
                             <div class="donut-centro">
                                 <span class="donut-porcentaje" id="lblCumplimientoPct">-</span>
@@ -189,7 +202,7 @@
 
                         <div class="kpi-nota">
                             Terminados antes: <b class="texto-ambar" id="lblTerminadosAntes">-</b><br>
-                            Pendientes a las 10:00: <b id="lblPendientesA10">-</b><br>
+                            Pendientes a las 10:00: <b class="texto-rojo" id="lblPendientesA10">-</b><br>
                             <span class="kpi-meta">Meta: <b id="lblMetaCumplimiento">-</b> checklist</span>
                         </div>
 
@@ -197,11 +210,14 @@
 
                     <div class="kpi-card kpi-donut">
 
-                        <div class="kpi-titulo">
-                            Avance General (Día)
-                        </div>
+                        <div class="kpi-titulo">Avance General (Día)</div>
 
-                        <div class="donut" id="donutAvance">
+                        <div class="donut">
+
+                            <svg class="donut-svg" viewBox="0 0 100 100">
+                                <circle class="donut-track" cx="50" cy="50" r="42"></circle>
+                                <circle class="donut-progreso" id="donutAvance" cx="50" cy="50" r="42"></circle>
+                            </svg>
 
                             <div class="donut-centro">
                                 <span class="donut-porcentaje" id="lblAvanceGeneralPct">-</span>
