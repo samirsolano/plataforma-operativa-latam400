@@ -303,9 +303,11 @@ body{
 }
 
 .kpi-titulo{
-    font-size:11px;
+    font-size:10.5px;
     color:#6b7280;
-    font-weight:600;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.3px;
     margin-bottom:4px;
 }
 
@@ -350,8 +352,21 @@ body{
     line-height:1.4;
 }
 
-.kpi-donut .donut{
-    margin:2px auto 4px;
+.kpi-donut-fila{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    margin-top:4px;
+}
+
+.kpi-donut-fila .donut{
+    flex-shrink:0;
+}
+
+.kpi-donut-fila .kpi-nota{
+    text-align:left;
+    margin-top:0;
 }
 
 .kpi-destacada{

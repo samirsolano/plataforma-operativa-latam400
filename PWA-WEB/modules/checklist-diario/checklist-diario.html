@@ -187,23 +187,27 @@
                             <span class="icono icono-clock-dark"></span> Cumplimiento 10:00 AM
                         </div>
 
-                        <div class="donut">
+                        <div class="kpi-donut-fila">
 
-                            <svg class="donut-svg" viewBox="0 0 100 100">
-                                <circle class="donut-track" cx="50" cy="50" r="42"></circle>
-                                <circle class="donut-progreso" id="donutCumplimiento" cx="50" cy="50" r="42"></circle>
-                            </svg>
+                            <div class="donut">
 
-                            <div class="donut-centro">
-                                <span class="donut-porcentaje" id="lblCumplimientoPct">-</span>
+                                <svg class="donut-svg" viewBox="0 0 100 100">
+                                    <circle class="donut-track" cx="50" cy="50" r="42"></circle>
+                                    <circle class="donut-progreso" id="donutCumplimiento" cx="50" cy="50" r="42"></circle>
+                                </svg>
+
+                                <div class="donut-centro">
+                                    <span class="donut-porcentaje" id="lblCumplimientoPct">-</span>
+                                </div>
+
                             </div>
 
-                        </div>
+                            <div class="kpi-nota">
+                                Terminados antes de las 10:00: <b class="texto-ambar" id="lblTerminadosAntes">-</b><br>
+                                Pendientes a las 10:00: <b class="texto-rojo" id="lblPendientesA10">-</b><br>
+                                <span class="kpi-meta">Meta: <b id="lblMetaCumplimiento">-</b> checklist</span>
+                            </div>
 
-                        <div class="kpi-nota">
-                            Terminados antes: <b class="texto-ambar" id="lblTerminadosAntes">-</b><br>
-                            Pendientes a las 10:00: <b class="texto-rojo" id="lblPendientesA10">-</b><br>
-                            <span class="kpi-meta">Meta: <b id="lblMetaCumplimiento">-</b> checklist</span>
                         </div>
 
                     </div>
@@ -212,22 +216,26 @@
 
                         <div class="kpi-titulo">Avance General (Día)</div>
 
-                        <div class="donut">
+                        <div class="kpi-donut-fila">
 
-                            <svg class="donut-svg" viewBox="0 0 100 100">
-                                <circle class="donut-track" cx="50" cy="50" r="42"></circle>
-                                <circle class="donut-progreso" id="donutAvance" cx="50" cy="50" r="42"></circle>
-                            </svg>
+                            <div class="donut">
 
-                            <div class="donut-centro">
-                                <span class="donut-porcentaje" id="lblAvanceGeneralPct">-</span>
+                                <svg class="donut-svg" viewBox="0 0 100 100">
+                                    <circle class="donut-track" cx="50" cy="50" r="42"></circle>
+                                    <circle class="donut-progreso" id="donutAvance" cx="50" cy="50" r="42"></circle>
+                                </svg>
+
+                                <div class="donut-centro">
+                                    <span class="donut-porcentaje" id="lblAvanceGeneralPct">-</span>
+                                </div>
+
                             </div>
 
-                        </div>
+                            <div class="kpi-nota">
+                                Terminados: <b id="lblAvanceTerminados">-</b><br>
+                                Pendientes: <b id="lblAvancePendientes">-</b>
+                            </div>
 
-                        <div class="kpi-nota">
-                            Terminados: <b id="lblAvanceTerminados">-</b> /
-                            Pendientes: <b id="lblAvancePendientes">-</b>
                         </div>
 
                     </div>
