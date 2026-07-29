@@ -39,9 +39,37 @@ function cerrarSesion(){
 
 }
 
+// Detecta si la página actual fue cargada por un refresh (F5, Ctrl+R)
+// en lugar de una navegación normal (clic en un link, redirección JS).
+function esRecarga(){
+
+    const entradas = performance.getEntriesByType
+        ? performance.getEntriesByType("navigation")
+        : [];
+
+    if(entradas.length){
+        return entradas[0].type === "reload";
+    }
+
+    // Fallback para navegadores viejos.
+    if(performance.navigation){
+        return performance.navigation.type === performance.navigation.TYPE_RELOAD;
+    }
+
+    return false;
+
+}
+
 // Llamar al inicio de cualquier página protegida.
 // Si no hay sesión activa, redirige al login.
+// Si la página fue recargada (F5), cierra la sesión y redirige al login,
+// aunque la sesión siga siendo válida.
 function requerirSesion(){
+
+    if(esRecarga()){
+        cerrarSesion();
+        return null;
+    }
 
     const sesion = obtenerSesion();
 
