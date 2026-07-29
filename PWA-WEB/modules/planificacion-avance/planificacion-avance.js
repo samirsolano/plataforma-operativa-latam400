@@ -115,6 +115,7 @@ function abrirModulo(modulo, boton){
 
         case "replanificacion":
             document.getElementById("modReplanificacion").style.display = "block";
+            iniciarReplanificacion();
             break;
 
         case "sap":

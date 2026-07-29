@@ -1,0 +1,387 @@
+.rp-container{
+    height:100%;
+    overflow:hidden;
+    padding:24px;
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+}
+
+.rp-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    gap:15px;
+    flex-shrink:0;
+}
+
+.rp-header h2{
+    margin:0;
+    font-size:26px;
+    font-weight:700;
+    color:#1f2937;
+}
+
+.rp-header p{
+    margin-top:5px;
+    color:#6b7280;
+    font-size:14px;
+}
+
+.rp-actualizacion{
+    font-size:13px;
+    color:#6b7280;
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.rp-icon-btn{
+    border:none;
+    background:none;
+    cursor:pointer;
+    font-size:15px;
+}
+
+.rp-actions-footer{
+    display:flex;
+    justify-content:flex-end;
+    gap:12px;
+    flex-shrink:0;
+    padding-bottom:4px;
+}
+
+.rp-filtros-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    flex-shrink:0;
+}
+
+.rp-buscar{
+    flex:1;
+    min-width:220px;
+}
+
+.rp-buscar input{
+    width:100%;
+    padding:10px 12px;
+    border-radius:8px;
+    border:1px solid #F0C4C4;
+    font-size:13.5px;
+}
+
+.rp-filtro{
+    min-width:180px;
+}
+
+.rp-filtro select{
+    width:100%;
+    padding:10px 12px;
+    border-radius:8px;
+    border:1px solid #F0C4C4;
+    font-size:13.5px;
+    background:white;
+    color:#333;
+}
+
+.rp-resumen-row{
+    display:flex;
+    gap:20px;
+    align-items:stretch;
+    flex-wrap:wrap;
+    flex-shrink:0;
+}
+
+.rp-resumen{
+    flex:1;
+    min-width:320px;
+    background:#fff;
+    border-radius:14px;
+    padding:20px;
+    box-shadow:0 2px 10px rgba(0,0,0,.06);
+}
+
+.rp-resumen h3{
+    margin-top:0;
+    margin-bottom:14px;
+    color:#374151;
+    font-size:15px;
+}
+
+.rp-resumen h3 small{
+    color:#9ca3af;
+    font-weight:400;
+    font-size:12px;
+}
+
+.rp-total-card{
+    min-width:180px;
+    background:#fff;
+    border-radius:14px;
+    padding:20px;
+    box-shadow:0 2px 10px rgba(0,0,0,.06);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    gap:6px;
+}
+
+.rp-total-card span{
+    color:#6b7280;
+    font-size:13px;
+}
+
+.rp-total-card b{
+    font-size:34px;
+    color:#1f2937;
+}
+
+.rp-total-card small{
+    color:#9ca3af;
+    font-size:12px;
+}
+
+.rp-chips-distribucion{
+    display:flex;
+    flex-wrap:nowrap;
+    gap:8px;
+    overflow-x:auto;
+    padding-bottom:2px;
+}
+
+.rp-chip-funcion{
+    flex:1 1 0;
+    min-width:88px;
+    border-radius:12px;
+    padding:10px 10px;
+    background:#F7F7F9;
+    border:1px solid #ECECEF;
+}
+
+.rp-chip-funcion .rp-chip-nombre{
+    display:block;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.2px;
+    color:#6b7280;
+    margin-bottom:5px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.rp-chip-funcion .rp-chip-numero{
+    font-size:20px;
+    font-weight:700;
+    color:#1f2937;
+}
+
+.rp-chip-funcion .rp-chip-delta{
+    font-size:12px;
+    font-weight:700;
+    margin-left:6px;
+}
+
+.rp-delta-pos{ color:#1B873F; }
+.rp-delta-neg{ color:#C62828; }
+.rp-delta-cero{ color:#9ca3af; }
+
+.rp-chip-sin-funcion{
+    background:#F1F1F1;
+    border-style:dashed;
+}
+
+.rp-leyenda{
+    margin-top:12px;
+    display:flex;
+    gap:18px;
+    flex-wrap:wrap;
+    font-size:12.5px;
+    color:#6b7280;
+}
+
+.rp-tabla{
+    background:#fff;
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 2px 10px rgba(0,0,0,.06);
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+}
+
+.rp-tabla-scroll{
+    flex:1;
+    min-height:0;
+    overflow-y:auto;
+    overflow-x:auto;
+}
+
+.rp-tabla-scroll table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.rp-tabla-scroll thead th{
+    position:sticky;
+    top:0;
+    z-index:1;
+}
+
+.rp-tabla table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.rp-tabla thead{
+    background:#FC000D;
+    color:white;
+}
+
+.rp-tabla th{
+    padding:14px;
+    text-align:left;
+    font-size:13.5px;
+}
+
+.rp-tabla td{
+    padding:11px 14px;
+    border-bottom:1px solid #f1f1f1;
+    font-size:13.5px;
+}
+
+.rp-tabla tbody tr:hover{
+    background:#fafafa;
+}
+
+.rp-tabla tbody tr.rp-fila-replanificada{
+    background:#FFF8E8;
+}
+
+.rp-select-funcion{
+    padding:6px 8px;
+    border-radius:6px;
+    border:1px solid #ddd;
+    font-size:13px;
+}
+
+.rp-estado-sin-cambios{
+    color:#1B873F;
+    font-weight:600;
+}
+
+.rp-estado-replanificado{
+    color:#B8860B;
+    font-weight:700;
+}
+
+.rp-btn-guardar-fila{
+    padding:6px 12px;
+    border:none;
+    border-radius:8px;
+    background:#FC000D;
+    color:white;
+    font-weight:600;
+    cursor:pointer;
+    font-size:12.5px;
+}
+
+.rp-historial{
+    background:#fff;
+    border-radius:14px;
+    padding:20px;
+    box-shadow:0 2px 10px rgba(0,0,0,.06);
+}
+
+.rp-historial h3{
+    margin-top:0;
+}
+
+.rp-tabla-historial{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+}
+
+.rp-tabla-historial th{
+    text-align:left;
+    padding:8px 10px;
+    color:#6b7280;
+    border-bottom:1px solid #f1f1f1;
+}
+
+.rp-tabla-historial td{
+    padding:8px 10px;
+    border-bottom:1px solid #f7f7f7;
+}
+
+.rp-vacio{
+    text-align:center;
+    color:#9ca3af;
+    padding:35px;
+}
+
+.rp-modal-overlay{
+    position:fixed;
+    top:0; left:0; right:0; bottom:0;
+    background:rgba(0,0,0,.45);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+}
+
+.rp-modal{
+    background:white;
+    border-radius:14px;
+    padding:24px;
+    width:420px;
+    max-width:92vw;
+    box-shadow:0 10px 40px rgba(0,0,0,.25);
+}
+
+.rp-modal h3{
+    margin:0 0 4px 0;
+    color:#1f2937;
+}
+
+.rp-modal-subtitulo{
+    margin:0 0 14px 0;
+    color:#6b7280;
+    font-size:13px;
+}
+
+.rp-modal textarea{
+    width:100%;
+    border-radius:8px;
+    border:1px solid #ddd;
+    padding:10px;
+    font-family:inherit;
+    font-size:13.5px;
+    resize:vertical;
+}
+
+.rp-modal-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:16px;
+}
+
+@media(max-width:900px){
+
+    .rp-resumen-row{
+        flex-direction:column;
+    }
+
+    .rp-header{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+}

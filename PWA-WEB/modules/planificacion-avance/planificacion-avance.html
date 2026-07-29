@@ -14,6 +14,7 @@
 
     <link rel="stylesheet" href="planificacion-avance.css">
     <link rel="stylesheet" href="recursos.css">
+    <link rel="stylesheet" href="replanificacion.css">
 
 </head>
 
@@ -471,10 +472,116 @@
         </div>
 
         <div id="modReplanificacion" style="display:none;">
-            <div class="modulo-en-construccion">
-                <h2>🔄 Replanificación Recursos</h2>
-                <p>Este módulo se está construyendo. Próximamente disponible.</p>
+
+            <div class="rp-container">
+
+                <div class="rp-header">
+                    <div>
+                        <h2>Replanificación Recursos</h2>
+                        <p>Modifica la función asignada durante el turno. Los cambios se reflejan en tiempo real.</p>
+                    </div>
+
+                    <div class="rp-actualizacion">
+                        Última actualización: <b id="rpUltimaActualizacion">-</b>
+                        <button class="rp-icon-btn" title="Actualizar ahora" onclick="cargarReplanificacion()">🔄</button>
+                    </div>
+                </div>
+
+                <div class="rp-resumen-row">
+
+                    <div class="rp-resumen">
+
+                        <h3>Distribución actual por función <small>(en tiempo real)</small></h3>
+
+                        <div class="rp-chips-distribucion" id="rpChipsDistribucion"></div>
+
+                        <div class="rp-leyenda">
+                            <span class="rp-leyenda-item"><span style="color:#1B873F;">▲</span> Aumento</span>
+                            <span class="rp-leyenda-item"><span style="color:#C62828;">▼</span> Disminución</span>
+                            <span class="rp-leyenda-item"><span style="color:#9ca3af;">=</span> Sin cambios</span>
+                        </div>
+
+                    </div>
+
+                    <div class="rp-total-card">
+                        <span>Total colaboradores</span>
+                        <b id="rpTotalColaboradores">0</b>
+                        <small id="rpTotalCambios">Sin cambios</small>
+                    </div>
+
+                </div>
+
+                <div class="rp-filtros-row">
+
+                    <div class="rp-buscar">
+                        <input type="text" id="rpBuscar" placeholder="🔍 Buscar por nombre o DNI..." oninput="renderTablaPrincipal()">
+                    </div>
+
+                    <div class="rp-filtro">
+                        <select id="rpFiltroFuncionInicio" onchange="renderTablaPrincipal()">
+                            <option value="">Función inicio (todas)</option>
+                        </select>
+                    </div>
+
+                    <div class="rp-filtro">
+                        <select id="rpFiltroEstado" onchange="renderTablaPrincipal()">
+                            <option value="">Estado (todos)</option>
+                            <option value="replanificado">🟠 Replanificado</option>
+                            <option value="sin_cambios">🟢 Sin cambios</option>
+                        </select>
+                    </div>
+
+                </div>
+
+                <div class="rp-tabla">
+
+                    <div class="rp-tabla-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>DNI</th>
+                                    <th>Colaborador</th>
+                                    <th>Función inicio de turno</th>
+                                    <th>Función actual</th>
+                                    <th>Usuario</th>
+                                    <th>Estado</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rpBody">
+                                <tr><td colspan="7" style="text-align:center;padding:30px;color:#777;">Cargando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="rp-leyenda" style="padding:12px 16px;">
+                        <span class="rp-leyenda-item">🟠 Replanificado (con cambios)</span>
+                        <span class="rp-leyenda-item">🟢 Sin cambios</span>
+                    </div>
+
+                </div>
+
+                <div class="rp-actions-footer">
+                    <button class="btn-secundario" onclick="descargarCambiosReplanificacion()">⬇️ Descargar cambios</button>
+                    <button class="btn-principal" id="rpBtnGuardarTodo" onclick="guardarReplanificacionTodo()" disabled>
+                        💾 Guardar replanificación
+                    </button>
+                </div>
+
+                <div class="rp-modal-overlay" id="rpModalObservacion" style="display:none;">
+                    <div class="rp-modal">
+                        <h3 id="rpModalTitulo">Observación</h3>
+                        <p id="rpModalSubtitulo" class="rp-modal-subtitulo"></p>
+                        <textarea id="rpModalTexto" rows="4" placeholder="Ej: Mayor demanda en extracción (opcional)"></textarea>
+                        <div class="rp-modal-actions">
+                            <button class="btn-secundario" onclick="cerrarModalObservacion()">Cancelar</button>
+                            <button class="btn-principal" onclick="confirmarModalObservacion()">Guardar</button>
+                        </div>
+                    </div>
+                </div>
+
             </div>
+
         </div>
 
         <div id="modSAP" style="display:none;">
@@ -522,6 +629,8 @@
 <script src="planificado-drive.js"></script>
 <script src="recursos-logica.js"></script>
 <script src="recursos.js"></script>
+<script src="replanificacion-logica.js"></script>
+<script src="replanificacion.js"></script>
 
 </body>
 
