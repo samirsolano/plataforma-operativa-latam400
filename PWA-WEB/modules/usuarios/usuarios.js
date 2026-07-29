@@ -24,7 +24,7 @@ async function cargarUsuarios(){
     try{
 
         const usuarios = await supabaseFetch(
-            "/usuarios_app?select=id,usuario,nombre_completo,rol,activo&order=nombre_completo.asc"
+            "/usuarios_app?select=id,usuario,password,nombre_completo,rol,activo&order=nombre_completo.asc"
         );
 
         if(!usuarios || !usuarios.length){
@@ -39,6 +39,7 @@ async function cargarUsuarios(){
 
             tr.innerHTML = `
                 <td>${u.usuario}</td>
+                <td>${u.password}</td>
                 <td>${u.nombre_completo}</td>
                 <td>${u.rol}</td>
                 <td>
