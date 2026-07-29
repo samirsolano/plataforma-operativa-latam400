@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Planificación y Avance</title>
+
+    <link rel="stylesheet" href="planificacion-avance.css">
+
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- ===================== SIDEBAR ===================== -->
+
+    <aside class="sidebar">
+
+        <a href="../inicio/home.html" class="volver-plataforma">
+            ← Volver a la Plataforma
+        </a>
+
+        <div class="logo">
+            <h2>PLANIFICACIÓN</h2>
+            <h2>Y AVANCE</h2>
+            <p>LATAM 400 CL - ALICORP</p>
+            <p class="logo-sigma">SIGMA</p>
+        </div>
+
+        <div class="panel">
+
+            <label>FECHA</label>
+
+            <input type="date" id="fecha">
+
+            <label>TURNO</label>
+
+            <select id="turno">
+                <option value="DIA">DÍA</option>
+                <option value="NOCHE">NOCHE</option>
+            </select>
+
+        </div>
+
+        <nav class="menu">
+
+            <button id="btnPlanificado" onclick="abrirModulo('planificado', this)">
+                📁 Planificado Drive
+            </button>
+
+            <button id="btnRecursos" onclick="abrirModulo('recursos', this)">
+                👥 Planificación Recursos
+            </button>
+
+            <button id="btnReplanificacion" onclick="abrirModulo('replanificacion', this)">
+                🔄 Replanificación Recursos
+            </button>
+
+            <button id="btnSAP" onclick="abrirModulo('sap', this)">
+                📥 Cargar Data SAP
+            </button>
+
+            <hr>
+
+            <button id="btnDashboard" onclick="abrirModulo('dashboard', this)">
+                📊 Dashboard
+            </button>
+
+            <button id="btnHoraHora" onclick="abrirModulo('horahora', this)">
+                🕒 Hora x Hora
+            </button>
+
+        </nav>
+
+    </aside>
+
+    <!-- ===================== CONTENIDO ===================== -->
+
+    <main class="contenido">
+
+        <!-- Pantalla inicial -->
+        <div id="inicio">
+
+            <div style="display:flex;justify-content:center;align-items:center;height:80vh;">
+
+                <div style="text-align:center;max-width:600px;">
+
+                    <h1>PLANIFICACIÓN Y AVANCE</h1>
+
+                    <p style="margin-top:20px;font-size:18px;color:#666;">
+                        Seleccione una <b>Fecha</b>, un <b>Turno</b> y luego el módulo que desea abrir.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ================= MÓDULOS ================= -->
+
+        <div id="modPlanificado" style="display:none;">
+
+            <div class="pd-contenedor">
+
+                <div class="pd-header">
+
+                    <div>
+                        <h1>📁 Planificado Drive</h1>
+                        <p>Información obtenida desde Google Drive</p>
+                    </div>
+
+                    <div style="display:flex;gap:10px;">
+
+                        <button id="btnActualizar" onclick="actualizarDrive()">
+                            🔄 Actualizar Drive
+                        </button>
+
+                        <button id="btnGuardarPlanificacion" onclick="guardarPlanificacionUI()">
+                            💾 Guardar Planificación
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <div class="pd-kpis">
+
+                    <div class="kpi">
+                        <span>Total Viajes</span>
+                        <h2 id="kpiViajes">0</h2>
+                    </div>
+
+                    <div class="kpi">
+                        <span>En Proceso</span>
+                        <h2 id="kpiProceso">0</h2>
+                    </div>
+
+                    <div class="kpi">
+                        <span>Por Lanzar</span>
+                        <h2 id="kpiLanzar">0</h2>
+                    </div>
+
+                    <div class="kpi">
+                        <span>Peso Total</span>
+                        <h2 id="kpiPeso">0 TN</h2>
+                    </div>
+
+                    <div class="kpi">
+                        <span>Viajes Seleccionados</span>
+                        <h2 id="kpiSeleccionados">0</h2>
+                    </div>
+
+                    <div class="kpi">
+                        <span>TNL Planificado</span>
+                        <h2 id="kpiPlanificado">0.00 TN</h2>
+                    </div>
+
+                </div>
+
+                <div class="pd-tabla">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th style="width:50px;text-align:center;">
+                                    <input type="checkbox" id="checkTodos" onclick="seleccionarTodos()">
+                                </th>
+
+                                <th style="width:120px;">Gestión</th>
+                                <th>Fecha Cita</th>
+                                <th>Hora</th>
+                                <th>FO REAL</th>
+                                <th>Cliente</th>
+                                <th>Transportista</th>
+                                <th>Peso (TN)</th>
+                                <th>Status</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tablaPlanificacion">
+
+                            <tr>
+                                <td colspan="9" style="text-align:center;padding:40px;color:#777;">
+                                    Seleccione una fecha, un turno y luego abra el módulo.
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div id="modRecursos" style="display:none;">
+            <div class="modulo-en-construccion">
+                <h2>👥 Planificación Recursos</h2>
+                <p>Este módulo se está construyendo. Próximamente disponible.</p>
+            </div>
+        </div>
+
+        <div id="modReplanificacion" style="display:none;">
+            <div class="modulo-en-construccion">
+                <h2>🔄 Replanificación Recursos</h2>
+                <p>Este módulo se está construyendo. Próximamente disponible.</p>
+            </div>
+        </div>
+
+        <div id="modSAP" style="display:none;">
+            <div class="modulo-en-construccion">
+                <h2>📥 Cargar Data SAP</h2>
+                <p>Este módulo se está construyendo. Próximamente disponible.</p>
+            </div>
+        </div>
+
+        <div id="modDashboard" style="display:none;">
+            <div class="modulo-en-construccion">
+                <h2>📊 Dashboard</h2>
+                <p>Este módulo se está construyendo. Próximamente disponible.</p>
+            </div>
+        </div>
+
+        <div id="modHoraHora" style="display:none;">
+            <div class="modulo-en-construccion">
+                <h2>🕒 Hora x Hora</h2>
+                <p>Este módulo se está construyendo. Próximamente disponible.</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ===================== MODAL GLOBAL (alerta / confirmación) ===================== -->
+
+    <div class="modal-overlay" id="modalGlobal" style="display:none;">
+        <div class="modal-caja">
+            <div class="modal-icono" id="modalGlobalIcono">ℹ️</div>
+            <h3 id="modalGlobalTitulo">Aviso</h3>
+            <p id="modalGlobalMensaje"></p>
+            <div class="modal-acciones">
+                <button class="btn-secundario" id="modalGlobalBtnCancelar" onclick="cerrarModalGlobal(false)">Cancelar</button>
+                <button class="btn-principal" id="modalGlobalBtnAceptar" onclick="cerrarModalGlobal(true)">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="../../shared/auth.js"></script>
+<script src="../../shared/planificacion-config.js"></script>
+<script src="planificacion-avance.js"></script>
+<script src="planificado-drive.js"></script>
+
+</body>
+
+</html>
