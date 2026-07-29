@@ -110,6 +110,7 @@ function abrirModulo(modulo, boton){
 
         case "recursos":
             document.getElementById("modRecursos").style.display = "block";
+            cargarRecursos();
             break;
 
         case "replanificacion":

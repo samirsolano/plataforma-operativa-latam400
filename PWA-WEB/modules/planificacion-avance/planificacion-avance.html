@@ -13,6 +13,7 @@
     <title>Planificación y Avance</title>
 
     <link rel="stylesheet" href="planificacion-avance.css">
+    <link rel="stylesheet" href="recursos.css">
 
 </head>
 
@@ -210,10 +211,263 @@
         </div>
 
         <div id="modRecursos" style="display:none;">
-            <div class="modulo-en-construccion">
-                <h2>👥 Planificación Recursos</h2>
-                <p>Este módulo se está construyendo. Próximamente disponible.</p>
+
+            <div class="pr-contenedor">
+
+                <div class="pr-header">
+
+                    <div>
+                        <h1>Planificación Recursos</h1>
+                        <p>Activa colaboradores y gestiona usuarios para el turno seleccionado.</p>
+                    </div>
+
+                    <div class="pr-actions-top">
+
+                        <button class="pr-btn-primary" onclick="abrirModalRegistrar()">
+                            👤 Registrar colaborador
+                        </button>
+
+                        <button class="pr-btn-success" onclick="abrirAgregarApoyo()">
+                            🤝 Agregar apoyo
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <div class="pr-toprow">
+
+                    <div class="pr-supervisor">
+                        <label>SUPERVISOR</label>
+                        <select id="prSupervisor" onchange="cambiarSupervisor()"></select>
+                    </div>
+
+                    <div class="pr-stats-mini">
+
+                        <div class="pr-stat-mini">
+                            <span>Total colaboradores<br>del supervisor</span>
+                            <h3 id="prTotal">0</h3>
+                        </div>
+
+                        <div class="pr-stat-mini">
+                            <span>Activos</span>
+                            <h3 id="prActivos" class="pr-ok">0</h3>
+                        </div>
+
+                        <div class="pr-stat-mini">
+                            <span>Inactivos</span>
+                            <h3 id="prInactivos" class="pr-bad">0</h3>
+                        </div>
+
+                        <div class="pr-stat-mini">
+                            <span>Apoyos</span>
+                            <h3 id="prApoyos" class="pr-warn">0</h3>
+                        </div>
+
+                        <div class="pr-stat-mini">
+                            <span>Usuarios pendientes</span>
+                            <h3 id="prPendientes" class="pr-info">0</h3>
+                        </div>
+
+                    </div>
+
+                    <div class="pr-necesidad-turno">
+
+                        <span class="pr-necesidad-titulo">NECESIDAD DEL TURNO</span>
+
+                        <div class="pr-necesidad-cards">
+
+                            <div class="pr-necesidad-card">
+                                <span>PICKERS (PICKING)</span>
+                                <h3 id="prNecesidadPicking">0</h3>
+                                <small>Necesarios</small>
+                            </div>
+
+                            <div class="pr-necesidad-card">
+                                <span>APILADORES (EXTRACCIÓN)</span>
+                                <h3 id="prNecesidadApiladores">0</h3>
+                                <small>Necesarios</small>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="pr-body">
+
+                    <div class="pr-main">
+
+                        <div class="pr-toolbar">
+
+                            <div class="pr-buscar">
+                                <input type="text" id="prBuscar" placeholder="🔍 Buscar colaborador por nombre o DNI..." oninput="renderTablaRecursos()">
+                            </div>
+
+                            <div class="pr-filtro">
+                                <select id="prFiltroPuesto" onchange="renderTablaRecursos()">
+                                    <option value="">Puesto (todos)</option>
+                                </select>
+                            </div>
+
+                            <div class="pr-filtro">
+                                <select id="prFiltroFuncion" onchange="renderTablaRecursos()">
+                                    <option value="">Función (todas)</option>
+                                </select>
+                            </div>
+
+                            <div class="pr-toolbar-btns">
+                                <button class="pr-chip pr-chip-ok" onclick="activarTodosPendiente()">✅ Activar todos</button>
+                                <button class="pr-chip pr-chip-bad" onclick="desactivarTodosPendiente()">🚫 Desactivar todos</button>
+                                <button class="pr-chip" onclick="exportarExcel()">⬇️ Exportar</button>
+                                <button class="pr-chip" onclick="cargarRecursos()">🔄 Actualizar</button>
+                                <button class="pr-btn-success" id="btnGuardarRecursos" onclick="guardarPlanificacionRecursos()">💾 Guardar Planificación</button>
+                            </div>
+
+                        </div>
+
+                        <div class="pr-tabla-wrap">
+
+                            <table>
+
+                                <thead>
+                                    <tr>
+                                        <th style="width:44px;text-align:center;">
+                                            <input type="checkbox" id="prCheckTodos" onclick="toggleCheckTodos(this)">
+                                        </th>
+                                        <th style="width:90px;">Tipo</th>
+                                        <th>DNI</th>
+                                        <th>Nombre</th>
+                                        <th>Puesto</th>
+                                        <th>Supervisor</th>
+                                        <th>Función</th>
+                                        <th>Usuario fijo</th>
+                                        <th>Usuario por este turno</th>
+                                        <th style="width:50px;"></th>
+                                    </tr>
+                                </thead>
+
+                                <tbody id="prTablaBody">
+                                    <tr>
+                                        <td colspan="10" style="text-align:center;padding:30px;color:#777;">Cargando colaboradores...</td>
+                                    </tr>
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    </div>
+
+                    <div class="pr-sidebar-derecha">
+
+                        <div class="pr-resumen">
+
+                            <h3>Resumen del turno</h3>
+
+                            <div class="pr-resumen-item">
+                                <span>👥 Total colaboradores<br>asignados al supervisor</span>
+                                <b id="rsTotal">0</b>
+                            </div>
+
+                            <div class="pr-resumen-item pr-ok">
+                                <span>✅ Activos</span>
+                                <b id="rsActivos">0</b>
+                            </div>
+
+                            <div class="pr-resumen-item pr-bad">
+                                <span>❌ Inactivos</span>
+                                <b id="rsInactivos">0</b>
+                            </div>
+
+                            <div class="pr-resumen-item pr-warn">
+                                <span>🧑‍🤝‍🧑 Personal de apoyo</span>
+                                <b id="rsApoyos">0</b>
+                            </div>
+
+                            <div class="pr-resumen-item pr-info">
+                                <span>👤 Usuarios pendientes<br>de asignar</span>
+                                <b id="rsPendientes">0</b>
+                            </div>
+
+                        </div>
+
+                        <div class="pr-resumen-funciones-panel">
+
+                            <h3>Personas por actividad</h3>
+
+                            <div id="prResumenFunciones">
+                                <p class="pr-vacio">Sin asignaciones todavía.</p>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- ================= MODAL AGREGAR APOYO ================= -->
+
+                <div class="pr-modal-overlay" id="prModalApoyo" style="display:none;">
+
+                    <div class="pr-modal">
+
+                        <h3>Agregar apoyo</h3>
+                        <div id="prApoyoContenido"></div>
+
+                    </div>
+
+                </div>
+
+                <!-- ================= MODAL REGISTRAR COLABORADOR ================= -->
+
+                <div class="pr-modal-overlay" id="prModalRegistrar" style="display:none;">
+
+                    <div class="pr-modal">
+
+                        <h3>Registrar colaborador</h3>
+
+                        <label>DNI *</label>
+                        <input type="text" id="regDni" maxlength="15">
+
+                        <label>Nombre completo *</label>
+                        <input type="text" id="regNombre">
+
+                        <label>Categoría</label>
+                        <select id="regCategoria">
+                            <option value="BLUE">BLUE</option>
+                            <option value="WHITE">WHITE</option>
+                        </select>
+
+                        <label>Puesto</label>
+                        <input type="text" id="regPuesto">
+
+                        <label>Supervisor (JD actual)</label>
+                        <select id="regSupervisor" onchange="onCambioSupervisorModal()">
+                            <option value="">-- Selecciona --</option>
+                        </select>
+                        <input type="text" id="regSupervisorNuevo" placeholder="Escribe el nombre del nuevo supervisor" style="display:none;margin-top:6px;">
+
+                        <label>Función (opcional)</label>
+                        <select id="regFuncion">
+                            <option value="">-</option>
+                        </select>
+
+                        <label>Usuario fijo (opcional)</label>
+                        <input type="text" id="regUsuario">
+
+                        <div class="pr-panel-botones">
+                            <button class="pr-btn-cancelar" onclick="cerrarModalRegistrar()">Cancelar</button>
+                            <button class="pr-btn-guardar" onclick="confirmarRegistrarColaborador()">Registrar</button>
+                        </div>
+
+                    </div>
+
+                </div>
+
             </div>
+
         </div>
 
         <div id="modReplanificacion" style="display:none;">
@@ -266,6 +520,8 @@
 <script src="../../shared/planificacion-config.js"></script>
 <script src="planificacion-avance.js"></script>
 <script src="planificado-drive.js"></script>
+<script src="recursos-logica.js"></script>
+<script src="recursos.js"></script>
 
 </body>
 
