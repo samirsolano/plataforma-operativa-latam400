@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Usuarios - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="usuarios.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="contenedor">
+
+        <header class="header">
+
+            <div>
+
+                <a href="../inicio/home.html" class="volver">
+                    ← Volver al Panel
+                </a>
+
+                <h1>
+                    Usuarios
+                </h1>
+
+            </div>
+
+            <button id="btnAgregar" class="btn-primario">
+                + Agregar Usuario
+            </button>
+
+        </header>
+
+        <div class="card">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Usuario</th>
+                        <th>Nombre completo</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
+                        <th>Acción</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="tblUsuarios">
+                </tbody>
+
+            </table>
+
+            <p id="mensajeVacio" class="mensaje-vacio">
+                Cargando usuarios...
+            </p>
+
+        </div>
+
+    </div>
+
+    <!-- MODAL AGREGAR USUARIO -->
+
+    <div class="modal-overlay" id="modalOverlay">
+
+        <div class="modal">
+
+            <h3>
+                Agregar Usuario
+            </h3>
+
+            <form autocomplete="off" onsubmit="return false;">
+
+                <div class="grupo">
+
+                    <label>
+                        Usuario
+                    </label>
+
+                    <input
+                        type="text"
+                        id="nuevoUsuario"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                    >
+
+                </div>
+
+                <div class="grupo">
+
+                    <label>
+                        Contraseña
+                    </label>
+
+                    <input
+                        type="password"
+                        id="nuevoPassword"
+                        autocomplete="new-password"
+                    >
+
+                </div>
+
+                <div class="grupo">
+
+                    <label>
+                        Nombre completo
+                    </label>
+
+                    <input
+                        type="text"
+                        id="nuevoNombre"
+                        autocomplete="off"
+                    >
+
+                </div>
+
+                <div class="grupo">
+
+                    <label>
+                        Rol
+                    </label>
+
+                    <input
+                        type="text"
+                        id="nuevoRol"
+                        placeholder="Ej: Administrador, Supervisor, Operador"
+                        autocomplete="off"
+                    >
+
+                </div>
+
+                <div class="grupo grupo-checkbox">
+
+                    <label>
+
+                        <input
+                            type="checkbox"
+                            id="nuevoActivo"
+                            checked
+                        >
+
+                        Usuario activo
+
+                    </label>
+
+                </div>
+
+                <p id="mensajeErrorModal" class="mensaje-error"></p>
+
+                <div class="modal-botones">
+
+                    <button type="button" id="btnCancelar" class="btn-secundario">
+                        Cancelar
+                    </button>
+
+                    <button type="button" id="btnGuardar" class="btn-primario">
+                        Guardar
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="usuarios.js"></script>
+
+</body>
+
+</html>

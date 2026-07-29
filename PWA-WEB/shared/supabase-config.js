@@ -27,6 +27,8 @@ async function supabaseFetch(ruta, opciones = {}){
         throw new Error(detalle || "Error al conectar con Supabase");
     }
 
-    return respuesta.json();
+    // POST/DELETE suelen responder sin cuerpo (204/201 vacío).
+    const texto = await respuesta.text();
+    return texto ? JSON.parse(texto) : null;
 
 }

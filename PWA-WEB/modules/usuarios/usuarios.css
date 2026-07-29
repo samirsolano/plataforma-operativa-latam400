@@ -1,0 +1,242 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+
+body{
+    background:#eef2f7;
+}
+
+.contenedor{
+    max-width:1100px;
+    margin:0 auto;
+    padding:25px;
+}
+
+/* ======================================== */
+/* HEADER */
+/* ======================================== */
+
+.header{
+    background:white;
+    border-radius:20px;
+    padding:25px 30px;
+    margin-bottom:25px;
+    box-shadow:0 5px 15px rgba(0,0,0,.05);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+}
+
+.volver{
+    display:inline-block;
+    margin-bottom:8px;
+    color:#6b7280;
+    text-decoration:none;
+    font-size:14px;
+}
+
+.volver:hover{
+    color:#FC000D;
+}
+
+.header h1{
+    font-size:36px;
+    color:#1f2937;
+}
+
+/* ======================================== */
+/* BOTONES */
+/* ======================================== */
+
+.btn-primario{
+    background:#FC000D;
+    color:white;
+    border:none;
+    padding:12px 22px;
+    border-radius:12px;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.3s;
+}
+
+.btn-primario:hover{
+    background:#d40009;
+}
+
+.btn-primario:disabled{
+    opacity:.6;
+    cursor:not-allowed;
+}
+
+.btn-secundario{
+    background:#f3f4f6;
+    color:#1f2937;
+    border:none;
+    padding:12px 22px;
+    border-radius:12px;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.3s;
+}
+
+.btn-secundario:hover{
+    background:#e5e7eb;
+}
+
+.btn-eliminar{
+    background:none;
+    border:1px solid #fca5a5;
+    color:#dc2626;
+    padding:8px 14px;
+    border-radius:10px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.3s;
+}
+
+.btn-eliminar:hover{
+    background:#fef2f2;
+}
+
+/* ======================================== */
+/* CARD / TABLA */
+/* ======================================== */
+
+.card{
+    background:white;
+    border-radius:20px;
+    padding:30px;
+    box-shadow:0 5px 20px rgba(0,0,0,.05);
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th{
+    text-align:left;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    color:#6b7280;
+    padding:12px 10px;
+    border-bottom:2px solid #f3f4f6;
+}
+
+td{
+    padding:14px 10px;
+    border-bottom:1px solid #f3f4f6;
+    color:#1f2937;
+    font-size:15px;
+}
+
+.estado{
+    padding:5px 12px;
+    border-radius:20px;
+    font-size:13px;
+    font-weight:600;
+}
+
+.estado.activo{
+    background:#dcfce7;
+    color:#15803d;
+}
+
+.estado.inactivo{
+    background:#f3f4f6;
+    color:#6b7280;
+}
+
+.mensaje-vacio{
+    text-align:center;
+    color:#6b7280;
+    padding:30px 0;
+}
+
+/* ======================================== */
+/* MODAL */
+/* ======================================== */
+
+.modal-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.4);
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+}
+
+.modal-overlay.visible{
+    display:flex;
+}
+
+.modal{
+    background:white;
+    border-radius:20px;
+    padding:30px;
+    width:100%;
+    max-width:420px;
+    box-shadow:0 15px 40px rgba(0,0,0,.2);
+}
+
+.modal h3{
+    color:#1f2937;
+    font-size:22px;
+    margin-bottom:20px;
+}
+
+.grupo{
+    margin-bottom:16px;
+}
+
+.grupo label{
+    display:block;
+    font-size:14px;
+    color:#374151;
+    margin-bottom:6px;
+    font-weight:600;
+}
+
+.grupo input[type="text"],
+.grupo input[type="password"]{
+    width:100%;
+    padding:12px 14px;
+    border:1px solid #e5e7eb;
+    border-radius:10px;
+    font-size:15px;
+}
+
+.grupo input[type="text"]:focus,
+.grupo input[type="password"]:focus{
+    outline:none;
+    border-color:#FC000D;
+}
+
+.grupo-checkbox label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-weight:500;
+}
+
+.mensaje-error{
+    color:#dc2626;
+    font-size:14px;
+    margin-bottom:10px;
+    min-height:18px;
+}
+
+.modal-botones{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:10px;
+}

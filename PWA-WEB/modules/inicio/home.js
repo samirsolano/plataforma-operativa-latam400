@@ -11,6 +11,11 @@ if(sesion){
     document.getElementById("rolUsuario").textContent =
         sesion.rol;
 
+    // El módulo de Usuarios solo es visible para el rol Administrador.
+    if(sesion.rol !== "Administrador"){
+        document.getElementById("linkUsuarios").style.display = "none";
+    }
+
 }
 
 const btnPerfil = document.getElementById("btnPerfil");

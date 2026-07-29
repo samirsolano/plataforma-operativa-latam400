@@ -1,0 +1,21 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pwa-web",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        ".claude/static-server.ps1",
+        "-Root",
+        "PWA-WEB",
+        "-Port",
+        "5510"
+      ],
+      "port": 5510
+    }
+  ]
+}
