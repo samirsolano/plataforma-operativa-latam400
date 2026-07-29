@@ -22,7 +22,7 @@ body{
 
     width:280px;
 
-    background:#C62828;
+    background:#FC000D;
 
     color:white;
 
@@ -366,7 +366,7 @@ body{
 
 .card h3{
 
-    color:#C62828;
+    color:#FC000D;
 
     font-size:24px;
 
@@ -388,7 +388,7 @@ body{
 
     content:"Abrir módulo →";
 
-    color:#C62828;
+    color:#FC000D;
 
     font-weight:600;
 
