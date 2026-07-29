@@ -24,7 +24,7 @@ async function cargarUsuarios(){
     try{
 
         const usuarios = await supabaseFetch(
-            "/usuarios_app?select=id,usuario,password,nombre_completo,rol,activo&order=nombre_completo.asc"
+            "/usuarios_app?select=id,usuario,password,dni,nombre_completo,rol,activo&order=nombre_completo.asc"
         );
 
         if(!usuarios || !usuarios.length){
@@ -40,6 +40,7 @@ async function cargarUsuarios(){
             tr.innerHTML = `
                 <td>${u.usuario}</td>
                 <td>${u.password}</td>
+                <td>${u.dni || "-"}</td>
                 <td>${u.nombre_completo}</td>
                 <td>${u.rol}</td>
                 <td>
@@ -126,6 +127,7 @@ const mensajeErrorModal = document.getElementById("mensajeErrorModal");
 
 const inputNuevoUsuario = document.getElementById("nuevoUsuario");
 const inputNuevoPassword = document.getElementById("nuevoPassword");
+const inputNuevoDni = document.getElementById("nuevoDni");
 const inputNuevoNombre = document.getElementById("nuevoNombre");
 const inputNuevoRol = document.getElementById("nuevoRol");
 const inputNuevoActivo = document.getElementById("nuevoActivo");
@@ -135,6 +137,7 @@ function abrirModal(){
     mensajeErrorModal.textContent = "";
     inputNuevoUsuario.value = "";
     inputNuevoPassword.value = "";
+    inputNuevoDni.value = "";
     inputNuevoNombre.value = "";
     inputNuevoRol.value = "";
     inputNuevoActivo.checked = true;
@@ -163,13 +166,14 @@ btnGuardar.addEventListener("click", async function(){
 
     const usuario = inputNuevoUsuario.value.trim();
     const password = inputNuevoPassword.value;
+    const dni = inputNuevoDni.value.trim();
     const nombre = inputNuevoNombre.value.trim();
     const rol = inputNuevoRol.value.trim();
     const activo = inputNuevoActivo.checked;
 
     mensajeErrorModal.textContent = "";
 
-    if(!usuario || !password || !nombre || !rol){
+    if(!usuario || !password || !dni || !nombre || !rol){
         mensajeErrorModal.textContent = "Complete todos los campos.";
         return;
     }
@@ -186,6 +190,7 @@ btnGuardar.addEventListener("click", async function(){
                 body: JSON.stringify({
                     usuario: usuario,
                     password: password,
+                    dni: dni,
                     nombre_completo: nombre,
                     rol: rol,
                     activo: activo

@@ -14,6 +14,7 @@ if(sesion){
     // El módulo de Usuarios solo es visible para el rol Administrador.
     if(sesion.rol !== "Administrador"){
         document.getElementById("linkUsuarios").style.display = "none";
+        document.getElementById("cardUsuarios").style.display = "none";
     }
 
 }
