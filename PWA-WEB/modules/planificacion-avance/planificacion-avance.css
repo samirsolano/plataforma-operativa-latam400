@@ -69,17 +69,11 @@ body{
     font-size:13px;
 }
 
-.logo-sigma{
-    display:inline-block;
-    margin-top:12px !important;
-    padding:4px 14px;
-    background:rgba(255,255,255,.15);
-    border:1px solid rgba(255,255,255,.35);
-    border-radius:20px;
-    color:white !important;
-    font-size:12px !important;
-    font-weight:bold;
-    letter-spacing:1px;
+.logo-sigma-img{
+    display:block;
+    margin:14px auto 0;
+    height:34px;
+    border-radius:6px;
 }
 
 .panel{

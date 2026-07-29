@@ -53,6 +53,18 @@ body{
 
 }
 
+.logo-sigma-sidebar{
+
+    display:block;
+
+    height:36px;
+
+    margin-bottom:16px;
+
+    border-radius:8px;
+
+}
+
 .logo h1{
 
     font-size:34px;

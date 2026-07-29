@@ -48,6 +48,18 @@ body{
 
 }
 
+.logo-sigma-login{
+
+    display:block;
+
+    margin:0 auto 25px;
+
+    height:70px;
+
+    border-radius:12px;
+
+}
+
 h1{
 
     text-align:center;
