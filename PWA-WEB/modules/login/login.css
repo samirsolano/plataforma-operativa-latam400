@@ -48,15 +48,31 @@ body{
 
 }
 
+.logo-sigma-login-fondo{
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    width:fit-content;
+
+    margin:0 auto 25px;
+
+    padding:14px 22px;
+
+    background:#FC000D;
+
+    border-radius:14px;
+
+}
+
 .logo-sigma-login{
 
     display:block;
 
-    margin:0 auto 25px;
-
-    height:70px;
-
-    border-radius:12px;
+    height:44px;
 
 }
 
