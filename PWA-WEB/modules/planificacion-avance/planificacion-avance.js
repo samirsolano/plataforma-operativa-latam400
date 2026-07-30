@@ -176,10 +176,8 @@ function alternarPantallaCompleta(){
 
     const activo = document.body.classList.toggle("hxh-pantalla-completa");
 
-    const boton = document.querySelector('.hxh-topbar-controles button[onclick*="alternarPantallaCompleta"]');
-
-    if(boton){
+    document.querySelectorAll('button[onclick*="alternarPantallaCompleta"]').forEach(function(boton){
         boton.innerHTML = activo ? "⛶ Salir de pantalla completa" : "⛶ Pantalla completa";
-    }
+    });
 
 }

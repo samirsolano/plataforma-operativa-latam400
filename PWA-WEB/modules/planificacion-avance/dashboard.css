@@ -63,6 +63,23 @@
     color:#e6ebf5;
 }
 
+.dash-btn-claro{
+    border:1px solid #26314a;
+    border-radius:8px;
+    padding:9px 14px;
+    font-size:12.5px;
+    font-weight:700;
+    white-space:nowrap;
+    background:#171f2e;
+    color:#e6ebf5;
+    cursor:pointer;
+    transition:.2s;
+}
+
+.dash-btn-claro:hover{
+    background:#1e2738;
+}
+
 .dash-btn-refrescar{
     width:38px;
     height:38px;
