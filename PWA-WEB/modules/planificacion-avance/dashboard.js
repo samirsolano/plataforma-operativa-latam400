@@ -48,6 +48,10 @@ async function cargarDashboard(){
     document.getElementById("dashUltimaActualizacion").textContent =
       new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
 
+    const [anio, mes, dia] = fecha.split("-");
+    document.getElementById("dashFechaLegible").textContent = dia + "/" + mes + "/" + anio;
+    document.getElementById("dashTurnoLegible").textContent = dashDatos.turno === "NOCHE" ? "NOCHE (19:00 - 07:00)" : "DÍA (07:00 - 19:00)";
+
     iniciarRelojDashboard();
 
   }catch(e){
@@ -97,11 +101,13 @@ function pintarCanales(){
     const fila = document.createElement("div");
     fila.className = "dash-canal-fila";
 
+    const nombreLegible = c.nombre.toLowerCase().replace(/(^|\s|\/)\S/g, function(m){ return m.toUpperCase(); });
+
     fila.innerHTML =
-      '<span class="dash-canal-nombre">' + c.nombre + '</span>' +
+      '<span class="dash-canal-nombre" title="' + c.nombre + '">' + nombreLegible + '</span>' +
+      '<div class="dash-canal-barra"><div class="dash-canal-barra-relleno" style="width:' + c.pct.toFixed(1) + '%"></div></div>' +
       '<span class="dash-canal-tn">' + formatoTN(c.tn) + '</span>' +
-      '<span class="dash-canal-pct">' + c.pct.toFixed(0) + '%</span>' +
-      '<div class="dash-canal-barra"><div class="dash-canal-barra-relleno" style="width:' + c.pct.toFixed(1) + '%"></div></div>';
+      '<span class="dash-canal-pct">' + c.pct.toFixed(0) + '%</span>';
 
     cont.appendChild(fila);
 
@@ -137,10 +143,26 @@ function pintarKPIsDashboard(){
 }
 
 function iconoEstado(estado){
-  if(estado === "cumplida") return "✅";
-  if(estado === "riesgo") return "🟠";
-  if(estado === "no_cumplida") return "❌";
+  if(estado === "cumplida") return '<span class="dash-circulo dash-circulo-verde">✓</span>';
+  if(estado === "riesgo") return '<span class="dash-circulo dash-circulo-ambar">●</span>';
+  if(estado === "no_cumplida") return '<span class="dash-circulo dash-circulo-rojo">✕</span>';
   return "";
+}
+
+function pintarEjeY(idEje, maxValor){
+
+  const eje = document.getElementById(idEje);
+  if(!eje) return;
+
+  const pasos = 4;
+  const marcas = [];
+
+  for(let i = pasos; i >= 0; i--){
+    marcas.push(Math.round((maxValor / 1.15) * (i / pasos)));
+  }
+
+  eje.innerHTML = marcas.map(function(v){ return '<span>' + v + '</span>'; }).join("");
+
 }
 
 function pintarSeccion(proceso, serie, idChart, idResumen, formateador, unidad){
@@ -151,6 +173,8 @@ function pintarSeccion(proceso, serie, idChart, idResumen, formateador, unidad){
   const maxValor = serie.filas.reduce(function(m, f){
     return Math.max(m, f.meta || 0, f.real || 0, f.proyeccion || 0);
   }, 1) * 1.15;
+
+  pintarEjeY(idChart === "dashChartPicking" ? "dashEjePicking" : "dashEjeExtraccion", maxValor);
 
   const ALTO_PX = 120;
 
@@ -164,12 +188,26 @@ function pintarSeccion(proceso, serie, idChart, idResumen, formateador, unidad){
     const altoReal = f.real !== null ? Math.max((f.real / maxValor) * ALTO_PX, f.real > 0 ? 2 : 0) : 0;
     const altoProy = f.proyeccion !== null ? Math.max((f.proyeccion / maxValor) * ALTO_PX, 2) : 0;
 
-    let barras = '<div class="dash-barra dash-barra-target" style="height:' + altoTarget + 'px"></div>';
+    const valorTarget = formateador(f.meta).replace(" " + unidad, "");
+
+    let barras =
+      '<div class="dash-barra-columna">' +
+        '<div class="dash-barra-valor">' + valorTarget + '</div>' +
+        '<div class="dash-barra dash-barra-target" style="height:' + altoTarget + 'px"></div>' +
+      '</div>';
 
     if(f.esFuturo){
-      barras += '<div class="dash-barra dash-barra-proyeccion" style="height:' + altoProy + 'px"></div>';
+      barras +=
+        '<div class="dash-barra-columna">' +
+          '<div class="dash-barra dash-barra-proyeccion" style="height:' + altoProy + 'px"></div>' +
+        '</div>';
     }else{
-      barras += '<div class="dash-barra dash-barra-real' + (f.estado ? ' dash-real-' + f.estado : '') + '" style="height:' + altoReal + 'px"></div>';
+      const valorReal = formateador(f.real).replace(" " + unidad, "");
+      barras +=
+        '<div class="dash-barra-columna">' +
+          '<div class="dash-barra-valor">' + valorReal + '</div>' +
+          '<div class="dash-barra dash-barra-real' + (f.estado ? ' dash-real-' + f.estado : '') + '" style="height:' + altoReal + 'px"></div>' +
+        '</div>';
     }
 
     const tieneComentario = (dashDatos.comentarios || []).some(function(c){
@@ -181,6 +219,7 @@ function pintarSeccion(proceso, serie, idChart, idResumen, formateador, unidad){
       '<div class="dash-hora-barras">' + barras + '</div>' +
       '<div class="dash-hora-label">' + formatoHora(f.hora) + '</div>' +
       '<div class="dash-hora-estado">' + iconoEstado(f.estado) + '</div>' +
+      (f.esHoraActual ? '<div class="dash-hora-actual-label">HORA ACTUAL</div>' : '') +
       (tieneComentario ? '<div class="dash-hora-comentario">💬</div>' : '');
 
     chart.appendChild(col);
@@ -207,6 +246,8 @@ function pintarComentariosDashboard(){
   const cont = document.getElementById("dashListaComentarios");
   const lista = dashDatos.comentarios || [];
 
+  document.getElementById("dashBadgeComentarios").textContent = lista.length;
+
   if(lista.length === 0){
     cont.innerHTML = '<div class="dash-lista-vacia">Sin comentarios registrados.</div>';
     return;
@@ -219,8 +260,9 @@ function pintarComentariosDashboard(){
 
     return (
       '<div class="dash-comentario-item' + sevClase + '">' +
-      '<div class="dash-comentario-meta">' + c.proceso + ' · ' + formatoHora(c.hora) + ' · ' + (c.autor || "Usuario") + ' · ' + fechaHora + '</div>' +
+      '<div class="dash-comentario-meta"><span class="dash-comentario-dot"></span>' + formatoHora(c.hora) + ' &nbsp; ' + c.proceso + '</div>' +
       '<div class="dash-comentario-texto">' + c.comentario + '</div>' +
+      '<div class="dash-comentario-autor">👤 ' + (c.autor || "Usuario") + ' · ' + fechaHora + '</div>' +
       '</div>'
     );
 
@@ -236,11 +278,12 @@ function abrirModalComentario(proceso, fila){
 
   dashComentarioSeleccionado = { proceso: proceso, hora: fila.hora, meta: fila.meta, real: fila.real };
 
-  document.getElementById("dashComArea").value = proceso === "PICKING" ? "PICKING" : "EXTRACCIÓN";
-  document.getElementById("dashComHora").value = formatoHora(fila.hora);
-  document.getElementById("dashComMeta").value = fila.meta !== null ? fila.meta.toFixed(2) : "-";
-  document.getElementById("dashComReal").value = fila.real !== null ? fila.real.toFixed(2) : "-";
+  document.getElementById("dashComArea").textContent = proceso === "PICKING" ? "PICKING" : "EXTRACCIÓN";
+  document.getElementById("dashComHora").textContent = formatoHora(fila.hora);
+  document.getElementById("dashComMeta").textContent = fila.meta !== null ? fila.meta.toFixed(2) : "-";
+  document.getElementById("dashComReal").textContent = fila.real !== null ? fila.real.toFixed(2) : "-";
   document.getElementById("dashComTexto").value = "";
+  document.getElementById("dashComContador").textContent = "0";
 
   document.getElementById("dashModalComentario").classList.remove("oculto");
 
@@ -305,7 +348,15 @@ document.addEventListener("DOMContentLoaded", function(){
   const btnCancelar = document.getElementById("btnDashCancelarComentario");
   if(btnCancelar) btnCancelar.onclick = cerrarModalComentario;
 
+  const btnCerrar = document.getElementById("btnDashCerrarComentario");
+  if(btnCerrar) btnCerrar.onclick = cerrarModalComentario;
+
   const btnGuardar = document.getElementById("btnDashGuardarComentario");
   if(btnGuardar) btnGuardar.onclick = guardarComentarioDashboardUI;
+
+  const textoComentario = document.getElementById("dashComTexto");
+  if(textoComentario) textoComentario.addEventListener("input", function(){
+    document.getElementById("dashComContador").textContent = textoComentario.value.length;
+  });
 
 });
