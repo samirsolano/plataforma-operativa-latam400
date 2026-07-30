@@ -38,16 +38,28 @@ body{
 }
 
 .volver-plataforma{
-    display:block;
-    padding:14px 20px;
-    color:#FFE1E1;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:16px 16px 0;
+    padding:11px 16px;
+    color:white;
     text-decoration:none;
     font-size:13px;
-    border-bottom:1px solid rgba(255,255,255,.2);
+    font-weight:600;
+    background:rgba(255,255,255,.10);
+    border:1px solid rgba(255,255,255,.30);
+    border-radius:10px;
+    transition:.2s;
 }
 
 .volver-plataforma:hover{
-    color:white;
+    background:rgba(255,255,255,.22);
+    border-color:rgba(255,255,255,.5);
+}
+
+.volver-plataforma:active{
+    background:rgba(255,255,255,.30);
 }
 
 .logo{
