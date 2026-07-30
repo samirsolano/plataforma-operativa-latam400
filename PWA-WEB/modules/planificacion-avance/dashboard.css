@@ -1,0 +1,558 @@
+/* =======================================
+   DASHBOARD (PLANIFICACIÓN Y AVANCE DIARIO)
+   Tema oscuro, siguiendo el mockup de referencia.
+   ======================================= */
+
+.dash-wrap{
+    background:#0f1420;
+    border-radius:14px;
+    padding:22px;
+    color:#e6ebf5;
+    font-family:'Segoe UI',sans-serif;
+}
+
+.dash-mensaje-carga{
+    color:#8b96ab;
+    text-align:center;
+    padding:40px 0;
+}
+
+/* ---------- HEADER ---------- */
+
+.dash-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:14px;
+    margin-bottom:20px;
+}
+
+.dash-header-titulo h2{
+    font-size:22px;
+    font-weight:800;
+    letter-spacing:.5px;
+    margin:0;
+}
+
+.dash-header-controles{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+}
+
+.dash-header-controles input[type="date"],
+.dash-header-controles select{
+    background:#171f2e;
+    border:1px solid #26314a;
+    color:#e6ebf5;
+    border-radius:8px;
+    padding:8px 12px;
+    font-size:14px;
+}
+
+.dash-info-hora,
+.dash-info-act{
+    font-size:13px;
+    color:#8b96ab;
+}
+
+.dash-info-hora b,
+.dash-info-act b{
+    color:#e6ebf5;
+}
+
+.dash-btn-refrescar{
+    width:38px;
+    height:38px;
+    border-radius:8px;
+    border:none;
+    background:#FC000D;
+    color:white;
+    font-size:16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition:.2s;
+}
+
+.dash-btn-refrescar:hover{
+    background:#B50009;
+}
+
+/* ---------- FILA SUPERIOR: canales + KPIs ---------- */
+
+.dash-fila-superior{
+    display:grid;
+    grid-template-columns:1.6fr 1fr 1fr 1fr 1fr;
+    gap:14px;
+    margin-bottom:18px;
+}
+
+.dash-card,
+.dash-kpi{
+    background:#171f2e;
+    border:1px solid #26314a;
+    border-radius:12px;
+    padding:16px 18px;
+}
+
+.dash-card-titulo{
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.5px;
+    color:#8b96ab;
+    margin-bottom:12px;
+}
+
+.dash-canales{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.dash-canal-fila{
+    display:grid;
+    grid-template-columns:1fr auto auto;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+}
+
+.dash-canal-nombre{
+    color:#c7cfdd;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.dash-canal-barra{
+    grid-column:1 / -1;
+    height:6px;
+    border-radius:4px;
+    background:#0f1420;
+    overflow:hidden;
+}
+
+.dash-canal-barra-relleno{
+    height:100%;
+    background:linear-gradient(90deg,#3b82f6,#60a5fa);
+    border-radius:4px;
+}
+
+.dash-canal-tn{
+    font-weight:700;
+}
+
+.dash-canal-pct{
+    color:#8b96ab;
+    font-size:12px;
+}
+
+.dash-canales-total{
+    margin-top:14px;
+    padding-top:12px;
+    border-top:1px solid #26314a;
+    font-size:13px;
+    color:#8b96ab;
+}
+
+.dash-canales-total b{
+    color:#e6ebf5;
+    font-size:15px;
+}
+
+.dash-kpi-titulo{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.5px;
+    color:#8b96ab;
+    margin-bottom:10px;
+}
+
+.dash-kpi-valor{
+    font-size:26px;
+    font-weight:800;
+    margin-bottom:4px;
+}
+
+.dash-kpi-nota{
+    font-size:12px;
+    color:#8b96ab;
+}
+
+.dash-kpi-verde .dash-kpi-valor{ color:#22c55e; }
+.dash-kpi-ambar .dash-kpi-valor{ color:#f59e0b; }
+.dash-kpi-morado .dash-kpi-valor{ color:#a78bfa; }
+.dash-kpi-azul .dash-kpi-valor{ color:#3b82f6; }
+
+/* ---------- LEYENDA ---------- */
+
+.dash-leyenda{
+    display:flex;
+    gap:22px;
+    flex-wrap:wrap;
+    font-size:12px;
+    color:#8b96ab;
+    margin-bottom:18px;
+    align-items:center;
+}
+
+.dash-caja{
+    display:inline-block;
+    width:12px;
+    height:12px;
+    border-radius:3px;
+    margin-right:5px;
+    vertical-align:middle;
+}
+
+.dash-caja-target{ background:#3b82f6; }
+.dash-caja-real{ background:#22c55e; }
+.dash-caja-proyeccion{
+    background:repeating-linear-gradient(45deg,#a78bfa,#a78bfa 3px,#171f2e 3px,#171f2e 6px);
+}
+
+/* ---------- SECCIÓN PICKING / EXTRACCIÓN ---------- */
+
+.dash-seccion{
+    background:#171f2e;
+    border:1px solid #26314a;
+    border-radius:12px;
+    padding:18px;
+    margin-bottom:18px;
+}
+
+.dash-seccion-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:16px;
+}
+
+.dash-seccion-header h3{
+    margin:0;
+    font-size:16px;
+}
+
+.dash-seccion-target{
+    font-size:12px;
+    color:#8b96ab;
+    background:#0f1420;
+    border:1px solid #26314a;
+    border-radius:20px;
+    padding:5px 12px;
+}
+
+.dash-seccion-target b{
+    color:#e6ebf5;
+}
+
+.dash-chart{
+    display:flex;
+    align-items:flex-end;
+    gap:6px;
+    overflow-x:auto;
+    padding-bottom:6px;
+}
+
+.dash-hora-col{
+    flex:1 0 64px;
+    min-width:64px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    cursor:pointer;
+    border-radius:8px;
+    padding:6px 2px;
+    transition:.15s;
+}
+
+.dash-hora-col:hover{
+    background:#1e2738;
+}
+
+.dash-hora-col.dash-hora-actual{
+    background:#22314f;
+    box-shadow:inset 0 0 0 1px #3b82f6;
+}
+
+.dash-hora-personas{
+    font-size:11px;
+    color:#8b96ab;
+    margin-bottom:4px;
+    white-space:nowrap;
+}
+
+.dash-hora-barras{
+    display:flex;
+    align-items:flex-end;
+    gap:3px;
+    height:120px;
+}
+
+.dash-barra{
+    width:12px;
+    border-radius:3px 3px 0 0;
+    min-height:2px;
+}
+
+.dash-barra-target{ background:#3b82f6; }
+.dash-barra-real{ background:#22c55e; }
+
+.dash-barra-real.dash-real-riesgo{ background:#f59e0b; }
+.dash-barra-real.dash-real-no_cumplida{ background:#ef4444; }
+
+.dash-barra-proyeccion{
+    background:repeating-linear-gradient(45deg,#a78bfa,#a78bfa 3px,transparent 3px,transparent 6px);
+    border:1px solid #a78bfa;
+}
+
+.dash-hora-label{
+    font-size:11px;
+    color:#8b96ab;
+    margin-top:6px;
+}
+
+.dash-hora-estado{
+    font-size:13px;
+    margin-top:2px;
+    min-height:16px;
+}
+
+.dash-hora-comentario{
+    font-size:11px;
+    margin-top:2px;
+    color:#a78bfa;
+}
+
+.dash-resumen-horas{
+    margin-top:14px;
+    border-top:1px solid #26314a;
+    padding-top:10px;
+}
+
+.dash-resumen-fila{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:12px;
+    color:#8b96ab;
+    margin-bottom:6px;
+}
+
+.dash-resumen-fila > span:first-child{
+    width:150px;
+    flex-shrink:0;
+}
+
+.dash-resumen-valores{
+    display:flex;
+    gap:6px;
+    flex:1;
+    overflow-x:auto;
+}
+
+.dash-resumen-valor{
+    flex:1 0 64px;
+    min-width:64px;
+    text-align:center;
+    font-size:12px;
+    color:#c7cfdd;
+}
+
+/* ---------- PANEL COMENTARIOS ---------- */
+
+.dash-panel-comentarios{
+    background:#171f2e;
+    border:1px solid #26314a;
+    border-radius:12px;
+    padding:18px;
+    margin-bottom:18px;
+}
+
+.dash-panel-comentarios-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:14px;
+}
+
+.dash-panel-comentarios-header h3{
+    margin:0;
+    font-size:16px;
+}
+
+.dash-btn-nuevo-comentario{
+    background:#FC000D;
+    color:white;
+    border:none;
+    border-radius:8px;
+    padding:8px 14px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.2s;
+}
+
+.dash-btn-nuevo-comentario:hover{
+    background:#B50009;
+}
+
+.dash-lista-comentarios{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    max-height:320px;
+    overflow-y:auto;
+}
+
+.dash-comentario-item{
+    background:#0f1420;
+    border-left:3px solid #3b82f6;
+    border-radius:0 8px 8px 0;
+    padding:10px 14px;
+}
+
+.dash-comentario-item.dash-sev-riesgo{ border-left-color:#f59e0b; }
+.dash-comentario-item.dash-sev-critico{ border-left-color:#ef4444; }
+
+.dash-comentario-meta{
+    font-size:11px;
+    color:#8b96ab;
+    margin-bottom:4px;
+}
+
+.dash-comentario-texto{
+    font-size:13px;
+    color:#e6ebf5;
+}
+
+.dash-lista-vacia{
+    color:#8b96ab;
+    font-size:13px;
+    text-align:center;
+    padding:20px 0;
+}
+
+/* ---------- FOOTER LEYENDA ---------- */
+
+.dash-footer-leyenda{
+    display:flex;
+    flex-wrap:wrap;
+    gap:18px;
+    font-size:12px;
+    color:#8b96ab;
+    padding-top:8px;
+}
+
+/* ---------- MODAL COMENTARIO ---------- */
+
+.dash-modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.6);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+}
+
+.dash-modal-overlay.oculto{
+    display:none;
+}
+
+.dash-modal{
+    background:#171f2e;
+    border:1px solid #26314a;
+    border-radius:14px;
+    padding:26px;
+    width:420px;
+    max-width:90vw;
+    color:#e6ebf5;
+    font-family:'Segoe UI',sans-serif;
+}
+
+.dash-modal h3{
+    margin:0 0 18px 0;
+}
+
+.dash-modal-fila{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-bottom:12px;
+}
+
+.dash-modal label{
+    display:block;
+    font-size:12px;
+    color:#8b96ab;
+    margin-bottom:6px;
+}
+
+.dash-modal input,
+.dash-modal textarea{
+    width:100%;
+    background:#0f1420;
+    border:1px solid #26314a;
+    color:#e6ebf5;
+    border-radius:8px;
+    padding:9px 12px;
+    font-size:13px;
+    font-family:inherit;
+    resize:vertical;
+}
+
+.dash-modal-botones{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:18px;
+}
+
+.dash-btn-cancelar,
+.dash-btn-guardar{
+    border:none;
+    border-radius:8px;
+    padding:10px 18px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.2s;
+}
+
+.dash-btn-cancelar{
+    background:#0f1420;
+    border:1px solid #26314a;
+    color:#c7cfdd;
+}
+
+.dash-btn-cancelar:hover{
+    background:#1e2738;
+}
+
+.dash-btn-guardar{
+    background:#FC000D;
+    color:white;
+}
+
+.dash-btn-guardar:hover{
+    background:#B50009;
+}
+
+@media (max-width:1200px){
+
+    .dash-fila-superior{
+        grid-template-columns:1fr 1fr;
+    }
+
+    .dash-card-canales{
+        grid-column:1 / -1;
+    }
+
+}

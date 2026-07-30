@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="replanificacion.css">
     <link rel="stylesheet" href="hora-x-hora.css">
     <link rel="stylesheet" href="sap.css">
+    <link rel="stylesheet" href="dashboard.css">
 
     <!-- SheetJS: lee archivos Excel (.xlsx/.xls) en el navegador.
          Reemplaza a DriveApp/SpreadsheetApp, que solo existen en Apps Script. -->
@@ -693,10 +694,173 @@
         </div>
 
         <div id="modDashboard" style="display:none;">
-            <div class="modulo-en-construccion">
-                <h2>📊 Dashboard</h2>
-                <p>Este módulo se está construyendo. Próximamente disponible.</p>
+
+          <div class="dash-wrap">
+
+            <div class="dash-header">
+
+              <div class="dash-header-titulo">
+                <h2>PLANIFICACIÓN Y AVANCE DIARIO</h2>
+              </div>
+
+              <div class="dash-header-controles">
+
+                <span class="dash-info-hora">🕐 Hora actual: <b id="dashHoraActual">-</b></span>
+                <span class="dash-info-act">🟢 Última actualización: <b id="dashUltimaActualizacion">-</b></span>
+
+                <button class="dash-btn-refrescar" id="btnDashRefrescar" title="Actualizar">🔄</button>
+
+              </div>
+
             </div>
+
+            <p id="dashMensajeCarga" class="dash-mensaje-carga">Cargando datos...</p>
+
+            <div id="dashContenido" class="oculto">
+
+              <div class="dash-fila-superior">
+
+                <div class="dash-card dash-card-canales">
+
+                  <div class="dash-card-titulo">PLANIFICACIÓN DEL DÍA (TNL)</div>
+
+                  <div id="dashCanales" class="dash-canales"></div>
+
+                  <div class="dash-canales-total">
+                    Total Planificado: <b id="dashTotalPlanificado">-</b>
+                  </div>
+
+                </div>
+
+                <div class="dash-kpi dash-kpi-verde">
+                  <div class="dash-kpi-titulo">TNL EJECUTADO (TOTAL)</div>
+                  <div class="dash-kpi-valor" id="dashTnEjecutado">-</div>
+                  <div class="dash-kpi-nota" id="dashTnEjecutadoPct">-</div>
+                </div>
+
+                <div class="dash-kpi dash-kpi-ambar">
+                  <div class="dash-kpi-titulo">TNL RESTANTE (TOTAL)</div>
+                  <div class="dash-kpi-valor" id="dashTnRestante">-</div>
+                  <div class="dash-kpi-nota" id="dashTnRestantePct">-</div>
+                </div>
+
+                <div class="dash-kpi dash-kpi-morado">
+                  <div class="dash-kpi-titulo">PROYECCIÓN AL CIERRE</div>
+                  <div class="dash-kpi-valor" id="dashProyeccion">-</div>
+                  <div class="dash-kpi-nota" id="dashProyeccionPct">-</div>
+                </div>
+
+                <div class="dash-kpi dash-kpi-azul">
+                  <div class="dash-kpi-titulo">PERSONAS ACTIVAS</div>
+                  <div class="dash-kpi-valor" id="dashPersonas">-</div>
+                  <div class="dash-kpi-nota" id="dashPersonasNota">de planificados</div>
+                </div>
+
+              </div>
+
+              <div class="dash-leyenda">
+                <span><span class="dash-caja dash-caja-target"></span> Target</span>
+                <span><span class="dash-caja dash-caja-real"></span> Real</span>
+                <span><span class="dash-caja dash-caja-proyeccion"></span> Proyección</span>
+                <span>👤 Personas asignadas</span>
+              </div>
+
+              <div class="dash-seccion">
+
+                <div class="dash-seccion-header">
+                  <h3>🛒 PICKING</h3>
+                  <span class="dash-seccion-target">Target por persona: <b>1.2 TN / hora</b></span>
+                </div>
+
+                <div class="dash-chart" id="dashChartPicking"></div>
+
+                <div class="dash-resumen-horas" id="dashResumenPicking"></div>
+
+              </div>
+
+              <div class="dash-seccion">
+
+                <div class="dash-seccion-header">
+                  <h3>🚚 EXTRACCIÓN</h3>
+                  <span class="dash-seccion-target">Target por persona: <b>16 paletas / hora</b></span>
+                </div>
+
+                <div class="dash-chart" id="dashChartExtraccion"></div>
+
+                <div class="dash-resumen-horas" id="dashResumenExtraccion"></div>
+
+              </div>
+
+              <div class="dash-panel-comentarios">
+
+                <div class="dash-panel-comentarios-header">
+                  <h3>💬 Resumen de Comentarios</h3>
+                  <button class="dash-btn-nuevo-comentario" id="btnDashNuevoComentario">+ Nuevo Comentario</button>
+                </div>
+
+                <div id="dashListaComentarios" class="dash-lista-comentarios"></div>
+
+              </div>
+
+              <div class="dash-footer-leyenda">
+                <span>✅ Meta cumplida (≥100%)</span>
+                <span>🟠 En riesgo (90%-99%)</span>
+                <span>❌ No cumplida (&lt;90%)</span>
+                <span>💬 Comentario registrado</span>
+                <span>🕐 Hora actual</span>
+                <span><span class="dash-caja dash-caja-proyeccion"></span> Proyección (planificada)</span>
+              </div>
+
+            </div>
+
+          </div>
+
+          <div id="dashModalComentario" class="dash-modal-overlay oculto">
+
+            <div class="dash-modal">
+
+              <h3>Agregar Comentario</h3>
+
+              <div class="dash-modal-fila">
+
+                <div>
+                  <label>Área</label>
+                  <input type="text" id="dashComArea" readonly>
+                </div>
+
+                <div>
+                  <label>Hora</label>
+                  <input type="text" id="dashComHora" readonly>
+                </div>
+
+              </div>
+
+              <div class="dash-modal-fila">
+
+                <div>
+                  <label>Meta</label>
+                  <input type="text" id="dashComMeta" readonly>
+                </div>
+
+                <div>
+                  <label>Real</label>
+                  <input type="text" id="dashComReal" readonly>
+                </div>
+
+              </div>
+
+              <label>Comentario</label>
+              <textarea id="dashComTexto" rows="4" placeholder="Escribe tu comentario..."></textarea>
+
+              <div class="dash-modal-botones">
+                <button class="dash-btn-cancelar" id="btnDashCancelarComentario">Cancelar</button>
+                <button class="dash-btn-guardar" id="btnDashGuardarComentario">Guardar</button>
+              </div>
+
+            </div>
+
+          </div>
+
         </div>
 
         <div id="modHoraHora" style="display:none;">
@@ -870,6 +1034,8 @@
 <script src="hora-x-hora.js"></script>
 <script src="sap-logica.js"></script>
 <script src="sap.js"></script>
+<script src="dashboard-logica.js"></script>
+<script src="dashboard.js"></script>
 
 </body>
 

@@ -132,6 +132,7 @@ function abrirModulo(modulo, boton){
 
         case "dashboard":
             document.getElementById("modDashboard").style.display = "block";
+            cargarDashboard();
             break;
 
         case "horahora":
