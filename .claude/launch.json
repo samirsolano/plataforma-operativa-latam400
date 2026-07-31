@@ -16,6 +16,22 @@
         "5510"
       ],
       "port": 5510
+    },
+    {
+      "name": "centro-proyectos",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        ".claude/static-server.ps1",
+        "-Root",
+        "C:\\Users\\samir\\Documents\\GitHub\\centro-proyectos-latam",
+        "-Port",
+        "5520"
+      ],
+      "port": 5520
     }
   ]
 }

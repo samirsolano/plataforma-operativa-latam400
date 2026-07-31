@@ -1,26 +1,154 @@
-// =======================================
+// =========================================================
 // DASHBOARD (PLANIFICACIÓN Y AVANCE DIARIO) - Lógica
-// Combina planificacion_diaria (metas por canal), turno_colaboradores
-// (personas asignadas) y tareas_almacen_sap vía obtener_hora_x_hora
-// (productividad real) para armar el dashboard hora a hora.
-// =======================================
+// Portado 1:1 desde Dashboard.gs (Apps Script) del proyecto
+// original, usando planifFetch en vez de UrlFetchApp/rgGet.
+// =========================================================
 
-const DASH_TARGET_PICKING_TN_PERSONA = 1.2;
-const DASH_TARGET_EXTRACCION_PAL_PERSONA = 16;
+// ---------------------------------------------------------
+// METAS DE REFERENCIA POR HORA (igual que HXH_METAS en Hora x
+// Hora). Un valor por cada una de las 12 horas del turno.
+// ---------------------------------------------------------
+const DASH_METAS = {
 
-function horasTurnoDashboard(turno){
+  PICKING_HORA: [8.4, 9.6, 9.6, 7.2, 7.2, 7.2, 7.2, 7.2, 7.2, 7.2, 7.2, 7.2],
+  EXTRACCION_HORA: [3.6, 2.4, 2.4, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8],
+  TARGET_TN_POR_PERSONA_HORA: 1.2
+
+};
+
+// ---------------------------------------------------------
+// Horas del turno, en el orden en que se muestran
+// (NOCHE cruza medianoche, igual que en HoraXHora.gs)
+// ---------------------------------------------------------
+function dashHorasTurno(turno){
   return (turno === "NOCHE")
     ? [19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6]
     : [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
 }
 
-// ---------------------------------------------------------
-// PLANIFICACIÓN DEL DÍA POR CANAL (gestión) - TNL
-// ---------------------------------------------------------
+// Índice (dentro de "horas") de la última hora ya transcurrida del turno:
+//  -1              -> el turno todavía no empieza (todo es proyección)
+//  horas.length-1  -> el turno ya terminó por completo (todo es real)
+//  0..length-2     -> el turno está en curso, esa es la hora actual
+function dashIndiceHoraActual(fecha, turno, horas){
 
-async function obtenerPlanificacionPorCanal(fecha, turno){
+  const ahora = new Date();
+  const hoyStr = ahora.getFullYear() + "-" +
+    String(ahora.getMonth() + 1).padStart(2, "0") + "-" +
+    String(ahora.getDate()).padStart(2, "0");
 
-  turno = normalizarTurnoPlanif(turno);
+  if(fecha < hoyStr) return horas.length - 1; // fecha ya pasada: turno completo
+  if(fecha > hoyStr) return -1;               // fecha futura: nada ha ocurrido
+
+  // Es hoy: compara la hora actual contra las horas del turno
+  const horaAhora = ahora.getHours();
+  const idx = horas.indexOf(horaAhora);
+
+  if(idx !== -1) return idx;
+
+  if(turno === "NOCHE"){
+    // Turno NOCHE (19h-6h): si la hora actual cae en horario diurno (7-18),
+    // el turno de esta madrugada ya terminó por completo.
+    return (horaAhora >= 7 && horaAhora <= 18) ? horas.length - 1 : -1;
+  }
+
+  // Turno DÍA (7h-18h): si ya pasamos las 18h, el turno terminó completo;
+  // si es antes de las 7h, todavía no empieza.
+  return horaAhora > 18 ? horas.length - 1 : -1;
+
+}
+
+// ---------------------------------------------------------
+// Filas crudas del RPC obtener_hora_x_hora (sin pivotar)
+// ---------------------------------------------------------
+async function dashFilasHoraXHora(fecha, turno){
+
+  return await planifFetch(
+    "/rpc/obtener_hora_x_hora",
+    {
+      method: "POST",
+      body: JSON.stringify({ p_fecha: fecha, p_turno: turno })
+    }
+  ) || [];
+
+}
+
+// ---------------------------------------------------------
+// Picking / Extracción por hora: TN real ejecutado y
+// personas activas esa hora (auxiliares con valor > 0)
+// ---------------------------------------------------------
+function dashProcesarProceso(filasCrudas, nombreProceso, horas, indiceActual, metaHora){
+
+  const filasProceso = filasCrudas.filter(function(f){ return f.proceso === nombreProceso; });
+  const auxiliares = [...new Set(filasProceso.map(function(f){ return f.auxiliar; }))];
+
+  const real = [];
+  const personas = [];
+
+  horas.forEach(function(h){
+
+    let tnHora = 0;
+    let personasHora = 0;
+
+    auxiliares.forEach(function(aux){
+
+      const match = filasProceso.find(function(f){
+        return f.auxiliar === aux && f.hora === h;
+      });
+
+      if(match){
+        const valor = Number(match.tn || match.cantidad || 0);
+        if(valor > 0){
+          tnHora += valor;
+          personasHora++;
+        }
+      }
+
+    });
+
+    real.push(Math.round(tnHora * 100) / 100);
+    personas.push(personasHora);
+
+  });
+
+  let metaAcum = 0;
+  let realAcum = 0;
+
+  const metaAcumulada = [];
+  const realAcumulada = [];
+
+  horas.forEach(function(h, i){
+
+    metaAcum += metaHora[i] || 0;
+    metaAcumulada.push(Math.round(metaAcum * 100) / 100);
+
+    // Solo se acumula "real" hasta la hora actual (incluida);
+    // las horas futuras quedan como proyección en el frontend.
+    if(indiceActual >= 0 && i <= indiceActual){
+      realAcum += real[i];
+      realAcumulada.push(Math.round(realAcum * 100) / 100);
+    }else{
+      realAcumulada.push(null);
+    }
+
+  });
+
+  return {
+    horas: horas,
+    target: metaHora,
+    real: real,
+    personas: personas,
+    metaAcumulada: metaAcumulada,
+    realAcumulada: realAcumulada
+  };
+
+}
+
+// ---------------------------------------------------------
+// Planificación del día por canal (columna "GESTIÓN" del
+// Excel de SAP, guardada en planificacion_diaria.gestion)
+// ---------------------------------------------------------
+async function dashPlanificacionCanales(fecha, turno){
 
   const filas = await planifFetch(
     "/planificacion_diaria?select=gestion,peso_tn" +
@@ -33,67 +161,32 @@ async function obtenerPlanificacionPorCanal(fecha, turno){
 
   filas.forEach(function(f){
     const nombre = f.gestion || "SIN CANAL";
-    const tn = Number(f.peso_tn || 0);
-    mapa[nombre] = (mapa[nombre] || 0) + tn;
-    total += tn;
+    const peso = Number(f.peso_tn || 0);
+    mapa[nombre] = (mapa[nombre] || 0) + peso;
+    total += peso;
   });
 
   const canales = Object.keys(mapa).map(function(nombre){
     return {
       nombre: nombre,
-      tn: mapa[nombre],
-      pct: total > 0 ? (mapa[nombre] / total * 100) : 0
+      tn: Math.round(mapa[nombre] * 100) / 100,
+      pct: total > 0 ? Math.round((mapa[nombre] / total) * 100) : 0
     };
-  }).sort(function(a, b){ return b.tn - a.tn; });
+  });
 
-  return { canales: canales, totalTN: total };
+  canales.sort(function(a, b){ return b.tn - a.tn; });
+
+  return {
+    canales: canales,
+    totalPlanificado: Math.round(total * 100) / 100
+  };
 
 }
 
 // ---------------------------------------------------------
-// PERSONAS ASIGNADAS POR HORA (acumulado según desde_hora)
+// Personas activas (turno_colaboradores) para la fecha/turno
 // ---------------------------------------------------------
-
-async function obtenerHeadcountPorHora(fecha, turno, funcion, horas){
-
-  const filas = await planifFetch(
-    "/turno_colaboradores?select=desde_hora,funcion,activo,colaboradores(funcion)" +
-    "&fecha=eq." + encodeURIComponent(fecha) +
-    "&turno=eq." + encodeURIComponent(turno) +
-    "&activo=eq.true"
-  ) || [];
-
-  const relevantes = filas.filter(function(f){
-    const fn = f.funcion || (f.colaboradores && f.colaboradores.funcion) || "";
-    return fn === funcion;
-  });
-
-  const posicion = {};
-  horas.forEach(function(h, i){ posicion[h] = i; });
-
-  function posicionInicio(desdeHora){
-    if(!desdeHora) return 0;
-    const h = parseInt(String(desdeHora).split(":")[0], 10);
-    return posicion.hasOwnProperty(h) ? posicion[h] : 0;
-  }
-
-  const porHora = {};
-
-  horas.forEach(function(h){
-
-    const posH = posicion[h];
-
-    porHora[h] = relevantes.filter(function(f){
-      return posicionInicio(f.desde_hora) <= posH;
-    }).length;
-
-  });
-
-  return { porHora: porHora, total: relevantes.length };
-
-}
-
-async function obtenerResumenPersonasActivas(fecha, turno){
+async function dashPersonasActivas(fecha, turno){
 
   const filas = await planifFetch(
     "/turno_colaboradores?select=activo" +
@@ -101,168 +194,98 @@ async function obtenerResumenPersonasActivas(fecha, turno){
     "&turno=eq." + encodeURIComponent(turno)
   ) || [];
 
-  return {
-    activos: filas.filter(function(f){ return f.activo; }).length,
-    total: filas.length
-  };
+  const activas = filas.filter(function(f){ return !!f.activo; }).length;
+
+  return { activas: activas, planificadas: filas.length };
 
 }
 
 // ---------------------------------------------------------
-// TN REAL POR HORA (Picking + Extracción combinados, en TN)
+// FUNCIÓN PRINCIPAL: arma todo el payload del Dashboard
 // ---------------------------------------------------------
+async function obtenerDashboard(fecha, turno){
 
-async function obtenerTNPorHoraProceso(fecha, turno, procesos){
+  turno = turno === "DÍA" ? "DIA" : turno;
 
-  const filas = await planifFetch(
-    "/rpc/obtener_hora_x_hora",
-    {
-      method: "POST",
-      body: JSON.stringify({ p_fecha: fecha, p_turno: turno })
-    }
-  ) || [];
+  const horas = dashHorasTurno(turno);
+  const indiceActual = dashIndiceHoraActual(fecha, turno, horas);
 
-  const mapa = {};
-
-  filas.forEach(function(f){
-    if(procesos.indexOf(f.proceso) === -1) return;
-    mapa[f.hora] = (mapa[f.hora] || 0) + Number(f.tn || 0);
-  });
-
-  return mapa;
-
-}
-
-// ---------------------------------------------------------
-// ARMAR EL DASHBOARD COMPLETO
-// ---------------------------------------------------------
-
-async function construirDashboard(fecha, turno){
-
-  turno = normalizarTurnoPlanif(turno);
-  const horas = horasTurnoDashboard(turno);
-
-  const [canalData, personasPicking, personasExtraccion, hxh, tnPorHora, personasResumen] = await Promise.all([
-    obtenerPlanificacionPorCanal(fecha, turno),
-    obtenerHeadcountPorHora(fecha, turno, "PICKING", horas),
-    obtenerHeadcountPorHora(fecha, turno, "EXTRACCIÓN", horas),
-    obtenerHoraXHora(fecha, turno),
-    obtenerTNPorHoraProceso(fecha, turno, ["PICKING", "EXTRACCION"]),
-    obtenerResumenPersonasActivas(fecha, turno)
+  const [plan, filasCrudas, personas, comentarios] = await Promise.all([
+    dashPlanificacionCanales(fecha, turno),
+    dashFilasHoraXHora(fecha, turno),
+    dashPersonasActivas(fecha, turno),
+    obtenerComentariosDashboard(fecha, turno)
   ]);
 
-  const horaActualReal = new Date().getHours();
-  let posActual = horas.indexOf(horaActualReal);
-  if(posActual === -1){
-    posActual = horas.length - 1;
-  }
+  const picking = dashProcesarProceso(filasCrudas, "PICKING", horas, indiceActual, DASH_METAS.PICKING_HORA);
+  const extraccion = dashProcesarProceso(filasCrudas, "EXTRACCION", horas, indiceActual, DASH_METAS.EXTRACCION_HORA);
 
-  function construirSerie(targetPorPersona, personasPorHora, realPorHoraFn){
+  const tnEjecutado =
+    picking.real.reduce(function(s, v){ return s + v; }, 0) +
+    extraccion.real.reduce(function(s, v){ return s + v; }, 0);
 
-    let metaAcum = 0;
-    let realAcum = 0;
+  const tnRestante = Math.max(plan.totalPlanificado - tnEjecutado, 0);
 
-    const filas = horas.map(function(h, i){
+  const horasTranscurridas = indiceActual >= 0 ? indiceActual + 1 : horas.length;
+  const proporcionTurno = horasTranscurridas / horas.length;
 
-      const personas = personasPorHora.porHora[h] || 0;
-      const meta = personas * targetPorPersona;
-      const esFuturo = i > posActual;
-      const esActual = i === posActual;
-      const esPasado = i < posActual;
-      const real = esFuturo ? null : realPorHoraFn(h);
-
-      // La meta se conoce de antemano: se acumula para TODAS las horas del
-      // turno, hayan pasado o no. El real acumulado solo avanza hasta la
-      // hora actual (todavía no hay dato real para las horas futuras).
-      metaAcum += meta;
-
-      if(!esFuturo){
-        realAcum += real;
-      }
-
-      let estado = null;
-
-      // La hora en curso todavía no terminó: no se evalúa (ni se colorea
-      // como cumplida/en riesgo/no cumplida) hasta que la hora concluya.
-      if(esPasado && meta > 0){
-        const pct = real / meta;
-        estado = pct >= 1 ? "cumplida" : (pct >= 0.9 ? "riesgo" : "no_cumplida");
-      }
-
-      return {
-        hora: h,
-        personas: personas,
-        meta: meta,
-        real: real,
-        proyeccion: esFuturo ? meta : null,
-        metaAcumulada: metaAcum,
-        realAcumulado: esFuturo ? null : realAcum,
-        estado: estado,
-        esHoraActual: h === horaActualReal,
-        esFuturo: esFuturo,
-        esActual: esActual,
-        esPasado: esPasado
-      };
-
-    });
-
-    const metaTotalTurno = filas.reduce(function(s, f){ return s + f.meta; }, 0);
-
-    return { filas: filas, metaTotal: metaTotalTurno, realTotal: realAcum };
-
-  }
-
-  const picking = construirSerie(
-    DASH_TARGET_PICKING_TN_PERSONA,
-    personasPicking,
-    function(h){ return (hxh.PICKING && hxh.PICKING.totales.valores[h]) || 0; }
-  );
-
-  const extraccion = construirSerie(
-    DASH_TARGET_EXTRACCION_PAL_PERSONA,
-    personasExtraccion,
-    function(h){ return (hxh.EXTRACCION && hxh.EXTRACCION.totales.valores[h]) || 0; }
-  );
-
-  const tnEjecutado = horas.reduce(function(s, h, i){
-    if(i > posActual) return s;
-    return s + (tnPorHora[h] || 0);
-  }, 0);
-
-  const tnPlanificado = canalData.totalTN;
-  const tnRestante = Math.max(tnPlanificado - tnEjecutado, 0);
-
-  const horasTranscurridas = posActual + 1;
-  const proyeccionCierre = horasTranscurridas > 0
-    ? (tnEjecutado / horasTranscurridas) * horas.length
-    : 0;
+  const proyeccionCierre = proporcionTurno > 0
+    ? tnEjecutado / proporcionTurno
+    : tnEjecutado;
 
   return {
+
     fecha: fecha,
     turno: turno,
     horas: horas,
-    horaActualReal: horaActualReal,
-    posActual: posActual,
-    canales: canalData.canales,
-    tnPlanificado: tnPlanificado,
-    tnEjecutado: tnEjecutado,
-    tnRestante: tnRestante,
-    proyeccionCierre: proyeccionCierre,
-    personasActivas: personasResumen,
+    indiceHoraActual: indiceActual,
+
+    planificacion: plan,
+
+    kpis: {
+      tnEjecutado: Math.round(tnEjecutado * 100) / 100,
+      tnRestante: Math.round(tnRestante * 100) / 100,
+      proyeccionCierre: Math.round(proyeccionCierre * 100) / 100,
+      pctEjecutado: plan.totalPlanificado > 0
+        ? Math.round((tnEjecutado / plan.totalPlanificado) * 1000) / 10
+        : 0,
+      pctProyeccion: plan.totalPlanificado > 0
+        ? Math.round((proyeccionCierre / plan.totalPlanificado) * 1000) / 10
+        : 0,
+      personasActivas: personas.activas,
+      personasPlanificadas: personas.planificadas
+    },
+
     picking: picking,
-    extraccion: extraccion
+    extraccion: extraccion,
+
+    comentarios: comentarios
+
   };
 
 }
 
-// ---------------------------------------------------------
-// COMENTARIOS DEL DASHBOARD (tabla propia comentarios_dashboard)
-// ---------------------------------------------------------
+// =========================================================
+// COMENTARIOS DEL DASHBOARD
+//
+// Tabla en Supabase (proyecto "Planificación y Avance"):
+//
+//   create table comentarios_dashboard (
+//     id uuid primary key default gen_random_uuid(),
+//     fecha date not null,
+//     turno text not null,
+//     proceso text not null,      -- 'PICKING' | 'EXTRACCION'
+//     hora int not null,
+//     autor text not null,
+//     comentario text not null,
+//     created_at timestamptz default now()
+//   );
+// =========================================================
 
 async function obtenerComentariosDashboard(fecha, turno){
 
   return await planifFetch(
-    "/comentarios_dashboard?select=*" +
+    "/comentarios_dashboard?select=id,proceso,hora,autor,comentario,created_at" +
     "&fecha=eq." + encodeURIComponent(fecha) +
     "&turno=eq." + encodeURIComponent(turno) +
     "&order=created_at.desc"
@@ -272,12 +295,21 @@ async function obtenerComentariosDashboard(fecha, turno){
 
 async function guardarComentarioDashboard(registro){
 
+  const payload = [{
+    fecha: registro.fecha,
+    turno: registro.turno === "DÍA" ? "DIA" : registro.turno,
+    proceso: registro.proceso,
+    hora: registro.hora,
+    autor: registro.autor || "Usuario",
+    comentario: registro.comentario
+  }];
+
   const datos = await planifFetch(
     "/comentarios_dashboard",
     {
       method: "POST",
       headers: { "Prefer": "return=representation" },
-      body: JSON.stringify(registro)
+      body: JSON.stringify(payload)
     }
   );
 

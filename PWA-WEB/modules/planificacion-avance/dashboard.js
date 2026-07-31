@@ -1,276 +1,350 @@
-// =======================================
+// =========================================================
 // DASHBOARD (PLANIFICACIÓN Y AVANCE DIARIO) - UI
-// =======================================
+// Portado 1:1 desde jsDashboard.html del proyecto original,
+// reemplazando google.script.run por llamadas async directas.
+// =========================================================
 
-let dashDatos = null;
-let dashIntervaloReloj = null;
-let dashComentarioSeleccionado = null;
+let dashDataActual = null;
+let dashRelojIntervalo = null;
 
-function formatoTN(valor){
-  return (Number(valor) || 0).toLocaleString("es-PE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " TN";
+function dashAutor(){
+  const sesion = JSON.parse(localStorage.getItem("latam400_sesion") || "{}");
+  return sesion.nombre || sesion.usuario || "Usuario";
 }
 
-function formatoPal(valor){
-  return Math.round(Number(valor) || 0) + " PAL";
+// =====================================================================
+// APERTURA / CARGA
+// =====================================================================
+
+function abrirDashboard(){
+
+  document.getElementById("modDashboard").style.display = "block";
+
+  document.getElementById("dashSubFecha").textContent = "📅 " + fechaSeleccionada;
+  document.getElementById("dashSubTurno").textContent = "☀ Turno: " + (turnoSeleccionado === "DIA" ? "DÍA" : turnoSeleccionado);
+
+  dashActualizarReloj();
+  if(dashRelojIntervalo) clearInterval(dashRelojIntervalo);
+  dashRelojIntervalo = setInterval(dashActualizarReloj, 30000);
+
+  cargarDashboard();
+
 }
 
-function formatoHora(h){
-  return String(h).padStart(2, "0") + ":00";
+function dashActualizarReloj(){
+  const ahora = new Date();
+  const horas = String(ahora.getHours()).padStart(2, "0");
+  const minutos = String(ahora.getMinutes()).padStart(2, "0");
+  const el = document.getElementById("dashHoraActual");
+  if(el) el.textContent = horas + ":" + minutos;
 }
 
 async function cargarDashboard(){
 
-  const fecha = document.getElementById("fecha").value;
-  const turno = document.getElementById("turno").value;
-
-  if(!fecha || !turno){
-    return;
-  }
-
-  document.getElementById("dashMensajeCarga").classList.remove("oculto");
-  document.getElementById("dashContenido").classList.add("oculto");
-
   try{
 
-    const [datos, comentarios] = await Promise.all([
-      construirDashboard(fecha, normalizarTurnoPlanif(turno)),
-      obtenerComentariosDashboard(fecha, normalizarTurnoPlanif(turno))
-    ]);
+    const data = await obtenerDashboard(fechaSeleccionada, turnoSeleccionado);
+    renderDashboard(data);
 
-    dashDatos = datos;
-    dashDatos.comentarios = comentarios;
-
-    pintarDashboard();
-
-    document.getElementById("dashMensajeCarga").classList.add("oculto");
-    document.getElementById("dashContenido").classList.remove("oculto");
-
-    document.getElementById("dashUltimaActualizacion").textContent =
-      new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
-
-    const [anio, mes, dia] = fecha.split("-");
-    document.getElementById("dashFechaLegible").textContent = dia + "/" + mes + "/" + anio;
-    document.getElementById("dashTurnoLegible").textContent = dashDatos.turno === "NOCHE" ? "NOCHE (19:00 - 07:00)" : "DÍA (07:00 - 19:00)";
-
-    iniciarRelojDashboard();
-
-  }catch(e){
-
-    document.getElementById("dashMensajeCarga").textContent =
-      "Error al cargar el dashboard: " + e.message;
-
+  }catch(err){
+    mostrarAlertaModal("No se pudo cargar el Dashboard: " + (err.message || err), "error");
   }
 
 }
 
-function iniciarRelojDashboard(){
 
-  if(dashIntervaloReloj){
-    clearInterval(dashIntervaloReloj);
-  }
+// =====================================================================
+// RENDER PRINCIPAL
+// =====================================================================
 
-  function actualizarReloj(){
-    const el = document.getElementById("dashHoraActual");
-    if(el){
-      el.textContent = new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
-    }
-  }
+function renderDashboard(data){
 
-  actualizarReloj();
-  dashIntervaloReloj = setInterval(actualizarReloj, 30000);
+  dashDataActual = data;
+
+  document.getElementById("dashUltimaActualizacion").textContent =
+    String(new Date().getHours()).padStart(2, "0") + ":" + String(new Date().getMinutes()).padStart(2, "0");
+
+  // ---- Planificación por canal ----
+  const contPlan = document.getElementById("dashPlanCanales");
+  contPlan.innerHTML = data.planificacion.canales.map(function(c){
+    return (
+      '<div class="dash-plan-canal">' +
+        '<div class="dash-plan-canal-fila">' +
+          '<span class="dash-plan-canal-nombre">' + c.nombre + '</span>' +
+          '<span class="dash-plan-canal-valor">' + dashFmt(c.tn) + ' TN &nbsp; ' + c.pct + '%</span>' +
+        '</div>' +
+        '<div class="dash-plan-barra-fondo"><div class="dash-plan-barra-relleno" style="width:' + c.pct + '%"></div></div>' +
+      '</div>'
+    );
+  }).join("") || '<div class="dash-comentarios-vacio">Sin viajes planificados para esta fecha/turno.</div>';
+
+  document.getElementById("dashPlanTotal").textContent = dashFmt(data.planificacion.totalPlanificado) + " TN";
+
+  // ---- KPIs ----
+  document.getElementById("dashKpiEjecutado").textContent = dashFmt(data.kpis.tnEjecutado);
+  document.getElementById("dashKpiEjecutadoPct").textContent = data.kpis.pctEjecutado + "% del objetivo";
+
+  document.getElementById("dashKpiRestante").textContent = dashFmt(data.kpis.tnRestante);
+  document.getElementById("dashKpiRestantePct").textContent = (100 - data.kpis.pctEjecutado > 0 ? Math.round((100 - data.kpis.pctEjecutado) * 10) / 10 : 0) + "% por ejecutar";
+
+  document.getElementById("dashKpiProyeccion").textContent = dashFmt(data.kpis.proyeccionCierre);
+  document.getElementById("dashKpiProyeccionPct").textContent = data.kpis.pctProyeccion + "% del objetivo";
+  document.getElementById("dashKpiProyeccionFlecha").textContent = data.kpis.pctProyeccion >= 100 ? "↑" : "↓";
+
+  document.getElementById("dashKpiPersonas").textContent = data.kpis.personasActivas;
+  document.getElementById("dashKpiPersonasSub").textContent = "de " + data.kpis.personasPlanificadas + " planificadas";
+
+  document.getElementById("dashTargetPersona").textContent = DASH_METAS.TARGET_TN_POR_PERSONA_HORA;
+
+  // ---- Sparklines ----
+  document.getElementById("dashSparkEjecutado").innerHTML = dashSparklineSvg(dashAcumuladoCombinado(data, "real"), "#1e8449");
+  document.getElementById("dashSparkRestante").innerHTML = dashSparklineSvg(dashRestanteSerie(data), "#e67e22");
+  document.getElementById("dashSparkProyeccion").innerHTML = dashSparklineSvg(dashAcumuladoCombinado(data, "meta"), "#6c3483");
+  document.getElementById("dashSparkPersonas").innerHTML = dashSparklineSvg(dashPersonasCombinadas(data), "#1f6feb");
+
+  // ---- Gráficos Picking / Extracción ----
+  document.getElementById("dashGraficoPicking").innerHTML =
+    dashGraficoSvg("PICKING", data.picking, data.horas, data.indiceHoraActual, data.comentarios);
+
+  document.getElementById("dashGraficoExtraccion").innerHTML =
+    dashGraficoSvg("EXTRACCION", data.extraccion, data.horas, data.indiceHoraActual, data.comentarios);
+
+  // ---- Tablas meta/real acumulada ----
+  dashPintarFila("dashPickingMetaAcum", data.picking.metaAcumulada);
+  dashPintarFila("dashPickingRealAcum", data.picking.realAcumulada);
+  dashPintarFila("dashExtraccionMetaAcum", data.extraccion.metaAcumulada);
+  dashPintarFila("dashExtraccionRealAcum", data.extraccion.realAcumulada);
+
+  // ---- Comentarios ----
+  renderComentariosDash(data.comentarios);
+
+  // ---- Combo "Hora" del modal ----
+  const selHora = document.getElementById("dashComHora");
+  selHora.innerHTML = data.horas.map(function(h){
+    return '<option value="' + h + '">' + String(h).padStart(2, "0") + ':00</option>';
+  }).join("");
 
 }
 
-function pintarDashboard(){
 
-  pintarCanales();
-  pintarKPIsDashboard();
-  pintarSeccion("PICKING", dashDatos.picking, "dashChartPicking", "dashResumenPicking", formatoTN, "TN");
-  pintarSeccion("EXTRACCION", dashDatos.extraccion, "dashChartExtraccion", "dashResumenExtraccion", formatoPal, "PAL");
-  pintarComentariosDashboard();
+// =====================================================================
+// HELPERS DE FORMATO / SERIES
+// =====================================================================
+
+function dashFmt(n){
+  if(n === null || n === undefined) return "—";
+  return Number(n).toFixed(1);
+}
+
+function dashAcumuladoCombinado(data, tipo){
+  const campo = tipo === "real" ? "realAcumulada" : "metaAcumulada";
+  return data.horas.map(function(h, i){
+    const p = data.picking[campo][i] || 0;
+    const e = data.extraccion[campo][i] || 0;
+    return (data.picking[campo][i] === null && data.extraccion[campo][i] === null) ? null : (p + e);
+  });
+}
+
+function dashRestanteSerie(data){
+  const total = data.planificacion.totalPlanificado;
+  return dashAcumuladoCombinado(data, "real").map(function(v){
+    return v === null ? null : Math.max(total - v, 0);
+  });
+}
+
+function dashPersonasCombinadas(data){
+  return data.horas.map(function(h, i){
+    return (data.picking.personas[i] || 0) + (data.extraccion.personas[i] || 0);
+  });
+}
+
+
+// =====================================================================
+// TABLA META / REAL ACUMULADA (fila de la tabla resumen)
+// =====================================================================
+
+function dashPintarFila(idCelda, valores){
+
+  // La primera vez se ubica por el <td id="..."> original; como reconstruir
+  // la fila destruye ese id, la marcamos con data-fila-id para encontrarla
+  // directamente en las siguientes veces (si no, getElementById(idCelda)
+  // devolvería null después del primer render).
+  let fila = document.querySelector('tr[data-fila-id="' + idCelda + '"]');
+
+  if(!fila){
+    fila = document.getElementById(idCelda).parentElement;
+    fila.setAttribute("data-fila-id", idCelda);
+  }
+
+  const label = fila.querySelector(".dash-tabla-label").outerHTML;
+  const celdas = valores.map(function(v){
+    return '<td>' + (v === null || v === undefined ? "—" : dashFmt(v)) + '</td>';
+  }).join("");
+
+  fila.innerHTML = label + celdas;
 
 }
 
-function pintarCanales(){
 
-  const cont = document.getElementById("dashCanales");
-  cont.innerHTML = "";
+// =====================================================================
+// SPARKLINE SVG (mini gráfico de línea, sin librerías)
+// =====================================================================
 
-  dashDatos.canales.forEach(function(c){
+function dashSparklineSvg(valores, color){
 
-    const fila = document.createElement("div");
-    fila.className = "dash-canal-fila";
+  const limpios = valores.filter(function(v){ return v !== null && v !== undefined; });
+  if(limpios.length < 2) return "";
 
-    const nombreLegible = c.nombre.toLowerCase().replace(/(^|\s|\/)\S/g, function(m){ return m.toUpperCase(); });
+  const max = Math.max.apply(null, limpios);
+  const min = Math.min.apply(null, limpios);
+  const rango = (max - min) || 1;
 
-    fila.innerHTML =
-      '<span class="dash-canal-nombre" title="' + c.nombre + '">' + nombreLegible + '</span>' +
-      '<div class="dash-canal-barra"><div class="dash-canal-barra-relleno" style="width:' + c.pct.toFixed(1) + '%"></div></div>' +
-      '<span class="dash-canal-tn">' + formatoTN(c.tn) + '</span>' +
-      '<span class="dash-canal-pct">' + c.pct.toFixed(0) + '%</span>';
+  const ancho = 200, alto = 60, pad = 4;
+  const paso = (ancho - pad * 2) / (limpios.length - 1);
 
-    cont.appendChild(fila);
-
+  const puntos = limpios.map(function(v, i){
+    const x = pad + i * paso;
+    const y = alto - pad - ((v - min) / rango) * (alto - pad * 2);
+    return x.toFixed(1) + "," + y.toFixed(1);
   });
 
-  if(dashDatos.canales.length === 0){
-    cont.innerHTML = '<div class="dash-lista-vacia">Sin planificación registrada.</div>';
-  }
+  const area = "M" + puntos[0] + " L" + puntos.join(" L") + " L" + (ancho - pad) + "," + alto + " L" + pad + "," + alto + " Z";
 
-  document.getElementById("dashTotalPlanificado").textContent = formatoTN(dashDatos.tnPlanificado);
-
-}
-
-function pintarKPIsDashboard(){
-
-  const d = dashDatos;
-
-  document.getElementById("dashTnEjecutado").textContent = formatoTN(d.tnEjecutado);
-  document.getElementById("dashTnEjecutadoPct").textContent =
-    d.tnPlanificado > 0 ? ((d.tnEjecutado / d.tnPlanificado) * 100).toFixed(1) + "% del objetivo" : "-";
-
-  document.getElementById("dashTnRestante").textContent = formatoTN(d.tnRestante);
-  document.getElementById("dashTnRestantePct").textContent =
-    d.tnPlanificado > 0 ? ((d.tnRestante / d.tnPlanificado) * 100).toFixed(1) + "% por ejecutar" : "-";
-
-  document.getElementById("dashProyeccion").textContent = formatoTN(d.proyeccionCierre);
-  document.getElementById("dashProyeccionPct").textContent =
-    d.tnPlanificado > 0 ? ((d.proyeccionCierre / d.tnPlanificado) * 100).toFixed(1) + "% del objetivo" : "-";
-
-  document.getElementById("dashProyeccionFlecha").classList.toggle(
-    "oculto", !(d.tnPlanificado > 0 && d.proyeccionCierre >= d.tnPlanificado)
+  return (
+    '<polyline points="' + puntos.join(" ") + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="' + area + '" fill="' + color + '" opacity="0.12"/>'
   );
 
-  document.getElementById("dashPersonas").textContent =
-    d.personasActivas.activos + " de " + d.personasActivas.total;
-
 }
 
-function iconoEstado(estado){
-  if(estado === "cumplida") return '<span class="dash-circulo dash-circulo-verde">✓</span>';
-  if(estado === "riesgo") return '<span class="dash-circulo dash-circulo-ambar">●</span>';
-  if(estado === "no_cumplida") return '<span class="dash-circulo dash-circulo-rojo">✕</span>';
-  return "";
-}
 
-function pintarEjeY(idEje, maxValor, unidad){
+// =====================================================================
+// GRÁFICO DE BARRAS POR HORA (Picking / Extracción)
+// =====================================================================
 
-  const eje = document.getElementById(idEje);
-  if(!eje) return;
+function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios){
 
-  const pasos = 4;
-  const marcas = [];
+  const ancho = 1000;
+  const alto = 190;
+  const margenIzq = 26;
+  const topOffset = 18;   // fila de "personas asignadas"
+  const margenAbajo = 34; // fila de ícono de estado + fila de hora
+  const areaAlto = alto - topOffset - margenAbajo;
+  const anchoCol = (ancho - margenIzq - 10) / horas.length;
+  const baseY = topOffset + areaAlto;
 
-  for(let i = pasos; i >= 0; i--){
-    marcas.push(Math.round((maxValor / 1.15) * (i / pasos)));
-  }
+  const max = Math.max(
+    Math.max.apply(null, serie.target),
+    Math.max.apply(null, serie.real),
+    1
+  ) * 1.15;
 
-  eje.innerHTML =
-    '<span class="dash-eje-y-unidad">' + unidad + '</span>' +
-    '<div class="dash-eje-y-marcas">' +
-      marcas.map(function(v){ return '<span>' + v + '</span>'; }).join("") +
-    '</div>';
+  function y(v){ return topOffset + areaAlto - (v / max) * areaAlto; }
 
-}
+  let svg =
+    '<svg class="dash-grafico-svg" viewBox="0 0 ' + ancho + ' ' + alto + '" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">' +
+    '<defs><pattern id="dashPatronProyeccion" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">' +
+    '<rect width="6" height="6" fill="#ded4f0"/><line x1="0" y1="0" x2="0" y2="6" stroke="#a78bd6" stroke-width="2"/>' +
+    '</pattern></defs>';
 
-function pintarSeccion(proceso, serie, idChart, idResumen, formateador, unidad){
+  horas.forEach(function(h, i){
 
-  const chart = document.getElementById(idChart);
-  chart.innerHTML = "";
+    const cx = margenIzq + i * anchoCol + anchoCol / 2;
+    const esFutura = indiceActual < 0 ? true : i > indiceActual;
+    const esActual = i === indiceActual;
 
-  const maxValor = serie.filas.reduce(function(m, f){
-    return Math.max(m, f.meta || 0, f.real || 0, f.proyeccion || 0);
-  }, 1) * 1.15;
+    const targetVal = serie.target[i] || 0;
+    const realVal = serie.real[i] || 0;
+    const personasVal = serie.personas[i] || 0;
 
-  pintarEjeY(idChart === "dashChartPicking" ? "dashEjePicking" : "dashEjeExtraccion", maxValor, unidad);
-
-  const ALTO_PX = 160;
-
-  serie.filas.forEach(function(f){
-
-    const col = document.createElement("div");
-    col.className = "dash-hora-col" + (f.esHoraActual ? " dash-hora-actual" : "");
-    col.onclick = function(){ abrirModalComentario(proceso, f); };
-
-    const altoTarget = Math.max((f.meta / maxValor) * ALTO_PX, f.meta > 0 ? 2 : 0);
-    const altoReal = f.real !== null ? Math.max((f.real / maxValor) * ALTO_PX, f.real > 0 ? 2 : 0) : 0;
-    const altoProy = f.proyeccion !== null ? Math.max((f.proyeccion / maxValor) * ALTO_PX, 2) : 0;
-
-    const valorTarget = formateador(f.meta).replace(" " + unidad, "");
-
-    let barras =
-      '<div class="dash-barra-columna">' +
-        '<div class="dash-barra-valor">' + valorTarget + '</div>' +
-        '<div class="dash-barra dash-barra-target" style="height:' + altoTarget + 'px"></div>' +
-      '</div>';
-
-    if(f.esFuturo){
-      barras +=
-        '<div class="dash-barra-columna">' +
-          '<div class="dash-barra dash-barra-proyeccion" style="height:' + altoProy + 'px"></div>' +
-        '</div>';
-    }else{
-      const valorReal = formateador(f.real).replace(" " + unidad, "");
-      barras +=
-        '<div class="dash-barra-columna">' +
-          '<div class="dash-barra-valor">' + valorReal + '</div>' +
-          '<div class="dash-barra dash-barra-real' + (f.estado ? ' dash-real-' + f.estado : '') + '" style="height:' + altoReal + 'px"></div>' +
-        '</div>';
+    if(esActual){
+      svg += '<line class="dash-barra-hora-actual-linea" x1="' + cx + '" y1="' + topOffset + '" x2="' + cx + '" y2="' + baseY + '"/>';
     }
 
-    const tieneComentario = (dashDatos.comentarios || []).some(function(c){
-      return c.proceso === proceso && c.hora === f.hora;
+    // Personas asignadas (arriba)
+    svg += '<text class="dash-persona-label" x="' + cx + '" y="9">👤 ' + personasVal + '</text>';
+
+    svg += '<g class="dash-col-hora" style="cursor:pointer" onclick="dashClickHora(\'' + proceso + '\',' + h + ')">';
+
+    if(esFutura){
+
+      // Solo proyección (barra rayada) = target
+      const bw = anchoCol * 0.5;
+      const bx = cx - bw / 2;
+      const by = y(targetVal);
+      svg += '<rect class="dash-barra-proy" x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + (baseY - by) + '" rx="3"/>';
+      svg += '<text class="dash-valor-label" x="' + cx + '" y="' + (by - 3) + '">' + dashFmt(targetVal) + '</text>';
+
+    }else{
+
+      // Target (azul) + Real (verde/ámbar/rojo)
+      const bw = anchoCol * 0.32;
+      const bxT = cx - bw - 2;
+      const bxR = cx + 2;
+
+      const byT = y(targetVal);
+      svg += '<rect class="dash-barra-target" x="' + bxT + '" y="' + byT + '" width="' + bw + '" height="' + (baseY - byT) + '" rx="3"/>';
+      svg += '<text class="dash-valor-label" x="' + (bxT + bw / 2) + '" y="' + (byT - 3) + '">' + dashFmt(targetVal) + '</text>';
+
+      const pct = targetVal > 0 ? (realVal / targetVal) * 100 : 100;
+      const claseReal = pct >= 100 ? "dash-barra-real-ok" : (pct >= 90 ? "dash-barra-real-riesgo" : "dash-barra-real-mal");
+
+      const byR = y(realVal);
+      svg += '<rect class="' + claseReal + '" x="' + bxR + '" y="' + byR + '" width="' + bw + '" height="' + (baseY - byR) + '" rx="3"/>';
+      svg += '<text class="dash-valor-label" x="' + (bxR + bw / 2) + '" y="' + (byR - 3) + '">' + dashFmt(realVal) + '</text>';
+
+      const icono = pct >= 100 ? "✅" : (pct >= 90 ? "🟡" : "❌");
+      svg += '<text x="' + cx + '" y="' + (baseY + 13) + '" text-anchor="middle" font-size="10">' + icono + '</text>';
+
+    }
+
+    // Ícono de comentario si existe alguno para esta hora/proceso
+    const tieneComentario = (comentarios || []).some(function(c){
+      return c.proceso === proceso && Number(c.hora) === h;
     });
+    if(tieneComentario){
+      svg += '<text x="' + (cx + anchoCol * 0.32) + '" y="15" font-size="10">💬</text>';
+    }
 
-    col.innerHTML =
-      '<div class="dash-hora-personas">👤 ' + f.personas + '</div>' +
-      '<div class="dash-hora-barras">' + barras + '</div>' +
-      '<div class="dash-hora-label">' + formatoHora(f.hora) + '</div>' +
-      '<div class="dash-hora-estado">' + iconoEstado(f.estado) + '</div>' +
-      (f.esHoraActual ? '<div class="dash-hora-actual-label">HORA ACTUAL</div>' : '') +
-      (tieneComentario ? '<div class="dash-hora-comentario">💬</div>' : '');
+    svg += '</g>';
 
-    chart.appendChild(col);
+    // Etiqueta de hora
+    svg += '<text class="dash-hora-label" x="' + cx + '" y="' + (alto - 5) + '">' + String(h).padStart(2, "0") + ':00</text>';
 
   });
 
-  const resumen = document.getElementById(idResumen);
+  svg += '</svg>';
 
-  function filaResumen(etiqueta, valores){
-    const valoresHtml = valores.map(function(v){
-      return '<div class="dash-resumen-valor">' + (v === null ? "-" : formateador(v).replace(" " + unidad, "")) + '</div>';
-    }).join("");
-    return '<div class="dash-resumen-fila"><span>' + etiqueta + ' (' + unidad + ')</span><div class="dash-resumen-valores">' + valoresHtml + '</div></div>';
-  }
-
-  resumen.innerHTML =
-    filaResumen("Meta Acumulada", serie.filas.map(function(f){ return f.metaAcumulada; })) +
-    filaResumen("Real Acumulado", serie.filas.map(function(f){ return f.realAcumulado; }));
+  return svg;
 
 }
 
-function pintarComentariosDashboard(){
 
-  const cont = document.getElementById("dashListaComentarios");
-  const lista = dashDatos.comentarios || [];
+// =====================================================================
+// COMENTARIOS
+// =====================================================================
 
-  document.getElementById("dashBadgeComentarios").textContent = lista.length;
+function renderComentariosDash(comentarios){
 
-  if(lista.length === 0){
-    cont.innerHTML = '<div class="dash-lista-vacia">Sin comentarios registrados.</div>';
+  document.getElementById("dashComentariosBadge").textContent = comentarios.length;
+
+  const cont = document.getElementById("dashComentariosLista");
+
+  if(!comentarios || comentarios.length === 0){
+    cont.innerHTML = '<div class="dash-comentarios-vacio">Sin comentarios registrados.</div>';
     return;
   }
 
-  cont.innerHTML = lista.map(function(c){
+  cont.innerHTML = comentarios.map(function(c){
 
-    const sevClase = c.severidad === "critico" ? " dash-sev-critico" : (c.severidad === "riesgo" ? " dash-sev-riesgo" : "");
-    const fechaHora = c.created_at ? new Date(c.created_at).toLocaleString("es-PE", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) : "";
+    const fecha = new Date(c.created_at);
+    const hora = String(fecha.getHours()).padStart(2, "0") + ":" + String(fecha.getMinutes()).padStart(2, "0");
 
     return (
-      '<div class="dash-comentario-item' + sevClase + '">' +
-      '<div class="dash-comentario-meta"><span class="dash-comentario-dot"></span>' + formatoHora(c.hora) + ' &nbsp; ' + c.proceso + '</div>' +
-      '<div class="dash-comentario-texto">' + c.comentario + '</div>' +
-      '<div class="dash-comentario-autor"><span>👤 ' + (c.autor || "Usuario") + ' · ' + fechaHora + '</span><span class="dash-comentario-editar" title="Editar">✏️</span></div>' +
+      '<div class="dash-comentario-card">' +
+        '<div class="dash-comentario-hora">' + String(c.hora).padStart(2, "0") + ':00 &nbsp; ' + c.proceso + '</div>' +
+        '<div class="dash-comentario-texto">' + dashEscapar(c.comentario) + '</div>' +
+        '<div class="dash-comentario-autor">• ' + dashEscapar(c.autor) + ' &nbsp; ' + hora + '</div>' +
       '</div>'
     );
 
@@ -278,93 +352,53 @@ function pintarComentariosDashboard(){
 
 }
 
-// ---------------------------------------------------------
-// MODAL "AGREGAR COMENTARIO"
-// ---------------------------------------------------------
+function dashEscapar(texto){
+  const div = document.createElement("div");
+  div.textContent = texto || "";
+  return div.innerHTML;
+}
 
-function abrirModalComentario(proceso, fila){
+function dashClickHora(proceso, hora){
+  abrirModalComentarioDash();
+  document.getElementById("dashComProceso").value = proceso;
+  document.getElementById("dashComHora").value = hora;
+}
 
-  dashComentarioSeleccionado = { proceso: proceso, hora: fila.hora, meta: fila.meta, real: fila.real };
-
-  document.getElementById("dashComArea").textContent = proceso === "PICKING" ? "PICKING" : "EXTRACCIÓN";
-  document.getElementById("dashComHora").textContent = formatoHora(fila.hora);
-  document.getElementById("dashComMeta").textContent = fila.meta !== null ? fila.meta.toFixed(2) : "-";
-  document.getElementById("dashComReal").textContent = fila.real !== null ? fila.real.toFixed(2) : "-";
+function abrirModalComentarioDash(){
+  document.getElementById("dashModalComentario").style.display = "flex";
   document.getElementById("dashComTexto").value = "";
-  document.getElementById("dashComContador").textContent = "0";
-
-  document.getElementById("dashModalComentario").classList.remove("oculto");
-
 }
 
-function cerrarModalComentario(){
-  document.getElementById("dashModalComentario").classList.add("oculto");
-  dashComentarioSeleccionado = null;
+function cerrarModalComentarioDash(){
+  document.getElementById("dashModalComentario").style.display = "none";
 }
 
-async function guardarComentarioDashboardUI(){
+async function guardarComentarioDash(){
 
   const texto = document.getElementById("dashComTexto").value.trim();
 
-  if(!texto){
+  if(texto === ""){
     mostrarAlertaModal("Escribe un comentario antes de guardar.", "warning");
     return;
   }
 
-  if(!dashComentarioSeleccionado){
-    return;
-  }
-
-  const sesion = JSON.parse(localStorage.getItem("latam400_sesion") || "{}");
+  const registro = {
+    fecha: fechaSeleccionada,
+    turno: turnoSeleccionado,
+    proceso: document.getElementById("dashComProceso").value,
+    hora: Number(document.getElementById("dashComHora").value),
+    autor: dashAutor(),
+    comentario: texto
+  };
 
   try{
 
-    await guardarComentarioDashboard({
-      fecha: dashDatos.fecha,
-      turno: dashDatos.turno,
-      proceso: dashComentarioSeleccionado.proceso,
-      hora: dashComentarioSeleccionado.hora,
-      meta: dashComentarioSeleccionado.meta,
-      real: dashComentarioSeleccionado.real,
-      comentario: texto,
-      autor: sesion.nombre || sesion.usuario || "Usuario"
-    });
+    await guardarComentarioDashboard(registro);
+    cerrarModalComentarioDash();
+    cargarDashboard();
 
-    cerrarModalComentario();
-
-    dashDatos.comentarios = await obtenerComentariosDashboard(dashDatos.fecha, dashDatos.turno);
-    pintarComentariosDashboard();
-    pintarSeccion("PICKING", dashDatos.picking, "dashChartPicking", "dashResumenPicking", formatoTN, "TN");
-    pintarSeccion("EXTRACCION", dashDatos.extraccion, "dashChartExtraccion", "dashResumenExtraccion", formatoPal, "PAL");
-
-  }catch(e){
-    mostrarAlertaModal("Error al guardar el comentario: " + e.message, "error");
+  }catch(err){
+    mostrarAlertaModal("No se pudo guardar el comentario: " + (err.message || err), "error");
   }
 
 }
-
-document.addEventListener("DOMContentLoaded", function(){
-
-  const btnRefrescar = document.getElementById("btnDashRefrescar");
-  if(btnRefrescar) btnRefrescar.onclick = cargarDashboard;
-
-  const btnNuevo = document.getElementById("btnDashNuevoComentario");
-  if(btnNuevo) btnNuevo.onclick = function(){
-    abrirModalComentario("PICKING", { hora: new Date().getHours(), meta: null, real: null });
-  };
-
-  const btnCancelar = document.getElementById("btnDashCancelarComentario");
-  if(btnCancelar) btnCancelar.onclick = cerrarModalComentario;
-
-  const btnCerrar = document.getElementById("btnDashCerrarComentario");
-  if(btnCerrar) btnCerrar.onclick = cerrarModalComentario;
-
-  const btnGuardar = document.getElementById("btnDashGuardarComentario");
-  if(btnGuardar) btnGuardar.onclick = guardarComentarioDashboardUI;
-
-  const textoComentario = document.getElementById("dashComTexto");
-  if(textoComentario) textoComentario.addEventListener("input", function(){
-    document.getElementById("dashComContador").textContent = textoComentario.value.length;
-  });
-
-});

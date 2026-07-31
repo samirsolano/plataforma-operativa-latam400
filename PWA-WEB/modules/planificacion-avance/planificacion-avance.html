@@ -695,184 +695,194 @@
 
         <div id="modDashboard" style="display:none;">
 
-          <div class="dash-wrap">
+          <!-- ================= BARRA SUPERIOR ================= -->
+          <div class="dash-topbar">
 
-            <div class="dash-header">
-
-              <div class="dash-header-titulo">
-                <h2>PLANIFICACIÓN Y AVANCE DIARIO</h2>
-                <div class="dash-header-subinfo">
-                  <span>📅 <b id="dashFechaLegible">-</b></span>
-                  <span>🕐 Turno: <b id="dashTurnoLegible">-</b></span>
+            <div class="dash-topbar-izq">
+              <div class="dash-topbar-icono">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <div>
+                <div class="dash-topbar-titulo">PLANIFICACIÓN Y AVANCE DIARIO</div>
+                <div class="dash-topbar-sub">
+                  <span id="dashSubFecha">📅 —</span>
+                  <span id="dashSubTurno">☀ Turno: —</span>
                 </div>
               </div>
-
-              <div class="dash-header-controles">
-
-                <span class="dash-info-hora">🕐 Hora actual: <b id="dashHoraActual">-</b></span>
-                <span class="dash-info-act">🟢 Última actualización: <b id="dashUltimaActualizacion">-</b></span>
-
-                <button class="dash-btn-claro" onclick="alternarPantallaCompleta()" title="Ver en pantalla completa">⛶ Pantalla completa</button>
-
-                <button class="dash-btn-refrescar" id="btnDashRefrescar" title="Actualizar">🔄</button>
-
-              </div>
-
             </div>
 
-            <p id="dashMensajeCarga" class="dash-mensaje-carga">Cargando datos...</p>
+            <div class="dash-topbar-der">
+              <div class="dash-hora-actual">🕒 Hora actual: <b id="dashHoraActual">—</b></div>
+              <div class="dash-ultima-act"><span class="dash-dot"></span> Última actualización: <span id="dashUltimaActualizacion">—</span></div>
+              <button class="dash-btn-claro" onclick="alternarPantallaCompleta()" title="Ver en pantalla completa">⛶ Pantalla completa</button>
+              <button class="dash-btn-refrescar" onclick="cargarDashboard()" title="Actualizar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FC000D" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              </button>
+            </div>
 
-            <div id="dashContenido" class="oculto">
+          </div>
 
-              <div class="dash-fila-superior">
+          <!-- ================= FILA DE TARJETAS ================= -->
+          <div class="dash-fila-cards">
 
-                <div class="dash-card dash-card-canales">
+            <div class="dash-card dash-card-plan">
+              <div class="dash-card-titulo dash-titulo-azul">PLANIFICACIÓN DEL DÍA (TNL)</div>
+              <div id="dashPlanCanales" class="dash-plan-canales"></div>
+              <div class="dash-plan-total">
+                <span>TOTAL PLANIFICADO</span>
+                <b id="dashPlanTotal">— TN</b>
+              </div>
+            </div>
 
-                  <div class="dash-card-titulo">PLANIFICACIÓN DEL DÍA (TNL)</div>
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-verde">TNL EJECUTADO (TOTAL)</div>
+              <div class="dash-kpi-valor dash-kpi-verde"><span id="dashKpiEjecutado">—</span> TN</div>
+              <div class="dash-kpi-sub" id="dashKpiEjecutadoPct">— del objetivo</div>
+              <svg class="dash-spark" id="dashSparkEjecutado" viewBox="0 0 200 60" preserveAspectRatio="none"></svg>
+            </div>
 
-                  <div id="dashCanales" class="dash-canales"></div>
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-naranja">TNL RESTANTE (TOTAL)</div>
+              <div class="dash-kpi-valor dash-kpi-naranja"><span id="dashKpiRestante">—</span> TN</div>
+              <div class="dash-kpi-sub" id="dashKpiRestantePct">— por ejecutar</div>
+              <svg class="dash-spark" id="dashSparkRestante" viewBox="0 0 200 60" preserveAspectRatio="none"></svg>
+            </div>
 
-                  <div class="dash-canales-total">
-                    <span>TOTAL PLANIFICADO</span>
-                    <b id="dashTotalPlanificado">-</b>
-                  </div>
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-morado">PROYECCIÓN AL CIERRE</div>
+              <div class="dash-kpi-valor dash-kpi-morado"><span id="dashKpiProyeccion">—</span> TN <span id="dashKpiProyeccionFlecha"></span></div>
+              <div class="dash-kpi-sub" id="dashKpiProyeccionPct">— del objetivo</div>
+              <svg class="dash-spark" id="dashSparkProyeccion" viewBox="0 0 200 60" preserveAspectRatio="none"></svg>
+            </div>
 
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-azul2">PERSONAS ACTIVAS</div>
+              <div class="dash-kpi-valor dash-kpi-azul2"><span id="dashKpiPersonas">—</span></div>
+              <div class="dash-kpi-sub" id="dashKpiPersonasSub">de — planificadas</div>
+              <svg class="dash-spark" id="dashSparkPersonas" viewBox="0 0 200 60" preserveAspectRatio="none"></svg>
+            </div>
+
+          </div>
+
+          <!-- ================= LEYENDA SUPERIOR ================= -->
+          <div class="dash-leyenda-top">
+            <span><i class="dash-swatch dash-sw-target"></i> Target (TN)</span>
+            <span><i class="dash-swatch dash-sw-real"></i> Real (TN)</span>
+            <span><i class="dash-swatch dash-sw-proy"></i> Proyección (TN)</span>
+            <span>👤 Personas asignadas</span>
+            <span class="dash-badge-target-persona">Target por persona: <span id="dashTargetPersona">1.2</span> TN / hora</span>
+          </div>
+
+          <!-- ================= CUERPO: GRÁFICOS + COMENTARIOS ================= -->
+          <div class="dash-cuerpo">
+
+            <div class="dash-graficos">
+
+              <!-- ---- PICKING ---- -->
+              <div class="dash-seccion">
+
+                <div class="dash-seccion-header">
+                  <span class="dash-seccion-icono">🛒</span>
+                  <span class="dash-seccion-titulo">PICKING</span>
                 </div>
 
-                <div class="dash-kpi dash-kpi-verde">
-                  <div class="dash-kpi-titulo">TNL EJECUTADO (TOTAL)</div>
-                  <div class="dash-kpi-valor" id="dashTnEjecutado">-</div>
-                  <div class="dash-kpi-nota" id="dashTnEjecutadoPct">-</div>
-                </div>
+                <div id="dashGraficoPicking"></div>
 
-                <div class="dash-kpi dash-kpi-ambar">
-                  <div class="dash-kpi-titulo">TNL RESTANTE (TOTAL)</div>
-                  <div class="dash-kpi-valor" id="dashTnRestante">-</div>
-                  <div class="dash-kpi-nota" id="dashTnRestantePct">-</div>
-                </div>
-
-                <div class="dash-kpi dash-kpi-morado">
-                  <div class="dash-kpi-titulo">PROYECCIÓN AL CIERRE</div>
-                  <div class="dash-kpi-valor-fila">
-                    <div class="dash-kpi-valor" id="dashProyeccion">-</div>
-                    <span class="dash-kpi-flecha oculto" id="dashProyeccionFlecha">▲</span>
-                  </div>
-                  <div class="dash-kpi-nota" id="dashProyeccionPct">-</div>
-                </div>
-
-                <div class="dash-kpi dash-kpi-azul">
-                  <div class="dash-kpi-titulo">PERSONAS ACTIVAS</div>
-                  <div class="dash-kpi-valor" id="dashPersonas">-</div>
-                  <div class="dash-kpi-nota" id="dashPersonasNota">de planificados</div>
-                </div>
+                <table class="dash-tabla-resumen">
+                  <tbody>
+                    <tr>
+                      <td class="dash-tabla-label">META ACUMULADA (TN)</td>
+                      <td id="dashPickingMetaAcum" colspan="12"></td>
+                    </tr>
+                    <tr>
+                      <td class="dash-tabla-label dash-tabla-label-real">REAL ACUMULADO (TN)</td>
+                      <td id="dashPickingRealAcum" colspan="12"></td>
+                    </tr>
+                  </tbody>
+                </table>
 
               </div>
 
-              <div class="dash-cuerpo">
+              <!-- ---- EXTRACCIÓN ---- -->
+              <div class="dash-seccion">
 
-                <div class="dash-col-principal">
-
-                  <div class="dash-leyenda">
-                    <span><span class="dash-caja dash-caja-target"></span> Target</span>
-                    <span><span class="dash-caja dash-caja-real"></span> Real</span>
-                    <span><span class="dash-caja dash-caja-proyeccion"></span> Proyección</span>
-                    <span>👤 Personas asignadas</span>
-                  </div>
-
-                  <div class="dash-seccion">
-
-                    <div class="dash-seccion-header">
-                      <h3>🛒 PICKING</h3>
-                      <span class="dash-seccion-target">Target por persona: <b>1.2 TN / hora</b></span>
-                    </div>
-
-                    <div class="dash-chart-fila">
-                      <div class="dash-eje-y" id="dashEjePicking"></div>
-                      <div class="dash-chart" id="dashChartPicking"></div>
-                    </div>
-
-                    <div class="dash-resumen-horas" id="dashResumenPicking"></div>
-
-                  </div>
-
-                  <div class="dash-seccion">
-
-                    <div class="dash-seccion-header">
-                      <h3>🚚 EXTRACCIÓN</h3>
-                      <span class="dash-seccion-target">Target por persona: <b>16 paletas / hora</b></span>
-                    </div>
-
-                    <div class="dash-chart-fila">
-                      <div class="dash-eje-y" id="dashEjeExtraccion"></div>
-                      <div class="dash-chart" id="dashChartExtraccion"></div>
-                    </div>
-
-                    <div class="dash-resumen-horas" id="dashResumenExtraccion"></div>
-
-                  </div>
-
+                <div class="dash-seccion-header">
+                  <span class="dash-seccion-icono">🚚</span>
+                  <span class="dash-seccion-titulo">EXTRACCIÓN</span>
                 </div>
 
-                <div class="dash-panel-comentarios">
+                <div id="dashGraficoExtraccion"></div>
 
-                  <div class="dash-panel-comentarios-header">
-                    <h3>💬 Resumen de Comentarios <span class="dash-badge-conteo" id="dashBadgeComentarios">0</span></h3>
-                  </div>
-
-                  <div id="dashListaComentarios" class="dash-lista-comentarios"></div>
-
-                  <button class="dash-btn-nuevo-comentario" id="btnDashNuevoComentario">+ Nuevo Comentario</button>
-
-                  <p class="dash-tip-comentarios">Haz clic en cualquier hora del gráfico para agregar un comentario.</p>
-
-                </div>
+                <table class="dash-tabla-resumen">
+                  <tbody>
+                    <tr>
+                      <td class="dash-tabla-label">META ACUMULADA (TN)</td>
+                      <td id="dashExtraccionMetaAcum" colspan="12"></td>
+                    </tr>
+                    <tr>
+                      <td class="dash-tabla-label dash-tabla-label-real">REAL ACUMULADO (TN)</td>
+                      <td id="dashExtraccionRealAcum" colspan="12"></td>
+                    </tr>
+                  </tbody>
+                </table>
 
               </div>
 
-              <div class="dash-footer-leyenda">
-                <span><span class="dash-circulo dash-circulo-verde">✓</span> Meta cumplida (≥100%)</span>
-                <span><span class="dash-circulo dash-circulo-ambar">●</span> En riesgo (90%-99%)</span>
-                <span><span class="dash-circulo dash-circulo-rojo">✕</span> No cumplida (&lt;90%)</span>
+              <div class="dash-leyenda-bottom">
+                <span>✅ Meta cumplida (≥100%)</span>
+                <span>🟡 En riesgo (90% - 99%)</span>
+                <span>❌ No cumplida (&lt;90%)</span>
                 <span>💬 Comentario registrado</span>
-                <span>🕐 Hora actual</span>
-                <span><span class="dash-caja dash-caja-proyeccion"></span> Proyección (planificada)</span>
+                <span>🕒 Hora actual</span>
+                <span><i class="dash-swatch dash-sw-proy"></i> Proyección (planificado)</span>
                 <span class="dash-tnl-nota">TNL = Toneladas Netas</span>
               </div>
 
             </div>
 
-          </div>
+            <!-- ---- COMENTARIOS ---- -->
+            <div class="dash-comentarios">
 
-          <div id="dashModalComentario" class="dash-modal-overlay oculto">
-
-            <div class="dash-modal">
-
-              <div class="dash-modal-header">
-                <h3>Agregar Comentario</h3>
-                <button class="dash-modal-cerrar" id="btnDashCerrarComentario" title="Cerrar">✕</button>
+              <div class="dash-comentarios-header">
+                <span>💬 RESUMEN DE COMENTARIOS</span>
+                <span class="dash-comentarios-badge" id="dashComentariosBadge">0</span>
               </div>
 
-              <div class="dash-modal-fila-datos">
-                <span>Área: <b id="dashComArea">-</b></span>
-                <span>Hora: <b id="dashComHora">-</b></span>
-              </div>
+              <div id="dashComentariosLista" class="dash-comentarios-lista"></div>
 
-              <div class="dash-modal-fila-datos">
-                <span>Meta: <b id="dashComMeta">-</b></span>
-                <span>Real: <b id="dashComReal">-</b></span>
-              </div>
+              <button class="dash-btn-nuevo-comentario" onclick="abrirModalComentarioDash()">+ NUEVO COMENTARIO</button>
 
-              <label>Comentario (obligatorio)</label>
-              <textarea id="dashComTexto" rows="4" maxlength="200" placeholder="Escribe aquí el motivo..."></textarea>
-              <div class="dash-modal-contador"><span id="dashComContador">0</span> / 200</div>
-
-              <div class="dash-modal-botones">
-                <button class="dash-btn-cancelar" id="btnDashCancelarComentario">Cancelar</button>
-                <button class="dash-btn-guardar" id="btnDashGuardarComentario">Guardar</button>
-              </div>
+              <div class="dash-comentarios-ayuda">Haz clic en cualquier hora del gráfico para agregar un comentario.</div>
 
             </div>
 
+          </div>
+
+          <!-- ================= MODAL COMENTARIO ================= -->
+          <div id="dashModalComentario" class="hxh-modal-overlay" style="display:none;">
+            <div class="hxh-modal-caja">
+              <div class="hxh-modal-header">
+                <span>💬 Nuevo comentario</span>
+                <button onclick="cerrarModalComentarioDash()">✕</button>
+              </div>
+
+              <label class="dash-modal-label">Proceso</label>
+              <select id="dashComProceso">
+                <option value="PICKING">PICKING</option>
+                <option value="EXTRACCION">EXTRACCIÓN</option>
+              </select>
+
+              <label class="dash-modal-label">Hora</label>
+              <select id="dashComHora"></select>
+
+              <label class="dash-modal-label">Comentario</label>
+              <textarea id="dashComTexto" rows="4" placeholder="Escribe el motivo o la observación..."></textarea>
+
+              <div class="hxh-modal-footer">
+                <button class="hxh-btn-claro" onclick="cerrarModalComentarioDash()">Cancelar</button>
+                <button class="hxh-btn-primario" onclick="guardarComentarioDash()">Guardar</button>
+              </div>
+            </div>
           </div>
 
         </div>
