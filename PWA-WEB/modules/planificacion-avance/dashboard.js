@@ -137,6 +137,10 @@ function pintarKPIsDashboard(){
   document.getElementById("dashProyeccionPct").textContent =
     d.tnPlanificado > 0 ? ((d.proyeccionCierre / d.tnPlanificado) * 100).toFixed(1) + "% del objetivo" : "-";
 
+  document.getElementById("dashProyeccionFlecha").classList.toggle(
+    "oculto", !(d.tnPlanificado > 0 && d.proyeccionCierre >= d.tnPlanificado)
+  );
+
   document.getElementById("dashPersonas").textContent =
     d.personasActivas.activos + " de " + d.personasActivas.total;
 
@@ -149,7 +153,7 @@ function iconoEstado(estado){
   return "";
 }
 
-function pintarEjeY(idEje, maxValor){
+function pintarEjeY(idEje, maxValor, unidad){
 
   const eje = document.getElementById(idEje);
   if(!eje) return;
@@ -161,7 +165,11 @@ function pintarEjeY(idEje, maxValor){
     marcas.push(Math.round((maxValor / 1.15) * (i / pasos)));
   }
 
-  eje.innerHTML = marcas.map(function(v){ return '<span>' + v + '</span>'; }).join("");
+  eje.innerHTML =
+    '<span class="dash-eje-y-unidad">' + unidad + '</span>' +
+    '<div class="dash-eje-y-marcas">' +
+      marcas.map(function(v){ return '<span>' + v + '</span>'; }).join("") +
+    '</div>';
 
 }
 
@@ -174,9 +182,9 @@ function pintarSeccion(proceso, serie, idChart, idResumen, formateador, unidad){
     return Math.max(m, f.meta || 0, f.real || 0, f.proyeccion || 0);
   }, 1) * 1.15;
 
-  pintarEjeY(idChart === "dashChartPicking" ? "dashEjePicking" : "dashEjeExtraccion", maxValor);
+  pintarEjeY(idChart === "dashChartPicking" ? "dashEjePicking" : "dashEjeExtraccion", maxValor, unidad);
 
-  const ALTO_PX = 120;
+  const ALTO_PX = 160;
 
   serie.filas.forEach(function(f){
 
@@ -236,8 +244,8 @@ function pintarSeccion(proceso, serie, idChart, idResumen, formateador, unidad){
   }
 
   resumen.innerHTML =
-    filaResumen("Meta Acumulada", serie.filas.map(function(f){ return f.esFuturo ? null : f.metaAcumulada; })) +
-    filaResumen("Real Acumulado", serie.filas.map(function(f){ return f.esFuturo ? null : f.realAcumulado; }));
+    filaResumen("Meta Acumulada", serie.filas.map(function(f){ return f.metaAcumulada; })) +
+    filaResumen("Real Acumulado", serie.filas.map(function(f){ return f.realAcumulado; }));
 
 }
 
@@ -262,7 +270,7 @@ function pintarComentariosDashboard(){
       '<div class="dash-comentario-item' + sevClase + '">' +
       '<div class="dash-comentario-meta"><span class="dash-comentario-dot"></span>' + formatoHora(c.hora) + ' &nbsp; ' + c.proceso + '</div>' +
       '<div class="dash-comentario-texto">' + c.comentario + '</div>' +
-      '<div class="dash-comentario-autor">👤 ' + (c.autor || "Usuario") + ' · ' + fechaHora + '</div>' +
+      '<div class="dash-comentario-autor"><span>👤 ' + (c.autor || "Usuario") + ' · ' + fechaHora + '</span><span class="dash-comentario-editar" title="Editar">✏️</span></div>' +
       '</div>'
     );
 

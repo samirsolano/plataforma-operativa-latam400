@@ -167,20 +167,26 @@ async function construirDashboard(fecha, turno){
       const personas = personasPorHora.porHora[h] || 0;
       const meta = personas * targetPorPersona;
       const esFuturo = i > posActual;
+      const esActual = i === posActual;
+      const esPasado = i < posActual;
       const real = esFuturo ? null : realPorHoraFn(h);
+
+      // La meta se conoce de antemano: se acumula para TODAS las horas del
+      // turno, hayan pasado o no. El real acumulado solo avanza hasta la
+      // hora actual (todavía no hay dato real para las horas futuras).
+      metaAcum += meta;
+
+      if(!esFuturo){
+        realAcum += real;
+      }
 
       let estado = null;
 
-      if(!esFuturo){
-
-        metaAcum += meta;
-        realAcum += real;
-
-        if(meta > 0){
-          const pct = real / meta;
-          estado = pct >= 1 ? "cumplida" : (pct >= 0.9 ? "riesgo" : "no_cumplida");
-        }
-
+      // La hora en curso todavía no terminó: no se evalúa (ni se colorea
+      // como cumplida/en riesgo/no cumplida) hasta que la hora concluya.
+      if(esPasado && meta > 0){
+        const pct = real / meta;
+        estado = pct >= 1 ? "cumplida" : (pct >= 0.9 ? "riesgo" : "no_cumplida");
       }
 
       return {
@@ -189,11 +195,13 @@ async function construirDashboard(fecha, turno){
         meta: meta,
         real: real,
         proyeccion: esFuturo ? meta : null,
-        metaAcumulada: esFuturo ? null : metaAcum,
+        metaAcumulada: metaAcum,
         realAcumulado: esFuturo ? null : realAcum,
         estado: estado,
         esHoraActual: h === horaActualReal,
-        esFuturo: esFuturo
+        esFuturo: esFuturo,
+        esActual: esActual,
+        esPasado: esPasado
       };
 
     });

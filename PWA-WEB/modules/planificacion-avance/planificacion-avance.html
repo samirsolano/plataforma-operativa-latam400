@@ -753,7 +753,10 @@
 
                 <div class="dash-kpi dash-kpi-morado">
                   <div class="dash-kpi-titulo">PROYECCIÓN AL CIERRE</div>
-                  <div class="dash-kpi-valor" id="dashProyeccion">-</div>
+                  <div class="dash-kpi-valor-fila">
+                    <div class="dash-kpi-valor" id="dashProyeccion">-</div>
+                    <span class="dash-kpi-flecha oculto" id="dashProyeccionFlecha">▲</span>
+                  </div>
                   <div class="dash-kpi-nota" id="dashProyeccionPct">-</div>
                 </div>
 
@@ -765,56 +768,64 @@
 
               </div>
 
-              <div class="dash-leyenda">
-                <span><span class="dash-caja dash-caja-target"></span> Target</span>
-                <span><span class="dash-caja dash-caja-real"></span> Real</span>
-                <span><span class="dash-caja dash-caja-proyeccion"></span> Proyección</span>
-                <span>👤 Personas asignadas</span>
-              </div>
+              <div class="dash-cuerpo">
 
-              <div class="dash-seccion">
+                <div class="dash-col-principal">
 
-                <div class="dash-seccion-header">
-                  <h3>🛒 PICKING</h3>
-                  <span class="dash-seccion-target">Target por persona: <b>1.2 TN / hora</b></span>
+                  <div class="dash-leyenda">
+                    <span><span class="dash-caja dash-caja-target"></span> Target</span>
+                    <span><span class="dash-caja dash-caja-real"></span> Real</span>
+                    <span><span class="dash-caja dash-caja-proyeccion"></span> Proyección</span>
+                    <span>👤 Personas asignadas</span>
+                  </div>
+
+                  <div class="dash-seccion">
+
+                    <div class="dash-seccion-header">
+                      <h3>🛒 PICKING</h3>
+                      <span class="dash-seccion-target">Target por persona: <b>1.2 TN / hora</b></span>
+                    </div>
+
+                    <div class="dash-chart-fila">
+                      <div class="dash-eje-y" id="dashEjePicking"></div>
+                      <div class="dash-chart" id="dashChartPicking"></div>
+                    </div>
+
+                    <div class="dash-resumen-horas" id="dashResumenPicking"></div>
+
+                  </div>
+
+                  <div class="dash-seccion">
+
+                    <div class="dash-seccion-header">
+                      <h3>🚚 EXTRACCIÓN</h3>
+                      <span class="dash-seccion-target">Target por persona: <b>16 paletas / hora</b></span>
+                    </div>
+
+                    <div class="dash-chart-fila">
+                      <div class="dash-eje-y" id="dashEjeExtraccion"></div>
+                      <div class="dash-chart" id="dashChartExtraccion"></div>
+                    </div>
+
+                    <div class="dash-resumen-horas" id="dashResumenExtraccion"></div>
+
+                  </div>
+
                 </div>
 
-                <div class="dash-chart-fila">
-                  <div class="dash-eje-y" id="dashEjePicking"></div>
-                  <div class="dash-chart" id="dashChartPicking"></div>
+                <div class="dash-panel-comentarios">
+
+                  <div class="dash-panel-comentarios-header">
+                    <h3>💬 Resumen de Comentarios <span class="dash-badge-conteo" id="dashBadgeComentarios">0</span></h3>
+                  </div>
+
+                  <div id="dashListaComentarios" class="dash-lista-comentarios"></div>
+
+                  <button class="dash-btn-nuevo-comentario" id="btnDashNuevoComentario">+ Nuevo Comentario</button>
+
+                  <p class="dash-tip-comentarios">Haz clic en cualquier hora del gráfico para agregar un comentario.</p>
+
                 </div>
-
-                <div class="dash-resumen-horas" id="dashResumenPicking"></div>
-
-              </div>
-
-              <div class="dash-seccion">
-
-                <div class="dash-seccion-header">
-                  <h3>🚚 EXTRACCIÓN</h3>
-                  <span class="dash-seccion-target">Target por persona: <b>16 paletas / hora</b></span>
-                </div>
-
-                <div class="dash-chart-fila">
-                  <div class="dash-eje-y" id="dashEjeExtraccion"></div>
-                  <div class="dash-chart" id="dashChartExtraccion"></div>
-                </div>
-
-                <div class="dash-resumen-horas" id="dashResumenExtraccion"></div>
-
-              </div>
-
-              <div class="dash-panel-comentarios">
-
-                <div class="dash-panel-comentarios-header">
-                  <h3>💬 Resumen de Comentarios <span class="dash-badge-conteo" id="dashBadgeComentarios">0</span></h3>
-                </div>
-
-                <div id="dashListaComentarios" class="dash-lista-comentarios"></div>
-
-                <button class="dash-btn-nuevo-comentario" id="btnDashNuevoComentario">+ Nuevo Comentario</button>
-
-                <p class="dash-tip-comentarios">Haz clic en cualquier hora del gráfico para agregar un comentario.</p>
 
               </div>
 
