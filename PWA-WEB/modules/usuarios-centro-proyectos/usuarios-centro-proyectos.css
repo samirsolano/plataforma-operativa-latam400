@@ -115,6 +115,23 @@ body{
     box-shadow:0 5px 20px rgba(0,0,0,.05);
 }
 
+.buscador{
+    margin-bottom:20px;
+}
+
+.buscador input{
+    width:100%;
+    padding:12px 16px;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    font-size:15px;
+}
+
+.buscador input:focus{
+    outline:none;
+    border-color:#FC000D;
+}
+
 table{
     width:100%;
     border-collapse:collapse;

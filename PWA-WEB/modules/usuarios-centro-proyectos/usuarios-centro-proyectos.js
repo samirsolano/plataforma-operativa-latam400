@@ -15,6 +15,9 @@ if(sesion && sesion.rol !== "Administrador"){
 
 const tblUsuarios = document.getElementById("tblUsuarios");
 const mensajeVacio = document.getElementById("mensajeVacio");
+const buscador = document.getElementById("buscador");
+
+let usuariosCargados = [];
 
 async function cargarUsuarios(){
 
@@ -23,40 +26,11 @@ async function cargarUsuarios(){
 
     try{
 
-        const usuarios = await supabaseFetch(
+        usuariosCargados = await supabaseFetch(
             "/usuarios_centro_proyectos?select=id,dni,nombre,puesto,jd,activo&order=nombre.asc"
         );
 
-        if(!usuarios || !usuarios.length){
-            mensajeVacio.textContent = "No hay usuarios registrados.";
-            mensajeVacio.style.display = "block";
-            return;
-        }
-
-        usuarios.forEach(function(u){
-
-            const tr = document.createElement("tr");
-
-            tr.innerHTML = `
-                <td>${u.dni}</td>
-                <td>${u.nombre}</td>
-                <td>${u.puesto || "-"}</td>
-                <td>${u.jd || "-"}</td>
-                <td>
-                    <span class="estado ${u.activo ? "activo" : "inactivo"}">
-                        ${u.activo ? "Activo" : "Inactivo"}
-                    </span>
-                </td>
-                <td>
-                    <button class="btn-eliminar" data-id="${u.id}" data-dni="${u.dni}">
-                        Eliminar
-                    </button>
-                </td>
-            `;
-
-            tblUsuarios.appendChild(tr);
-
-        });
+        renderizarUsuarios(usuariosCargados);
 
     }catch(e){
 
@@ -67,6 +41,73 @@ async function cargarUsuarios(){
     }
 
 }
+
+function renderizarUsuarios(usuarios){
+
+    tblUsuarios.innerHTML = "";
+    mensajeVacio.style.display = "none";
+
+    if(!usuarios || !usuarios.length){
+        mensajeVacio.textContent = "No hay usuarios registrados.";
+        mensajeVacio.style.display = "block";
+        return;
+    }
+
+    usuarios.forEach(function(u){
+
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+            <td>${u.dni}</td>
+            <td>${u.nombre}</td>
+            <td>${u.puesto || "-"}</td>
+            <td>${u.jd || "-"}</td>
+            <td>
+                <span class="estado ${u.activo ? "activo" : "inactivo"}">
+                    ${u.activo ? "Activo" : "Inactivo"}
+                </span>
+            </td>
+            <td>
+                <button class="btn-eliminar" data-id="${u.id}" data-dni="${u.dni}">
+                    Eliminar
+                </button>
+            </td>
+        `;
+
+        tblUsuarios.appendChild(tr);
+
+    });
+
+}
+
+buscador.addEventListener("input", function(){
+
+    const termino = buscador.value.trim().toLowerCase();
+
+    if(!termino){
+        renderizarUsuarios(usuariosCargados);
+        return;
+    }
+
+    const filtrados = usuariosCargados.filter(function(u){
+
+        return (
+            u.dni.toLowerCase().includes(termino) ||
+            u.nombre.toLowerCase().includes(termino)
+        );
+
+    });
+
+    if(!filtrados.length){
+        tblUsuarios.innerHTML = "";
+        mensajeVacio.textContent = "Ningún usuario coincide con la búsqueda.";
+        mensajeVacio.style.display = "block";
+        return;
+    }
+
+    renderizarUsuarios(filtrados);
+
+});
 
 // ========================================
 // ELIMINAR USUARIO
