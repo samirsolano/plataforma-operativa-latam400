@@ -15,6 +15,8 @@ if(sesion){
     if(sesion.rol !== "Administrador"){
         document.getElementById("linkUsuarios").style.display = "none";
         document.getElementById("cardUsuarios").style.display = "none";
+        document.getElementById("linkUsuariosCentro").style.display = "none";
+        document.getElementById("cardUsuariosCentro").style.display = "none";
     }
 
 }
