@@ -9,10 +9,6 @@ if(sesion){
     document.getElementById("nombreUsuario").textContent = sesion.nombre_completo;
     document.getElementById("rolUsuario").textContent = sesion.rol;
 
-    if(sesion.rol !== "Administrador"){
-        document.getElementById("linkUsuarios").style.display = "none";
-    }
-
     if(sesion.rol !== "Administrador" && sesion.rol !== "Supervisor"){
         document.getElementById("linkCargaMensual").style.display = "none";
         document.getElementById("linkColaboradoresActivos").style.display = "none";

@@ -16,6 +16,11 @@
 
     <link
         rel="stylesheet"
+        href="../../shared/checklist-sidebar.css"
+    >
+
+    <link
+        rel="stylesheet"
         href="carga-mensual.css"
     >
 
@@ -23,15 +28,48 @@
 
 <body>
 
+    <div class="layout">
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+                <h1>CHECK LIST</h1>
+                <h1>5S</h1>
+                <span>LATAM 400 CL</span>
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+                </div>
+
+            </div>
+
+            <nav class="menu">
+                <a href="../checklist-diario/checklist-diario.html">Check List Diario</a>
+                <a href="carga-mensual.html" class="activo">Carga Mensual</a>
+                <a href="../colaboradores-activos/colaboradores-activos.html" id="linkColaboradoresActivos">Colaboradores Activos</a>
+                <a href="../fotos-colaboradores/fotos-colaboradores.html" id="linkFotosColaboradores">Fotos de Colaboradores</a>
+            </nav>
+
+        </aside>
+
+    <main class="contenido">
+
     <div class="contenedor">
 
         <header class="header">
 
             <div>
-
-                <a href="../inicio/home.html" class="volver">
-                    ← Volver al Panel
-                </a>
 
                 <h1>
                     Carga Mensual
@@ -140,6 +178,10 @@
             </p>
 
         </div>
+
+    </div>
+
+    </main>
 
     </div>
 

@@ -80,6 +80,27 @@ body{
     flex-shrink:0;
 }
 
+.volver-plataforma{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:16px 16px 0;
+    padding:11px 16px;
+    color:white;
+    text-decoration:none;
+    font-size:13px;
+    font-weight:600;
+    background:rgba(255,255,255,.10);
+    border:1px solid rgba(255,255,255,.30);
+    border-radius:10px;
+    transition:.2s;
+}
+
+.volver-plataforma:hover{
+    background:rgba(255,255,255,.22);
+    border-color:rgba(255,255,255,.5);
+}
+
 .logo{
     padding:30px;
     border-bottom:1px solid rgba(255,255,255,.15);
