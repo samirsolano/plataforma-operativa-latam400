@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Fotos de Colaboradores - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="fotos-colaboradores.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="contenedor">
+
+        <header class="header">
+
+            <div>
+
+                <a href="../check-list-5s/check-list-5s.html" class="volver">
+                    ← Volver a Check List 5S
+                </a>
+
+                <h1>
+                    Fotos de Colaboradores
+                </h1>
+
+            </div>
+
+            <button id="btnAgregar" class="btn-primario">
+                + Agregar Foto
+            </button>
+
+        </header>
+
+        <div class="card">
+
+            <div class="buscador">
+
+                <input
+                    type="text"
+                    id="buscador"
+                    placeholder="Buscar por DNI o nombre..."
+                    autocomplete="off"
+                >
+
+            </div>
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Foto</th>
+                        <th>DNI</th>
+                        <th>Nombre</th>
+                        <th>Actualizado</th>
+                        <th>Acción</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="tblFotos">
+                </tbody>
+
+            </table>
+
+            <p id="mensajeVacio" class="mensaje-vacio">
+                Cargando fotos...
+            </p>
+
+        </div>
+
+    </div>
+
+    <!-- MODAL AGREGAR / REEMPLAZAR FOTO -->
+
+    <div class="modal-overlay" id="modalOverlay">
+
+        <div class="modal">
+
+            <h3 id="tituloModal">
+                Agregar Foto
+            </h3>
+
+            <form autocomplete="off" onsubmit="return false;">
+
+                <div class="grupo">
+
+                    <label>
+                        DNI
+                    </label>
+
+                    <input
+                        type="text"
+                        id="nuevoDni"
+                        maxlength="8"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                    >
+
+                </div>
+
+                <div class="grupo">
+
+                    <label>
+                        Nombre (opcional, para ubicarlo más fácil)
+                    </label>
+
+                    <input
+                        type="text"
+                        id="nuevoNombre"
+                        autocomplete="off"
+                    >
+
+                </div>
+
+                <div class="grupo">
+
+                    <label>
+                        Foto
+                    </label>
+
+                    <input
+                        type="file"
+                        id="nuevoFoto"
+                        accept="image/*"
+                    >
+
+                    <img
+                        id="previsualizacionFoto"
+                        class="previsualizacion"
+                        alt="Vista previa"
+                    >
+
+                </div>
+
+                <p id="mensajeErrorModal" class="mensaje-error"></p>
+
+                <div class="modal-botones">
+
+                    <button type="button" id="btnCancelar" class="btn-secundario">
+                        Cancelar
+                    </button>
+
+                    <button type="button" id="btnGuardar" class="btn-primario">
+                        Guardar
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="../../shared/colaboradores-fotos.js"></script>
+    <script src="fotos-colaboradores.js"></script>
+
+</body>
+
+</html>

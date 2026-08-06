@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Carga Mensual - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="carga-mensual.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="contenedor">
+
+        <header class="header">
+
+            <div>
+
+                <a href="../check-list-5s/check-list-5s.html" class="volver">
+                    ← Volver a Check List 5S
+                </a>
+
+                <h1>
+                    Carga Mensual
+                </h1>
+
+            </div>
+
+        </header>
+
+        <div class="card">
+
+            <div class="barra-carga">
+
+                <div class="grupo-mes">
+
+                    <label>
+                        Mes
+                    </label>
+
+                    <input
+                        type="text"
+                        id="selectorMes"
+                        placeholder="Ej: Agosto 2026"
+                        autocomplete="off"
+                    >
+
+                </div>
+
+                <div class="grupo-archivo">
+
+                    <label>
+                        Archivo Excel (SUPERVISOR, TURNO, ZONA, ZONA DE CHECK LIST 5S, DNI, NOMBRE)
+                    </label>
+
+                    <input
+                        type="file"
+                        id="archivoExcel"
+                        accept=".xlsx,.xls"
+                    >
+
+                </div>
+
+                <button id="btnCargarArchivo" class="btn-primario">
+                    Cargar archivo
+                </button>
+
+                <button id="btnActivarMes" class="btn-activar">
+                    ✓ Activar este mes
+                </button>
+
+            </div>
+
+            <p class="ayuda-mensual">
+                Escribe el mes, sube el Excel de ese mes y presiona "Cargar archivo". Si ya
+                existe una carga para ese mes, se reemplaza. "Activar este mes" copia esta lista
+                a <strong>Colaboradores Activos</strong>, la que usa el Checklist 5S (solo Administrador).
+            </p>
+
+            <div class="estado-turnos" id="estadoTurnos">
+
+                <div class="chip-turno" id="chipDia">
+                    <span class="chip-punto"></span>
+                    DIA
+                </div>
+
+                <div class="chip-turno" id="chipNoche">
+                    <span class="chip-punto"></span>
+                    NOCHE
+                </div>
+
+                <div class="chip-turno" id="chipIntermedio">
+                    <span class="chip-punto"></span>
+                    INTERMEDIO
+                </div>
+
+            </div>
+
+            <p id="mensajeErrorCarga" class="mensaje-error"></p>
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Foto</th>
+                        <th>DNI</th>
+                        <th>Nombre</th>
+                        <th>Zona</th>
+                        <th>Pasillo</th>
+                        <th>Turno</th>
+                        <th>Supervisor</th>
+                        <th>Acción</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="tblMensual">
+                </tbody>
+
+            </table>
+
+            <p id="mensajeVacio" class="mensaje-vacio">
+                Escribe un mes para ver su lista.
+            </p>
+
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="../../shared/colaboradores-fotos.js"></script>
+    <script src="carga-mensual.js"></script>
+
+</body>
+
+</html>
