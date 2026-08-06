@@ -19,6 +19,17 @@ if(sesion){
         document.getElementById("cardUsuariosCentro").style.display = "none";
     }
 
+    // Carga Mensual, Colaboradores Activos y Fotos de Colaboradores solo
+    // son visibles para Administrador y Supervisor.
+    if(sesion.rol !== "Administrador" && sesion.rol !== "Supervisor"){
+        document.getElementById("linkCargaMensual").style.display = "none";
+        document.getElementById("cardCargaMensual").style.display = "none";
+        document.getElementById("linkColaboradoresActivos").style.display = "none";
+        document.getElementById("cardColaboradoresActivos").style.display = "none";
+        document.getElementById("linkFotosColaboradores").style.display = "none";
+        document.getElementById("cardFotosColaboradores").style.display = "none";
+    }
+
 }
 
 const btnPerfil = document.getElementById("btnPerfil");

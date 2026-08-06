@@ -13,6 +13,12 @@ if(sesion){
         document.getElementById("linkUsuarios").style.display = "none";
     }
 
+    if(sesion.rol !== "Administrador" && sesion.rol !== "Supervisor"){
+        document.getElementById("linkCargaMensual").style.display = "none";
+        document.getElementById("linkColaboradoresActivos").style.display = "none";
+        document.getElementById("linkFotosColaboradores").style.display = "none";
+    }
+
 }
 
 const btnPerfil = document.getElementById("btnPerfil");
