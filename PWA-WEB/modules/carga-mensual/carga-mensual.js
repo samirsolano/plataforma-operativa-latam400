@@ -1,4 +1,4 @@
-// ========================================
+﻿// ========================================
 // SESIÓN Y PERMISOS
 // ========================================
 
@@ -56,17 +56,55 @@ const mensajeVacio = document.getElementById("mensajeVacio");
 const chipDia = document.getElementById("chipDia");
 const chipNoche = document.getElementById("chipNoche");
 const chipIntermedio = document.getElementById("chipIntermedio");
+const resumenCargas = document.getElementById("resumenCargas");
 
 let mensualCargado = [];
-let temporizadorMes = null;
 
 if(!esAdministrador){
     btnActivarMes.style.display = "none";
 }
 
 function mesActual(){
-    return selectorMes.value.trim();
+    return selectorMes.value;
 }
+
+// ========================================
+// LISTA DE MESES (desplegable)
+// ========================================
+
+const NOMBRES_MES = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+];
+
+(function llenarSelectorMeses(){
+
+    const hoy = new Date();
+    const anioActual = hoy.getFullYear();
+
+    // Ofrece los 12 meses del año actual y del siguiente,
+    // para poder cargar el mes en curso y planificar el que sigue.
+    [anioActual, anioActual + 1].forEach(function(anio){
+
+        NOMBRES_MES.forEach(function(nombreMes, indice){
+
+            const etiqueta = nombreMes + " " + anio;
+
+            const opcion = document.createElement("option");
+            opcion.value = etiqueta;
+            opcion.textContent = etiqueta;
+
+            if(anio === anioActual && indice === hoy.getMonth()){
+                opcion.selected = true;
+            }
+
+            selectorMes.appendChild(opcion);
+
+        });
+
+    });
+
+})();
 
 // ========================================
 // LEER Y NORMALIZAR EL EXCEL
@@ -120,6 +158,34 @@ function normalizarFilaExcel(filaOriginal){
 
 }
 
+// La plantilla oficial siempre trae estas 6 columnas. Si el archivo no las
+// tiene todas, no es la plantilla correcta y se rechaza antes de guardar nada.
+const COLUMNAS_ESPERADAS = [
+    "supervisor", "turno", "zona", "zona de check list 5s", "dni", "nombre"
+];
+
+function validarFormatoPlantilla(filasCrudas){
+
+    if(!filasCrudas.length){
+        return "El archivo está vacío.";
+    }
+
+    const columnasArchivo = Object.keys(filasCrudas[0]).map(c => c.trim().toLowerCase());
+
+    const faltantes = COLUMNAS_ESPERADAS.filter(
+        esperada => !columnasArchivo.includes(esperada)
+    );
+
+    if(faltantes.length){
+        return "Este archivo no tiene el formato de la plantilla oficial. " +
+            "Faltan las columnas: " + faltantes.join(", ") +
+            ". Descarga la plantilla arriba y vuelve a intentarlo.";
+    }
+
+    return null;
+
+}
+
 // ========================================
 // CARGAR ARCHIVO
 // ========================================
@@ -132,7 +198,7 @@ btnCargarArchivo.addEventListener("click", async function(){
     const archivo = archivoExcel.files[0];
 
     if(!mes){
-        mensajeErrorCarga.textContent = "Escribe primero el mes (ej: Agosto 2026).";
+        mensajeErrorCarga.textContent = "Selecciona primero el mes.";
         return;
     }
 
@@ -147,33 +213,64 @@ btnCargarArchivo.addEventListener("click", async function(){
     try{
 
         const filasCrudas = await leerFilasExcel(archivo);
+
+        const errorFormato = validarFormatoPlantilla(filasCrudas);
+
+        if(errorFormato){
+            mensajeErrorCarga.textContent = errorFormato;
+            return;
+        }
+
         const filasNormalizadas = filasCrudas
             .map(normalizarFilaExcel)
             .filter(f => f.dni.length === 8 && f.nombre);
 
         if(!filasNormalizadas.length){
-            mensajeErrorCarga.textContent = "No se encontraron filas válidas en el archivo (revisa las columnas DNI y NOMBRE).";
+            mensajeErrorCarga.textContent = "No se encontraron filas completas en el archivo (revisa DNI y NOMBRE).";
             return;
         }
 
-        // ¿Ya existe carga para este mes?
-        const existentes = await supabaseFetch(
-            "/colaboradores_mensual?mes=eq." + encodeURIComponent(mes) + "&select=id"
+        // La plantilla es de un turno a la vez: todas las filas completas
+        // deben compartir el mismo turno.
+        const turnosEnArchivo = new Set(
+            filasNormalizadas.map(f => f.turno).filter(Boolean)
+        );
+
+        if(turnosEnArchivo.size === 0){
+            mensajeErrorCarga.textContent = "Selecciona el Turno en el Excel (columna TURNO) antes de subirlo.";
+            return;
+        }
+
+        if(turnosEnArchivo.size > 1){
+            mensajeErrorCarga.textContent = "El archivo mezcla más de un turno (" +
+                Array.from(turnosEnArchivo).join(", ") +
+                "). Sube un archivo por turno.";
+            return;
+        }
+
+        const turno = Array.from(turnosEnArchivo)[0];
+
+        // ¿Ya existe carga para este mes + turno?
+        const existentes = await checklistFetch(
+            "/colaboradores_mensual?mes=eq." + encodeURIComponent(mes) +
+            "&turno=eq." + encodeURIComponent(turno) + "&select=id"
         );
 
         if(existentes && existentes.length){
 
             const confirmado = confirm(
-                "Ya existe una carga de " + existentes.length + " colaboradores para \"" + mes + "\". " +
-                "¿Deseas reemplazarla con este archivo (" + filasNormalizadas.length + " filas)?"
+                "Ya existe una carga de " + existentes.length + " colaboradores para \"" + mes +
+                "\", turno " + turno + ". ¿Deseas reemplazarla con este archivo (" +
+                filasNormalizadas.length + " filas)?"
             );
 
             if(!confirmado){
                 return;
             }
 
-            await supabaseFetch(
-                "/colaboradores_mensual?mes=eq." + encodeURIComponent(mes),
+            await checklistFetch(
+                "/colaboradores_mensual?mes=eq." + encodeURIComponent(mes) +
+                "&turno=eq." + encodeURIComponent(turno),
                 { method: "DELETE" }
             );
 
@@ -187,7 +284,7 @@ btnCargarArchivo.addEventListener("click", async function(){
 
         const listaDnis = "(" + dnis.join(",") + ")";
 
-        const fotosEncontradas = await supabaseFetch(
+        const fotosEncontradas = await checklistFetch(
             "/fotos_colaboradores?dni=in." + listaDnis + "&select=dni,foto"
         );
 
@@ -205,7 +302,8 @@ btnCargarArchivo.addEventListener("click", async function(){
                 turno: f.turno,
                 supervisor: f.supervisor,
                 foto: fotosPorDni[f.dni] || null,
-                mes: mes
+                mes: mes,
+                cargado_por: sesion.nombre_completo || sesion.usuario || ""
             };
 
         });
@@ -220,7 +318,7 @@ btnCargarArchivo.addEventListener("click", async function(){
 
             const bloque = filasParaInsertar.slice(i, i + TAMANO_BLOQUE);
 
-            await supabaseFetch(
+            await checklistFetch(
                 "/colaboradores_mensual",
                 {
                     method: "POST",
@@ -258,23 +356,25 @@ async function cargarMensual(){
     tblMensual.innerHTML = "";
     mensajeVacio.style.display = "none";
     actualizarChips([]);
+    renderizarResumen([]);
 
     if(!mes){
-        mensajeVacio.textContent = "Escribe un mes para ver su lista.";
+        mensajeVacio.textContent = "Selecciona un mes para ver su lista.";
         mensajeVacio.style.display = "block";
         return;
     }
 
     try{
 
-        mensualCargado = await supabaseFetch(
-            "/colaboradores_mensual?select=id,dni,nombre,zona,pasillo,turno,supervisor,foto&mes=eq." +
+        mensualCargado = await checklistFetch(
+            "/colaboradores_mensual?select=id,dni,nombre,zona,pasillo,turno,supervisor,foto,cargado_por,created_at&mes=eq." +
             encodeURIComponent(mes) +
             "&order=turno.asc,nombre.asc"
         );
 
         renderizarMensual(mensualCargado);
         actualizarChips(mensualCargado);
+        renderizarResumen(mensualCargado);
 
     }catch(e){
 
@@ -283,6 +383,74 @@ async function cargarMensual(){
         mensajeVacio.style.display = "block";
 
     }
+
+}
+
+function formatearFechaHora(iso){
+
+    if(!iso){
+        return "-";
+    }
+
+    const fecha = new Date(iso);
+
+    return fecha.toLocaleDateString("es-PE") + " " +
+        fecha.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+
+}
+
+function renderizarResumen(lista){
+
+    resumenCargas.innerHTML = "";
+
+    if(!lista || !lista.length){
+        return;
+    }
+
+    const porTurno = {};
+
+    lista.forEach(function(c){
+
+        const turno = c.turno || "SIN TURNO";
+
+        if(!porTurno[turno]){
+            porTurno[turno] = {
+                cantidad: 0,
+                supervisor: c.supervisor || "-",
+                cargadoPor: c.cargado_por || "-",
+                fecha: c.created_at
+            };
+        }
+
+        porTurno[turno].cantidad++;
+
+        // Se queda con la carga más reciente de ese turno.
+        if(c.created_at && (!porTurno[turno].fecha || c.created_at > porTurno[turno].fecha)){
+            porTurno[turno].fecha = c.created_at;
+            porTurno[turno].cargadoPor = c.cargado_por || "-";
+            porTurno[turno].supervisor = c.supervisor || "-";
+        }
+
+    });
+
+    Object.keys(porTurno).forEach(function(turno){
+
+        const info = porTurno[turno];
+
+        const div = document.createElement("div");
+        div.className = "resumen-item";
+
+        div.innerHTML = `
+            <div class="resumen-item-turno">Turno ${turno}</div>
+            <div class="resumen-item-linea">Supervisor: <b>${info.supervisor}</b></div>
+            <div class="resumen-item-linea">Colaboradores: <b>${info.cantidad}</b></div>
+            <div class="resumen-item-linea">Subido por: <b>${info.cargadoPor}</b></div>
+            <div class="resumen-item-linea">Fecha: <b>${formatearFechaHora(info.fecha)}</b></div>
+        `;
+
+        resumenCargas.appendChild(div);
+
+    });
 
 }
 
@@ -336,12 +504,10 @@ function actualizarChips(lista){
 
 }
 
-selectorMes.addEventListener("input", function(){
+selectorMes.addEventListener("change", cargarMensual);
 
-    clearTimeout(temporizadorMes);
-    temporizadorMes = setTimeout(cargarMensual, 500);
-
-});
+// El selector ya trae el mes actual preseleccionado.
+cargarMensual();
 
 tblMensual.addEventListener("click", async function(e){
 
@@ -367,7 +533,7 @@ tblMensual.addEventListener("click", async function(e){
 
     try{
 
-        await supabaseFetch(
+        await checklistFetch(
             "/colaboradores_mensual?id=eq." + encodeURIComponent(id),
             { method: "DELETE" }
         );
@@ -398,7 +564,7 @@ btnActivarMes.addEventListener("click", async function(){
     const mes = mesActual();
 
     if(!mes){
-        alert("Escribe primero el mes que quieres activar.");
+        alert("Selecciona primero el mes que quieres activar.");
         return;
     }
 
@@ -423,7 +589,7 @@ btnActivarMes.addEventListener("click", async function(){
     try{
 
         // Vacía la tabla de activos (id > 0 siempre es verdadero: borra todo).
-        await supabaseFetch(
+        await checklistFetch(
             "/colaboradores_activos?id=gt.0",
             { method: "DELETE" }
         );
@@ -449,7 +615,7 @@ btnActivarMes.addEventListener("click", async function(){
 
             const bloque = nuevosActivos.slice(i, i + TAMANO_BLOQUE);
 
-            await supabaseFetch(
+            await checklistFetch(
                 "/colaboradores_activos",
                 {
                     method: "POST",
@@ -459,7 +625,7 @@ btnActivarMes.addEventListener("click", async function(){
 
         }
 
-        await supabaseFetch(
+        await checklistFetch(
             "/colaboradores_mensual?mes=eq." + encodeURIComponent(mes),
             {
                 method: "PATCH",

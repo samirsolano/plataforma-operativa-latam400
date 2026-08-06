@@ -81,6 +81,19 @@
 
         <div class="card">
 
+            <div class="descarga-plantilla">
+
+                <div>
+                    <strong>¿Primera vez subiendo este mes?</strong>
+                    <p>Descarga la plantilla oficial, complétala (Supervisor, Turno, DNI y Nombre) y súbela abajo.</p>
+                </div>
+
+                <a href="../../shared/assets/plantilla-carga-mensual-5s.xlsx" download class="btn-secundario">
+                    📥 Descargar plantilla
+                </a>
+
+            </div>
+
             <div class="barra-carga">
 
                 <div class="grupo-mes">
@@ -89,19 +102,16 @@
                         Mes
                     </label>
 
-                    <input
-                        type="text"
-                        id="selectorMes"
-                        placeholder="Ej: Agosto 2026"
-                        autocomplete="off"
-                    >
+                    <select id="selectorMes">
+                        <option value="">Seleccione...</option>
+                    </select>
 
                 </div>
 
                 <div class="grupo-archivo">
 
                     <label>
-                        Archivo Excel (SUPERVISOR, TURNO, ZONA, ZONA DE CHECK LIST 5S, DNI, NOMBRE)
+                        Archivo Excel (plantilla oficial)
                     </label>
 
                     <input
@@ -123,9 +133,10 @@
             </div>
 
             <p class="ayuda-mensual">
-                Escribe el mes, sube el Excel de ese mes y presiona "Cargar archivo". Si ya
-                existe una carga para ese mes, se reemplaza. "Activar este mes" copia esta lista
-                a <strong>Colaboradores Activos</strong>, la que usa el Checklist 5S (solo Administrador).
+                Elige el mes, sube el Excel de la plantilla oficial (un archivo por turno) y presiona
+                "Cargar archivo". Si ese mes y turno ya tienen una carga, se reemplaza. "Activar este mes"
+                copia toda la lista del mes a <strong>Colaboradores Activos</strong>, la que usa el
+                Checklist 5S (solo Administrador).
             </p>
 
             <div class="estado-turnos" id="estadoTurnos">
@@ -148,6 +159,8 @@
             </div>
 
             <p id="mensajeErrorCarga" class="mensaje-error"></p>
+
+            <div id="resumenCargas" class="resumen-cargas"></div>
 
             <table>
 
@@ -174,7 +187,7 @@
             </table>
 
             <p id="mensajeVacio" class="mensaje-vacio">
-                Escribe un mes para ver su lista.
+                Cargando...
             </p>
 
         </div>
@@ -188,6 +201,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="../../shared/supabase-config.js"></script>
     <script src="../../shared/auth.js"></script>
+    <script src="../../shared/checklist-config.js"></script>
     <script src="../../shared/colaboradores-fotos.js"></script>
     <script src="carga-mensual.js"></script>
 

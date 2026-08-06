@@ -1,4 +1,4 @@
-// ========================================
+﻿// ========================================
 // SESIÓN Y PERMISOS
 // ========================================
 
@@ -57,7 +57,7 @@ async function cargarFotos(){
 
     try{
 
-        fotosCargadas = await supabaseFetch(
+        fotosCargadas = await checklistFetch(
             "/fotos_colaboradores?select=dni,nombre,foto,updated_at&order=updated_at.desc"
         );
 
@@ -190,7 +190,7 @@ tblFotos.addEventListener("click", async function(e){
 
         try{
 
-            await supabaseFetch(
+            await checklistFetch(
                 "/fotos_colaboradores?dni=eq." + encodeURIComponent(dni),
                 { method: "DELETE" }
             );

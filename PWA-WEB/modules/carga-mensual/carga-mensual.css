@@ -175,6 +175,79 @@ td{
 }
 
 /* ======================================== */
+/* DESCARGA PLANTILLA */
+/* ======================================== */
+
+.descarga-plantilla{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:15px;
+    background:#fff7ed;
+    border:1px solid #fed7aa;
+    border-radius:14px;
+    padding:16px 20px;
+    margin-bottom:20px;
+    flex-wrap:wrap;
+}
+
+.descarga-plantilla strong{
+    color:#1f2937;
+    font-size:15px;
+}
+
+.descarga-plantilla p{
+    color:#6b7280;
+    font-size:13px;
+    margin-top:4px;
+}
+
+.descarga-plantilla a.btn-secundario{
+    text-decoration:none;
+    display:inline-block;
+    white-space:nowrap;
+}
+
+/* ======================================== */
+/* RESUMEN DE CARGAS */
+/* ======================================== */
+
+.resumen-cargas{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+    gap:12px;
+    margin-bottom:20px;
+}
+
+.resumen-cargas:empty{
+    display:none;
+}
+
+.resumen-item{
+    background:#f9fafb;
+    border:1px solid #e5e7eb;
+    border-radius:14px;
+    padding:16px;
+}
+
+.resumen-item-turno{
+    color:#FC000D;
+    font-weight:700;
+    font-size:14px;
+    margin-bottom:8px;
+}
+
+.resumen-item-linea{
+    color:#374151;
+    font-size:13px;
+    margin-bottom:3px;
+}
+
+.resumen-item-linea b{
+    color:#1f2937;
+}
+
+/* ======================================== */
 /* BARRA DE CARGA */
 /* ======================================== */
 
@@ -198,12 +271,14 @@ td{
     color:#374151;
 }
 
-.grupo-mes input{
+.grupo-mes input,
+.grupo-mes select{
     padding:12px 14px;
     border:1px solid #e5e7eb;
     border-radius:10px;
     font-size:15px;
     min-width:200px;
+    background:white;
 }
 
 .grupo-archivo{

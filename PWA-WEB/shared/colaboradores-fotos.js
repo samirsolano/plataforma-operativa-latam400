@@ -2,8 +2,14 @@
 // BANCO DE FOTOS DE COLABORADORES (por DNI)
 // ========================================
 // Compartido entre Carga Mensual, Colaboradores Activos
-// y Fotos de Colaboradores. Requiere que supabase-config.js
-// esté cargado antes que este archivo.
+// y Fotos de Colaboradores. Requiere que supabase-config.js Y
+// checklist-config.js estén cargados antes que este archivo.
+//
+// El archivo de la foto se guarda en el bucket "colaboradores" del
+// proyecto Supabase principal (SUPABASE_URL), pero el registro
+// (dni → url de la foto) vive en la tabla fotos_colaboradores del
+// proyecto de Check List 5S (SUPABASE_URL_CHECKLIST) — son proyectos
+// distintos, y eso no es problema porque "foto" es solo una URL.
 
 const STORAGE_URL_FOTOS = SUPABASE_URL.replace("/rest/v1", "/storage/v1");
 const BUCKET_COLABORADORES = "colaboradores";
@@ -15,7 +21,7 @@ async function buscarFotoColaborador(dni){
         return null;
     }
 
-    const filas = await supabaseFetch(
+    const filas = await checklistFetch(
         "/fotos_colaboradores?dni=eq." + encodeURIComponent(dni) + "&select=dni,nombre,foto"
     );
 
@@ -51,7 +57,7 @@ async function subirFotoColaborador(dni, archivo, nombre){
 
     const url = STORAGE_URL_FOTOS + "/object/public/" + BUCKET_COLABORADORES + "/" + ruta;
 
-    await supabaseFetch(
+    await checklistFetch(
         "/fotos_colaboradores?on_conflict=dni",
         {
             method: "POST",

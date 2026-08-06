@@ -1,4 +1,4 @@
-// ========================================
+﻿// ========================================
 // SESIÓN Y PERMISOS
 // ========================================
 
@@ -57,7 +57,7 @@ async function cargarActivos(){
 
     try{
 
-        activosCargados = await supabaseFetch(
+        activosCargados = await checklistFetch(
             "/colaboradores_activos?select=id,dni,nombre,zona,pasillo,turno,supervisor,foto,activo&order=nombre.asc"
         );
 
@@ -186,7 +186,7 @@ tblActivos.addEventListener("click", async function(e){
 
         try{
 
-            await supabaseFetch(
+            await checklistFetch(
                 "/colaboradores_activos?id=eq." + encodeURIComponent(id),
                 { method: "DELETE" }
             );
@@ -392,7 +392,7 @@ btnGuardar.addEventListener("click", async function(){
 
         if(editandoId){
 
-            await supabaseFetch(
+            await checklistFetch(
                 "/colaboradores_activos?id=eq." + encodeURIComponent(editandoId),
                 {
                     method: "PATCH",
@@ -411,7 +411,7 @@ btnGuardar.addEventListener("click", async function(){
 
         }else{
 
-            await supabaseFetch(
+            await checklistFetch(
                 "/colaboradores_activos",
                 {
                     method: "POST",
