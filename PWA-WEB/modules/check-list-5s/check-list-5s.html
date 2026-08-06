@@ -23,93 +23,178 @@
 
 <body>
 
-    <div class="contenedor">
+    <div class="layout">
 
-        <header class="header">
+        <!-- SIDEBAR -->
 
-            <a href="../inicio/home.html" class="volver">
-                ← Volver al Panel
-            </a>
+        <aside class="sidebar">
 
-            <h1>
-                Check List 5S
-            </h1>
+            <div class="logo">
 
-            <p>
-                Auditorías, carga de colaboradores por turno y banco de fotos.
-            </p>
+                <img
+                    src="../../shared/assets/sigma-logo.png"
+                    alt="Sigma"
+                    class="logo-sigma-sidebar"
+                >
 
-        </header>
+                <h1>PLATAFORMA</h1>
+                <h1>OPERATIVA</h1>
 
-        <section class="cards">
+                <span>LATAM 400 CL</span>
 
-            <a href="../checklist-diario/checklist-diario.html" class="card">
+            </div>
 
-                <div>
+            <!-- PERFIL -->
 
-                    <h3>
-                        CHECK LIST DIARIO
-                    </h3>
+            <div class="perfil-sidebar" id="btnPerfil">
 
-                    <p>
-                        Auditorías y control diario.
-                    </p>
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
 
-                </div>
+                <div class="menu-usuario" id="menuUsuario">
 
-            </a>
-
-            <a href="../carga-mensual/carga-mensual.html" class="card" id="cardCargaMensual">
-
-                <div>
-
-                    <h3>
-                        CARGA MENSUAL
-                    </h3>
-
-                    <p>
-                        Cada supervisor sube su lista de
-                        colaboradores por turno y mes.
-                    </p>
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
 
                 </div>
 
-            </a>
+            </div>
 
-            <a href="../colaboradores-activos/colaboradores-activos.html" class="card" id="cardColaboradoresActivos">
+            <!-- MENÚ -->
 
-                <div>
+            <nav class="menu">
 
-                    <h3>
-                        COLABORADORES ACTIVOS
-                    </h3>
+                <a href="../inicio/home.html">Inicio</a>
+                <a href="check-list-5s.html" class="activo">Check List 5S</a>
+                <a href="#">Sugerencias y Anomalías</a>
 
-                    <p>
-                        Lista en vivo que usa el
-                        Checklist 5S.
-                    </p>
+                <a href="../planificacion-avance/planificacion-avance.html">Planificación y Avance</a>
+
+                <a href="../usuarios/usuarios.html" id="linkUsuarios">Usuarios</a>
+                <a href="../usuarios-centro-proyectos/usuarios-centro-proyectos.html" id="linkUsuariosCentro">Usuarios Centro de Proyectos</a>
+
+                <hr>
+
+                <div class="titulo-modulos">MÓDULOS FUTUROS</div>
+
+                <a href="#">Reportes</a>
+                <a href="#">Configuración</a>
+
+            </nav>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="contenido">
+
+            <header class="topbar">
+
+                <a href="../inicio/home.html" class="volver">
+                    ← Volver al Panel
+                </a>
+
+                <h2>Check List 5S</h2>
+
+                <p>Auditorías, carga de colaboradores por turno y banco de fotos.</p>
+
+            </header>
+
+            <section class="banner-5s">
+
+                <div class="banner-5s-titulo">
+                    Metodología 5S
+                </div>
+
+                <div class="banner-5s-grid">
+
+                    <div class="banner-5s-item">
+                        <div class="banner-5s-letra">1S</div>
+                        <div class="banner-5s-nombre">SEPARAR</div>
+                        <div class="banner-5s-desc">Eliminar lo innecesario del área de trabajo.</div>
+                    </div>
+
+                    <div class="banner-5s-item">
+                        <div class="banner-5s-letra">2S</div>
+                        <div class="banner-5s-nombre">SITUAR</div>
+                        <div class="banner-5s-desc">Un lugar para cada cosa, y cada cosa en su lugar.</div>
+                    </div>
+
+                    <div class="banner-5s-item">
+                        <div class="banner-5s-letra">3S</div>
+                        <div class="banner-5s-nombre">SANITIZAR</div>
+                        <div class="banner-5s-desc">Limpieza constante del área y los equipos.</div>
+                    </div>
+
+                    <div class="banner-5s-item">
+                        <div class="banner-5s-letra">4S</div>
+                        <div class="banner-5s-nombre">ESTANDARIZAR</div>
+                        <div class="banner-5s-desc">Mantener buenas prácticas de forma consistente.</div>
+                    </div>
+
+                    <div class="banner-5s-item">
+                        <div class="banner-5s-letra">5S</div>
+                        <div class="banner-5s-nombre">SOSTENER</div>
+                        <div class="banner-5s-desc">Disciplina para que el cambio perdure.</div>
+                    </div>
 
                 </div>
 
-            </a>
+            </section>
 
-            <a href="../fotos-colaboradores/fotos-colaboradores.html" class="card" id="cardFotosColaboradores">
+            <section class="cards">
 
-                <div>
+                <a href="../checklist-diario/checklist-diario.html" class="card">
 
-                    <h3>
-                        FOTOS DE COLABORADORES
-                    </h3>
+                    <div>
 
-                    <p>
-                        Banco de fotos por DNI.
-                    </p>
+                        <h3>CHECK LIST DIARIO</h3>
 
-                </div>
+                        <p>Auditorías y control diario.</p>
 
-            </a>
+                    </div>
 
-        </section>
+                </a>
+
+                <a href="../carga-mensual/carga-mensual.html" class="card" id="cardCargaMensual">
+
+                    <div>
+
+                        <h3>CARGA MENSUAL</h3>
+
+                        <p>Cada supervisor sube su lista de colaboradores por turno y mes.</p>
+
+                    </div>
+
+                </a>
+
+                <a href="../colaboradores-activos/colaboradores-activos.html" class="card" id="cardColaboradoresActivos">
+
+                    <div>
+
+                        <h3>COLABORADORES ACTIVOS</h3>
+
+                        <p>Lista en vivo que usa el Checklist 5S.</p>
+
+                    </div>
+
+                </a>
+
+                <a href="../fotos-colaboradores/fotos-colaboradores.html" class="card" id="cardFotosColaboradores">
+
+                    <div>
+
+                        <h3>FOTOS DE COLABORADORES</h3>
+
+                        <p>Banco de fotos por DNI.</p>
+
+                    </div>
+
+                </a>
+
+            </section>
+
+        </main>
 
     </div>
 
