@@ -211,13 +211,6 @@ th:nth-child(2), td:nth-child(2){
     overflow-wrap:break-word;
 }
 
-.foto-mini{
-    width:44px;
-    height:44px;
-    border-radius:50%;
-    object-fit:cover;
-    background:#f3f4f6;
-}
 
 .mensaje-vacio{
     text-align:center;
@@ -282,6 +275,13 @@ th:nth-child(2), td:nth-child(2){
 .grupo select:focus{
     outline:none;
     border-color:#FC000D;
+}
+
+.grupo input[type="text"]:disabled,
+.grupo select:disabled{
+    background:#f3f4f6;
+    color:#9ca3af;
+    cursor:not-allowed;
 }
 
 .grupo-checkbox label{

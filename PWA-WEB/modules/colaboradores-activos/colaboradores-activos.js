@@ -60,7 +60,7 @@ async function cargarActivos(){
     try{
 
         activosCargados = await checklistFetch(
-            "/colaboradores_activos?select=id,dni,nombre,zona,pasillo,turno,supervisor,foto,activo&order=nombre.asc"
+            "/colaboradores_activos?select=id,dni,nombre,zona,pasillo,turno,supervisor,activo&order=nombre.asc"
         );
 
         llenarFiltroSupervisor(activosCargados);
@@ -201,11 +201,6 @@ const mensajeErrorModal = document.getElementById("mensajeErrorModal");
 
 const inputNuevoDni = document.getElementById("nuevoDni");
 const inputNuevoNombre = document.getElementById("nuevoNombre");
-const inputNuevoZona = document.getElementById("nuevoZona");
-const inputNuevoPasillo = document.getElementById("nuevoPasillo");
-const inputNuevoTurno = document.getElementById("nuevoTurno");
-const inputNuevoSupervisor = document.getElementById("nuevoSupervisor");
-const previsualizacionFoto = document.getElementById("previsualizacionFoto");
 
 let editandoId = null;
 
@@ -214,18 +209,12 @@ function limpiarModal(){
     mensajeErrorModal.textContent = "";
     inputNuevoDni.value = "";
     inputNuevoNombre.value = "";
-    inputNuevoZona.value = "";
-    inputNuevoPasillo.value = "";
-    inputNuevoTurno.value = "";
-    inputNuevoSupervisor.value = "";
-    previsualizacionFoto.style.display = "none";
-    previsualizacionFoto.src = "";
 
 }
 
-// Solo DNI y Nombre se pueden corregir acá. Zona, Pasillo, Turno,
-// Supervisor y Foto vienen de la carga oficial (Carga Mensual /
-// Activar mes) y no se editan desde esta pantalla.
+// Solo DNI y Nombre se pueden corregir acá. Zona, Pasillo, Turno y
+// Supervisor vienen de la carga oficial (Carga Mensual / Activar mes) y
+// ya se ven en la tabla, así que no se repiten en este modal.
 function abrirModalEditar(colaborador){
 
     limpiarModal();
@@ -235,20 +224,6 @@ function abrirModalEditar(colaborador){
 
     inputNuevoDni.value = colaborador.dni;
     inputNuevoNombre.value = colaborador.nombre;
-    inputNuevoZona.value = colaborador.zona || "";
-    inputNuevoPasillo.value = colaborador.pasillo || "";
-    inputNuevoTurno.value = colaborador.turno || "";
-    inputNuevoSupervisor.value = colaborador.supervisor || "";
-
-    inputNuevoZona.disabled = true;
-    inputNuevoPasillo.disabled = true;
-    inputNuevoTurno.disabled = true;
-    inputNuevoSupervisor.disabled = true;
-
-    if(colaborador.foto){
-        previsualizacionFoto.src = colaborador.foto;
-        previsualizacionFoto.style.display = "block";
-    }
 
     modalOverlay.classList.add("visible");
 

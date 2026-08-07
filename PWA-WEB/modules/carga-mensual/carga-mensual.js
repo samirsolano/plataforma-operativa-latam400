@@ -309,22 +309,6 @@ btnCargarArchivo.addEventListener("click", async function(){
 
         }
 
-        btnCargarArchivo.textContent = "Buscando fotos...";
-
-        // Trae de una sola vez las fotos ya guardadas para los DNI del archivo.
-        const dnis = filasNormalizadas.map(f => f.dni);
-        const fotosPorDni = {};
-
-        const listaDnis = "(" + dnis.join(",") + ")";
-
-        const fotosEncontradas = await checklistFetch(
-            "/fotos_colaboradores?dni=in." + listaDnis + "&select=dni,foto"
-        );
-
-        (fotosEncontradas || []).forEach(function(f){
-            fotosPorDni[f.dni] = f.foto;
-        });
-
         const filasParaInsertar = filasNormalizadas.map(function(f){
 
             return {
@@ -334,7 +318,6 @@ btnCargarArchivo.addEventListener("click", async function(){
                 pasillo: f.pasillo,
                 turno: f.turno,
                 supervisor: f.supervisor,
-                foto: fotosPorDni[f.dni] || null,
                 mes: mes,
                 cargado_por: sesion.nombre_completo || sesion.usuario || ""
             };
@@ -401,7 +384,7 @@ async function cargarMensual(){
     try{
 
         mensualCargado = await checklistFetch(
-            "/colaboradores_mensual?select=id,dni,nombre,zona,pasillo,turno,supervisor,foto,cargado_por,created_at&mes=eq." +
+            "/colaboradores_mensual?select=id,dni,nombre,zona,pasillo,turno,supervisor,cargado_por,created_at&mes=eq." +
             encodeURIComponent(mes) +
             "&order=turno.asc,nombre.asc"
         );
@@ -644,7 +627,6 @@ btnActivarMes.addEventListener("click", async function(){
                 pasillo: c.pasillo,
                 turno: c.turno,
                 supervisor: c.supervisor,
-                foto: c.foto,
                 activo: true
             };
 

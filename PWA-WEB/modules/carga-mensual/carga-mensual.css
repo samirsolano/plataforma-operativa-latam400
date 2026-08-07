@@ -187,13 +187,6 @@ th:nth-child(4), td:nth-child(4){
     overflow-wrap:break-word;
 }
 
-.foto-mini{
-    width:44px;
-    height:44px;
-    border-radius:50%;
-    object-fit:cover;
-    background:#f3f4f6;
-}
 
 .mensaje-vacio{
     text-align:center;
