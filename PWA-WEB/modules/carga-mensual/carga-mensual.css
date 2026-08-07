@@ -10,9 +10,7 @@ body{
 }
 
 .contenedor{
-    max-width:1100px;
-    margin:0 auto;
-    padding:25px;
+    width:100%;
 }
 
 .header{
@@ -146,6 +144,7 @@ body{
 table{
     width:100%;
     border-collapse:collapse;
+    table-layout:fixed;
 }
 
 th{
@@ -157,6 +156,8 @@ th{
     padding:12px 10px;
     border-bottom:2px solid #f3f4f6;
     white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
 }
 
 td{
@@ -165,6 +166,25 @@ td{
     color:#1f2937;
     font-size:15px;
     white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+/* DNI, Zona, Turno */
+th:nth-child(1), td:nth-child(1){ width:9%; }
+th:nth-child(3), td:nth-child(3){ width:8%; }
+th:nth-child(5), td:nth-child(5){ width:10%; }
+
+/* Nombre, Supervisor: pueden variar, pero rara vez son tan largos como Pasillo */
+th:nth-child(2), td:nth-child(2){ width:20%; }
+th:nth-child(6), td:nth-child(6){ width:18%; }
+
+/* Pasillo: la única columna con textos realmente largos, se le da el
+   espacio que sobra y se le permite pasar a una segunda línea. */
+th:nth-child(4), td:nth-child(4){
+    width:35%;
+    white-space:normal;
+    overflow-wrap:break-word;
 }
 
 .foto-mini{
