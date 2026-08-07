@@ -59,6 +59,7 @@ const chipIntermedio = document.getElementById("chipIntermedio");
 const resumenCargas = document.getElementById("resumenCargas");
 
 let mensualCargado = [];
+let turnoFiltrado = null;
 
 if(!esAdministrador){
     btnActivarMes.style.display = "none";
@@ -231,13 +232,35 @@ btnCargarArchivo.addEventListener("click", async function(){
             return;
         }
 
-        const filasNormalizadas = filasCrudas
-            .map(normalizarFilaExcel)
-            .filter(f => f.dni.length === 8 && f.nombre);
+        const todasLasFilas = filasCrudas.map(normalizarFilaExcel);
+
+        const filasNormalizadas = todasLasFilas.filter(
+            f => f.dni.length === 8 && f.nombre
+        );
+
+        const filasIncompletas = todasLasFilas.filter(
+            f => !(f.dni.length === 8 && f.nombre)
+        );
 
         if(!filasNormalizadas.length){
             mensajeErrorCarga.textContent = "No se encontraron filas completas en el archivo (revisa DNI y NOMBRE).";
             return;
+        }
+
+        // Todas las zonas a auditar deben tener un auditor asignado:
+        // no se acepta una carga parcial.
+        if(filasIncompletas.length){
+
+            const pasillosFaltantes = filasIncompletas
+                .map(f => f.pasillo || "(sin pasillo)")
+                .join(", ");
+
+            mensajeErrorCarga.textContent = "Faltan " + filasIncompletas.length +
+                " zona(s) sin auditor asignado: " + pasillosFaltantes +
+                ". Completa DNI y NOMBRE en todas las filas antes de subir.";
+
+            return;
+
         }
 
         // La plantilla es de un turno a la vez: todas las filas completas
@@ -363,6 +386,7 @@ async function cargarMensual(){
 
     const mes = mesActual();
 
+    turnoFiltrado = null;
     tblMensual.innerHTML = "";
     mensajeVacio.style.display = "none";
     actualizarChips([]);
@@ -382,7 +406,7 @@ async function cargarMensual(){
             "&order=turno.asc,nombre.asc"
         );
 
-        renderizarMensual(mensualCargado);
+        renderizarConFiltro();
         actualizarChips(mensualCargado);
         renderizarResumen(mensualCargado);
 
@@ -480,20 +504,12 @@ function renderizarMensual(lista){
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
-            <td>
-                <img class="foto-mini" src="${c.foto || ""}" alt="">
-            </td>
             <td>${c.dni}</td>
             <td>${c.nombre}</td>
             <td>${c.zona || "-"}</td>
             <td>${c.pasillo || "-"}</td>
             <td>${c.turno || "-"}</td>
             <td>${c.supervisor || "-"}</td>
-            <td>
-                <button class="btn-eliminar" data-id="${c.id}" data-dni="${c.dni}">
-                    Eliminar
-                </button>
-            </td>
         `;
 
         tblMensual.appendChild(tr);
@@ -501,6 +517,35 @@ function renderizarMensual(lista){
     });
 
 }
+
+// ========================================
+// CHIPS: ESTADO + FILTRO
+// ========================================
+
+function renderizarConFiltro(){
+
+    const lista = turnoFiltrado
+        ? mensualCargado.filter(c => c.turno === turnoFiltrado)
+        : mensualCargado;
+
+    renderizarMensual(lista);
+
+}
+
+[chipDia, chipNoche, chipIntermedio].forEach(function(chip){
+
+    chip.addEventListener("click", function(){
+
+        const turno = chip.dataset.turno;
+
+        turnoFiltrado = (turnoFiltrado === turno) ? null : turno;
+
+        renderizarConFiltro();
+        actualizarChips(mensualCargado);
+
+    });
+
+});
 
 function actualizarChips(lista){
 
@@ -512,54 +557,16 @@ function actualizarChips(lista){
     chipNoche.classList.toggle("cargado", turnosPresentes.has("NOCHE"));
     chipIntermedio.classList.toggle("cargado", turnosPresentes.has("INTERMEDIO"));
 
+    [chipDia, chipNoche, chipIntermedio].forEach(function(chip){
+        chip.classList.toggle("seleccionado", chip.dataset.turno === turnoFiltrado);
+    });
+
 }
 
 selectorMes.addEventListener("change", cargarMensual);
 
 // El selector ya trae el mes actual preseleccionado.
 cargarMensual();
-
-tblMensual.addEventListener("click", async function(e){
-
-    const boton = e.target.closest(".btn-eliminar");
-
-    if(!boton){
-        return;
-    }
-
-    const id = boton.dataset.id;
-    const dni = boton.dataset.dni;
-
-    const confirmado = confirm(
-        "¿Eliminar de la carga mensual al colaborador con DNI \"" + dni + "\"?"
-    );
-
-    if(!confirmado){
-        return;
-    }
-
-    boton.disabled = true;
-    boton.textContent = "Eliminando...";
-
-    try{
-
-        await checklistFetch(
-            "/colaboradores_mensual?id=eq." + encodeURIComponent(id),
-            { method: "DELETE" }
-        );
-
-        cargarMensual();
-
-    }catch(e){
-
-        console.error(e);
-        alert("No se pudo eliminar.");
-        boton.disabled = false;
-        boton.textContent = "Eliminar";
-
-    }
-
-});
 
 // ========================================
 // ACTIVAR MES

@@ -141,22 +141,24 @@
 
             <div class="estado-turnos" id="estadoTurnos">
 
-                <div class="chip-turno" id="chipDia">
+                <div class="chip-turno" id="chipDia" data-turno="DIA">
                     <span class="chip-punto"></span>
                     DIA
                 </div>
 
-                <div class="chip-turno" id="chipNoche">
+                <div class="chip-turno" id="chipNoche" data-turno="NOCHE">
                     <span class="chip-punto"></span>
                     NOCHE
                 </div>
 
-                <div class="chip-turno" id="chipIntermedio">
+                <div class="chip-turno" id="chipIntermedio" data-turno="INTERMEDIO">
                     <span class="chip-punto"></span>
                     INTERMEDIO
                 </div>
 
             </div>
+
+            <p class="ayuda-filtro">Toca un turno para filtrar la lista. Vuelve a tocarlo para ver todos.</p>
 
             <p id="mensajeErrorCarga" class="mensaje-error"></p>
 
@@ -168,14 +170,12 @@
 
                     <tr>
 
-                        <th>Foto</th>
                         <th>DNI</th>
                         <th>Nombre</th>
                         <th>Zona</th>
                         <th>Pasillo</th>
                         <th>Turno</th>
                         <th>Supervisor</th>
-                        <th>Acción</th>
 
                     </tr>
 

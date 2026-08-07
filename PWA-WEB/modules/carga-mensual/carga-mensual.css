@@ -347,6 +347,14 @@ td{
     color:#6b7280;
     font-size:13px;
     font-weight:600;
+    cursor:pointer;
+    border:2px solid transparent;
+    transition:.2s;
+    user-select:none;
+}
+
+.chip-turno:hover{
+    background:#e5e7eb;
 }
 
 .chip-punto{
@@ -361,8 +369,22 @@ td{
     color:#15803d;
 }
 
+.chip-turno.cargado:hover{
+    background:#bbf7d0;
+}
+
 .chip-turno.cargado .chip-punto{
     background:#15803d;
+}
+
+.chip-turno.seleccionado{
+    border-color:#FC000D;
+}
+
+.ayuda-filtro{
+    color:#9ca3af;
+    font-size:12px;
+    margin:-10px 0 15px;
 }
 
 .modal-overlay{
