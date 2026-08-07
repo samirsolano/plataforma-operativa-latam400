@@ -6,7 +6,8 @@
 
 .layout{
     display:flex;
-    min-height:100vh;
+    height:100vh;
+    overflow:hidden;
 }
 
 .sidebar{
@@ -17,6 +18,8 @@
     flex-direction:column;
     box-shadow:2px 0 10px rgba(0,0,0,.08);
     flex-shrink:0;
+    height:100vh;
+    overflow-y:auto;
 }
 
 .volver-plataforma{
