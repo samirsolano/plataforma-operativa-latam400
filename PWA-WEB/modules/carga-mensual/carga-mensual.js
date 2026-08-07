@@ -561,6 +561,30 @@ function actualizarChips(lista){
         chip.classList.toggle("seleccionado", chip.dataset.turno === turnoFiltrado);
     });
 
+    actualizarBotonActivar(turnosPresentes);
+
+}
+
+// El botón "Activar mes" solo tiene sentido (y solo se habilita) cuando
+// ese mes ya tiene carga de los 3 turnos. El botón ya está oculto por
+// completo para quien no es Administrador.
+function actualizarBotonActivar(turnosPresentes){
+
+    if(!esAdministrador){
+        return;
+    }
+
+    const completo =
+        turnosPresentes.has("DIA") &&
+        turnosPresentes.has("NOCHE") &&
+        turnosPresentes.has("INTERMEDIO");
+
+    btnActivarMes.disabled = !completo;
+
+    btnActivarMes.title = completo
+        ? ""
+        : "Faltan turnos por cargar para este mes (DIA, NOCHE e INTERMEDIO).";
+
 }
 
 selectorMes.addEventListener("change", cargarMensual);
