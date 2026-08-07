@@ -114,7 +114,17 @@ async function leerFilasExcel(archivo){
 
     const buffer = await archivo.arrayBuffer();
     const libro = XLSX.read(buffer, { type: "array" });
-    const hoja = libro.Sheets[libro.SheetNames[0]];
+
+    // La plantilla oficial trae una hoja auxiliar oculta ("Listas") con
+    // las opciones de los desplegables, además de la hoja con los datos
+    // ("Carga 5S"). No siempre es la primera hoja del archivo, así que
+    // se busca por nombre y solo se usa la primera como último recurso.
+    const nombreHoja =
+        libro.SheetNames.find(n => n.trim().toLowerCase() === "carga 5s") ||
+        libro.SheetNames.find(n => n.trim().toLowerCase() !== "listas") ||
+        libro.SheetNames[0];
+
+    const hoja = libro.Sheets[nombreHoja];
 
     return XLSX.utils.sheet_to_json(hoja, { defval: "" });
 
