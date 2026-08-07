@@ -47,6 +47,8 @@ document.getElementById("btnCerrarSesion").addEventListener("click", function(e)
 const tblActivos = document.getElementById("tblActivos");
 const mensajeVacio = document.getElementById("mensajeVacio");
 const buscador = document.getElementById("buscador");
+const filtroTurno = document.getElementById("filtroTurno");
+const filtroSupervisor = document.getElementById("filtroSupervisor");
 
 let activosCargados = [];
 
@@ -61,7 +63,8 @@ async function cargarActivos(){
             "/colaboradores_activos?select=id,dni,nombre,zona,pasillo,turno,supervisor,foto,activo&order=nombre.asc"
         );
 
-        renderizarActivos(activosCargados);
+        llenarFiltroSupervisor(activosCargados);
+        aplicarFiltros();
 
     }catch(e){
 
@@ -70,6 +73,30 @@ async function cargarActivos(){
         mensajeVacio.style.display = "block";
 
     }
+
+}
+
+function llenarFiltroSupervisor(lista){
+
+    const seleccionActual = filtroSupervisor.value;
+
+    const supervisores = Array.from(new Set(
+        lista.map(c => c.supervisor).filter(Boolean)
+    )).sort();
+
+    filtroSupervisor.innerHTML = '<option value="">Supervisor (todos)</option>';
+
+    supervisores.forEach(function(nombre){
+
+        const opcion = document.createElement("option");
+        opcion.value = nombre;
+        opcion.textContent = nombre;
+
+        filtroSupervisor.appendChild(opcion);
+
+    });
+
+    filtroSupervisor.value = seleccionActual;
 
 }
 
@@ -89,25 +116,14 @@ function renderizarActivos(lista){
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
-            <td>
-                <img class="foto-mini" src="${c.foto || ""}" alt="">
-            </td>
-            <td>${c.dni}</td>
-            <td>${c.nombre}</td>
             <td>${c.zona || "-"}</td>
             <td>${c.pasillo || "-"}</td>
+            <td>${c.dni}</td>
+            <td>${c.nombre}</td>
             <td>${c.turno || "-"}</td>
-            <td>
-                <span class="estado ${c.activo ? "activo" : "inactivo"}">
-                    ${c.activo ? "Activo" : "Inactivo"}
-                </span>
-            </td>
             <td>
                 <button class="btn-editar" data-id="${c.id}">
                     Editar
-                </button>
-                <button class="btn-eliminar" data-id="${c.id}" data-dni="${c.dni}">
-                    Eliminar
                 </button>
             </td>
         `;
@@ -118,91 +134,57 @@ function renderizarActivos(lista){
 
 }
 
-buscador.addEventListener("input", function(){
+function aplicarFiltros(){
 
     const termino = buscador.value.trim().toLowerCase();
-
-    if(!termino){
-        renderizarActivos(activosCargados);
-        return;
-    }
+    const turno = filtroTurno.value;
+    const supervisor = filtroSupervisor.value;
 
     const filtrados = activosCargados.filter(function(c){
 
-        return (
+        const coincideTexto = !termino ||
             c.dni.toLowerCase().includes(termino) ||
-            c.nombre.toLowerCase().includes(termino)
-        );
+            c.nombre.toLowerCase().includes(termino);
+
+        const coincideTurno = !turno || c.turno === turno;
+        const coincideSupervisor = !supervisor || c.supervisor === supervisor;
+
+        return coincideTexto && coincideTurno && coincideSupervisor;
 
     });
 
     if(!filtrados.length){
         tblActivos.innerHTML = "";
-        mensajeVacio.textContent = "Ningún colaborador coincide con la búsqueda.";
+        mensajeVacio.textContent = "Ningún colaborador coincide con el filtro.";
         mensajeVacio.style.display = "block";
         return;
     }
 
     renderizarActivos(filtrados);
 
-});
+}
+
+buscador.addEventListener("input", aplicarFiltros);
+filtroTurno.addEventListener("change", aplicarFiltros);
+filtroSupervisor.addEventListener("change", aplicarFiltros);
 
 // ========================================
-// EDITAR / ELIMINAR
+// EDITAR
 // ========================================
 
-tblActivos.addEventListener("click", async function(e){
+tblActivos.addEventListener("click", function(e){
 
     const botonEditar = e.target.closest(".btn-editar");
-    const botonEliminar = e.target.closest(".btn-eliminar");
 
-    if(botonEditar){
-
-        const id = botonEditar.dataset.id;
-        const colaborador = activosCargados.find(c => String(c.id) === String(id));
-
-        if(colaborador){
-            abrirModalEditar(colaborador);
-        }
-
+    if(!botonEditar){
         return;
     }
 
-    if(botonEliminar){
+    const id = botonEditar.dataset.id;
+    const colaborador = activosCargados.find(c => String(c.id) === String(id));
 
-        const id = botonEliminar.dataset.id;
-        const dni = botonEliminar.dataset.dni;
-
-        const confirmado = confirm(
-            "¿Eliminar permanentemente al colaborador con DNI \"" + dni + "\"? Esta acción no se puede deshacer."
-        );
-
-        if(!confirmado){
-            return;
-        }
-
-        botonEliminar.disabled = true;
-        botonEliminar.textContent = "Eliminando...";
-
-        try{
-
-            await checklistFetch(
-                "/colaboradores_activos?id=eq." + encodeURIComponent(id),
-                { method: "DELETE" }
-            );
-
-            cargarActivos();
-
-        }catch(e){
-
-            console.error(e);
-            alert("No se pudo eliminar el colaborador.");
-            botonEliminar.disabled = false;
-            botonEliminar.textContent = "Eliminar";
-
-        }
-
-        return;
+    if(colaborador){
+        abrirModalEditar(colaborador);
     }
 
 });
@@ -213,11 +195,9 @@ tblActivos.addEventListener("click", async function(e){
 
 const modalOverlay = document.getElementById("modalOverlay");
 const tituloModal = document.getElementById("tituloModal");
-const btnAgregar = document.getElementById("btnAgregar");
 const btnCancelar = document.getElementById("btnCancelar");
 const btnGuardar = document.getElementById("btnGuardar");
 const mensajeErrorModal = document.getElementById("mensajeErrorModal");
-const fotoEncontradaMsg = document.getElementById("fotoEncontradaMsg");
 
 const inputNuevoDni = document.getElementById("nuevoDni");
 const inputNuevoNombre = document.getElementById("nuevoNombre");
@@ -225,59 +205,45 @@ const inputNuevoZona = document.getElementById("nuevoZona");
 const inputNuevoPasillo = document.getElementById("nuevoPasillo");
 const inputNuevoTurno = document.getElementById("nuevoTurno");
 const inputNuevoSupervisor = document.getElementById("nuevoSupervisor");
-const inputNuevoFoto = document.getElementById("nuevoFoto");
 const previsualizacionFoto = document.getElementById("previsualizacionFoto");
-const inputNuevoActivo = document.getElementById("nuevoActivo");
 
 let editandoId = null;
-let fotoBanco = null;
 
 function limpiarModal(){
 
     mensajeErrorModal.textContent = "";
-    fotoEncontradaMsg.textContent = "";
     inputNuevoDni.value = "";
-    inputNuevoDni.disabled = false;
     inputNuevoNombre.value = "";
     inputNuevoZona.value = "";
     inputNuevoPasillo.value = "";
     inputNuevoTurno.value = "";
     inputNuevoSupervisor.value = "";
-    inputNuevoFoto.value = "";
-    inputNuevoActivo.checked = true;
     previsualizacionFoto.style.display = "none";
     previsualizacionFoto.src = "";
-    fotoBanco = null;
 
 }
 
-function abrirModalNuevo(){
-
-    limpiarModal();
-    editandoId = null;
-
-    tituloModal.textContent = "Agregar Colaborador";
-    modalOverlay.classList.add("visible");
-    inputNuevoDni.focus();
-
-}
-
+// Solo DNI y Nombre se pueden corregir acá. Zona, Pasillo, Turno,
+// Supervisor y Foto vienen de la carga oficial (Carga Mensual /
+// Activar mes) y no se editan desde esta pantalla.
 function abrirModalEditar(colaborador){
 
     limpiarModal();
     editandoId = colaborador.id;
-    fotoBanco = colaborador.foto || null;
 
     tituloModal.textContent = "Editar Colaborador";
 
     inputNuevoDni.value = colaborador.dni;
-    inputNuevoDni.disabled = true;
     inputNuevoNombre.value = colaborador.nombre;
     inputNuevoZona.value = colaborador.zona || "";
     inputNuevoPasillo.value = colaborador.pasillo || "";
     inputNuevoTurno.value = colaborador.turno || "";
     inputNuevoSupervisor.value = colaborador.supervisor || "";
-    inputNuevoActivo.checked = !!colaborador.activo;
+
+    inputNuevoZona.disabled = true;
+    inputNuevoPasillo.disabled = true;
+    inputNuevoTurno.disabled = true;
+    inputNuevoSupervisor.disabled = true;
 
     if(colaborador.foto){
         previsualizacionFoto.src = colaborador.foto;
@@ -292,7 +258,6 @@ function cerrarModal(){
     modalOverlay.classList.remove("visible");
 }
 
-btnAgregar.addEventListener("click", abrirModalNuevo);
 btnCancelar.addEventListener("click", cerrarModal);
 
 modalOverlay.addEventListener("click", function(e){
@@ -303,74 +268,15 @@ modalOverlay.addEventListener("click", function(e){
 
 });
 
-// Al escribir el DNI (solo cuando se está agregando), busca si ya
-// existe una foto guardada para ese colaborador en el banco.
-inputNuevoDni.addEventListener("blur", async function(){
-
-    const dni = inputNuevoDni.value.trim();
-
-    if(editandoId || dni.length !== 8){
-        return;
-    }
-
-    try{
-
-        const foto = await buscarFotoColaborador(dni);
-
-        if(foto){
-            fotoBanco = foto.foto;
-            previsualizacionFoto.src = foto.foto;
-            previsualizacionFoto.style.display = "block";
-            fotoEncontradaMsg.textContent = "✓ Ya existe una foto guardada para este DNI.";
-
-            if(foto.nombre && !inputNuevoNombre.value){
-                inputNuevoNombre.value = foto.nombre;
-            }
-
-        }
-
-    }catch(e){
-        console.error(e);
-    }
-
-});
-
-inputNuevoFoto.addEventListener("change", function(){
-
-    const archivo = inputNuevoFoto.files[0];
-
-    if(!archivo){
-        return;
-    }
-
-    fotoEncontradaMsg.textContent = "";
-
-    const lector = new FileReader();
-
-    lector.onload = function(e){
-        previsualizacionFoto.src = e.target.result;
-        previsualizacionFoto.style.display = "block";
-    };
-
-    lector.readAsDataURL(archivo);
-
-});
-
 btnGuardar.addEventListener("click", async function(){
 
     const dni = inputNuevoDni.value.trim();
     const nombre = inputNuevoNombre.value.trim();
-    const zona = inputNuevoZona.value;
-    const pasillo = inputNuevoPasillo.value.trim();
-    const turno = inputNuevoTurno.value;
-    const supervisor = inputNuevoSupervisor.value.trim();
-    const archivo = inputNuevoFoto.files[0];
-    const activo = inputNuevoActivo.checked;
 
     mensajeErrorModal.textContent = "";
 
     if(!dni || !nombre){
-        mensajeErrorModal.textContent = "Complete al menos el DNI y el nombre.";
+        mensajeErrorModal.textContent = "Complete el DNI y el nombre.";
         return;
     }
 
@@ -384,51 +290,17 @@ btnGuardar.addEventListener("click", async function(){
 
     try{
 
-        let fotoUrl = fotoBanco;
-
-        if(archivo){
-            fotoUrl = await subirFotoColaborador(dni, archivo, nombre);
-        }
-
-        if(editandoId){
-
-            await checklistFetch(
-                "/colaboradores_activos?id=eq." + encodeURIComponent(editandoId),
-                {
-                    method: "PATCH",
-                    body: JSON.stringify({
-                        nombre: nombre,
-                        zona: zona,
-                        pasillo: pasillo,
-                        turno: turno,
-                        supervisor: supervisor,
-                        foto: fotoUrl,
-                        activo: activo,
-                        updated_at: new Date().toISOString()
-                    })
-                }
-            );
-
-        }else{
-
-            await checklistFetch(
-                "/colaboradores_activos",
-                {
-                    method: "POST",
-                    body: JSON.stringify({
-                        dni: dni,
-                        nombre: nombre,
-                        zona: zona,
-                        pasillo: pasillo,
-                        turno: turno,
-                        supervisor: supervisor,
-                        foto: fotoUrl,
-                        activo: activo
-                    })
-                }
-            );
-
-        }
+        await checklistFetch(
+            "/colaboradores_activos?id=eq." + encodeURIComponent(editandoId),
+            {
+                method: "PATCH",
+                body: JSON.stringify({
+                    dni: dni,
+                    nombre: nombre,
+                    updated_at: new Date().toISOString()
+                })
+            }
+        );
 
         cerrarModal();
         cargarActivos();
@@ -436,7 +308,7 @@ btnGuardar.addEventListener("click", async function(){
     }catch(e){
 
         console.error(e);
-        mensajeErrorModal.textContent = "No se pudo guardar. Verifique que el DNI no exista ya.";
+        mensajeErrorModal.textContent = "No se pudo guardar. Verifique que ese DNI no esté repetido en ese mismo pasillo y turno.";
 
     }finally{
 

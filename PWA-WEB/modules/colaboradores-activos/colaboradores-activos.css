@@ -10,9 +10,7 @@ body{
 }
 
 .contenedor{
-    max-width:1100px;
-    margin:0 auto;
-    padding:25px;
+    width:100%;
 }
 
 .header{
@@ -114,8 +112,16 @@ body{
     background:#eff6ff;
 }
 
-.buscador{
+.filtros{
+    display:flex;
+    gap:12px;
     margin-bottom:20px;
+    flex-wrap:wrap;
+}
+
+.buscador{
+    flex:1;
+    min-width:220px;
 }
 
 .buscador input{
@@ -131,6 +137,20 @@ body{
     border-color:#FC000D;
 }
 
+.filtros select{
+    padding:12px 16px;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    font-size:15px;
+    background:white;
+    min-width:170px;
+}
+
+.filtros select:focus{
+    outline:none;
+    border-color:#FC000D;
+}
+
 .card{
     background:white;
     border-radius:20px;
@@ -138,9 +158,15 @@ body{
     box-shadow:0 5px 20px rgba(0,0,0,.05);
 }
 
+.tabla-scroll{
+    width:100%;
+    overflow-x:auto;
+}
+
 table{
     width:100%;
     border-collapse:collapse;
+    table-layout:fixed;
 }
 
 th{
@@ -151,6 +177,9 @@ th{
     color:#6b7280;
     padding:12px 10px;
     border-bottom:2px solid #f3f4f6;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
 }
 
 td{
@@ -158,6 +187,28 @@ td{
     border-bottom:1px solid #f3f4f6;
     color:#1f2937;
     font-size:15px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+/* Orden: Zona, Pasillo, DNI, Nombre, Turno, Acción */
+
+/* Zona, DNI, Turno, Acción */
+th:nth-child(1), td:nth-child(1){ width:10%; }
+th:nth-child(3), td:nth-child(3){ width:12%; }
+th:nth-child(5), td:nth-child(5){ width:10%; }
+th:nth-child(6), td:nth-child(6){ width:12%; }
+
+/* Nombre */
+th:nth-child(4), td:nth-child(4){ width:22%; }
+
+/* Pasillo: puede tener textos largos, se le da el espacio que sobra
+   y se le permite pasar a una segunda línea. */
+th:nth-child(2), td:nth-child(2){
+    width:34%;
+    white-space:normal;
+    overflow-wrap:break-word;
 }
 
 .foto-mini{
@@ -240,22 +291,6 @@ td{
     font-weight:500;
 }
 
-.estado{
-    padding:5px 12px;
-    border-radius:20px;
-    font-size:13px;
-    font-weight:600;
-}
-
-.estado.activo{
-    background:#dcfce7;
-    color:#15803d;
-}
-
-.estado.inactivo{
-    background:#f3f4f6;
-    color:#6b7280;
-}
 
 .mensaje-foto-encontrada{
     font-size:13px;

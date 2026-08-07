@@ -77,48 +77,61 @@
 
             </div>
 
-            <button id="btnAgregar" class="btn-primario">
-                + Agregar Colaborador
-            </button>
-
         </header>
 
         <div class="card">
 
-            <div class="buscador">
+            <div class="filtros">
 
-                <input
-                    type="text"
-                    id="buscador"
-                    placeholder="Buscar por DNI o nombre..."
-                    autocomplete="off"
-                >
+                <div class="buscador">
+
+                    <input
+                        type="text"
+                        id="buscador"
+                        placeholder="Buscar por DNI o nombre..."
+                        autocomplete="off"
+                    >
+
+                </div>
+
+                <select id="filtroTurno">
+                    <option value="">Turno (todos)</option>
+                    <option value="DIA">DIA</option>
+                    <option value="NOCHE">NOCHE</option>
+                    <option value="INTERMEDIO">INTERMEDIO</option>
+                </select>
+
+                <select id="filtroSupervisor">
+                    <option value="">Supervisor (todos)</option>
+                </select>
 
             </div>
 
-            <table>
+            <div class="tabla-scroll">
 
-                <thead>
+                <table>
 
-                    <tr>
+                    <thead>
 
-                        <th>Foto</th>
-                        <th>DNI</th>
-                        <th>Nombre</th>
-                        <th>Zona</th>
-                        <th>Pasillo</th>
-                        <th>Turno</th>
-                        <th>Estado</th>
-                        <th>Acción</th>
+                        <tr>
 
-                    </tr>
+                            <th>Zona</th>
+                            <th>Pasillo</th>
+                            <th>DNI</th>
+                            <th>Nombre</th>
+                            <th>Turno</th>
+                            <th>Acción</th>
 
-                </thead>
+                        </tr>
 
-                <tbody id="tblActivos">
-                </tbody>
+                    </thead>
 
-            </table>
+                    <tbody id="tblActivos">
+                    </tbody>
+
+                </table>
+
+            </div>
 
             <p id="mensajeVacio" class="mensaje-vacio">
                 Cargando colaboradores...
@@ -245,35 +258,11 @@
                         Foto
                     </label>
 
-                    <p id="fotoEncontradaMsg" class="mensaje-foto-encontrada"></p>
-
-                    <input
-                        type="file"
-                        id="nuevoFoto"
-                        accept="image/*"
-                    >
-
                     <img
                         id="previsualizacionFoto"
                         class="previsualizacion"
                         alt="Vista previa"
                     >
-
-                </div>
-
-                <div class="grupo grupo-checkbox">
-
-                    <label>
-
-                        <input
-                            type="checkbox"
-                            id="nuevoActivo"
-                            checked
-                        >
-
-                        Colaborador activo
-
-                    </label>
 
                 </div>
 
@@ -297,10 +286,8 @@
 
     </div>
 
-    <script src="../../shared/supabase-config.js"></script>
     <script src="../../shared/auth.js"></script>
     <script src="../../shared/checklist-config.js"></script>
-    <script src="../../shared/colaboradores-fotos.js"></script>
     <script src="colaboradores-activos.js"></script>
 
 </body>
