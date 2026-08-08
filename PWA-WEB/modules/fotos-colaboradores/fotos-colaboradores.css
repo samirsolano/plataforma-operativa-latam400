@@ -10,9 +10,7 @@ body{
 }
 
 .contenedor{
-    max-width:1100px;
-    margin:0 auto;
-    padding:25px;
+    width:100%;
 }
 
 .header{
@@ -114,8 +112,16 @@ body{
     background:#eff6ff;
 }
 
-.buscador{
+.filtros{
+    display:flex;
+    gap:12px;
     margin-bottom:20px;
+    flex-wrap:wrap;
+}
+
+.buscador{
+    flex:1;
+    min-width:220px;
 }
 
 .buscador input{
@@ -131,6 +137,20 @@ body{
     border-color:#FC000D;
 }
 
+.filtros select{
+    padding:12px 16px;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    font-size:15px;
+    background:white;
+    min-width:170px;
+}
+
+.filtros select:focus{
+    outline:none;
+    border-color:#FC000D;
+}
+
 .card{
     background:white;
     border-radius:20px;
@@ -138,9 +158,15 @@ body{
     box-shadow:0 5px 20px rgba(0,0,0,.05);
 }
 
+.tabla-scroll{
+    width:100%;
+    overflow-x:auto;
+}
+
 table{
     width:100%;
     border-collapse:collapse;
+    table-layout:fixed;
 }
 
 th{
@@ -151,6 +177,9 @@ th{
     color:#6b7280;
     padding:12px 10px;
     border-bottom:2px solid #f3f4f6;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
 }
 
 td{
@@ -158,6 +187,23 @@ td{
     border-bottom:1px solid #f3f4f6;
     color:#1f2937;
     font-size:15px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+/* Foto, Turno */
+th:nth-child(1), td:nth-child(1){ width:8%; }
+th:nth-child(4), td:nth-child(4){ width:12%; }
+
+/* Nombre, Supervisor */
+th:nth-child(2), td:nth-child(2){ width:28%; }
+th:nth-child(3), td:nth-child(3){ width:28%; }
+
+/* Acción: dos botones, se le da más espacio y puede pasar a 2 líneas */
+th:nth-child(5), td:nth-child(5){
+    width:24%;
+    white-space:normal;
 }
 
 .foto-mini{
@@ -201,6 +247,12 @@ td{
 .modal h3{
     color:#1f2937;
     font-size:22px;
+    margin-bottom:6px;
+}
+
+.nombre-modal-info{
+    color:#6b7280;
+    font-size:14px;
     margin-bottom:20px;
 }
 

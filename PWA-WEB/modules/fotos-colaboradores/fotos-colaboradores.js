@@ -1,4 +1,4 @@
-﻿// ========================================
+// ========================================
 // SESIÓN Y PERMISOS
 // ========================================
 
@@ -43,77 +43,127 @@ document.getElementById("btnCerrarSesion").addEventListener("click", function(e)
 // ========================================
 // LISTAR
 // ========================================
+// La lista sale de colaboradores_activos (deduplicada por DNI, ya que
+// una persona puede aparecer en varios pasillos), cruzada con
+// fotos_colaboradores para saber si ya tiene foto guardada.
 
 const tblFotos = document.getElementById("tblFotos");
 const mensajeVacio = document.getElementById("mensajeVacio");
 const buscador = document.getElementById("buscador");
+const filtroFoto = document.getElementById("filtroFoto");
+const filtroSupervisor = document.getElementById("filtroSupervisor");
 
-let fotosCargadas = [];
+let colaboradoresCargados = [];
 
-async function cargarFotos(){
+async function cargarColaboradores(){
 
     tblFotos.innerHTML = "";
     mensajeVacio.style.display = "none";
 
     try{
 
-        fotosCargadas = await checklistFetch(
-            "/fotos_colaboradores?select=dni,nombre,foto,updated_at&order=updated_at.desc"
-        );
+        const [activos, fotos] = await Promise.all([
+            checklistFetch("/colaboradores_activos?select=dni,nombre,supervisor,turno&order=nombre.asc"),
+            checklistFetch("/fotos_colaboradores?select=dni,foto")
+        ]);
 
-        renderizarFotos(fotosCargadas);
+        const fotosPorDni = {};
+
+        fotos.forEach(function(f){
+            fotosPorDni[f.dni] = f.foto;
+        });
+
+        const vistos = new Set();
+        colaboradoresCargados = [];
+
+        activos.forEach(function(c){
+
+            if(vistos.has(c.dni)){
+                return;
+            }
+
+            vistos.add(c.dni);
+
+            colaboradoresCargados.push({
+                dni: c.dni,
+                nombre: c.nombre,
+                supervisor: c.supervisor,
+                turno: c.turno,
+                foto: fotosPorDni[c.dni] || null
+            });
+
+        });
+
+        llenarFiltroSupervisor(colaboradoresCargados);
+        aplicarFiltros();
 
     }catch(e){
 
         console.error(e);
-        mensajeVacio.textContent = "No se pudo cargar el banco de fotos.";
+        mensajeVacio.textContent = "No se pudo cargar la lista de colaboradores.";
         mensajeVacio.style.display = "block";
 
     }
 
 }
 
-function formatearFecha(iso){
+function llenarFiltroSupervisor(lista){
 
-    if(!iso){
-        return "-";
-    }
+    const seleccionActual = filtroSupervisor.value;
 
-    const fecha = new Date(iso);
+    const supervisores = Array.from(new Set(
+        lista.map(c => c.supervisor).filter(Boolean)
+    )).sort();
 
-    return fecha.toLocaleDateString("es-PE");
+    filtroSupervisor.innerHTML = '<option value="">Supervisor (todos)</option>';
+
+    supervisores.forEach(function(nombre){
+
+        const opcion = document.createElement("option");
+        opcion.value = nombre;
+        opcion.textContent = nombre;
+
+        filtroSupervisor.appendChild(opcion);
+
+    });
+
+    filtroSupervisor.value = seleccionActual;
 
 }
 
-function renderizarFotos(lista){
+function renderizarColaboradores(lista){
 
     tblFotos.innerHTML = "";
     mensajeVacio.style.display = "none";
 
     if(!lista || !lista.length){
-        mensajeVacio.textContent = "No hay fotos guardadas todavía.";
+        mensajeVacio.textContent = "No hay colaboradores activos registrados.";
         mensajeVacio.style.display = "block";
         return;
     }
 
-    lista.forEach(function(f){
+    lista.forEach(function(c){
 
         const tr = document.createElement("tr");
 
+        const imagenFoto = c.foto
+            ? `<img class="foto-mini" src="${c.foto}" alt="">`
+            : `<div class="foto-mini"></div>`;
+
+        const botonEliminar = c.foto
+            ? `<button class="btn-eliminar" data-dni="${c.dni}">Quitar foto</button>`
+            : "";
+
         tr.innerHTML = `
+            <td>${imagenFoto}</td>
+            <td>${c.nombre}</td>
+            <td>${c.supervisor || "-"}</td>
+            <td>${c.turno || "-"}</td>
             <td>
-                <img class="foto-mini" src="${f.foto || ""}" alt="">
-            </td>
-            <td>${f.dni}</td>
-            <td>${f.nombre || "-"}</td>
-            <td>${formatearFecha(f.updated_at)}</td>
-            <td>
-                <button class="btn-editar" data-dni="${f.dni}">
-                    Reemplazar
+                <button class="btn-editar" data-dni="${c.dni}">
+                    ${c.foto ? "Reemplazar foto" : "Subir foto"}
                 </button>
-                <button class="btn-eliminar" data-dni="${f.dni}">
-                    Eliminar
-                </button>
+                ${botonEliminar}
             </td>
         `;
 
@@ -123,37 +173,45 @@ function renderizarFotos(lista){
 
 }
 
-buscador.addEventListener("input", function(){
+function aplicarFiltros(){
 
     const termino = buscador.value.trim().toLowerCase();
+    const foto = filtroFoto.value;
+    const supervisor = filtroSupervisor.value;
 
-    if(!termino){
-        renderizarFotos(fotosCargadas);
-        return;
-    }
+    const filtrados = colaboradoresCargados.filter(function(c){
 
-    const filtrados = fotosCargadas.filter(function(f){
+        const coincideTexto = !termino ||
+            c.dni.toLowerCase().includes(termino) ||
+            c.nombre.toLowerCase().includes(termino);
 
-        return (
-            f.dni.toLowerCase().includes(termino) ||
-            (f.nombre || "").toLowerCase().includes(termino)
-        );
+        const coincideFoto = !foto ||
+            (foto === "sin" && !c.foto) ||
+            (foto === "con" && !!c.foto);
+
+        const coincideSupervisor = !supervisor || c.supervisor === supervisor;
+
+        return coincideTexto && coincideFoto && coincideSupervisor;
 
     });
 
     if(!filtrados.length){
         tblFotos.innerHTML = "";
-        mensajeVacio.textContent = "Ninguna foto coincide con la búsqueda.";
+        mensajeVacio.textContent = "Ningún colaborador coincide con el filtro.";
         mensajeVacio.style.display = "block";
         return;
     }
 
-    renderizarFotos(filtrados);
+    renderizarColaboradores(filtrados);
 
-});
+}
+
+buscador.addEventListener("input", aplicarFiltros);
+filtroFoto.addEventListener("change", aplicarFiltros);
+filtroSupervisor.addEventListener("change", aplicarFiltros);
 
 // ========================================
-// EDITAR (reemplazar) / ELIMINAR
+// SUBIR / REEMPLAZAR / QUITAR FOTO
 // ========================================
 
 tblFotos.addEventListener("click", async function(e){
@@ -164,10 +222,10 @@ tblFotos.addEventListener("click", async function(e){
     if(botonEditar){
 
         const dni = botonEditar.dataset.dni;
-        const foto = fotosCargadas.find(f => f.dni === dni);
+        const colaborador = colaboradoresCargados.find(c => c.dni === dni);
 
-        if(foto){
-            abrirModalEditar(foto);
+        if(colaborador){
+            abrirModalFoto(colaborador);
         }
 
         return;
@@ -178,7 +236,7 @@ tblFotos.addEventListener("click", async function(e){
         const dni = botonEliminar.dataset.dni;
 
         const confirmado = confirm(
-            "¿Eliminar la foto del DNI \"" + dni + "\"? Esta acción no se puede deshacer."
+            "¿Quitar la foto de \"" + dni + "\"? Esta acción no se puede deshacer."
         );
 
         if(!confirmado){
@@ -186,7 +244,7 @@ tblFotos.addEventListener("click", async function(e){
         }
 
         botonEliminar.disabled = true;
-        botonEliminar.textContent = "Eliminando...";
+        botonEliminar.textContent = "Quitando...";
 
         try{
 
@@ -195,14 +253,14 @@ tblFotos.addEventListener("click", async function(e){
                 { method: "DELETE" }
             );
 
-            cargarFotos();
+            cargarColaboradores();
 
         }catch(e){
 
             console.error(e);
-            alert("No se pudo eliminar la foto.");
+            alert("No se pudo quitar la foto.");
             botonEliminar.disabled = false;
-            botonEliminar.textContent = "Eliminar";
+            botonEliminar.textContent = "Quitar foto";
 
         }
 
@@ -212,48 +270,41 @@ tblFotos.addEventListener("click", async function(e){
 });
 
 // ========================================
-// MODAL AGREGAR / REEMPLAZAR
+// MODAL SUBIR / REEMPLAZAR FOTO
 // ========================================
 
 const modalOverlay = document.getElementById("modalOverlay");
 const tituloModal = document.getElementById("tituloModal");
-const btnAgregar = document.getElementById("btnAgregar");
+const nombreModalInfo = document.getElementById("nombreModalInfo");
 const btnCancelar = document.getElementById("btnCancelar");
 const btnGuardar = document.getElementById("btnGuardar");
 const mensajeErrorModal = document.getElementById("mensajeErrorModal");
 
-const inputNuevoDni = document.getElementById("nuevoDni");
-const inputNuevoNombre = document.getElementById("nuevoNombre");
 const inputNuevoFoto = document.getElementById("nuevoFoto");
 const previsualizacionFoto = document.getElementById("previsualizacionFoto");
 
-function abrirModalNuevo(){
+let dniEnEdicion = null;
+let nombreEnEdicion = null;
+
+function abrirModalFoto(colaborador){
 
     mensajeErrorModal.textContent = "";
-    inputNuevoDni.value = "";
-    inputNuevoDni.disabled = false;
-    inputNuevoNombre.value = "";
     inputNuevoFoto.value = "";
-    previsualizacionFoto.style.display = "none";
-    previsualizacionFoto.src = "";
 
-    tituloModal.textContent = "Agregar Foto";
-    modalOverlay.classList.add("visible");
-    inputNuevoDni.focus();
+    dniEnEdicion = colaborador.dni;
+    nombreEnEdicion = colaborador.nombre;
 
-}
+    tituloModal.textContent = colaborador.foto ? "Reemplazar foto" : "Subir foto";
+    nombreModalInfo.textContent = colaborador.nombre + " · DNI " + colaborador.dni;
 
-function abrirModalEditar(foto){
+    if(colaborador.foto){
+        previsualizacionFoto.src = colaborador.foto;
+        previsualizacionFoto.style.display = "block";
+    }else{
+        previsualizacionFoto.src = "";
+        previsualizacionFoto.style.display = "none";
+    }
 
-    mensajeErrorModal.textContent = "";
-    inputNuevoDni.value = foto.dni;
-    inputNuevoDni.disabled = true;
-    inputNuevoNombre.value = foto.nombre || "";
-    inputNuevoFoto.value = "";
-    previsualizacionFoto.src = foto.foto;
-    previsualizacionFoto.style.display = "block";
-
-    tituloModal.textContent = "Reemplazar Foto";
     modalOverlay.classList.add("visible");
 
 }
@@ -262,7 +313,6 @@ function cerrarModal(){
     modalOverlay.classList.remove("visible");
 }
 
-btnAgregar.addEventListener("click", abrirModalNuevo);
 btnCancelar.addEventListener("click", cerrarModal);
 
 modalOverlay.addEventListener("click", function(e){
@@ -294,21 +344,9 @@ inputNuevoFoto.addEventListener("change", function(){
 
 btnGuardar.addEventListener("click", async function(){
 
-    const dni = inputNuevoDni.value.trim();
-    const nombre = inputNuevoNombre.value.trim();
     const archivo = inputNuevoFoto.files[0];
 
     mensajeErrorModal.textContent = "";
-
-    if(!dni){
-        mensajeErrorModal.textContent = "Ingrese el DNI.";
-        return;
-    }
-
-    if(dni.length !== 8){
-        mensajeErrorModal.textContent = "El DNI debe tener 8 dígitos.";
-        return;
-    }
 
     if(!archivo){
         mensajeErrorModal.textContent = "Seleccione una foto.";
@@ -320,10 +358,10 @@ btnGuardar.addEventListener("click", async function(){
 
     try{
 
-        await subirFotoColaborador(dni, archivo, nombre || null);
+        await subirFotoColaborador(dniEnEdicion, archivo, nombreEnEdicion);
 
         cerrarModal();
-        cargarFotos();
+        cargarColaboradores();
 
     }catch(e){
 
@@ -344,5 +382,5 @@ btnGuardar.addEventListener("click", async function(){
 // ========================================
 
 if(sesion && (sesion.rol === "Administrador" || sesion.rol === "Supervisor")){
-    cargarFotos();
+    cargarColaboradores();
 }

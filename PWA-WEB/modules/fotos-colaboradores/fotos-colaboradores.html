@@ -77,48 +77,62 @@
 
             </div>
 
-            <button id="btnAgregar" class="btn-primario">
-                + Agregar Foto
-            </button>
-
         </header>
 
         <div class="card">
 
-            <div class="buscador">
+            <div class="filtros">
 
-                <input
-                    type="text"
-                    id="buscador"
-                    placeholder="Buscar por DNI o nombre..."
-                    autocomplete="off"
-                >
+                <div class="buscador">
+
+                    <input
+                        type="text"
+                        id="buscador"
+                        placeholder="Buscar por DNI o nombre..."
+                        autocomplete="off"
+                    >
+
+                </div>
+
+                <select id="filtroFoto">
+                    <option value="">Foto (todos)</option>
+                    <option value="sin">Sin foto</option>
+                    <option value="con">Con foto</option>
+                </select>
+
+                <select id="filtroSupervisor">
+                    <option value="">Supervisor (todos)</option>
+                </select>
 
             </div>
 
-            <table>
+            <div class="tabla-scroll">
 
-                <thead>
+                <table>
 
-                    <tr>
+                    <thead>
 
-                        <th>Foto</th>
-                        <th>DNI</th>
-                        <th>Nombre</th>
-                        <th>Actualizado</th>
-                        <th>Acción</th>
+                        <tr>
 
-                    </tr>
+                            <th>Foto</th>
+                            <th>Nombre</th>
+                            <th>Supervisor</th>
+                            <th>Turno</th>
+                            <th>Acción</th>
 
-                </thead>
+                        </tr>
 
-                <tbody id="tblFotos">
-                </tbody>
+                    </thead>
 
-            </table>
+                    <tbody id="tblFotos">
+                    </tbody>
+
+                </table>
+
+            </div>
 
             <p id="mensajeVacio" class="mensaje-vacio">
-                Cargando fotos...
+                Cargando colaboradores...
             </p>
 
         </div>
@@ -129,50 +143,19 @@
 
     </div>
 
-    <!-- MODAL AGREGAR / REEMPLAZAR FOTO -->
+    <!-- MODAL SUBIR / REEMPLAZAR FOTO -->
 
     <div class="modal-overlay" id="modalOverlay">
 
         <div class="modal">
 
             <h3 id="tituloModal">
-                Agregar Foto
+                Foto de colaborador
             </h3>
 
             <form autocomplete="off" onsubmit="return false;">
 
-                <div class="grupo">
-
-                    <label>
-                        DNI
-                    </label>
-
-                    <input
-                        type="text"
-                        id="nuevoDni"
-                        maxlength="8"
-                        inputmode="numeric"
-                        autocomplete="off"
-                        autocorrect="off"
-                        autocapitalize="off"
-                        spellcheck="false"
-                    >
-
-                </div>
-
-                <div class="grupo">
-
-                    <label>
-                        Nombre (opcional, para ubicarlo más fácil)
-                    </label>
-
-                    <input
-                        type="text"
-                        id="nuevoNombre"
-                        autocomplete="off"
-                    >
-
-                </div>
+                <p id="nombreModalInfo" class="nombre-modal-info"></p>
 
                 <div class="grupo">
 
