@@ -73,7 +73,37 @@ function fechaHoyISO(){
 
 }
 
+// Turno real "ahora mismo", según el rol semanal de 3 turnos
+// (mismo cálculo que usa Centro de Proyectos LATAM en auditoria.js,
+// portado del Apps Script obtenerTurnoBD). No siempre es un simple
+// corte de hora: por ejemplo el turno Intermedio cubre viernes de
+// día, sábado de día, domingo de noche y lunes de noche.
+function calcularTurnoActual(){
+
+    const ahora = new Date();
+    const dia = ahora.getDay();
+    const hora = ahora.getHours();
+    const esDia = hora >= 7 && hora < 19;
+
+    if(dia === 0) return esDia ? "" : "INTERMEDIO";     // Domingo
+    if(dia === 1) return esDia ? "DIA" : "INTERMEDIO";  // Lunes
+    if(dia === 2) return esDia ? "DIA" : "NOCHE";        // Martes
+    if(dia === 3) return esDia ? "DIA" : "NOCHE";        // Miércoles
+    if(dia === 4) return esDia ? "DIA" : "NOCHE";        // Jueves
+    if(dia === 5) return esDia ? "INTERMEDIO" : "NOCHE"; // Viernes
+    if(dia === 6) return esDia ? "INTERMEDIO" : "";      // Sábado
+
+    return "";
+
+}
+
 inputFecha.value = fechaHoyISO();
+
+const turnoActualReal = calcularTurnoActual();
+
+if(turnoActualReal){
+    selectTurno.value = turnoActualReal;
+}
 
 btnActualizar.addEventListener("click", cargarDashboard);
 inputFecha.addEventListener("change", cargarDashboard);
