@@ -1,0 +1,277 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+
+body{
+    background:#eef2f7;
+}
+
+.contenedor{
+    width:100%;
+}
+
+.header{
+    background:white;
+    border-radius:20px;
+    padding:25px 30px;
+    margin-bottom:25px;
+    box-shadow:0 5px 15px rgba(0,0,0,.05);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+}
+
+.header h1{
+    font-size:36px;
+    color:#1f2937;
+}
+
+.btn-primario{
+    background:#FC000D;
+    color:white;
+    border:none;
+    padding:12px 22px;
+    border-radius:12px;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.3s;
+}
+
+.btn-primario:hover{
+    background:#d40009;
+}
+
+.btn-secundario{
+    background:#f3f4f6;
+    color:#1f2937;
+    border:none;
+    padding:12px 22px;
+    border-radius:12px;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.3s;
+}
+
+.btn-secundario:hover{
+    background:#e5e7eb;
+}
+
+.btn-eliminar{
+    background:none;
+    border:1px solid #fca5a5;
+    color:#dc2626;
+    padding:8px 14px;
+    border-radius:10px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.3s;
+    margin-right:6px;
+}
+
+.btn-eliminar:hover{
+    background:#fef2f2;
+}
+
+.btn-editar{
+    background:none;
+    border:1px solid #bfdbfe;
+    color:#2563eb;
+    padding:8px 14px;
+    border-radius:10px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.3s;
+    margin-right:6px;
+}
+
+.btn-editar:hover{
+    background:#eff6ff;
+}
+
+.filtros{
+    display:flex;
+    gap:12px;
+    margin-bottom:20px;
+    flex-wrap:wrap;
+}
+
+.buscador{
+    flex:1;
+    min-width:220px;
+}
+
+.buscador input{
+    width:100%;
+    padding:12px 16px;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    font-size:15px;
+}
+
+.buscador input:focus{
+    outline:none;
+    border-color:#FC000D;
+}
+
+.filtros select{
+    padding:12px 16px;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    font-size:15px;
+    background:white;
+    min-width:150px;
+}
+
+.filtros select:focus{
+    outline:none;
+    border-color:#FC000D;
+}
+
+.card{
+    background:white;
+    border-radius:20px;
+    padding:30px;
+    box-shadow:0 5px 20px rgba(0,0,0,.05);
+}
+
+.tabla-scroll{
+    width:100%;
+    overflow-x:auto;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    table-layout:fixed;
+}
+
+th{
+    text-align:left;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    color:#6b7280;
+    padding:12px 10px;
+    border-bottom:2px solid #f3f4f6;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+td{
+    padding:14px 10px;
+    border-bottom:1px solid #f3f4f6;
+    color:#1f2937;
+    font-size:15px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+/* Zona, S, Respuesta OK, Foto */
+th:nth-child(1), td:nth-child(1){ width:12%; }
+th:nth-child(2), td:nth-child(2){ width:7%; }
+th:nth-child(4), td:nth-child(4){ width:12%; }
+th:nth-child(5), td:nth-child(5){ width:13%; }
+
+/* Acción */
+th:nth-child(6), td:nth-child(6){ width:18%; }
+
+/* Pregunta: la única con textos largos */
+th:nth-child(3), td:nth-child(3){
+    width:38%;
+    white-space:normal;
+    overflow-wrap:break-word;
+}
+
+.mensaje-vacio{
+    text-align:center;
+    color:#6b7280;
+    padding:30px 0;
+}
+
+.modal-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.4);
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    padding:20px;
+}
+
+.modal-overlay.visible{
+    display:flex;
+}
+
+.modal{
+    background:white;
+    border-radius:20px;
+    padding:30px;
+    width:100%;
+    max-width:480px;
+    max-height:90vh;
+    overflow-y:auto;
+    box-shadow:0 15px 40px rgba(0,0,0,.2);
+}
+
+.modal h3{
+    color:#1f2937;
+    font-size:22px;
+    margin-bottom:20px;
+}
+
+.grupo{
+    margin-bottom:16px;
+}
+
+.grupo label{
+    display:block;
+    font-size:14px;
+    color:#374151;
+    margin-bottom:6px;
+    font-weight:600;
+}
+
+.grupo select,
+.grupo textarea{
+    width:100%;
+    padding:12px 14px;
+    border:1px solid #e5e7eb;
+    border-radius:10px;
+    font-size:15px;
+    font-family:inherit;
+    background:white;
+}
+
+.grupo textarea{
+    resize:vertical;
+}
+
+.grupo select:focus,
+.grupo textarea:focus{
+    outline:none;
+    border-color:#FC000D;
+}
+
+.mensaje-error{
+    color:#dc2626;
+    font-size:14px;
+    margin-bottom:10px;
+    min-height:18px;
+}
+
+.modal-botones{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:10px;
+}

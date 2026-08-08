@@ -11,7 +11,7 @@
     >
 
     <title>
-        Fotos de Colaboradores - Plataforma Operativa
+        Preguntas Checklist - Plataforma Operativa
     </title>
 
     <link
@@ -21,7 +21,7 @@
 
     <link
         rel="stylesheet"
-        href="fotos-colaboradores.css"
+        href="preguntas-checklist.css"
     >
 
 </head>
@@ -58,8 +58,8 @@
                 <a href="../checklist-diario/checklist-diario.html">Check List Diario</a>
                 <a href="../carga-mensual/carga-mensual.html" id="linkCargaMensual">Carga Mensual</a>
                 <a href="../colaboradores-activos/colaboradores-activos.html" id="linkColaboradoresActivos">Colaboradores Activos</a>
-                <a href="fotos-colaboradores.html" class="activo">Fotos de Colaboradores</a>
-                <a href="../preguntas-checklist/preguntas-checklist.html" id="linkPreguntasChecklist">Preguntas Checklist</a>
+                <a href="../fotos-colaboradores/fotos-colaboradores.html" id="linkFotosColaboradores">Fotos de Colaboradores</a>
+                <a href="preguntas-checklist.html" class="activo">Preguntas Checklist</a>
             </nav>
 
         </aside>
@@ -73,10 +73,14 @@
             <div>
 
                 <h1>
-                    Fotos de Colaboradores
+                    Preguntas Checklist
                 </h1>
 
             </div>
+
+            <button id="btnAgregar" class="btn-primario">
+                + Agregar Pregunta
+            </button>
 
         </header>
 
@@ -89,20 +93,23 @@
                     <input
                         type="text"
                         id="buscador"
-                        placeholder="Buscar por DNI o nombre..."
+                        placeholder="Buscar pregunta..."
                         autocomplete="off"
                     >
 
                 </div>
 
-                <select id="filtroFoto">
-                    <option value="">Foto (todos)</option>
-                    <option value="sin">Sin foto</option>
-                    <option value="con">Con foto</option>
+                <select id="filtroZona">
+                    <option value="">Zona (todas)</option>
                 </select>
 
-                <select id="filtroSupervisor">
-                    <option value="">Supervisor (todos)</option>
+                <select id="filtroS">
+                    <option value="">S (todas)</option>
+                    <option value="1S">1S</option>
+                    <option value="2S">2S</option>
+                    <option value="3S">3S</option>
+                    <option value="4S">4S</option>
+                    <option value="5S">5S</option>
                 </select>
 
             </div>
@@ -115,17 +122,18 @@
 
                         <tr>
 
-                            <th>Foto</th>
-                            <th>Nombre</th>
-                            <th>Supervisor</th>
-                            <th>Turno</th>
+                            <th>Zona</th>
+                            <th>S</th>
+                            <th>Pregunta</th>
+                            <th>Respuesta OK</th>
+                            <th>Foto si responde</th>
                             <th>Acción</th>
 
                         </tr>
 
                     </thead>
 
-                    <tbody id="tblFotos">
+                    <tbody id="tblPreguntas">
                     </tbody>
 
                 </table>
@@ -133,7 +141,7 @@
             </div>
 
             <p id="mensajeVacio" class="mensaje-vacio">
-                Cargando colaboradores...
+                Cargando preguntas...
             </p>
 
         </div>
@@ -144,37 +152,82 @@
 
     </div>
 
-    <!-- MODAL SUBIR / REEMPLAZAR FOTO -->
+    <!-- MODAL AGREGAR / EDITAR -->
 
     <div class="modal-overlay" id="modalOverlay">
 
         <div class="modal">
 
             <h3 id="tituloModal">
-                Foto de colaborador
+                Agregar Pregunta
             </h3>
 
             <form autocomplete="off" onsubmit="return false;">
 
-                <p id="nombreModalInfo" class="nombre-modal-info"></p>
+                <div class="grupo">
+
+                    <label>
+                        Zona
+                    </label>
+
+                    <select id="nuevaZona">
+                    </select>
+
+                </div>
 
                 <div class="grupo">
 
                     <label>
-                        Foto
+                        S
                     </label>
 
-                    <input
-                        type="file"
-                        id="nuevoFoto"
-                        accept="image/*"
-                    >
+                    <select id="nuevaS">
+                        <option value="1S">1S - Clasificar</option>
+                        <option value="2S">2S - Ordenar</option>
+                        <option value="3S">3S - Limpiar</option>
+                        <option value="4S">4S - Estandarizar</option>
+                        <option value="5S">5S - Disciplina</option>
+                    </select>
 
-                    <img
-                        id="previsualizacionFoto"
-                        class="previsualizacion"
-                        alt="Vista previa"
-                    >
+                </div>
+
+                <div class="grupo">
+
+                    <label>
+                        Pregunta
+                    </label>
+
+                    <textarea
+                        id="nuevaPregunta"
+                        rows="3"
+                    ></textarea>
+
+                </div>
+
+                <div class="grupo">
+
+                    <label>
+                        Respuesta correcta
+                    </label>
+
+                    <select id="nuevaRespuestaOk">
+                        <option value="Sí">Sí</option>
+                        <option value="No">No</option>
+                    </select>
+
+                </div>
+
+                <div class="grupo">
+
+                    <label>
+                        Pedir foto cuando el auditor responde
+                    </label>
+
+                    <select id="nuevaFoto">
+                        <option value="">No pedir foto</option>
+                        <option value="Sí">Sí</option>
+                        <option value="No">No</option>
+                    </select>
 
                 </div>
 
@@ -198,11 +251,10 @@
 
     </div>
 
-    <script src="../../shared/supabase-config.js"></script>
     <script src="../../shared/auth.js"></script>
+    <script src="../../shared/supabase-config.js"></script>
     <script src="../../shared/checklist-config.js"></script>
-    <script src="../../shared/colaboradores-fotos.js"></script>
-    <script src="fotos-colaboradores.js"></script>
+    <script src="preguntas-checklist.js"></script>
 
 </body>
 

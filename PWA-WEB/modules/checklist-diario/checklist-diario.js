@@ -13,6 +13,7 @@ if(sesion){
         document.getElementById("linkCargaMensual").style.display = "none";
         document.getElementById("linkColaboradoresActivos").style.display = "none";
         document.getElementById("linkFotosColaboradores").style.display = "none";
+        document.getElementById("linkPreguntasChecklist").style.display = "none";
     }
 
 }
