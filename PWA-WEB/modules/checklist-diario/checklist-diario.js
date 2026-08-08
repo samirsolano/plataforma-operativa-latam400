@@ -73,25 +73,31 @@ function fechaHoyISO(){
 
 }
 
-// Turno real "ahora mismo", según el rol semanal de 3 turnos
-// (mismo cálculo que usa Centro de Proyectos LATAM en auditoria.js,
-// portado del Apps Script obtenerTurnoBD). No siempre es un simple
-// corte de hora: por ejemplo el turno Intermedio cubre viernes de
-// día, sábado de día, domingo de noche y lunes de noche.
-function calcularTurnoActual(){
+// El filtro solo pregunta "¿Día o Noche?" — la cuadrilla real que
+// trabajó ese bloque depende del día de la semana (rol de 3 turnos,
+// mismo cálculo que usa Centro de Proyectos LATAM en auditoria.js,
+// portado del Apps Script obtenerTurnoBD). Por ejemplo: "Día" un
+// viernes o un sábado en realidad lo cubre la cuadrilla Intermedio;
+// "Noche" un domingo o un lunes también la cubre Intermedio.
+function diaSemanaDesdeFechaISO(fechaISO){
 
-    const ahora = new Date();
-    const dia = ahora.getDay();
-    const hora = ahora.getHours();
-    const esDia = hora >= 7 && hora < 19;
+    const partes = fechaISO.split("-").map(Number);
 
-    if(dia === 0) return esDia ? "" : "INTERMEDIO";     // Domingo
-    if(dia === 1) return esDia ? "DIA" : "INTERMEDIO";  // Lunes
-    if(dia === 2) return esDia ? "DIA" : "NOCHE";        // Martes
-    if(dia === 3) return esDia ? "DIA" : "NOCHE";        // Miércoles
-    if(dia === 4) return esDia ? "DIA" : "NOCHE";        // Jueves
-    if(dia === 5) return esDia ? "INTERMEDIO" : "NOCHE"; // Viernes
-    if(dia === 6) return esDia ? "INTERMEDIO" : "";      // Sábado
+    return new Date(partes[0], partes[1] - 1, partes[2]).getDay();
+
+}
+
+function calcularCuadrillaReal(fechaISO, esDia){
+
+    const dia = diaSemanaDesdeFechaISO(fechaISO);
+
+    if(dia === 0) return esDia ? "" : "INTERMEDIO";      // Domingo
+    if(dia === 1) return esDia ? "DIA" : "INTERMEDIO";   // Lunes
+    if(dia === 2) return esDia ? "DIA" : "NOCHE";         // Martes
+    if(dia === 3) return esDia ? "DIA" : "NOCHE";         // Miércoles
+    if(dia === 4) return esDia ? "DIA" : "NOCHE";         // Jueves
+    if(dia === 5) return esDia ? "INTERMEDIO" : "NOCHE";  // Viernes
+    if(dia === 6) return esDia ? "INTERMEDIO" : "";       // Sábado
 
     return "";
 
@@ -99,11 +105,8 @@ function calcularTurnoActual(){
 
 inputFecha.value = fechaHoyISO();
 
-const turnoActualReal = calcularTurnoActual();
-
-if(turnoActualReal){
-    selectTurno.value = turnoActualReal;
-}
+const horaActual = new Date().getHours();
+selectTurno.value = (horaActual >= 7 && horaActual < 19) ? "DIA" : "NOCHE";
 
 btnActualizar.addEventListener("click", cargarDashboard);
 inputFecha.addEventListener("change", cargarDashboard);
@@ -151,7 +154,11 @@ async function cargarDashboard(){
         ]);
 
         const fechaSeleccionada = inputFecha.value;
-        const turnoSeleccionado = selectTurno.value;
+
+        const turnoSeleccionado = calcularCuadrillaReal(
+            fechaSeleccionada,
+            selectTurno.value === "DIA"
+        );
 
         const cabeceraDia = cabecera.filter(function(r){
 
