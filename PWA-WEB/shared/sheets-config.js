@@ -151,6 +151,21 @@ function normalizarTurno5S(turno){
 
 }
 
+// El roster viejo del Sheet usa "Pasillo 1" y la carga mensual (ya
+// migrada a Supabase) guarda "Pasillo 01" — sin esto, cualquier
+// cruce por pasillo entre ambas fuentes falla en silencio para el
+// 1 al 9.
+function normalizarPasillo5S(pasillo){
+
+    return String(pasillo || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .replace(/\d+/, function(numero){
+            return String(parseInt(numero, 10));
+        });
+
+}
+
 // Convierte fecha del Sheet "DD/MM/YYYY" a formato ISO "YYYY-MM-DD".
 function fechaSheetAISO(fechaTexto){
 

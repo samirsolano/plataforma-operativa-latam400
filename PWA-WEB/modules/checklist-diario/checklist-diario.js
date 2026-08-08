@@ -227,7 +227,7 @@ async function cargarDashboard(){
 // distintos, no filas crudas de CABECERA_AUDITORIA.
 
 function clavePasillo(r){
-    return normalizarZona5S(r.ZONA) + "||" + String(r.PASILLO || "").trim();
+    return normalizarZona5S(r.ZONA) + "||" + normalizarPasillo5S(r.PASILLO);
 }
 
 function pasillosDistintos(filas){
@@ -433,11 +433,11 @@ function pintarPendientes(cabeceraDia, colaboradoresTurno){
         const pasillosAuditados = new Set(
             cabeceraDia
                 .filter(r => normalizarZona5S(r.ZONA) === zona)
-                .map(r => String(r.PASILLO || "").trim())
+                .map(r => normalizarPasillo5S(r.PASILLO))
         );
 
         const pendientesZona = colabsZona.filter(
-            r => !pasillosAuditados.has(String(r.PASILLO || "").trim())
+            r => !pasillosAuditados.has(normalizarPasillo5S(r.PASILLO))
         );
 
         if(!pendientesZona.length){
