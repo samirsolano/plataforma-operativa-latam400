@@ -154,16 +154,25 @@ async function cargarDashboard(){
         ]);
 
         const fechaSeleccionada = inputFecha.value;
+        const esDiaSeleccionado = selectTurno.value === "DIA";
 
-        const turnoSeleccionado = calcularCuadrillaReal(
-            fechaSeleccionada,
-            selectTurno.value === "DIA"
-        );
+        // Mientras el guardado del checklist siga escribiendo solo
+        // "DÍA"/"NOCHE" (sin el rol semanal), aceptamos como válido
+        // tanto ese valor literal como la cuadrilla real calculada,
+        // para no perder de vista registros ya guardados con la
+        // etiqueta antigua.
+        const cuadrillaReal = calcularCuadrillaReal(fechaSeleccionada, esDiaSeleccionado);
+
+        const turnosValidos = new Set([esDiaSeleccionado ? "DIA" : "NOCHE"]);
+
+        if(cuadrillaReal){
+            turnosValidos.add(cuadrillaReal);
+        }
 
         const cabeceraDia = cabecera.filter(function(r){
 
             return fechaSheetAISO(r.FECHA) === fechaSeleccionada &&
-                normalizarTurno5S(r.TURNO) === turnoSeleccionado;
+                turnosValidos.has(normalizarTurno5S(r.TURNO));
 
         });
 
@@ -171,8 +180,11 @@ async function cargarDashboard(){
 
         const detalleDia = detalle.filter(r => idsDia.has(r.ID_AUDITORIA));
 
+        // El roster (la meta) sí usa solo la cuadrilla real: acá no
+        // hay etiqueta vieja que rescatar, y sumar ambas inflaría el
+        // total de gente programada para hoy.
         const colaboradoresTurno = colaboradores.filter(
-            r => normalizarTurno5S(r.TURNO) === turnoSeleccionado
+            r => normalizarTurno5S(r.TURNO) === cuadrillaReal
         );
 
         ultimaCabeceraDia = cabeceraDia;
