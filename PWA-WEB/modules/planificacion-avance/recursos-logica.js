@@ -289,11 +289,15 @@ async function cambiarUsuarioTurno(fecha, turno, colaboradorId, supervisor, nuev
 }
 
 // ---------------------------------------------------------
-// GUARDAR PLANIFICACIÓN (masivo)
+// GUARDAR PLANIFICACIÓN (masivo): activo + función + usuarios
+// pendientes de todas las filas de la tabla, en LOTE/PARALELO
+// (antes: 1 request por colaborador, de forma secuencial — con
+// 20-30 personas eran 70-100+ llamadas HTTP una tras otra).
 // ---------------------------------------------------------
 
 async function guardarPlanificacionRecursosBatch(fecha, turno, supervisor, cambios, forzar){
 
+    // 1. Detectar duplicados DENTRO del mismo lote
     const usuarioAColaborador = {};
     const advertencias = [];
 
@@ -314,17 +318,16 @@ async function guardarPlanificacionRecursosBatch(fecha, turno, supervisor, cambi
 
     });
 
+    // 2. Detectar contra colaboradores YA activos fuera de este lote
     const idsLote = cambios.map(c => c.colaborador_id);
 
-    const activosTodos = await rgGet(
+    const activosExternos = (await rgGet(
         "turno_colaboradores",
         "fecha=eq." + encodeURIComponent(fecha) +
         "&turno=eq." + encodeURIComponent(turno) +
         "&activo=eq.true" +
         "&select=colaborador_id,usuario_turno"
-    );
-
-    const activosExternos = activosTodos.filter(r => idsLote.indexOf(r.colaborador_id) === -1);
+    )).filter(r => idsLote.indexOf(r.colaborador_id) === -1);
 
     for(const usuarioNorm in usuarioAColaborador){
 
@@ -353,59 +356,156 @@ async function guardarPlanificacionRecursosBatch(fecha, turno, supervisor, cambi
         return { conflicto: true, mensajes: advertencias };
     }
 
+    // 3. Grabar todo — en lote/paralelo en vez de secuencial
     const errorespatchMaestra = [];
 
-    for(const item of cambios){
+    const idsColaboradores = cambios.map(item => item.colaborador_id);
 
-        const fila = await obtenerOCrearTurnoColaborador(
-            item.colaborador_id, fecha, turno, item.supervisor_efectivo || supervisor
-        );
+    // 3a. Traer de UN SOLO jalón las filas turno_colaboradores que ya
+    //     existen para todo el lote (antes: 1 GET por colaborador).
+    const existentesLote = idsColaboradores.length > 0
+        ? await rgGet(
+            "turno_colaboradores",
+            "colaborador_id=in.(" + idsColaboradores.join(",") + ")" +
+            "&fecha=eq." + encodeURIComponent(fecha) +
+            "&turno=eq." + encodeURIComponent(turno) +
+            "&select=*"
+          )
+        : [];
 
-        const usuariosAnteriores = fila.usuario_turno
-            ? String(fila.usuario_turno).split(",").map(x => x.trim()).filter(x => x !== "")
+    const filaPorColaborador = {};
+    existentesLote.forEach(row => { filaPorColaborador[row.colaborador_id] = row; });
+
+    const itemsNuevos = cambios.filter(item => !filaPorColaborador[item.colaborador_id]);
+    const itemsExistentes = cambios.filter(item => !!filaPorColaborador[item.colaborador_id]);
+
+    // 3b. Colaboradores SIN fila todavía: se crean todos de una vez,
+    //     ya con los valores finales (antes: crear "vacía" y luego
+    //     hacer un PATCH aparte por cada uno).
+    if(itemsNuevos.length > 0){
+
+        const payloadNuevos = itemsNuevos.map(function(item){
+
+            const usuariosNuevos = (item.usuarios || [])
+                .map(x => String(x).trim())
+                .filter(x => x !== "");
+
+            return {
+                colaborador_id: item.colaborador_id,
+                fecha: fecha,
+                turno: turno,
+                supervisor_efectivo: item.supervisor_efectivo || supervisor,
+                tipo: "NORMAL",
+                activo: !!item.activo,
+                funcion: item.funcion || null,
+                usuario_turno: usuariosNuevos.length > 0 ? usuariosNuevos.join(",") : null,
+                usuario_fijo: item.usuario_fijo || null,
+                desde_hora: null
+            };
+
+        });
+
+        const creados = await rgPost("turno_colaboradores", payloadNuevos);
+        creados.forEach(row => { filaPorColaborador[row.colaborador_id] = row; });
+
+    }
+
+    // 3c. Colaboradores que YA tenían fila: actualizarlas todas EN
+    //     PARALELO con Promise.all (antes: 1 PATCH secuencial por persona).
+    //     Guardamos también los usuarios_turno de ANTES del patch, para
+    //     poder calcular más abajo qué usuarios son "nuevos" (historial).
+    const usuariosAnterioresPorColaborador = {};
+    itemsExistentes.forEach(function(item){
+        const filaVieja = filaPorColaborador[item.colaborador_id];
+        usuariosAnterioresPorColaborador[item.colaborador_id] = filaVieja.usuario_turno
+            ? String(filaVieja.usuario_turno).split(",").map(x => x.trim()).filter(x => x !== "")
             : [];
+    });
+
+    if(itemsExistentes.length > 0){
+
+        const resultadosPatchTurno = await Promise.all(itemsExistentes.map(function(item){
+
+            const usuariosNuevos = (item.usuarios || [])
+                .map(x => String(x).trim())
+                .filter(x => x !== "");
+
+            return rgPatch("turno_colaboradores", "id=eq." + filaPorColaborador[item.colaborador_id].id, {
+                activo: !!item.activo,
+                funcion: item.funcion || null,
+                usuario_turno: usuariosNuevos.length > 0 ? usuariosNuevos.join(",") : null,
+                usuario_fijo: item.usuario_fijo || null
+            });
+
+        }));
+
+        itemsExistentes.forEach(function(item, i){
+            filaPorColaborador[item.colaborador_id] = resultadosPatchTurno[i][0];
+        });
+
+    }
+
+    // 3d. Ficha maestra de "colaboradores" (función + usuario fijo):
+    //     también en paralelo. Si alguna falla (ej. RLS), no tumba las
+    //     demás — se reporta igual que antes en erroresMaestra.
+    if(cambios.length > 0){
+
+        const resultadosMaestra = await Promise.allSettled(cambios.map(function(item){
+
+            return rgPatch("colaboradores", "id=eq." + item.colaborador_id, {
+                funcion: item.funcion || null,
+                usuario_fijo: item.usuario_fijo || null
+            });
+
+        }));
+
+        resultadosMaestra.forEach(function(resultado, i){
+
+            if(resultado.status === "rejected"){
+
+                errorespatchMaestra.push(
+                    "No se pudo actualizar la ficha maestra de colaborador_id " +
+                    cambios[i].colaborador_id + ": " + resultado.reason.message
+                );
+
+            }
+
+        });
+
+    }
+
+    // 3e. Historial: juntar TODOS los usuarios nuevos de TODO el lote
+    //     y mandarlos en UN SOLO POST (antes: 1 POST por cada usuario
+    //     agregado, de cada persona, uno por uno).
+    const horaAhora = new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+    const registrosHistorial = [];
+
+    cambios.forEach(function(item){
+
+        const fila = filaPorColaborador[item.colaborador_id];
+
+        const usuariosAnteriores = usuariosAnterioresPorColaborador[item.colaborador_id] || [];
 
         const usuariosNuevos = (item.usuarios || [])
             .map(x => String(x).trim())
             .filter(x => x !== "");
 
-        await rgPatch("turno_colaboradores", "id=eq." + fila.id, {
-            activo: !!item.activo,
-            funcion: item.funcion || null,
-            usuario_turno: usuariosNuevos.length > 0 ? usuariosNuevos.join(",") : null,
-            usuario_fijo: item.usuario_fijo || null
-        });
-
-        try{
-
-            await rgPatch("colaboradores", "id=eq." + item.colaborador_id, {
-                funcion: item.funcion || null,
-                usuario_fijo: item.usuario_fijo || null
-            });
-
-        }catch(errorMaestra){
-
-            errorespatchMaestra.push(
-                "No se pudo actualizar la ficha maestra de colaborador_id " +
-                item.colaborador_id + ": " + errorMaestra.message
-            );
-
-        }
-
         const agregados = usuariosNuevos.filter(u => usuariosAnteriores.indexOf(u) === -1);
 
-        for(const u of agregados){
-
-            await rgPost("historial_usuario_turno", [{
+        agregados.forEach(function(u){
+            registrosHistorial.push({
                 turno_colaborador_id: fila.id,
                 usuario: u,
-                hora_inicio: new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
+                hora_inicio: horaAhora,
                 hora_fin: null,
                 motivo: "Agregado desde Guardar Planificación"
-            }]);
+            });
+        });
 
-        }
+    });
 
+    if(registrosHistorial.length > 0){
+        await rgPost("historial_usuario_turno", registrosHistorial);
     }
 
     return {
@@ -530,5 +630,83 @@ async function eliminarColaboradorRecursos(colaboradorId){
     await rgDelete("colaboradores", "id=eq." + colaboradorId);
 
     return true;
+
+}
+
+// =======================================
+// SUPERVISOR GUARDADO PARA ESTA FECHA/TURNO
+// =======================================
+//
+// Busca en turno_colaboradores si ya hay actividad guardada para
+// esta fecha/turno (de una sesión anterior) y devuelve ese supervisor,
+// para preseleccionarlo automáticamente al abrir el módulo.
+
+async function obtenerUltimoSupervisorTurno(fecha, turno){
+
+    turno = normalizarTurnoPlanif(turno);
+
+    const filas = await rgGet(
+        "turno_colaboradores",
+        "fecha=eq." + encodeURIComponent(fecha) +
+        "&turno=eq." + encodeURIComponent(turno) +
+        "&select=supervisor_efectivo" +
+        "&order=id.desc" +
+        "&limit=1"
+    );
+
+    return filas.length > 0 ? filas[0].supervisor_efectivo : null;
+
+}
+
+// =======================================
+// NECESIDAD DEL TURNO (pickers / apiladores)
+// =======================================
+//
+// Tasas de referencia:
+//  - Picking:    1.2 TN por persona por hora
+//  - Extracción: 16 paletas por persona por hora
+//
+// Se calcula sobre el total planificado (estado_planificacion = PLANIFICADO)
+// de planificacion_diaria para la fecha/turno, dividido entre 10.5 horas
+// efectivas del turno (12 horas de turno menos 1.5h de almuerzo/refrigerio).
+
+async function obtenerNecesidadTurno(fecha, turno){
+
+    turno = normalizarTurnoPlanif(turno);
+
+    const HORAS_TURNO = 10.5; // 12 horas de turno - 1.5h de almuerzo
+    const TN_POR_PERSONA_HORA_PICKING = 1.2;
+    const PALETAS_POR_PERSONA_HORA_EXTRACCION = 16;
+
+    const filas = await rgGet(
+        "planificacion_diaria",
+        "fecha=eq." + encodeURIComponent(fecha) +
+        "&turno=eq." + encodeURIComponent(turno) +
+        "&estado_planificacion=eq.PLANIFICADO" +
+        "&select=tnl_picking,ctd_extraccion"
+    );
+
+    let totalTnlPicking = 0;
+    let totalCtdExtraccion = 0;
+
+    filas.forEach(function(f){
+        totalTnlPicking += Number(f.tnl_picking || 0);
+        totalCtdExtraccion += Number(f.ctd_extraccion || 0);
+    });
+
+    const necesidadPicking = Math.ceil(
+        totalTnlPicking / (TN_POR_PERSONA_HORA_PICKING * HORAS_TURNO)
+    );
+
+    const necesidadApiladores = Math.ceil(
+        totalCtdExtraccion / (PALETAS_POR_PERSONA_HORA_EXTRACCION * HORAS_TURNO)
+    );
+
+    return {
+        totalTnlPicking: Math.round(totalTnlPicking * 100) / 100,
+        totalCtdExtraccion: totalCtdExtraccion,
+        necesidadPicking: necesidadPicking,
+        necesidadApiladores: necesidadApiladores
+    };
 
 }

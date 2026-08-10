@@ -704,9 +704,12 @@
               </div>
               <div>
                 <div class="dash-topbar-titulo">PLANIFICACIÓN Y AVANCE DIARIO</div>
-                <div class="dash-topbar-sub">
-                  <span id="dashSubFecha">📅 —</span>
-                  <span id="dashSubTurno">☀ Turno: —</span>
+                <div class="dash-topbar-filtros">
+                  <input type="date" id="dashFecha" onchange="cargarDashboard()">
+                  <select id="dashTurno" onchange="cargarDashboard()">
+                    <option value="DIA">☀ TURNO DÍA</option>
+                    <option value="NOCHE">🌙 TURNO NOCHE</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -766,11 +769,12 @@
 
           <!-- ================= LEYENDA SUPERIOR ================= -->
           <div class="dash-leyenda-top">
-            <span><i class="dash-swatch dash-sw-target"></i> Target (TN)</span>
-            <span><i class="dash-swatch dash-sw-real"></i> Real (TN)</span>
-            <span><i class="dash-swatch dash-sw-proy"></i> Proyección (TN)</span>
+            <span><i class="dash-swatch dash-sw-target"></i> Target</span>
+            <span><i class="dash-swatch dash-sw-real"></i> Real</span>
+            <span><i class="dash-swatch dash-sw-proy"></i> Proyección</span>
             <span>👤 Personas asignadas</span>
-            <span class="dash-badge-target-persona">Target por persona: <span id="dashTargetPersona">1.2</span> TN / hora</span>
+            <span class="dash-badge-target-persona">Picking: <span id="dashTargetPersonaPicking">1.2</span> TN/persona/hora</span>
+            <span class="dash-badge-target-persona">Extracción: <span id="dashTargetPersonaExtraccion">16</span> PAL/persona/hora</span>
           </div>
 
           <!-- ================= CUERPO: GRÁFICOS + COMENTARIOS ================= -->
@@ -782,7 +786,7 @@
               <div class="dash-seccion">
 
                 <div class="dash-seccion-header">
-                  <span class="dash-seccion-icono">🛒</span>
+                  <span class="dash-seccion-icono dash-seccion-icono-picking">🛒</span>
                   <span class="dash-seccion-titulo">PICKING</span>
                 </div>
 
@@ -807,7 +811,7 @@
               <div class="dash-seccion">
 
                 <div class="dash-seccion-header">
-                  <span class="dash-seccion-icono">🚚</span>
+                  <span class="dash-seccion-icono dash-seccion-icono-extraccion">🚚</span>
                   <span class="dash-seccion-titulo">EXTRACCIÓN</span>
                 </div>
 
@@ -816,11 +820,11 @@
                 <table class="dash-tabla-resumen">
                   <tbody>
                     <tr>
-                      <td class="dash-tabla-label">META ACUMULADA (TN)</td>
+                      <td class="dash-tabla-label">META ACUMULADA (PALETAS)</td>
                       <td id="dashExtraccionMetaAcum" colspan="12"></td>
                     </tr>
                     <tr>
-                      <td class="dash-tabla-label dash-tabla-label-real">REAL ACUMULADO (TN)</td>
+                      <td class="dash-tabla-label dash-tabla-label-real">REAL ACUMULADO (PALETAS)</td>
                       <td id="dashExtraccionRealAcum" colspan="12"></td>
                     </tr>
                   </tbody>
@@ -895,7 +899,6 @@
               <span class="hxh-topbar-logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
               <div>
                 <div class="hxh-topbar-titulo">REPORTE DE PRODUCTIVIDAD</div>
-                <div class="hxh-topbar-subtitulo" id="hxhSupervisor">Fecha: — · Turno: —</div>
               </div>
             </div>
 

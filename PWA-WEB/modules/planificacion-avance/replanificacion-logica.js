@@ -180,13 +180,69 @@ async function guardarReplanificacionFila(turnoColaboradorId, nuevaFuncion, obse
 
 // ---------------------------------------------------------
 // GUARDAR REPLANIFICACIÓN EN LOTE (varias filas a la vez)
+// cambios: [{ turno_colaborador_id, funcion_actual, observacion }, ...]
 // ---------------------------------------------------------
 
 async function guardarReplanificacionBatch(fecha, turno, cambios){
 
-    for(const item of cambios){
-        await guardarReplanificacionFila(item.turno_colaborador_id, item.funcion_actual, item.observacion);
+    if(!cambios || cambios.length === 0){
+        return await obtenerReplanificacionTurno(fecha, turno);
     }
+
+    const ids = cambios.map(c => c.turno_colaborador_id);
+
+    // 1. Traer de UN SOLO jalón el estado actual de todas las filas a
+    //    tocar (antes: 1 GET por fila, uno detrás de otro).
+    const actuales = await rgGet(
+        "turno_colaboradores",
+        "id=in.(" + ids.join(",") + ")" +
+        "&select=id,funcion,funcion_actual,supervisor_efectivo"
+    );
+
+    const actualPorId = {};
+    actuales.forEach(r => { actualPorId[r.id] = r; });
+
+    // 2. Descartar los que en realidad no cambian de función
+    const cambiosReales = cambios.filter(function(item){
+
+        const actual = actualPorId[item.turno_colaborador_id];
+        if(!actual) return false; // fila ya no existe: se ignora, no tumba el resto del lote
+
+        const funcionAntes = actual.funcion_actual || actual.funcion || "";
+        return funcionAntes !== item.funcion_actual;
+
+    });
+
+    if(cambiosReales.length === 0){
+        return await obtenerReplanificacionTurno(fecha, turno);
+    }
+
+    // 3. PATCH de todas las filas EN PARALELO (antes: 1 PATCH por fila,
+    //    secuencial — era el cuello de botella con varios cambios juntos)
+    await Promise.all(cambiosReales.map(function(item){
+        return rgPatch("turno_colaboradores", "id=eq." + item.turno_colaborador_id, {
+            funcion_actual: item.funcion_actual
+        });
+    }));
+
+    // 4. Historial: UN SOLO POST con todos los cambios del lote juntos
+    //    (antes: 1 POST separado por cada fila modificada)
+    const registrosHistorial = cambiosReales.map(function(item){
+
+        const actual = actualPorId[item.turno_colaborador_id];
+        const funcionAntes = actual.funcion_actual || actual.funcion || "";
+
+        return {
+            turno_colaborador_id: item.turno_colaborador_id,
+            funcion_antes: funcionAntes,
+            funcion_despues: item.funcion_actual,
+            supervisor: actual.supervisor_efectivo || null,
+            observacion: item.observacion || null
+        };
+
+    });
+
+    await rgPost("historial_replanificacion", registrosHistorial);
 
     return await obtenerReplanificacionTurno(fecha, turno);
 

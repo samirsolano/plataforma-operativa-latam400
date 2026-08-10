@@ -5,14 +5,15 @@
 // =========================================================
 
 // ---------------------------------------------------------
-// METAS DE REFERENCIA POR HORA (igual que HXH_METAS en Hora x
-// Hora). Un valor por cada una de las 12 horas del turno.
+// METAS DE REFERENCIA POR HORA (ajusta estos valores a los
+// reales del negocio, igual que HXH_METAS en Hora x Hora).
 // ---------------------------------------------------------
 const DASH_METAS = {
 
-  PICKING_HORA: [8.4, 9.6, 9.6, 7.2, 7.2, 7.2, 7.2, 7.2, 7.2, 7.2, 7.2, 7.2],
-  EXTRACCION_HORA: [3.6, 2.4, 2.4, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8],
-  TARGET_TN_POR_PERSONA_HORA: 1.2
+  // La meta de cada hora ya NO es un valor fijo: se calcula como
+  // (personas activas esa hora) x (tasa por persona), una tasa por proceso.
+  TARGET_TN_POR_PERSONA_HORA: 1.2,        // Picking, en TN
+  TARGET_PALETAS_POR_PERSONA_HORA: 16     // Extracción, en PALETAS (= líneas)
 
 };
 
@@ -77,16 +78,24 @@ async function dashFilasHoraXHora(fecha, turno){
 // Picking / Extracción por hora: TN real ejecutado y
 // personas activas esa hora (auxiliares con valor > 0)
 // ---------------------------------------------------------
-function dashProcesarProceso(filasCrudas, nombreProceso, horas, indiceActual, metaHora){
+function dashProcesarProceso(filasCrudas, nombreProceso, horas, indiceActual, campoValor, tasaPorPersona){
+
+  // campoValor: "tn" (Picking, TN) o "cantidad" (Extracción, PALETAS)
+  // tasaPorPersona: TN/persona/hora o PALETAS/persona/hora, según el proceso
 
   const filasProceso = filasCrudas.filter(function(f){ return f.proceso === nombreProceso; });
   const auxiliares = [...new Set(filasProceso.map(function(f){ return f.auxiliar; }))];
 
-  const real = [];
+  const real = [];     // valor principal por hora, en la unidad propia del proceso
+  const realTN = [];   // TN real por hora, SIEMPRE en toneladas — se usa para los
+                        // KPIs superiores (TNL Ejecutado/Restante/Proyección), que
+                        // combinan Picking + Extracción y deben quedar en la misma unidad
   const personas = [];
+  const metaHora = [];
 
   horas.forEach(function(h){
 
+    let valorHora = 0;
     let tnHora = 0;
     let personasHora = 0;
 
@@ -97,25 +106,32 @@ function dashProcesarProceso(filasCrudas, nombreProceso, horas, indiceActual, me
       });
 
       if(match){
-        const valor = Number(match.tn || match.cantidad || 0);
+        const valor = Number(match[campoValor] || 0);
         if(valor > 0){
-          tnHora += valor;
+          valorHora += valor;
+          tnHora += Number(match.tn || 0);
           personasHora++;
         }
       }
 
     });
 
-    real.push(Math.round(tnHora * 100) / 100);
+    real.push(Math.round(valorHora * 100) / 100);
+    realTN.push(Math.round(tnHora * 100) / 100);
     personas.push(personasHora);
+
+    // Meta dinámica: personas activas esa hora x tasa por persona
+    metaHora.push(Math.round(personasHora * tasaPorPersona * 100) / 100);
 
   });
 
   let metaAcum = 0;
   let realAcum = 0;
+  let realTNAcum = 0;
 
   const metaAcumulada = [];
   const realAcumulada = [];
+  const realTNAcumulada = [];
 
   horas.forEach(function(h, i){
 
@@ -126,9 +142,12 @@ function dashProcesarProceso(filasCrudas, nombreProceso, horas, indiceActual, me
     // las horas futuras quedan como proyección en el frontend.
     if(indiceActual >= 0 && i <= indiceActual){
       realAcum += real[i];
+      realTNAcum += realTN[i];
       realAcumulada.push(Math.round(realAcum * 100) / 100);
+      realTNAcumulada.push(Math.round(realTNAcum * 100) / 100);
     }else{
       realAcumulada.push(null);
+      realTNAcumulada.push(null);
     }
 
   });
@@ -137,9 +156,11 @@ function dashProcesarProceso(filasCrudas, nombreProceso, horas, indiceActual, me
     horas: horas,
     target: metaHora,
     real: real,
+    realTN: realTN,
     personas: personas,
     metaAcumulada: metaAcumulada,
-    realAcumulada: realAcumulada
+    realAcumulada: realAcumulada,
+    realTNAcumulada: realTNAcumulada
   };
 
 }
@@ -217,12 +238,12 @@ async function obtenerDashboard(fecha, turno){
     obtenerComentariosDashboard(fecha, turno)
   ]);
 
-  const picking = dashProcesarProceso(filasCrudas, "PICKING", horas, indiceActual, DASH_METAS.PICKING_HORA);
-  const extraccion = dashProcesarProceso(filasCrudas, "EXTRACCION", horas, indiceActual, DASH_METAS.EXTRACCION_HORA);
+  const picking = dashProcesarProceso(filasCrudas, "PICKING", horas, indiceActual, "tn", DASH_METAS.TARGET_TN_POR_PERSONA_HORA);
+  const extraccion = dashProcesarProceso(filasCrudas, "EXTRACCION", horas, indiceActual, "cantidad", DASH_METAS.TARGET_PALETAS_POR_PERSONA_HORA);
 
   const tnEjecutado =
-    picking.real.reduce(function(s, v){ return s + v; }, 0) +
-    extraccion.real.reduce(function(s, v){ return s + v; }, 0);
+    picking.realTN.reduce(function(s, v){ return s + v; }, 0) +
+    extraccion.realTN.reduce(function(s, v){ return s + v; }, 0);
 
   const tnRestante = Math.max(plan.totalPlanificado - tnEjecutado, 0);
 

@@ -1,3 +1,7 @@
+// Metas de referencia (ajusta estos valores a los reales del negocio)
+// NOTA: PICKING, EXTRACCION y TURNO_TN ya NO se usan — esas metas ahora
+// se calculan en vivo desde lo planificado (obtenerMetasPlanificadasHxh).
+// Solo quedan fijas: REPO y ALMACENAMIENTO (no hay campo planificado para ellas).
 const HXH_METAS = {
   PICKING: 70,
   EXTRACCION: 350,
@@ -16,19 +20,38 @@ const HXH_NOMBRES = {
 function abrirHoraXHora(){
   document.getElementById("modHoraHora").style.display = "block";
 
-  const hoy = new Date().toISOString().split("T")[0];
-  if (!document.getElementById("hxhFecha").value){
+  // Usar la fecha y turno ya seleccionados en el sidebar (los mismos
+  // que se usan en Planificado Drive / Planificación Recursos)
+  if (fechaSeleccionada){
+    document.getElementById("hxhFecha").value = fechaSeleccionada;
+  } else if (!document.getElementById("hxhFecha").value){
+    const hoy = new Date().toISOString().split("T")[0];
     document.getElementById("hxhFecha").value = hoy;
+  }
+
+  if (turnoSeleccionado){
+    document.getElementById("hxhTurno").value = turnoSeleccionado;
   }
 
   cargarSupervisoresHxh();
   cargarHoraXHora();
 }
 
-// Lista de supervisores: solo para mostrar en el encabezado como referencia.
+// Lista de supervisores: solo para mostrar en el encabezado como
+// referencia (usa el mismo origen que "Planificación Recursos").
+// No filtra la tabla porque el RPC obtener_hora_x_hora no recibe
+// ese parámetro. Se preselecciona el supervisor activo en
+// Planificación Recursos (variable global supervisorRecursos).
 async function cargarSupervisoresHxh(){
   const select = document.getElementById("hxhSupervisorSelect");
-  if (!select || select.dataset.cargado) return;
+  if (!select) return;
+
+  if (select.dataset.cargado){
+    if (typeof supervisorRecursos !== "undefined" && supervisorRecursos){
+      select.value = supervisorRecursos;
+    }
+    return;
+  }
 
   try{
 
@@ -43,30 +66,19 @@ async function cargarSupervisoresHxh(){
 
     select.dataset.cargado = "1";
 
+    if (typeof supervisorRecursos !== "undefined" && supervisorRecursos){
+      select.value = supervisorRecursos;
+    }
+
   }catch(e){ /* silencioso: es solo referencia */ }
 
 }
 
-function actualizarSubtituloHxh(){
-  const fechaISO = document.getElementById("hxhFecha").value;
-  const turno = document.getElementById("hxhTurno").value;
-  const sup = document.getElementById("hxhSupervisorSelect")
-    ? document.getElementById("hxhSupervisorSelect").value
-    : "";
-
-  let fecha = fechaISO;
-  if (fechaISO){
-    const [anio, mes, dia] = fechaISO.split("-");
-    fecha = dia + "/" + mes + "/" + anio;
-  }
-
-  const partes = [];
-  if (sup) partes.push("Supervisor: " + sup);
-  partes.push("Fecha: " + fecha);
-  partes.push("Turno: " + (turno === "NOCHE" ? "NOCHE" : "DÍA"));
-
-  document.getElementById("hxhSupervisor").textContent = partes.join("  •  ");
-}
+// El subtítulo con Supervisor/Fecha/Turno se quitó del encabezado
+// (quedaba duplicado: esa misma info ya está en los filtros de al
+// lado). Se deja esta función vacía en vez de borrarla, porque el
+// <select id="hxhSupervisorSelect"> todavía la llama en su onchange.
+function actualizarSubtituloHxh(){}
 
 async function cargarHoraXHora(){
 
@@ -81,6 +93,12 @@ async function cargarHoraXHora(){
   try{
 
     const data = await obtenerHoraXHora(fecha, turno);
+
+    try{
+      window.hxhMetasPlanificadas = await obtenerMetasPlanificadasHxh(fecha, turno);
+    }catch(e){
+      window.hxhMetasPlanificadas = {};
+    }
 
     try{
       window.hxhComentarios = await obtenerComentariosHxh(fecha, turno);
@@ -100,13 +118,33 @@ async function cargarHoraXHora(){
 
 }
 
-function hxhColorCelda(valor, max){
+// Tasa por persona por hora, usada como target de cada celda individual
+// (mismo criterio que DASH_METAS en el Dashboard: Picking 1.2 TN/persona/hora,
+// Extracción 16 PAL/persona/hora). REPO y ALMACENAMIENTO quedan en null hasta
+// definir su tasa — mientras tanto esas celdas no se colorean.
+const HXH_TARGET_POR_PERSONA_HORA = {
+  PICKING: 1.2,
+  EXTRACCION: 16,
+  REPO: null,            // TODO: definir TN/persona/hora
+  ALMACENAMIENTO: 16     // PAL/persona/hora, misma tasa que Extracción
+};
+
+function hxhColorCelda(valor, proceso){
   if (!valor || valor <= 0) return "";
-  const ratio = max > 0 ? valor / max : 0;
-  if (ratio < 0.2) return "background:#fdecea; color:#000;";
-  if (ratio < 0.45) return "background:#fdf2d0; color:#000;";
-  if (ratio < 0.7) return "background:#eaf5e0; color:#000;";
-  return "background:#c8e6c0; color:#000;";
+  const target = HXH_TARGET_POR_PERSONA_HORA[proceso];
+  if (target === null || target === undefined) return ""; // sin target definido: celda sin colorear
+  return valor >= target
+    ? "background:#39ff14; color:#000;"   // verde neón: cumple o supera el target de la hora
+    : "background:#ff0033; color:#fff;";  // rojo neón: por debajo del target de la hora
+}
+
+// Solo las celdas en rojo (por debajo del target de la hora) son comentables;
+// no tiene sentido justificar una hora que ya cumplió el target.
+function hxhEsCeldaRoja(valor, proceso){
+  if (!valor || valor <= 0) return false;
+  const target = HXH_TARGET_POR_PERSONA_HORA[proceso];
+  if (target === null || target === undefined) return false;
+  return valor < target;
 }
 
 function hxhFormato(n, unidad){
@@ -120,11 +158,7 @@ function hxhNombreCorto(nombre){
   return primera.replace(/[,;.]+$/, "");
 }
 
-function hxhTablaHtml(tabla, unidad, proceso, comentarios){
-
-  const maxCelda = Math.max(1, ...tabla.filas.flatMap(function(f){
-    return tabla.horas.map(function(h){ return f.valores[h]; });
-  }));
+function hxhTablaHtml(tabla, unidad, proceso, comentarios, limite){
 
   let html = '<table class="hxh-t"><tr><th>Auxiliar</th>';
   tabla.horas.forEach(function(h){
@@ -132,17 +166,24 @@ function hxhTablaHtml(tabla, unidad, proceso, comentarios){
   });
   html += "<th>Total</th></tr>";
 
-  tabla.filas.forEach(function(f){
+  // Si se pasa un límite, solo se muestran los primeros N auxiliares
+  // (la tabla ya viene ordenada de mayor a menor por total). La fila
+  // TOTAL siempre suma a TODOS los auxiliares, no solo a los mostrados.
+  const filasAMostrar = limite ? tabla.filas.slice(0, limite) : tabla.filas;
+
+  filasAMostrar.forEach(function(f){
     html += '<tr><td title="' + f.auxiliar + '">' + hxhNombreCorto(f.auxiliar) + "</td>";
     tabla.horas.forEach(function(h){
 
       const v = f.valores[h];
-      const style = hxhColorCelda(v, maxCelda);
+      const style = hxhColorCelda(v, proceso);
 
+      // Clave única por auxiliar + hora + proceso, para ubicar su comentario
       const clave = proceso + "|" + f.auxiliar + "|" + h;
       const comentario = comentarios ? comentarios[clave] : null;
 
-      const attrs = v > 0
+      // Solo las celdas en rojo (por debajo del target de la hora) son comentables
+      const attrs = hxhEsCeldaRoja(v, proceso)
         ? ' class="hxh-celda-com" data-proceso="' + proceso + '" data-auxiliar="' + f.auxiliar.replace(/"/g, "&quot;") + '" data-hora="' + h + '"'
         : "";
 
@@ -162,6 +203,21 @@ function hxhTablaHtml(tabla, unidad, proceso, comentarios){
   });
   html += "<td>" + hxhFormato(tabla.totales.total, unidad) + "</td></tr>";
 
+  html += "</table>";
+
+  return html;
+
+}
+
+function hxhTablaSimpleHtml(tabla){
+
+  let html = '<table class="hxh-t"><tr><th>Auxiliar</th><th>Total</th></tr>';
+
+  tabla.filas.forEach(function(f){
+    html += '<tr><td title="' + f.auxiliar + '">' + hxhNombreCorto(f.auxiliar) + "</td><td><b>" + hxhFormato(f.total) + "</b></td></tr>";
+  });
+
+  html += '<tr class="hxh-total"><td>TOTAL</td><td>' + hxhFormato(tabla.totales.total) + "</td></tr>";
   html += "</table>";
 
   return html;
@@ -227,10 +283,18 @@ function renderHoraXHora(data, fecha, turno){
     { proceso: "ALMACENAMIENTO", unidad: "PAL", color: "#6c3483", clase: "morado", icono: HXH_ICO_ALMACENAMIENTO }
   ];
 
+  const metasPlan = window.hxhMetasPlanificadas || {};
+
+  const metasPorProceso = {
+    PICKING: metasPlan.metaPicking || 0,
+    EXTRACCION: metasPlan.metaExtraccionPal || 0,
+    ALMACENAMIENTO: HXH_METAS.ALMACENAMIENTO
+  };
+
   let htmlKpis = "";
   kpis.forEach(function(k){
     const total = data[k.proceso].totales.total;
-    const meta = HXH_METAS[k.proceso];
+    const meta = metasPorProceso[k.proceso];
     const pct = meta > 0 ? Math.min(100, Math.round((total / meta) * 100)) : 0;
     htmlKpis += '<div class="hxh-kpi">' +
       '<div class="hxh-kpi-label">' + HXH_NOMBRES[k.proceso] + ' (' + k.unidad + ')</div>' +
@@ -244,7 +308,7 @@ function renderHoraXHora(data, fecha, turno){
   let htmlLateral = "";
   kpis.forEach(function(k){
     const total = data[k.proceso].totales.total;
-    const meta = HXH_METAS[k.proceso];
+    const meta = metasPorProceso[k.proceso];
     const pct = meta > 0 ? Math.round((total / meta) * 100) : 0;
     htmlLateral += '<div class="hxh-lateral-item">' +
       '<div class="hxh-ico hxh-ico-' + k.clase + '">' + k.icono + '</div>' +
@@ -266,15 +330,20 @@ function renderHoraXHora(data, fecha, turno){
 
   document.getElementById("hxhLateral").innerHTML = htmlLateral;
 
-  const tnTurno = data.PICKING.totales.total + data.REPO.totales.total;
-  const cumplimiento = HXH_METAS.TURNO_TN > 0
-    ? Math.round((tnTurno / HXH_METAS.TURNO_TN) * 1000) / 10
+  // Gauge TN total turno: avance real = Picking (TN) + Extracción (TN real,
+  // no el conteo en PAL) vs. la meta = TNL Planificado (Picking + Extracción planificados)
+  const tnPickingReal = data.PICKING.totales.total;
+  const tnExtraccionReal = data.EXTRACCION.totalTN || 0;
+  const tnTurno = tnPickingReal + tnExtraccionReal;
+  const metaTurno = metasPlan.metaTotalTN || 0;
+  const cumplimiento = metaTurno > 0
+    ? Math.round((tnTurno / metaTurno) * 1000) / 10
     : 0;
 
   document.getElementById("hxhGauge").innerHTML =
-    hxhGaugeSvg(tnTurno, HXH_METAS.TURNO_TN) +
+    hxhGaugeSvg(tnTurno, metaTurno) +
     '<div class="hxh-gauge-valor">' + hxhFormato(tnTurno) + ' TN</div>' +
-    '<div class="hxh-gauge-label">de ' + HXH_METAS.TURNO_TN + '.00 TN</div>' +
+    '<div class="hxh-gauge-label">de ' + hxhFormato(metaTurno) + ' TN</div>' +
     '<div class="hxh-gauge-cumpl">CUMPLIMIENTO ' + cumplimiento + '%</div>';
 
   actualizarSubtituloHxh();

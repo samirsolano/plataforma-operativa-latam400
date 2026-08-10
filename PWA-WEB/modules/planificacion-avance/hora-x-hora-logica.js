@@ -147,6 +147,50 @@ async function obtenerComentariosHxh(fecha, turno){
 
 }
 
+// =======================================
+// METAS PLANIFICADAS (Picking / Extracción / Total TN)
+// =======================================
+//
+// En vez de metas fijas hardcodeadas, se calculan sobre lo realmente
+// planificado (estado_planificacion = PLANIFICADO) en planificacion_diaria
+// para esa fecha/turno:
+//  - metaPicking:      suma de tnl_picking (TN)
+//  - metaExtraccionPal: suma de ctd_extraccion (paletas)
+//  - metaExtraccionTN: paletas convertidas a TN (480 kg c/u)
+//  - metaTotalTN:      metaPicking + metaExtraccionTN
+
+async function obtenerMetasPlanificadasHxh(fecha, turno){
+
+  turno = normalizarTurnoPlanif(turno);
+
+  const filas = await planifFetch(
+    "/planificacion_diaria?select=tnl_picking,ctd_extraccion,peso_tn" +
+    "&fecha=eq." + encodeURIComponent(fecha) +
+    "&turno=eq." + encodeURIComponent(turno) +
+    "&estado_planificacion=eq.PLANIFICADO"
+  ) || [];
+
+  let metaPicking = 0;
+  let metaExtraccionPal = 0;
+  let metaTotalTN = 0; // = TNL Planificado, el mismo criterio que el KPI de Planificado Drive
+
+  filas.forEach(function(f){
+    metaPicking += Number(f.tnl_picking || 0);
+    metaExtraccionPal += Number(f.ctd_extraccion || 0);
+    metaTotalTN += Number(f.peso_tn || 0);
+  });
+
+  const metaExtraccionTN = Math.round(metaExtraccionPal * 0.48 * 100) / 100;
+
+  return {
+    metaPicking: Math.round(metaPicking * 100) / 100,
+    metaExtraccionPal: metaExtraccionPal,
+    metaExtraccionTN: metaExtraccionTN,
+    metaTotalTN: Math.round(metaTotalTN * 100) / 100 // TNL Planificado exacto (suma de peso_tn)
+  };
+
+}
+
 async function guardarComentarioHxh(registro){
 
   return await planifFetch(

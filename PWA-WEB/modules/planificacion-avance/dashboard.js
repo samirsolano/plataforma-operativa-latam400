@@ -20,8 +20,18 @@ function abrirDashboard(){
 
   document.getElementById("modDashboard").style.display = "block";
 
-  document.getElementById("dashSubFecha").textContent = "📅 " + fechaSeleccionada;
-  document.getElementById("dashSubTurno").textContent = "☀ Turno: " + (turnoSeleccionado === "DIA" ? "DÍA" : turnoSeleccionado);
+  // Precarga con la fecha/turno ya seleccionados en el sidebar,
+  // pero quedan editables independientemente desde aquí.
+  const campoFecha = document.getElementById("dashFecha");
+  const campoTurno = document.getElementById("dashTurno");
+
+  if(!campoFecha.value){
+    campoFecha.value = fechaSeleccionada;
+  }
+
+  if(turnoSeleccionado){
+    campoTurno.value = turnoSeleccionado;
+  }
 
   dashActualizarReloj();
   if(dashRelojIntervalo) clearInterval(dashRelojIntervalo);
@@ -39,13 +49,20 @@ function dashActualizarReloj(){
   if(el) el.textContent = horas + ":" + minutos;
 }
 
+function dashFechaTurnoActual(){
+  return {
+    fecha: document.getElementById("dashFecha").value || fechaSeleccionada,
+    turno: document.getElementById("dashTurno").value || turnoSeleccionado
+  };
+}
+
 async function cargarDashboard(){
 
+  const ft = dashFechaTurnoActual();
+
   try{
-
-    const data = await obtenerDashboard(fechaSeleccionada, turnoSeleccionado);
+    const data = await obtenerDashboard(ft.fecha, ft.turno);
     renderDashboard(data);
-
   }catch(err){
     mostrarAlertaModal("No se pudo cargar el Dashboard: " + (err.message || err), "error");
   }
@@ -94,29 +111,35 @@ function renderDashboard(data){
   document.getElementById("dashKpiPersonas").textContent = data.kpis.personasActivas;
   document.getElementById("dashKpiPersonasSub").textContent = "de " + data.kpis.personasPlanificadas + " planificadas";
 
-  document.getElementById("dashTargetPersona").textContent = DASH_METAS.TARGET_TN_POR_PERSONA_HORA;
+  document.getElementById("dashTargetPersonaPicking").textContent = DASH_METAS_FRONT.TARGET_TN_POR_PERSONA_HORA;
+  document.getElementById("dashTargetPersonaExtraccion").textContent = DASH_METAS_FRONT.TARGET_PALETAS_POR_PERSONA_HORA;
 
   // ---- Sparklines ----
-  document.getElementById("dashSparkEjecutado").innerHTML = dashSparklineSvg(dashAcumuladoCombinado(data, "real"), "#1e8449");
+  // "Ejecutado" y "Restante" combinan Picking + Extracción: ambos deben ir en TN
+  // (Picking ya está en TN; de Extracción se usa realTNAcumulada, no el paletas).
+  document.getElementById("dashSparkEjecutado").innerHTML = dashSparklineSvg(dashRealTNCombinado(data), "#1e8449");
   document.getElementById("dashSparkRestante").innerHTML = dashSparklineSvg(dashRestanteSerie(data), "#e67e22");
-  document.getElementById("dashSparkProyeccion").innerHTML = dashSparklineSvg(dashAcumuladoCombinado(data, "meta"), "#6c3483");
+  // "Proyección" muestra el ritmo ideal hacia el total planificado (TN), a paso parejo
+  // por hora — ya no se puede sumar la meta de Picking (TN) con la de Extracción
+  // (ahora en PALETAS) porque quedarían unidades mezcladas.
+  document.getElementById("dashSparkProyeccion").innerHTML = dashSparklineSvg(dashMetaPaceSerie(data), "#6c3483");
   document.getElementById("dashSparkPersonas").innerHTML = dashSparklineSvg(dashPersonasCombinadas(data), "#1f6feb");
 
   // ---- Gráficos Picking / Extracción ----
   document.getElementById("dashGraficoPicking").innerHTML =
-    dashGraficoSvg("PICKING", data.picking, data.horas, data.indiceHoraActual, data.comentarios);
+    dashGraficoSvg("PICKING", data.picking, data.horas, data.indiceHoraActual, data.comentarios, "TN");
 
   document.getElementById("dashGraficoExtraccion").innerHTML =
-    dashGraficoSvg("EXTRACCION", data.extraccion, data.horas, data.indiceHoraActual, data.comentarios);
+    dashGraficoSvg("EXTRACCION", data.extraccion, data.horas, data.indiceHoraActual, data.comentarios, "PALETAS");
 
   // ---- Tablas meta/real acumulada ----
-  dashPintarFila("dashPickingMetaAcum", data.picking.metaAcumulada);
-  dashPintarFila("dashPickingRealAcum", data.picking.realAcumulada);
-  dashPintarFila("dashExtraccionMetaAcum", data.extraccion.metaAcumulada);
-  dashPintarFila("dashExtraccionRealAcum", data.extraccion.realAcumulada);
+  dashPintarFila("dashPickingMetaAcum", data.picking.metaAcumulada, "TN");
+  dashPintarFila("dashPickingRealAcum", data.picking.realAcumulada, "TN");
+  dashPintarFila("dashExtraccionMetaAcum", data.extraccion.metaAcumulada, "PALETAS");
+  dashPintarFila("dashExtraccionRealAcum", data.extraccion.realAcumulada, "PALETAS");
 
   // ---- Comentarios ----
-  renderComentariosDash(data.comentarios);
+  renderComentariosDash(data);
 
   // ---- Combo "Hora" del modal ----
   const selHora = document.getElementById("dashComHora");
@@ -125,6 +148,11 @@ function renderDashboard(data){
   }).join("");
 
 }
+
+const DASH_METAS_FRONT = {
+  TARGET_TN_POR_PERSONA_HORA: 1.2,       // debe reflejar DASH_METAS.TARGET_TN_POR_PERSONA_HORA del backend (Picking)
+  TARGET_PALETAS_POR_PERSONA_HORA: 16    // debe reflejar DASH_METAS.TARGET_PALETAS_POR_PERSONA_HORA del backend (Extracción)
+};
 
 
 // =====================================================================
@@ -136,19 +164,37 @@ function dashFmt(n){
   return Number(n).toFixed(1);
 }
 
-function dashAcumuladoCombinado(data, tipo){
-  const campo = tipo === "real" ? "realAcumulada" : "metaAcumulada";
+// Igual que dashFmt, pero entero cuando la unidad es PALETAS (no tiene sentido
+// mostrar decimales en un conteo de paletas/líneas).
+function dashFmtUnidad(n, unidad){
+  if(n === null || n === undefined) return "—";
+  return unidad === "PALETAS" ? String(Math.round(n)) : Number(n).toFixed(1);
+}
+
+function dashRealTNCombinado(data){
+  // Picking.realAcumulada ya está en TN; Extracción usa realTNAcumulada
+  // (el TN real detrás de las paletas), no su serie "real" (que está en PALETAS).
   return data.horas.map(function(h, i){
-    const p = data.picking[campo][i] || 0;
-    const e = data.extraccion[campo][i] || 0;
-    return (data.picking[campo][i] === null && data.extraccion[campo][i] === null) ? null : (p + e);
+    const p = data.picking.realAcumulada[i];
+    const e = data.extraccion.realTNAcumulada[i];
+    return (p === null && e === null) ? null : ((p || 0) + (e || 0));
   });
 }
 
 function dashRestanteSerie(data){
   const total = data.planificacion.totalPlanificado;
-  return dashAcumuladoCombinado(data, "real").map(function(v){
+  return dashRealTNCombinado(data).map(function(v){
     return v === null ? null : Math.max(total - v, 0);
+  });
+}
+
+function dashMetaPaceSerie(data){
+  // Ritmo ideal parejo hacia el total planificado (TN), hora a hora.
+  // Reemplaza a la suma de metas de Picking (TN) + Extracción (ahora en PALETAS),
+  // que ya no se pueden combinar directamente por tener unidades distintas.
+  const total = data.planificacion.totalPlanificado;
+  return data.horas.map(function(h, i){
+    return Math.round(total * ((i + 1) / data.horas.length) * 100) / 100;
   });
 }
 
@@ -163,7 +209,7 @@ function dashPersonasCombinadas(data){
 // TABLA META / REAL ACUMULADA (fila de la tabla resumen)
 // =====================================================================
 
-function dashPintarFila(idCelda, valores){
+function dashPintarFila(idCelda, valores, unidad){
 
   // La primera vez se ubica por el <td id="..."> original; como reconstruir
   // la fila destruye ese id, la marcamos con data-fila-id para encontrarla
@@ -178,7 +224,7 @@ function dashPintarFila(idCelda, valores){
 
   const label = fila.querySelector(".dash-tabla-label").outerHTML;
   const celdas = valores.map(function(v){
-    return '<td>' + (v === null || v === undefined ? "—" : dashFmt(v)) + '</td>';
+    return '<td>' + (v === null || v === undefined ? "—" : dashFmtUnidad(v, unidad)) + '</td>';
   }).join("");
 
   fila.innerHTML = label + celdas;
@@ -222,13 +268,13 @@ function dashSparklineSvg(valores, color){
 // GRÁFICO DE BARRAS POR HORA (Picking / Extracción)
 // =====================================================================
 
-function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios){
+function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios, unidad){
 
   const ancho = 1000;
   const alto = 190;
   const margenIzq = 26;
   const topOffset = 18;   // fila de "personas asignadas"
-  const margenAbajo = 34; // fila de ícono de estado + fila de hora
+  const margenAbajo = 42; // fila de ícono de estado + etiqueta hora actual + fila de hora
   const areaAlto = alto - topOffset - margenAbajo;
   const anchoCol = (ancho - margenIzq - 10) / horas.length;
   const baseY = topOffset + areaAlto;
@@ -258,7 +304,8 @@ function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios){
     const personasVal = serie.personas[i] || 0;
 
     if(esActual){
-      svg += '<line class="dash-barra-hora-actual-linea" x1="' + cx + '" y1="' + topOffset + '" x2="' + cx + '" y2="' + baseY + '"/>';
+      svg += '<line class="dash-barra-hora-actual-linea" x1="' + cx + '" y1="' + topOffset + '" x2="' + cx + '" y2="' + (baseY + 9) + '"/>';
+      svg += '<text class="dash-hora-actual-tag" x="' + cx + '" y="' + (baseY + 23) + '">HORA ACTUAL</text>';
     }
 
     // Personas asignadas (arriba)
@@ -273,9 +320,9 @@ function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios){
       const bx = cx - bw / 2;
       const by = y(targetVal);
       svg += '<rect class="dash-barra-proy" x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + (baseY - by) + '" rx="3"/>';
-      svg += '<text class="dash-valor-label" x="' + cx + '" y="' + (by - 3) + '">' + dashFmt(targetVal) + '</text>';
+      svg += '<text class="dash-valor-label" x="' + cx + '" y="' + (by - 3) + '">' + dashFmtUnidad(targetVal, unidad) + '</text>';
 
-    }else{
+    } else {
 
       // Target (azul) + Real (verde/ámbar/rojo)
       const bw = anchoCol * 0.32;
@@ -284,14 +331,14 @@ function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios){
 
       const byT = y(targetVal);
       svg += '<rect class="dash-barra-target" x="' + bxT + '" y="' + byT + '" width="' + bw + '" height="' + (baseY - byT) + '" rx="3"/>';
-      svg += '<text class="dash-valor-label" x="' + (bxT + bw / 2) + '" y="' + (byT - 3) + '">' + dashFmt(targetVal) + '</text>';
+      svg += '<text class="dash-valor-label" x="' + (bxT + bw/2) + '" y="' + (byT - 3) + '">' + dashFmtUnidad(targetVal, unidad) + '</text>';
 
       const pct = targetVal > 0 ? (realVal / targetVal) * 100 : 100;
       const claseReal = pct >= 100 ? "dash-barra-real-ok" : (pct >= 90 ? "dash-barra-real-riesgo" : "dash-barra-real-mal");
 
       const byR = y(realVal);
       svg += '<rect class="' + claseReal + '" x="' + bxR + '" y="' + byR + '" width="' + bw + '" height="' + (baseY - byR) + '" rx="3"/>';
-      svg += '<text class="dash-valor-label" x="' + (bxR + bw / 2) + '" y="' + (byR - 3) + '">' + dashFmt(realVal) + '</text>';
+      svg += '<text class="dash-valor-label" x="' + (bxR + bw/2) + '" y="' + (byR - 3) + '">' + dashFmtUnidad(realVal, unidad) + '</text>';
 
       const icono = pct >= 100 ? "✅" : (pct >= 90 ? "🟡" : "❌");
       svg += '<text x="' + cx + '" y="' + (baseY + 13) + '" text-anchor="middle" font-size="10">' + icono + '</text>';
@@ -303,13 +350,13 @@ function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios){
       return c.proceso === proceso && Number(c.hora) === h;
     });
     if(tieneComentario){
-      svg += '<text x="' + (cx + anchoCol * 0.32) + '" y="15" font-size="10">💬</text>';
+      svg += '<text x="' + (cx + anchoCol*0.32) + '" y="15" font-size="10">💬</text>';
     }
 
     svg += '</g>';
 
     // Etiqueta de hora
-    svg += '<text class="dash-hora-label" x="' + cx + '" y="' + (alto - 5) + '">' + String(h).padStart(2, "0") + ':00</text>';
+    svg += '<text class="dash-hora-label" x="' + cx + '" y="' + (alto - 5) + '">' + String(h).padStart(2,"0") + ':00</text>';
 
   });
 
@@ -324,13 +371,35 @@ function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios){
 // COMENTARIOS
 // =====================================================================
 
-function renderComentariosDash(comentarios){
+function dashColorComentario(data, c){
+
+  const serie = c.proceso === "EXTRACCION" ? data.extraccion : data.picking;
+  const idx = data.horas.indexOf(Number(c.hora));
+
+  if(idx === -1) return "rojo";
+
+  const target = serie.target[idx] || 0;
+  const real = serie.real[idx];
+
+  if(real === null || real === undefined) return "rojo"; // hora sin ejecutar aún: se marca como pendiente/crítica
+
+  const pct = target > 0 ? (real / target) * 100 : 100;
+
+  if(pct >= 100) return "verde";
+  if(pct >= 90) return "amarillo";
+  return "rojo";
+
+}
+
+function renderComentariosDash(data){
+
+  const comentarios = data.comentarios || [];
 
   document.getElementById("dashComentariosBadge").textContent = comentarios.length;
 
   const cont = document.getElementById("dashComentariosLista");
 
-  if(!comentarios || comentarios.length === 0){
+  if(comentarios.length === 0){
     cont.innerHTML = '<div class="dash-comentarios-vacio">Sin comentarios registrados.</div>';
     return;
   }
@@ -338,11 +407,15 @@ function renderComentariosDash(comentarios){
   cont.innerHTML = comentarios.map(function(c){
 
     const fecha = new Date(c.created_at);
-    const hora = String(fecha.getHours()).padStart(2, "0") + ":" + String(fecha.getMinutes()).padStart(2, "0");
+    const hora = String(fecha.getHours()).padStart(2,"0") + ":" + String(fecha.getMinutes()).padStart(2,"0");
+
+    const color = dashColorComentario(data, c);
+    const claseCard = color === "amarillo" ? " dash-com-amarillo" : (color === "verde" ? " dash-com-verde" : "");
 
     return (
-      '<div class="dash-comentario-card">' +
-        '<div class="dash-comentario-hora">' + String(c.hora).padStart(2, "0") + ':00 &nbsp; ' + c.proceso + '</div>' +
+      '<div class="dash-comentario-card' + claseCard + '">' +
+        '<button class="dash-comentario-editar" title="Editar (próximamente)" onclick="dashEditarComentarioProximamente(event)">✏️</button>' +
+        '<div class="dash-comentario-hora"><span class="dash-comentario-dot dash-comentario-dot-' + color + '"></span>' + String(c.hora).padStart(2,"0") + ':00 &nbsp; ' + c.proceso + '</div>' +
         '<div class="dash-comentario-texto">' + dashEscapar(c.comentario) + '</div>' +
         '<div class="dash-comentario-autor">• ' + dashEscapar(c.autor) + ' &nbsp; ' + hora + '</div>' +
       '</div>'
@@ -350,6 +423,11 @@ function renderComentariosDash(comentarios){
 
   }).join("");
 
+}
+
+function dashEditarComentarioProximamente(evento){
+  evento.stopPropagation();
+  mostrarAlertaModal("La edición de comentarios estará disponible próximamente.", "info");
 }
 
 function dashEscapar(texto){
@@ -382,9 +460,11 @@ async function guardarComentarioDash(){
     return;
   }
 
+  const ft = dashFechaTurnoActual();
+
   const registro = {
-    fecha: fechaSeleccionada,
-    turno: turnoSeleccionado,
+    fecha: ft.fecha,
+    turno: ft.turno,
     proceso: document.getElementById("dashComProceso").value,
     hora: Number(document.getElementById("dashComHora").value),
     autor: dashAutor(),

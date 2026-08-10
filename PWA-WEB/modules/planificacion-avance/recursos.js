@@ -54,6 +54,9 @@ function escapeAttr(str){
 
 async function cargarRecursos(){
 
+    const fecha = document.getElementById("fecha").value;
+    const turno = turnoDB(document.getElementById("turno").value);
+
     try{
 
         const supervisores = await obtenerSupervisoresRecursos();
@@ -67,19 +70,67 @@ async function cargarRecursos(){
             `<option value="${s}">${s}</option>`
         ).join("");
 
+        // Si ya había uno elegido en esta misma sesión, respétalo;
+        // si no, pregunta a Supabase si ya hay actividad guardada
+        // para esta fecha/turno y usa ese supervisor.
         if(actual && supervisores.indexOf(actual) !== -1){
+
             select.value = actual;
+
+        }else{
+
+            try{
+
+                const supervisorGuardado = await obtenerUltimoSupervisorTurno(fecha, turno);
+
+                if(supervisorGuardado && supervisores.indexOf(supervisorGuardado) !== -1){
+                    select.value = supervisorGuardado;
+                }
+
+            }catch(error){
+                console.error(error);
+            }
+
         }
 
         supervisorRecursos = select.value;
 
         cargarTablaRecursos();
+        cargarNecesidadTurno();
 
     }catch(error){
         console.error(error);
         mostrarToast("❌ Error al cargar supervisores", true);
     }
 
+}
+
+// ============================================
+// NECESIDAD DEL TURNO (pickers / apiladores)
+// ============================================
+
+async function cargarNecesidadTurno(){
+
+    const fecha = document.getElementById("fecha").value;
+    const turno = turnoDB(document.getElementById("turno").value);
+
+    if(!fecha) return;
+
+    try{
+
+        const datos = await obtenerNecesidadTurno(fecha, turno);
+
+        document.getElementById("prNecesidadPicking").textContent = datos.necesidadPicking;
+        document.getElementById("prNecesidadApiladores").textContent = datos.necesidadApiladores;
+
+    }catch(error){
+        console.error(error);
+    }
+
+}
+
+function turnoDB(t){
+    return t === "DÍA" ? "DIA" : t;
 }
 
 function cambiarSupervisor(){

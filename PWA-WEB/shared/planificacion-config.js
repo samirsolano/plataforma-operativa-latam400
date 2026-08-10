@@ -385,6 +385,23 @@ async function guardarEstadoPlanificacion(fecha, turno, seleccionados){
 // Equivalente a Supabase.js → sincronizarPlanificacion() +
 // actualizarEstadosDesdeDrive(), corriendo en el navegador.
 
+// ========================================
+// CALCULAR EXTRACCIÓN / PICKING (placeholder 80/20)
+// ========================================
+// ctd_extraccion: 80% del peso del viaje, convertido a paletas (480 kg c/u)
+// tnl_picking:    20% del peso del viaje, en TN
+
+function calcularExtraccionPicking(pesoTN){
+
+    const peso = Number(pesoTN) || 0;
+
+    return {
+        ctd_extraccion: Math.round((peso * 0.80 * 1000) / 480),
+        tnl_picking: Math.round(peso * 0.20 * 100) / 100
+    };
+
+}
+
 async function insertarViajeDesdeDrive(fecha, turno, viaje){
 
     const fechaCita = convertirFechaPlanif(viaje.fecha);
@@ -408,6 +425,8 @@ async function insertarViajeDesdeDrive(fecha, turno, viaje){
         peso_tn: viaje.pesoTN,
 
         status_drive: viaje.status,
+
+        ...calcularExtraccionPicking(viaje.pesoTN),
 
         fecha_importacion: new Date().toISOString()
 
