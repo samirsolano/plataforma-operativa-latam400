@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Browser__get_page_text",
+      "mcp__Claude_Browser__read_console_messages",
+      "mcp__Claude_Browser__read_page",
+      "mcp__Claude_Browser__tabs_context",
+      "mcp__Claude_Browser__find",
+      "mcp__Claude_Browser__read_network_requests",
+      "mcp__Claude_Browser__preview_list",
+      "Bash(curl -s \"https://iaitqquphjohgsmelhcj.supabase.co/rest/v1/*)",
+      "Bash(curl -s 'https://iaitqquphjohgsmelhcj.supabase.co/rest/v1/*)",
+      "Bash(curl -s https://iaitqquphjohgsmelhcj.supabase.co/rest/v1/*)",
+      "Bash(curl -s \"https://rmlilqdhxbhpwkysucaz.supabase.co/rest/v1/*)",
+      "Bash(curl -s 'https://rmlilqdhxbhpwkysucaz.supabase.co/rest/v1/*)",
+      "Bash(curl -s https://rmlilqdhxbhpwkysucaz.supabase.co/rest/v1/*)",
+      "Bash(curl -sL \"https://docs.google.com/spreadsheets/*)",
+      "Bash(curl -s \"https://script.google.com/macros/*)",
+      "Bash(curl -sL \"https://script.google.com/macros/*)",
+      "Bash(curl -s -X POST \"https://iaitqquphjohgsmelhcj.supabase.co/rest/v1/rpc/obtener_hora_x_hora *)"
+    ]
+  }
+}
