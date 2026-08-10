@@ -270,6 +270,7 @@ body.hxh-pantalla-completa #modDashboard { gap: 8px; }
 .dash-tabla-resumen td { padding: 2px 4px; text-align: center; color: #374151; border-top: 1px solid #f0f2f5; }
 .dash-tabla-label { text-align: left !important; font-weight: 700; color: #6b7280; white-space: nowrap; }
 .dash-tabla-label-real { color: #1f6feb; }
+.dash-tabla-label-backlog { color: #c0392b; }
 
 /* ---- Leyenda inferior ---- */
 
@@ -329,7 +330,6 @@ body.hxh-pantalla-completa #modDashboard { gap: 8px; }
   background: #fffafa;
   position: relative;
 }
-.dash-comentario-card.dash-com-amarillo { border-left-color: #e6a817; background: #fffdf5; }
 .dash-comentario-card.dash-com-verde { border-left-color: #1e8449; background: #f5fbf6; }
 
 .dash-comentario-dot {
@@ -340,7 +340,6 @@ body.hxh-pantalla-completa #modDashboard { gap: 8px; }
   vertical-align: 1px;
 }
 .dash-comentario-dot-rojo { background: #e5433a; }
-.dash-comentario-dot-amarillo { background: #e6a817; }
 .dash-comentario-dot-verde { background: #1e8449; }
 
 .dash-comentario-editar {
@@ -382,13 +381,17 @@ body.hxh-pantalla-completa #modDashboard { gap: 8px; }
 .dash-grafico-svg { width: 100%; height: 100%; display: block; }
 
 .dash-barra-target { fill: #1f6feb; }
+.dash-barra-backlog-extra { fill: #0b3fae; }
 .dash-barra-real-ok { fill: #1e8449; }
-.dash-barra-real-riesgo { fill: #e6a817; }
 .dash-barra-real-mal { fill: #e5433a; }
 .dash-barra-proy { fill: url(#dashPatronProyeccion); }
 .dash-barra-hora-actual-linea { stroke: #FC000D; stroke-width: 1.5; stroke-dasharray: 3 3; }
 
 .dash-hora-label { font-size: 10px; fill: #6b7280; text-anchor: middle; }
+
+.dash-bl-separador { stroke: #e5e7eb; stroke-width: 1; }
+.dash-bl-etiqueta { font-size: 10px; font-weight: 700; fill: #c0392b; }
+.dash-bl-valor { font-size: 10.5px; font-weight: 700; fill: #c0392b; text-anchor: middle; }
 .dash-valor-label { font-size: 10px; fill: #16232f; font-weight: 700; text-anchor: middle; }
 .dash-persona-label { font-size: 10px; fill: #8b96a3; text-anchor: middle; }
 .dash-hora-actual-tag { font-size: 9px; fill: #FC000D; font-weight: 800; text-anchor: middle; }

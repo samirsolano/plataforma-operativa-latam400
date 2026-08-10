@@ -125,18 +125,12 @@ function renderDashboard(data){
   document.getElementById("dashSparkProyeccion").innerHTML = dashSparklineSvg(dashMetaPaceSerie(data), "#6c3483");
   document.getElementById("dashSparkPersonas").innerHTML = dashSparklineSvg(dashPersonasCombinadas(data), "#1f6feb");
 
-  // ---- Gráficos Picking / Extracción ----
+  // ---- Gráficos Picking / Extracción (con la fila de BL adentro, alineada) ----
   document.getElementById("dashGraficoPicking").innerHTML =
-    dashGraficoSvg("PICKING", data.picking, data.horas, data.indiceHoraActual, data.comentarios, "TN");
+    dashGraficoSvg("PICKING", data.picking, data.horas, data.indiceHoraActual, data.comentarios, "TN", data.picking.backlogAcumulada, data.esHoy);
 
   document.getElementById("dashGraficoExtraccion").innerHTML =
-    dashGraficoSvg("EXTRACCION", data.extraccion, data.horas, data.indiceHoraActual, data.comentarios, "PALETAS");
-
-  // ---- Tablas meta/real acumulada ----
-  dashPintarFila("dashPickingMetaAcum", data.picking.metaAcumulada, "TN");
-  dashPintarFila("dashPickingRealAcum", data.picking.realAcumulada, "TN");
-  dashPintarFila("dashExtraccionMetaAcum", data.extraccion.metaAcumulada, "PALETAS");
-  dashPintarFila("dashExtraccionRealAcum", data.extraccion.realAcumulada, "PALETAS");
+    dashGraficoSvg("EXTRACCION", data.extraccion, data.horas, data.indiceHoraActual, data.comentarios, "PALETAS", data.extraccion.backlogAcumulada, data.esHoy);
 
   // ---- Comentarios ----
   renderComentariosDash(data);
@@ -268,19 +262,35 @@ function dashSparklineSvg(valores, color){
 // GRÁFICO DE BARRAS POR HORA (Picking / Extracción)
 // =====================================================================
 
-function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios, unidad){
+function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios, unidad, backlogPorHora, esHoy){
 
   const ancho = 1000;
-  const alto = 190;
+  const altoBase = 190;                        // alto del gráfico + fila de hora (igual que antes)
+  const altoBL = backlogPorHora ? 20 : 0;       // fila extra para "BL", alineada por columna con el resto
+  const altoTotal = altoBase + altoBL;
+
   const margenIzq = 26;
   const topOffset = 18;   // fila de "personas asignadas"
   const margenAbajo = 42; // fila de ícono de estado + etiqueta hora actual + fila de hora
-  const areaAlto = alto - topOffset - margenAbajo;
+  const areaAlto = altoBase - topOffset - margenAbajo;
   const anchoCol = (ancho - margenIzq - 10) / horas.length;
   const baseY = topOffset + areaAlto;
 
+  // Backlog que carga cada hora (el de la hora ANTERIOR, ya que se suma
+  // como tramo extra arriba del target de esta hora — "lo que quedó
+  // pendiente ayer/antes se agrega a lo que toca ahora")
+  const backlogPrevioPorHora = horas.map(function(h, i){
+    if(i === 0 || !backlogPorHora) return 0;
+    const v = backlogPorHora[i - 1];
+    return (v === null || v === undefined) ? 0 : v;
+  });
+
+  const targetConBacklog = serie.target.map(function(t, i){
+    return (t || 0) + backlogPrevioPorHora[i];
+  });
+
   const max = Math.max(
-    Math.max.apply(null, serie.target),
+    Math.max.apply(null, targetConBacklog),
     Math.max.apply(null, serie.real),
     1
   ) * 1.15;
@@ -288,7 +298,7 @@ function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios, unidad
   function y(v){ return topOffset + areaAlto - (v / max) * areaAlto; }
 
   let svg =
-    '<svg class="dash-grafico-svg" viewBox="0 0 ' + ancho + ' ' + alto + '" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">' +
+    '<svg class="dash-grafico-svg" viewBox="0 0 ' + ancho + ' ' + altoTotal + '" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">' +
     '<defs><pattern id="dashPatronProyeccion" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">' +
     '<rect width="6" height="6" fill="#ded4f0"/><line x1="0" y1="0" x2="0" y2="6" stroke="#a78bd6" stroke-width="2"/>' +
     '</pattern></defs>';
@@ -297,11 +307,13 @@ function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios, unidad
 
     const cx = margenIzq + i * anchoCol + anchoCol / 2;
     const esFutura = indiceActual < 0 ? true : i > indiceActual;
-    const esActual = i === indiceActual;
+    const esActual = esHoy && i === indiceActual;
 
     const targetVal = serie.target[i] || 0;
     const realVal = serie.real[i] || 0;
     const personasVal = serie.personas[i] || 0;
+    const backlogPrevio = backlogPrevioPorHora[i];
+    const totalConBacklog = targetVal + backlogPrevio;
 
     if(esActual){
       svg += '<line class="dash-barra-hora-actual-linea" x1="' + cx + '" y1="' + topOffset + '" x2="' + cx + '" y2="' + (baseY + 9) + '"/>';
@@ -315,32 +327,45 @@ function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios, unidad
 
     if(esFutura){
 
-      // Solo proyección (barra rayada) = target
+      // Proyección (barra rayada) = target normal...
       const bw = anchoCol * 0.5;
       const bx = cx - bw / 2;
       const by = y(targetVal);
       svg += '<rect class="dash-barra-proy" x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + (baseY - by) + '" rx="3"/>';
-      svg += '<text class="dash-valor-label" x="' + cx + '" y="' + (by - 3) + '">' + dashFmtUnidad(targetVal, unidad) + '</text>';
+
+      // ...+ tramo extra arriba, en azul intenso, con el BL que arrastra
+      if(backlogPrevio > 0){
+        const byTotal = y(totalConBacklog);
+        svg += '<rect class="dash-barra-backlog-extra" x="' + bx + '" y="' + byTotal + '" width="' + bw + '" height="' + (by - byTotal) + '" rx="3"/>';
+      }
+
+      svg += '<text class="dash-valor-label" x="' + cx + '" y="' + (y(totalConBacklog) - 3) + '">' + dashFmtUnidad(totalConBacklog, unidad) + '</text>';
 
     } else {
 
-      // Target (azul) + Real (verde/ámbar/rojo)
+      // Target (azul) + tramo extra de BL arrastrado (azul intenso) + Real (verde/rojo)
       const bw = anchoCol * 0.32;
       const bxT = cx - bw - 2;
       const bxR = cx + 2;
 
       const byT = y(targetVal);
       svg += '<rect class="dash-barra-target" x="' + bxT + '" y="' + byT + '" width="' + bw + '" height="' + (baseY - byT) + '" rx="3"/>';
-      svg += '<text class="dash-valor-label" x="' + (bxT + bw/2) + '" y="' + (byT - 3) + '">' + dashFmtUnidad(targetVal, unidad) + '</text>';
+
+      if(backlogPrevio > 0){
+        const byTotal = y(totalConBacklog);
+        svg += '<rect class="dash-barra-backlog-extra" x="' + bxT + '" y="' + byTotal + '" width="' + bw + '" height="' + (byT - byTotal) + '" rx="3"/>';
+      }
+
+      svg += '<text class="dash-valor-label" x="' + (bxT + bw/2) + '" y="' + (y(totalConBacklog) - 3) + '">' + dashFmtUnidad(totalConBacklog, unidad) + '</text>';
 
       const pct = targetVal > 0 ? (realVal / targetVal) * 100 : 100;
-      const claseReal = pct >= 100 ? "dash-barra-real-ok" : (pct >= 90 ? "dash-barra-real-riesgo" : "dash-barra-real-mal");
+      const claseReal = pct >= 100 ? "dash-barra-real-ok" : "dash-barra-real-mal";
 
       const byR = y(realVal);
       svg += '<rect class="' + claseReal + '" x="' + bxR + '" y="' + byR + '" width="' + bw + '" height="' + (baseY - byR) + '" rx="3"/>';
       svg += '<text class="dash-valor-label" x="' + (bxR + bw/2) + '" y="' + (byR - 3) + '">' + dashFmtUnidad(realVal, unidad) + '</text>';
 
-      const icono = pct >= 100 ? "✅" : (pct >= 90 ? "🟡" : "❌");
+      const icono = pct >= 100 ? "✅" : "❌";
       svg += '<text x="' + cx + '" y="' + (baseY + 13) + '" text-anchor="middle" font-size="10">' + icono + '</text>';
 
     }
@@ -356,9 +381,29 @@ function dashGraficoSvg(proceso, serie, horas, indiceActual, comentarios, unidad
     svg += '</g>';
 
     // Etiqueta de hora
-    svg += '<text class="dash-hora-label" x="' + cx + '" y="' + (alto - 5) + '">' + String(h).padStart(2,"0") + ':00</text>';
+    svg += '<text class="dash-hora-label" x="' + cx + '" y="' + (altoBase - 5) + '">' + String(h).padStart(2,"0") + ':00</text>';
 
   });
+
+  // Fila de BL (backlog acumulado), alineada con las mismas columnas
+  // que las barras de arriba — por eso va dentro del mismo SVG y no
+  // en una tabla HTML aparte (esa se desalineaba).
+  if(backlogPorHora){
+
+    svg += '<line class="dash-bl-separador" x1="0" y1="' + altoBase + '" x2="' + ancho + '" y2="' + altoBase + '"/>';
+    svg += '<text class="dash-bl-etiqueta" x="4" y="' + (altoBase + 14) + '">BL</text>';
+
+    horas.forEach(function(h, i){
+
+      const cx = margenIzq + i * anchoCol + anchoCol / 2;
+      const v = backlogPorHora[i];
+      const texto = (v === null || v === undefined) ? "—" : dashFmtUnidad(v, unidad);
+
+      svg += '<text class="dash-bl-valor" x="' + cx + '" y="' + (altoBase + 14) + '">' + texto + '</text>';
+
+    });
+
+  }
 
   svg += '</svg>';
 
@@ -386,7 +431,6 @@ function dashColorComentario(data, c){
   const pct = target > 0 ? (real / target) * 100 : 100;
 
   if(pct >= 100) return "verde";
-  if(pct >= 90) return "amarillo";
   return "rojo";
 
 }

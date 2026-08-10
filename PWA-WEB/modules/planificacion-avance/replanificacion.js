@@ -236,7 +236,7 @@ function renderTablaPrincipal(){
         return `
             <tr class="${replanificado ? "rp-fila-replanificada" : ""}">
                 <td>${item.dni}</td>
-                <td>${item.nombre_completo}</td>
+                <td>${(item.nombre_completo || "").toUpperCase()}</td>
                 <td>${item.funcion_inicio || "-"}</td>
                 <td>
                     <select class="rp-select-funcion" onchange="cambiarFuncionActual(${index}, this.value)">
@@ -310,7 +310,7 @@ function guardarReplanificacionUnaFila(index){
 
     abrirModalObservacion(
         "Observación del cambio",
-        item.nombre_completo + ": " + (item.funcion_inicio || "-") + " → " + item.funcion_actual,
+        (item.nombre_completo || "").toUpperCase() + ": " + (item.funcion_inicio || "-") + " → " + item.funcion_actual,
         async function(observacion){
 
             try{
@@ -404,7 +404,7 @@ function renderHistorial(){
         return `
             <tr>
                 <td>${h.hora}</td>
-                <td>${h.nombre_completo} (${h.dni})</td>
+                <td>${(h.nombre_completo || "").toUpperCase()} (${h.dni})</td>
                 <td>${h.funcion_antes || "-"}</td>
                 <td>${h.funcion_despues || "-"}</td>
                 <td>${h.supervisor || "-"}</td>
@@ -425,7 +425,7 @@ function descargarCambiosReplanificacion(){
 
     rpData.forEach(function(item){
         const estado = item.funcion_actual !== item.funcion_inicio ? "Replanificado" : "Sin cambios";
-        csv += `${item.dni},"${item.nombre_completo}",${item.funcion_inicio},${item.funcion_actual},${item.usuario},${estado}\n`;
+        csv += `${item.dni},"${(item.nombre_completo || "").toUpperCase()}",${item.funcion_inicio},${item.funcion_actual},${item.usuario},${estado}\n`;
     });
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });

@@ -132,6 +132,7 @@ function dashProcesarProceso(filasCrudas, nombreProceso, horas, indiceActual, ca
   const metaAcumulada = [];
   const realAcumulada = [];
   const realTNAcumulada = [];
+  const backlogAcumulada = []; // lo pendiente que se va arrastrando: meta - real, nunca negativo
 
   horas.forEach(function(h, i){
 
@@ -145,9 +146,11 @@ function dashProcesarProceso(filasCrudas, nombreProceso, horas, indiceActual, ca
       realTNAcum += realTN[i];
       realAcumulada.push(Math.round(realAcum * 100) / 100);
       realTNAcumulada.push(Math.round(realTNAcum * 100) / 100);
+      backlogAcumulada.push(Math.round(Math.max(0, metaAcum - realAcum) * 100) / 100);
     }else{
       realAcumulada.push(null);
       realTNAcumulada.push(null);
+      backlogAcumulada.push(null); // todavía no ocurre esa hora, no hay pendiente que mostrar
     }
 
   });
@@ -160,7 +163,8 @@ function dashProcesarProceso(filasCrudas, nombreProceso, horas, indiceActual, ca
     personas: personas,
     metaAcumulada: metaAcumulada,
     realAcumulada: realAcumulada,
-    realTNAcumulada: realTNAcumulada
+    realTNAcumulada: realTNAcumulada,
+    backlogAcumulada: backlogAcumulada
   };
 
 }
@@ -231,6 +235,16 @@ async function obtenerDashboard(fecha, turno){
   const horas = dashHorasTurno(turno);
   const indiceActual = dashIndiceHoraActual(fecha, turno, horas);
 
+  // "HORA ACTUAL" (la línea roja punteada) solo debe marcarse cuando la
+  // fecha elegida es realmente HOY — indiceActual también se usa para
+  // fechas pasadas (así el turno completo se pinta como "real", no como
+  // proyección), pero eso NO significa que estemos "en vivo" ese día.
+  const ahoraEsHoy = new Date();
+  const hoyStr = ahoraEsHoy.getFullYear() + "-" +
+    String(ahoraEsHoy.getMonth() + 1).padStart(2, "0") + "-" +
+    String(ahoraEsHoy.getDate()).padStart(2, "0");
+  const esHoy = (fecha === hoyStr);
+
   const [plan, filasCrudas, personas, comentarios] = await Promise.all([
     dashPlanificacionCanales(fecha, turno),
     dashFilasHoraXHora(fecha, turno),
@@ -260,6 +274,7 @@ async function obtenerDashboard(fecha, turno){
     turno: turno,
     horas: horas,
     indiceHoraActual: indiceActual,
+    esHoy: esHoy,
 
     planificacion: plan,
 

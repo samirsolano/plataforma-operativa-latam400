@@ -33,7 +33,7 @@ function escapeAttr(str){
         if(btnEliminar){
             const id = Number(btnEliminar.dataset.id);
             const item = recursosData.find(r => r.colaborador_id === id);
-            eliminarColaborador(id, item ? item.nombre_completo : "este colaborador");
+            eliminarColaborador(id, item ? item.nombre_completo.toUpperCase() : "este colaborador");
             return;
         }
 
@@ -236,21 +236,27 @@ function poblarFiltrosPuestoFuncion(){
 
 }
 
-function renderTablaRecursos(){
-
-    poblarFiltrosPuestoFuncion();
+function obtenerFilasFiltradas(){
 
     const filtro = (document.getElementById("prBuscar").value || "").toUpperCase().trim();
     const filtroPuesto = document.getElementById("prFiltroPuesto").value;
     const filtroFuncion = document.getElementById("prFiltroFuncion").value;
 
-    const filas = recursosData.filter(item =>
+    return recursosData.filter(item =>
         (!filtro ||
             item.nombre_completo.toUpperCase().includes(filtro) ||
             String(item.dni).toUpperCase().includes(filtro)) &&
         (!filtroPuesto || item.puesto === filtroPuesto) &&
         (!filtroFuncion || item.funcion === filtroFuncion)
     );
+
+}
+
+function renderTablaRecursos(){
+
+    poblarFiltrosPuestoFuncion();
+
+    const filas = obtenerFilasFiltradas();
 
     const tbody = document.getElementById("prTablaBody");
 
@@ -274,7 +280,7 @@ function renderTablaRecursos(){
                         </span>
                     </td>
                     <td>${item.dni}</td>
-                    <td>${item.nombre_completo}</td>
+                    <td>${(item.nombre_completo || "").toUpperCase()}</td>
                     <td>${item.puesto || "-"}</td>
                     <td>${esApoyo ? `${item.supervisor} <small style="color:#999;">(origen)</small>` : item.supervisor}</td>
                     <td>
@@ -313,19 +319,11 @@ function actualizarStatsRecursos(){
     const inactivos = total - activosEquipo;
 
     const activosTotal = recursosData.filter(r => r.activo).length;
-    const pendientes = recursosData.filter(r => r.activo && (!r.usuarios || r.usuarios.length === 0)).length;
 
     document.getElementById("prTotal").textContent = total;
     document.getElementById("prActivos").textContent = activosTotal;
     document.getElementById("prInactivos").textContent = inactivos;
     document.getElementById("prApoyos").textContent = apoyos.length;
-    document.getElementById("prPendientes").textContent = pendientes;
-
-    document.getElementById("rsTotal").textContent = total;
-    document.getElementById("rsActivos").textContent = activosTotal;
-    document.getElementById("rsInactivos").textContent = inactivos;
-    document.getElementById("rsApoyos").textContent = apoyos.length;
-    document.getElementById("rsPendientes").textContent = pendientes;
 
     renderResumenFunciones();
 
@@ -385,7 +383,7 @@ function toggleActivoPendiente(colaboradorId, checkbox){
 
 function activarTodosPendiente(){
 
-    recursosData.forEach(item => {
+    obtenerFilasFiltradas().forEach(item => {
         item.activo = true;
         item._modificado = true;
     });
@@ -396,7 +394,7 @@ function activarTodosPendiente(){
 
 function desactivarTodosPendiente(){
 
-    recursosData.forEach(item => {
+    obtenerFilasFiltradas().forEach(item => {
         item.activo = false;
         item._modificado = true;
     });
@@ -597,7 +595,7 @@ function buscarApoyo(){
 
             contenedorRes.innerHTML = resultados.map((c, indice) => `
                 <div class="pr-resultado-busqueda" onclick='seleccionarApoyo(${indice})'>
-                    <b>${c.nombre_completo}</b> — DNI ${c.dni}<br>
+                    <b>${(c.nombre_completo || "").toUpperCase()}</b> — DNI ${c.dni}<br>
                     <small>${c.puesto || "-"} · Supervisor: ${c.supervisor || "-"}</small>
                 </div>
             `).join("");
@@ -617,7 +615,7 @@ function seleccionarApoyo(indice){
 
     document.getElementById("prApoyoContenido").innerHTML = `
         <div class="pr-tarjeta-seleccionado">
-            <b>${colaborador.nombre_completo}</b>
+            <b>${(colaborador.nombre_completo || "").toUpperCase()}</b>
             DNI ${colaborador.dni} · ${colaborador.puesto || "-"}<br>
             Supervisor origen: ${colaborador.supervisor || "-"}
         </div>
@@ -839,7 +837,7 @@ function exportarExcel(){
     const filas = recursosData.map(item => [
         item.tipo === "APOYO" ? "Apoyo" : "Normal",
         item.dni,
-        item.nombre_completo,
+        (item.nombre_completo || "").toUpperCase(),
         item.puesto || "",
         item.supervisor || "",
         item.funcion || "",

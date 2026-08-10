@@ -155,7 +155,7 @@ function hxhFormato(n, unidad){
 function hxhNombreCorto(nombre){
   if (!nombre) return "";
   const primera = nombre.trim().split(/\s+/)[0];
-  return primera.replace(/[,;.]+$/, "");
+  return primera.replace(/[,;.]+$/, "").toUpperCase();
 }
 
 function hxhTablaHtml(tabla, unidad, proceso, comentarios, limite){
@@ -172,7 +172,7 @@ function hxhTablaHtml(tabla, unidad, proceso, comentarios, limite){
   const filasAMostrar = limite ? tabla.filas.slice(0, limite) : tabla.filas;
 
   filasAMostrar.forEach(function(f){
-    html += '<tr><td title="' + f.auxiliar + '">' + hxhNombreCorto(f.auxiliar) + "</td>";
+    html += '<tr><td title="' + (f.auxiliar || "").toUpperCase() + '">' + hxhNombreCorto(f.auxiliar) + "</td>";
     tabla.horas.forEach(function(h){
 
       const v = f.valores[h];
@@ -214,7 +214,7 @@ function hxhTablaSimpleHtml(tabla){
   let html = '<table class="hxh-t"><tr><th>Auxiliar</th><th>Total</th></tr>';
 
   tabla.filas.forEach(function(f){
-    html += '<tr><td title="' + f.auxiliar + '">' + hxhNombreCorto(f.auxiliar) + "</td><td><b>" + hxhFormato(f.total) + "</b></td></tr>";
+    html += '<tr><td title="' + (f.auxiliar || "").toUpperCase() + '">' + hxhNombreCorto(f.auxiliar) + "</td><td><b>" + hxhFormato(f.total) + "</b></td></tr>";
   });
 
   html += '<tr class="hxh-total"><td>TOTAL</td><td>' + hxhFormato(tabla.totales.total) + "</td></tr>";
@@ -257,7 +257,7 @@ function renderHoraXHora(data, fecha, turno){
   top3.forEach(function(f, i){
     htmlTop3 += '<div class="hxh-top3-fila">' +
       '<span class="hxh-top3-pos">' + (i + 1) + '</span>' +
-      '<span class="hxh-top3-nombre">' + f.auxiliar + '</span>' +
+      '<span class="hxh-top3-nombre">' + (f.auxiliar || "").toUpperCase() + '</span>' +
       '<span class="hxh-top3-valor">' + hxhFormato(f.total) + ' TN</span>' +
       '</div>';
   });
@@ -265,7 +265,7 @@ function renderHoraXHora(data, fecha, turno){
 
   function setTop(id, fila, unidad){
     const el = document.getElementById(id);
-    el.querySelector(".hxh-top-nombre").textContent = fila ? fila.auxiliar : "—";
+    el.querySelector(".hxh-top-nombre").textContent = fila ? String(fila.auxiliar).toUpperCase() : "—";
     el.querySelector(".hxh-top-valor").textContent = fila ? hxhFormato(fila.total, unidad) + " " + unidad : "—";
   }
   setTop("hxhTopPicking", data.PICKING.filas[0], "TN");

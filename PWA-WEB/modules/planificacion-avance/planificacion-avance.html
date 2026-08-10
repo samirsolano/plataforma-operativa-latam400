@@ -177,6 +177,11 @@
                         <h2 id="kpiPlanificado">0.00 TN</h2>
                     </div>
 
+                    <div class="kpi">
+                        <span>Capacidad por turno</span>
+                        <h2>350 TNL</h2>
+                    </div>
+
                 </div>
 
                 <div class="pd-tabla">
@@ -276,11 +281,6 @@
                             <h3 id="prApoyos" class="pr-warn">0</h3>
                         </div>
 
-                        <div class="pr-stat-mini">
-                            <span>Usuarios pendientes</span>
-                            <h3 id="prPendientes" class="pr-info">0</h3>
-                        </div>
-
                     </div>
 
                     <div class="pr-necesidad-turno">
@@ -373,37 +373,6 @@
                     </div>
 
                     <div class="pr-sidebar-derecha">
-
-                        <div class="pr-resumen">
-
-                            <h3>Resumen del turno</h3>
-
-                            <div class="pr-resumen-item">
-                                <span>👥 Total colaboradores<br>asignados al supervisor</span>
-                                <b id="rsTotal">0</b>
-                            </div>
-
-                            <div class="pr-resumen-item pr-ok">
-                                <span>✅ Activos</span>
-                                <b id="rsActivos">0</b>
-                            </div>
-
-                            <div class="pr-resumen-item pr-bad">
-                                <span>❌ Inactivos</span>
-                                <b id="rsInactivos">0</b>
-                            </div>
-
-                            <div class="pr-resumen-item pr-warn">
-                                <span>🧑‍🤝‍🧑 Personal de apoyo</span>
-                                <b id="rsApoyos">0</b>
-                            </div>
-
-                            <div class="pr-resumen-item pr-info">
-                                <span>👤 Usuarios pendientes<br>de asignar</span>
-                                <b id="rsPendientes">0</b>
-                            </div>
-
-                        </div>
 
                         <div class="pr-resumen-funciones-panel">
 
@@ -792,19 +761,6 @@
 
                 <div id="dashGraficoPicking"></div>
 
-                <table class="dash-tabla-resumen">
-                  <tbody>
-                    <tr>
-                      <td class="dash-tabla-label">META ACUMULADA (TN)</td>
-                      <td id="dashPickingMetaAcum" colspan="12"></td>
-                    </tr>
-                    <tr>
-                      <td class="dash-tabla-label dash-tabla-label-real">REAL ACUMULADO (TN)</td>
-                      <td id="dashPickingRealAcum" colspan="12"></td>
-                    </tr>
-                  </tbody>
-                </table>
-
               </div>
 
               <!-- ---- EXTRACCIÓN ---- -->
@@ -817,25 +773,11 @@
 
                 <div id="dashGraficoExtraccion"></div>
 
-                <table class="dash-tabla-resumen">
-                  <tbody>
-                    <tr>
-                      <td class="dash-tabla-label">META ACUMULADA (PALETAS)</td>
-                      <td id="dashExtraccionMetaAcum" colspan="12"></td>
-                    </tr>
-                    <tr>
-                      <td class="dash-tabla-label dash-tabla-label-real">REAL ACUMULADO (PALETAS)</td>
-                      <td id="dashExtraccionRealAcum" colspan="12"></td>
-                    </tr>
-                  </tbody>
-                </table>
-
               </div>
 
               <div class="dash-leyenda-bottom">
                 <span>✅ Meta cumplida (≥100%)</span>
-                <span>🟡 En riesgo (90% - 99%)</span>
-                <span>❌ No cumplida (&lt;90%)</span>
+                <span>❌ No cumplida (&lt;100%)</span>
                 <span>💬 Comentario registrado</span>
                 <span>🕒 Hora actual</span>
                 <span><i class="dash-swatch dash-sw-proy"></i> Proyección (planificado)</span>
