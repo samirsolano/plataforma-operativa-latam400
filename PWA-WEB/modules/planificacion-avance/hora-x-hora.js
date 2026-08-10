@@ -119,11 +119,11 @@ async function cargarHoraXHora(){
 }
 
 // Tasa por persona por hora, usada como target de cada celda individual
-// (mismo criterio que DASH_METAS en el Dashboard: Picking 1.2 TN/persona/hora,
+// (mismo criterio que DASH_METAS en el Dashboard: Picking 0.9 TN/persona/hora,
 // Extracción 16 PAL/persona/hora). REPO y ALMACENAMIENTO quedan en null hasta
 // definir su tasa — mientras tanto esas celdas no se colorean.
 const HXH_TARGET_POR_PERSONA_HORA = {
-  PICKING: 1.2,
+  PICKING: 0.9,
   EXTRACCION: 16,
   REPO: null,            // TODO: definir TN/persona/hora
   ALMACENAMIENTO: 16     // PAL/persona/hora, misma tasa que Extracción

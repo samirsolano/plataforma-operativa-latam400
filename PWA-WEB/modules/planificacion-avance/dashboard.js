@@ -144,7 +144,7 @@ function renderDashboard(data){
 }
 
 const DASH_METAS_FRONT = {
-  TARGET_TN_POR_PERSONA_HORA: 1.2,       // debe reflejar DASH_METAS.TARGET_TN_POR_PERSONA_HORA del backend (Picking)
+  TARGET_TN_POR_PERSONA_HORA: 0.9,       // debe reflejar DASH_METAS.TARGET_TN_POR_PERSONA_HORA del backend (Picking)
   TARGET_PALETAS_POR_PERSONA_HORA: 16    // debe reflejar DASH_METAS.TARGET_PALETAS_POR_PERSONA_HORA del backend (Extracción)
 };
 

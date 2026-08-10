@@ -12,7 +12,7 @@ const DASH_METAS = {
 
   // La meta de cada hora ya NO es un valor fijo: se calcula como
   // (personas activas esa hora) x (tasa por persona), una tasa por proceso.
-  TARGET_TN_POR_PERSONA_HORA: 1.2,        // Picking, en TN
+  TARGET_TN_POR_PERSONA_HORA: 0.9,        // Picking, en TN
   TARGET_PALETAS_POR_PERSONA_HORA: 16     // Extracción, en PALETAS (= líneas)
 
 };

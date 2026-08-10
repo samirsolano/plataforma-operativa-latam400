@@ -663,7 +663,7 @@ async function obtenerUltimoSupervisorTurno(fecha, turno){
 // =======================================
 //
 // Tasas de referencia:
-//  - Picking:    1.2 TN por persona por hora
+//  - Picking:    0.9 TN por persona por hora
 //  - Extracción: 16 paletas por persona por hora
 //
 // Se calcula sobre el total planificado (estado_planificacion = PLANIFICADO)
@@ -675,7 +675,7 @@ async function obtenerNecesidadTurno(fecha, turno){
     turno = normalizarTurnoPlanif(turno);
 
     const HORAS_TURNO = 10.5; // 12 horas de turno - 1.5h de almuerzo
-    const TN_POR_PERSONA_HORA_PICKING = 1.2;
+    const TN_POR_PERSONA_HORA_PICKING = 0.9;
     const PALETAS_POR_PERSONA_HORA_EXTRACCION = 16;
 
     const filas = await rgGet(
