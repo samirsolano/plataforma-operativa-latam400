@@ -287,7 +287,7 @@ function hxhTablaHtml(tabla, unidad, proceso, comentarios, limite){
   // targets individuales de esa hora (mismo criterio de la fila
   // TOTAL). Sin gráfico, solo el número — hora sin nadie trabajando
   // se marca con "-", no como "bajó a 0".
-  html += '<tr class="hxh-variacion"><td>Variación</td>';
+  html += '<tr class="hxh-variacion"><td>Backlog</td>';
   tabla.horas.forEach(function(h){
 
     const valorHora = tabla.totales.valores[h];
