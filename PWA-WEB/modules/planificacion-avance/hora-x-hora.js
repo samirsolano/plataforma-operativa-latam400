@@ -140,6 +140,40 @@ function hxhTargetCelda(proceso, minutos){
   return targetHora * fraccion;
 }
 
+// Target de la fila TOTAL para una hora: suma de los targets
+// individuales (ya ajustados por minutos efectivos) de cada auxiliar
+// que sí trabajó esa hora. Quien no tuvo valor esa hora no aporta
+// target (no se le puede exigir nada de algo que no hizo).
+function hxhTargetTotalHora(tabla, proceso, hora){
+
+  let suma = 0;
+  let hayTarget = false;
+
+  tabla.filas.forEach(function(f){
+
+    const v = f.valores[hora];
+    if (!v || v <= 0) return;
+
+    const t = hxhTargetCelda(proceso, f.minutos ? f.minutos[hora] : undefined);
+    if (t === null) return;
+
+    suma += t;
+    hayTarget = true;
+
+  });
+
+  return hayTarget ? suma : null;
+
+}
+
+function hxhColorTotalHora(valorTotal, targetTotal){
+  if (!valorTotal || valorTotal <= 0) return "";
+  if (targetTotal === null || targetTotal === undefined) return "";
+  return valorTotal >= targetTotal
+    ? "background:#39ff14; color:#000;"
+    : "background:#ff0033; color:#fff;";
+}
+
 function hxhColorCelda(valor, proceso, minutos){
   if (!valor || valor <= 0) return "";
   const target = hxhTargetCelda(proceso, minutos);
@@ -211,7 +245,10 @@ function hxhTablaHtml(tabla, unidad, proceso, comentarios, limite){
 
   html += '<tr class="hxh-total"><td>TOTAL</td>';
   tabla.horas.forEach(function(h){
-    html += "<td>" + hxhFormato(tabla.totales.valores[h], unidad) + "</td>";
+    const valorHora = tabla.totales.valores[h];
+    const targetHora = hxhTargetTotalHora(tabla, proceso, h);
+    const styleTotal = hxhColorTotalHora(valorHora, targetHora);
+    html += '<td style="' + styleTotal + '">' + hxhFormato(valorHora, unidad) + "</td>";
   });
   html += "<td>" + hxhFormato(tabla.totales.total, unidad) + "</td></tr>";
 
