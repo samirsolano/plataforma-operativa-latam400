@@ -263,20 +263,9 @@ function hxhTablaHtml(tabla, unidad, proceso, comentarios, limite){
       const minutos = f.minutos ? f.minutos[h] : undefined;
       const style = hxhColorCelda(v, proceso, minutos);
 
-      // Clave única por auxiliar + hora + proceso, para ubicar su comentario
-      const clave = proceso + "|" + f.auxiliar + "|" + h;
-      const comentario = comentarios ? comentarios[clave] : null;
-
-      // Solo las celdas en rojo (por debajo del target de la hora) son comentables
-      const attrs = hxhEsCeldaRoja(v, proceso, minutos)
-        ? ' class="hxh-celda-com" data-proceso="' + proceso + '" data-auxiliar="' + f.auxiliar.replace(/"/g, "&quot;") + '" data-hora="' + h + '"'
-        : "";
-
-      const badge = comentario
-        ? '<span class="hxh-com-badge" title="' + comentario.replace(/"/g, "&quot;") + '">💬</span>'
-        : "";
-
-      html += '<td style="' + style + '"' + attrs + '>' + (v > 0 ? hxhFormato(v, unidad) : "-") + badge + "</td>";
+      // Las celdas individuales (por persona) ya no son comentables —
+      // el comentario solo se puede dejar en la fila TOTAL.
+      html += '<td style="' + style + '">' + (v > 0 ? hxhFormato(v, unidad) : "-") + "</td>";
 
     });
     html += "<td><b>" + hxhFormato(f.total, unidad) + "</b></td></tr>";
