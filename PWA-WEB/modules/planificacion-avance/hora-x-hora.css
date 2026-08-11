@@ -23,7 +23,7 @@
   flex-shrink: 0;
 }
 
-.hxh-topbar-sigma { height: 46px; margin-left: 6px; flex-shrink: 0; }
+.hxh-topbar-sigma { height: 46px; margin-left: 14px; flex-shrink: 0; }
 
 .hxh-topbar-titulo { color: #fff; font-weight: 700; font-size: 16px; letter-spacing: .3px; }
 .hxh-topbar-subtitulo { color: rgba(255,255,255,.75); font-size: 12px; margin-top: 2px; }
