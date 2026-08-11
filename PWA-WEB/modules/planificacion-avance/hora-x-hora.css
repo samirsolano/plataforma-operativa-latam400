@@ -215,6 +215,29 @@
   overflow-x: auto;
 }
 
+/* Picking: solo ~8 auxiliares visibles sin scroll; el resto entra
+   por scroll interno vertical. Encabezado y filas TOTAL/Backlog
+   quedan fijas (sticky) para que siempre se vean. */
+.hxh-tabla-picking > div:last-child {
+  max-height: 318px;
+  overflow-y: auto;
+}
+.hxh-tabla-picking table.hxh-t th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.hxh-tabla-picking table.hxh-t tr.hxh-total td {
+  position: sticky;
+  bottom: 28px;
+  z-index: 1;
+}
+.hxh-tabla-picking table.hxh-t tr.hxh-variacion td {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+}
+
 table.hxh-t { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 12.5px; }
 table.hxh-t th, table.hxh-t td { padding: 6px 8px; text-align: center; border: 1px solid #f1f3f6; white-space: nowrap; }
 table.hxh-t th { background: #f7f9fb; font-size: 11px; color: #4b5763; }
