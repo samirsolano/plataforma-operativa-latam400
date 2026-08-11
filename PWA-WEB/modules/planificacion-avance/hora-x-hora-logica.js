@@ -136,10 +136,15 @@ async function obtenerHoraXHora(fecha, turno){
       totales.total += totales.valores[h];
     });
 
-    let totalTNAlmacenamiento = 0;
-    if (proceso === "ALMACENAMIENTO"){
+    // TN reales del proceso (columna "tn" de tareas_almacen_sap, viene
+    // en todas las filas sin importar el proceso). Antes solo se
+    // calculaba para Almacenamiento — Extracción se mostraba en PAL en
+    // su tabla, pero el gauge de TN turno (Picking + Extracción) la
+    // necesita en TN también, si no queda en 0 y el gauge solo suma Picking.
+    let totalTNProceso = 0;
+    if (proceso === "ALMACENAMIENTO" || proceso === "EXTRACCION"){
       filasProceso.forEach(function(f){
-        totalTNAlmacenamiento += Number(f.tn || 0);
+        totalTNProceso += Number(f.tn || 0);
       });
     }
 
@@ -182,7 +187,7 @@ async function obtenerHoraXHora(fecha, turno){
       horas: horas,
       filas: tabla,
       totales: totales,
-      totalTN: proceso === "ALMACENAMIENTO" ? totalTNAlmacenamiento : null,
+      totalTN: (proceso === "ALMACENAMIENTO" || proceso === "EXTRACCION") ? totalTNProceso : null,
       tablaPal: tablaPal
     };
 
