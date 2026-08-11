@@ -273,6 +273,73 @@ function hxhTablaSimpleHtml(tabla){
 
 }
 
+// Línea de variación por hora: cuánto subió o bajó el total real vs
+// la suma de targets individuales de esa hora (mismo criterio que
+// colorea la fila TOTAL de la tabla). Horas sin nadie trabajando
+// (sin target) se marcan en gris, no como "bajó a 0".
+function hxhLineaVariacionSvg(tabla, proceso){
+
+  const horas = tabla.horas;
+  const anchoTotal = 900;
+  const alto = 170;
+  const margenX = 40;
+  const margenY = 34;
+  const anchoUtil = anchoTotal - margenX * 2;
+  const altoUtil = alto - margenY * 2;
+  const pasoX = horas.length > 1 ? anchoUtil / (horas.length - 1) : 0;
+  const yBase = margenY + altoUtil / 2;
+
+  const puntos = horas.map(function(h){
+
+    const valor = tabla.totales.valores[h] || 0;
+    const target = hxhTargetTotalHora(tabla, proceso, h);
+    const tieneDato = target !== null;
+
+    return { hora: h, delta: tieneDato ? (valor - target) : 0, tieneDato: tieneDato };
+
+  });
+
+  const maxAbs = Math.max(1, ...puntos.map(function(p){ return Math.abs(p.delta); }));
+
+  const coords = puntos.map(function(p, i){
+    return {
+      x: margenX + pasoX * i,
+      y: yBase - (p.delta / maxAbs) * (altoUtil / 2),
+      p: p
+    };
+  });
+
+  const polyline = coords.map(function(c){
+    return c.x.toFixed(1) + "," + c.y.toFixed(1);
+  }).join(" ");
+
+  let svg = '<svg viewBox="0 0 ' + anchoTotal + ' ' + alto + '" style="width:100%;height:170px;display:block;">';
+
+  svg += '<line x1="' + margenX + '" y1="' + yBase.toFixed(1) + '" x2="' + (anchoTotal - margenX) +
+    '" y2="' + yBase.toFixed(1) + '" stroke="#dfe4ea" stroke-width="1.5" stroke-dasharray="4,4"/>';
+
+  svg += '<polyline points="' + polyline + '" fill="none" stroke="#0d2b4e" stroke-width="2"/>';
+
+  coords.forEach(function(c){
+
+    const color = !c.p.tieneDato ? "#c3c9d1" : (c.p.delta >= 0 ? "#1e8449" : "#c0392b");
+    const etiqueta = !c.p.tieneDato ? "-" : (c.p.delta >= 0 ? "+" : "") + hxhFormato(c.p.delta);
+    const yEtiqueta = c.p.delta >= 0 ? c.y - 12 : c.y + 20;
+
+    svg += '<circle cx="' + c.x.toFixed(1) + '" cy="' + c.y.toFixed(1) + '" r="5" fill="' + color + '"/>';
+    svg += '<text x="' + c.x.toFixed(1) + '" y="' + yEtiqueta.toFixed(1) +
+      '" font-size="11" font-weight="700" text-anchor="middle" fill="' + color + '">' + etiqueta + '</text>';
+    svg += '<text x="' + c.x.toFixed(1) + '" y="' + (alto - 8) +
+      '" font-size="11" text-anchor="middle" fill="#8b96a3">' + String(c.p.hora).padStart(2, "0") + '</text>';
+
+  });
+
+  svg += '</svg>';
+
+  return svg;
+
+}
+
 function hxhGaugeSvg(valor, meta){
 
   const pct = meta > 0 ? Math.min(1, valor / meta) : 0;
@@ -293,6 +360,9 @@ function renderHoraXHora(data, fecha, turno){
 
   document.getElementById("hxhTablaPicking").innerHTML =
     hxhTablaHtml(data.PICKING, "TN", "PICKING", window.hxhComentarios);
+
+  document.getElementById("hxhLineaVariacion").innerHTML =
+    hxhLineaVariacionSvg(data.PICKING, "PICKING");
 
   document.getElementById("hxhTablaExtraccion").innerHTML =
     hxhTablaHtml(data.EXTRACCION, "PAL", "EXTRACCION", window.hxhComentarios);
