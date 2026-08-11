@@ -6,7 +6,7 @@
 // Minutos "de más" por tarea que no quedan capturados entre
 // hora_inicio y hora_confirmacion (caminar hasta la ubicación,
 // escanear, etc.) — se suman a la duración real de cada tarea.
-const HXH_MINUTOS_OVERHEAD_POR_TAREA = 1.5;
+const HXH_MINUTOS_OVERHEAD_POR_TAREA = 2.5;
 
 // Convierte "HH:MM:SS" a segundos desde medianoche.
 function hxhHoraASegundos(texto){
