@@ -409,10 +409,13 @@ function renderHoraXHora(data, fecha, turno){
     const total = data[k.proceso].totales.total;
     const meta = metasPorProceso[k.proceso];
     const pct = meta > 0 ? Math.min(100, Math.round((total / meta) * 100)) : 0;
+
     htmlKpis += '<div class="hxh-kpi">' +
       '<div class="hxh-kpi-label">' + HXH_NOMBRES[k.proceso] + ' (' + k.unidad + ')</div>' +
-      '<div class="hxh-kpi-valor" style="color:' + k.color + '">' + hxhFormato(total, k.unidad) + '</div>' +
-      '<div class="hxh-kpi-meta">META: ' + meta + ' ' + k.unidad + '</div>' +
+      '<div class="hxh-kpi-fila">' +
+        '<div class="hxh-kpi-valor" style="color:' + k.color + '">' + hxhFormato(total, k.unidad) + '</div>' +
+        '<div class="hxh-kpi-meta">META: ' + meta + ' ' + k.unidad + '</div>' +
+      '</div>' +
       '<div class="hxh-barra"><div class="hxh-barra-fill" style="width:' + pct + '%;background:' + k.color + ';"></div></div>' +
       '</div>';
   });
