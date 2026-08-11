@@ -174,6 +174,14 @@ function hxhColorTotalHora(valorTotal, targetTotal){
     : "background:#ff0033; color:#fff;";
 }
 
+// Igual que hxhEsCeldaRoja pero para la celda de la fila TOTAL —
+// se usa para saber si esa hora, en conjunto, es comentable.
+function hxhEsTotalRoja(valorTotal, targetTotal){
+  if (!valorTotal || valorTotal <= 0) return false;
+  if (targetTotal === null || targetTotal === undefined) return false;
+  return valorTotal < targetTotal;
+}
+
 // Picking tiene un target "ideal" más exigente (1.2) además del
 // target base (0.9, el que ya usan Extracción/Almacenamiento vía
 // HXH_TARGET_POR_PERSONA_HORA). El chequeo va en cascada, de más
@@ -276,10 +284,27 @@ function hxhTablaHtml(tabla, unidad, proceso, comentarios, limite){
 
   html += '<tr class="hxh-total"><td>TOTAL</td>';
   tabla.horas.forEach(function(h){
+
     const valorHora = tabla.totales.valores[h];
     const targetHora = hxhTargetTotalHora(tabla, proceso, h);
     const styleTotal = hxhColorTotalHora(valorHora, targetHora);
-    html += '<td style="' + styleTotal + '">' + hxhFormato(valorHora, unidad) + "</td>";
+
+    // Mismo mecanismo de comentarios que las celdas individuales,
+    // pero con "TOTAL" como auxiliar — así se puede justificar por
+    // qué salió roja la hora completa, no solo una persona.
+    const claveTotal = proceso + "|TOTAL|" + h;
+    const comentarioTotal = comentarios ? comentarios[claveTotal] : null;
+
+    const attrsTotal = hxhEsTotalRoja(valorHora, targetHora)
+      ? ' class="hxh-celda-com" data-proceso="' + proceso + '" data-auxiliar="TOTAL" data-hora="' + h + '"'
+      : "";
+
+    const badgeTotal = comentarioTotal
+      ? '<span class="hxh-com-badge" title="' + comentarioTotal.replace(/"/g, "&quot;") + '">💬</span>'
+      : "";
+
+    html += '<td style="' + styleTotal + '"' + attrsTotal + '>' + hxhFormato(valorHora, unidad) + badgeTotal + "</td>";
+
   });
   html += "<td>" + hxhFormato(tabla.totales.total, unidad) + "</td></tr>";
 
