@@ -221,6 +221,8 @@ table.hxh-t th { background: #f7f9fb; font-size: 11px; color: #4b5763; }
 table.hxh-t td { color: #000; font-weight: 600; }
 table.hxh-t td:first-child, table.hxh-t th:first-child { text-align: left; font-weight: 700; min-width: 170px; font-size: 13px; }
 table.hxh-t tr.hxh-total td { background: #eef1f4; font-weight: 800; }
+table.hxh-t tr.hxh-variacion td { background: #fbfcfd; font-size: 11.5px; }
+table.hxh-t tr.hxh-variacion td:first-child { color: #8b96a3; font-weight: 700; }
 
 .hxh-tabla-picking table.hxh-t td:first-child,
 .hxh-tabla-picking table.hxh-t th:first-child {
