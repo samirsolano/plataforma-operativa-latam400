@@ -187,7 +187,7 @@
 .hxh-kpi-label { font-size: 11px; font-weight: 700; color: #8b96a3; letter-spacing: .3px; }
 .hxh-kpi-fila { display: flex; align-items: baseline; gap: 8px; margin: 4px 0 2px; }
 .hxh-kpi-valor { font-size: 24px; font-weight: 800; }
-.hxh-kpi-meta { font-size: 10.5px; color: #9aa5b1; white-space: nowrap; }
+.hxh-kpi-meta { font-size: 14px; font-weight: 600; color: #9aa5b1; white-space: nowrap; }
 .hxh-barra { height: 6px; border-radius: 4px; background: #eef1f4; margin-top: 8px; overflow: hidden; }
 .hxh-barra-fill { height: 100%; border-radius: 4px; }
 
