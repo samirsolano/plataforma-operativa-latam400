@@ -129,10 +129,21 @@ const HXH_TARGET_POR_PERSONA_HORA = {
   ALMACENAMIENTO: 16     // PAL/persona/hora, misma tasa que Extracción
 };
 
-function hxhColorCelda(valor, proceso){
+// Target real de la celda: el de la hora completa, escalado por los
+// minutos que la persona realmente estuvo en ese proceso esa hora
+// (si recién entró o cambió de función a mitad de hora, el target
+// baja proporcionalmente — no se le exige lo de una hora completa).
+function hxhTargetCelda(proceso, minutos){
+  const targetHora = HXH_TARGET_POR_PERSONA_HORA[proceso];
+  if (targetHora === null || targetHora === undefined) return null;
+  const fraccion = Math.min(1, (minutos === undefined || minutos === null ? 60 : minutos) / 60);
+  return targetHora * fraccion;
+}
+
+function hxhColorCelda(valor, proceso, minutos){
   if (!valor || valor <= 0) return "";
-  const target = HXH_TARGET_POR_PERSONA_HORA[proceso];
-  if (target === null || target === undefined) return ""; // sin target definido: celda sin colorear
+  const target = hxhTargetCelda(proceso, minutos);
+  if (target === null) return ""; // sin target definido: celda sin colorear
   return valor >= target
     ? "background:#39ff14; color:#000;"   // verde neón: cumple o supera el target de la hora
     : "background:#ff0033; color:#fff;";  // rojo neón: por debajo del target de la hora
@@ -140,10 +151,10 @@ function hxhColorCelda(valor, proceso){
 
 // Solo las celdas en rojo (por debajo del target de la hora) son comentables;
 // no tiene sentido justificar una hora que ya cumplió el target.
-function hxhEsCeldaRoja(valor, proceso){
+function hxhEsCeldaRoja(valor, proceso, minutos){
   if (!valor || valor <= 0) return false;
-  const target = HXH_TARGET_POR_PERSONA_HORA[proceso];
-  if (target === null || target === undefined) return false;
+  const target = hxhTargetCelda(proceso, minutos);
+  if (target === null) return false;
   return valor < target;
 }
 
@@ -176,14 +187,15 @@ function hxhTablaHtml(tabla, unidad, proceso, comentarios, limite){
     tabla.horas.forEach(function(h){
 
       const v = f.valores[h];
-      const style = hxhColorCelda(v, proceso);
+      const minutos = f.minutos ? f.minutos[h] : undefined;
+      const style = hxhColorCelda(v, proceso, minutos);
 
       // Clave única por auxiliar + hora + proceso, para ubicar su comentario
       const clave = proceso + "|" + f.auxiliar + "|" + h;
       const comentario = comentarios ? comentarios[clave] : null;
 
       // Solo las celdas en rojo (por debajo del target de la hora) son comentables
-      const attrs = hxhEsCeldaRoja(v, proceso)
+      const attrs = hxhEsCeldaRoja(v, proceso, minutos)
         ? ' class="hxh-celda-com" data-proceso="' + proceso + '" data-auxiliar="' + f.auxiliar.replace(/"/g, "&quot;") + '" data-hora="' + h + '"'
         : "";
 

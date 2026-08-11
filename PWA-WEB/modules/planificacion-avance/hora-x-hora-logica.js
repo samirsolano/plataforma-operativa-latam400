@@ -3,6 +3,60 @@
 // Equivalente a HoraXHora.js (Apps Script), vía RPC de Supabase.
 // =======================================
 
+// Minutos "de más" por tarea que no quedan capturados entre
+// hora_inicio y hora_confirmacion (caminar hasta la ubicación,
+// escanear, etc.) — se suman a la duración real de cada tarea.
+const HXH_MINUTOS_OVERHEAD_POR_TAREA = 1.5;
+
+// Convierte "HH:MM:SS" a segundos desde medianoche.
+function hxhHoraASegundos(texto){
+
+  const partes = String(texto || "").split(":").map(Number);
+  if(partes.length < 2 || partes.some(isNaN)) return null;
+
+  return (partes[0] || 0) * 3600 + (partes[1] || 0) * 60 + (partes[2] || 0);
+
+}
+
+// Tiempo efectivo real (minutos) por auxiliar+proceso+hora, a partir
+// de las tareas crudas de SAP: por cada tarea, (confirmación - inicio)
+// + el overhead fijo. Se usa para "achicar" el target de la celda
+// cuando la persona no estuvo la hora completa en ese proceso (recién
+// entró, o cambió de función a mitad de hora).
+async function obtenerTiempoEfectivoHxh(fecha, turno){
+
+  const filas = await planifFetch(
+    "/tareas_almacen_sap?select=auxiliar,proceso,hora,hora_inicio,hora_confirmacion" +
+    "&fecha=eq." + encodeURIComponent(fecha) +
+    "&turno=eq." + encodeURIComponent(turno) +
+    "&proceso=in.(PICKING,EXTRACCION,REPO,ALMACENAMIENTO)"
+  ) || [];
+
+  const mapa = {}; // mapa[proceso][auxiliar][hora] = minutos
+
+  filas.forEach(function(f){
+
+    const inicio = hxhHoraASegundos(f.hora_inicio);
+    const fin = hxhHoraASegundos(f.hora_confirmacion);
+
+    if(inicio === null || fin === null) return;
+
+    let duracionSeg = fin - inicio;
+    if(duracionSeg < 0) duracionSeg += 24 * 3600; // cruce de medianoche
+
+    const minutosTarea = (duracionSeg / 60) + HXH_MINUTOS_OVERHEAD_POR_TAREA;
+
+    mapa[f.proceso] = mapa[f.proceso] || {};
+    mapa[f.proceso][f.auxiliar] = mapa[f.proceso][f.auxiliar] || {};
+    mapa[f.proceso][f.auxiliar][f.hora] =
+      (mapa[f.proceso][f.auxiliar][f.hora] || 0) + minutosTarea;
+
+  });
+
+  return mapa;
+
+}
+
 async function obtenerHoraXHora(fecha, turno){
 
   const filas = await planifFetch(
@@ -12,6 +66,8 @@ async function obtenerHoraXHora(fecha, turno){
       body: JSON.stringify({ p_fecha: fecha, p_turno: turno })
     }
   ) || [];
+
+  const tiempoEfectivo = await obtenerTiempoEfectivoHxh(fecha, turno);
 
   const horas = (turno === "NOCHE")
     ? [19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6]
@@ -33,7 +89,7 @@ async function obtenerHoraXHora(fecha, turno){
 
     const tabla = auxiliares.map(function(aux){
 
-      const fila = { auxiliar: aux, valores: {}, total: 0 };
+      const fila = { auxiliar: aux, valores: {}, minutos: {}, total: 0 };
 
       horas.forEach(function(h){
 
@@ -48,6 +104,19 @@ async function obtenerHoraXHora(fecha, turno){
           : 0;
 
         fila.valores[h] = valor;
+
+        // Minutos reales trabajados esa hora en este proceso (tope 60,
+        // no puede "valer más" que una hora completa). Si no hay dato
+        // de tareas (tabla vieja, u otra fuente), se asume hora
+        // completa para no castigar sin motivo.
+        const minutosCelda = tiempoEfectivo[proceso] &&
+          tiempoEfectivo[proceso][aux] &&
+          tiempoEfectivo[proceso][aux][h];
+
+        fila.minutos[h] = (minutosCelda === undefined)
+          ? 60
+          : Math.min(60, minutosCelda);
+
         fila.total += valor;
 
       });
