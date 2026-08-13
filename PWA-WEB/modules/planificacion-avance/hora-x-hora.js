@@ -119,50 +119,37 @@ async function cargarHoraXHora(){
 }
 
 // Tasa por persona por hora, usada como target de cada celda individual
-// (mismo criterio que DASH_METAS en el Dashboard: Picking 0.9 TN/persona/hora,
+// (mismo criterio que DASH_METAS en el Dashboard: Picking 1.2 TN/persona/hora,
 // Extracción 16 PAL/persona/hora). REPO y ALMACENAMIENTO quedan en null hasta
-// definir su tasa — mientras tanto esas celdas no se colorean.
+// definir su tasa — mientras tanto esas celdas no se colorean. Target fijo,
+// sin escalones ni ajuste por minutos efectivos.
 const HXH_TARGET_POR_PERSONA_HORA = {
-  PICKING: 0.9,
+  PICKING: 1.2,
   EXTRACCION: 16,
   REPO: null,            // TODO: definir TN/persona/hora
   ALMACENAMIENTO: 16     // PAL/persona/hora, misma tasa que Extracción
 };
 
-// Target real de la celda: el de la hora completa, escalado por los
-// minutos que la persona realmente estuvo en ese proceso esa hora
-// (si recién entró o cambió de función a mitad de hora, el target
-// baja proporcionalmente — no se le exige lo de una hora completa).
-function hxhTargetCelda(proceso, minutos){
+function hxhTargetCelda(proceso){
   const targetHora = HXH_TARGET_POR_PERSONA_HORA[proceso];
-  if (targetHora === null || targetHora === undefined) return null;
-  const fraccion = Math.min(1, (minutos === undefined || minutos === null ? 60 : minutos) / 60);
-  return targetHora * fraccion;
+  return (targetHora === null || targetHora === undefined) ? null : targetHora;
 }
 
-// Target de la fila TOTAL para una hora: suma de los targets
-// individuales (ya ajustados por minutos efectivos) de cada auxiliar
-// que sí trabajó esa hora. Quien no tuvo valor esa hora no aporta
-// target (no se le puede exigir nada de algo que no hizo).
+// Target de la fila TOTAL para una hora: suma del target fijo por
+// cada auxiliar que sí trabajó esa hora. Quien no tuvo valor esa
+// hora no aporta target (no se le puede exigir nada de algo que no hizo).
 function hxhTargetTotalHora(tabla, proceso, hora){
 
-  let suma = 0;
-  let hayTarget = false;
+  const target = hxhTargetCelda(proceso);
+  if (target === null) return null;
+
+  let personas = 0;
 
   tabla.filas.forEach(function(f){
-
-    const v = f.valores[hora];
-    if (!v || v <= 0) return;
-
-    const t = hxhTargetCelda(proceso, f.minutos ? f.minutos[hora] : undefined);
-    if (t === null) return;
-
-    suma += t;
-    hayTarget = true;
-
+    if (f.valores[hora] > 0) personas++;
   });
 
-  return hayTarget ? suma : null;
+  return personas > 0 ? target * personas : null;
 
 }
 
@@ -182,53 +169,32 @@ function hxhEsTotalRoja(valorTotal, targetTotal){
   return valorTotal < targetTotal;
 }
 
-// Picking tiene un target "ideal" más exigente (1.2) además del
-// target base (0.9, el que ya usan Extracción/Almacenamiento vía
-// HXH_TARGET_POR_PERSONA_HORA). El chequeo va en cascada, de más
-// barato a más caro:
-//   1) ¿llegó a 1.2? verde, listo — ni hace falta mirar minutos.
-//   2) ¿llegó al menos a 0.9? verde, listo.
-//   3) si no llegó ni a 0.9, recién ahí se calculan los minutos
-//      efectivos y se compara contra el 0.9 ajustado por esa fracción.
-const HXH_TARGET_PICKING_ALTO = 1.2;
-
-// Devuelve true (verde), false (rojo) o null (sin target / sin valor:
-// la celda no se colorea).
-function hxhEsVerdeCelda(valor, proceso, minutos){
+// Target fijo, sin escalones ni ajuste por minutos efectivos: se
+// compara directo contra HXH_TARGET_POR_PERSONA_HORA[proceso].
+// Devuelve true (verde), false (rojo) o null (sin target / sin
+// valor: la celda no se colorea).
+function hxhEsVerdeCelda(valor, proceso){
 
   if (!valor || valor <= 0) return null;
 
-  if (proceso === "PICKING"){
-
-    if (valor >= HXH_TARGET_PICKING_ALTO) return true;
-
-    const targetBase = HXH_TARGET_POR_PERSONA_HORA.PICKING;
-    if (valor >= targetBase) return true;
-
-    const targetAjustado = hxhTargetCelda(proceso, minutos);
-    if (targetAjustado === null) return null;
-    return valor >= targetAjustado;
-
-  }
-
-  const target = hxhTargetCelda(proceso, minutos);
+  const target = hxhTargetCelda(proceso);
   if (target === null) return null;
   return valor >= target;
 
 }
 
-function hxhColorCelda(valor, proceso, minutos){
-  const verde = hxhEsVerdeCelda(valor, proceso, minutos);
+function hxhColorCelda(valor, proceso){
+  const verde = hxhEsVerdeCelda(valor, proceso);
   if (verde === null) return ""; // sin target definido o sin valor: celda sin colorear
   return verde
-    ? "background:#39ff14; color:#000;"   // verde neón: cumple el target (ideal, base, o ajustado por minutos)
-    : "background:#ff0033; color:#fff;";  // rojo neón: por debajo incluso del target ya ajustado
+    ? "background:#39ff14; color:#000;"   // verde neón: cumple el target de la hora
+    : "background:#ff0033; color:#fff;";  // rojo neón: por debajo del target de la hora
 }
 
 // Solo las celdas en rojo son comentables; no tiene sentido justificar
 // una hora que ya cumplió el target.
-function hxhEsCeldaRoja(valor, proceso, minutos){
-  return hxhEsVerdeCelda(valor, proceso, minutos) === false;
+function hxhEsCeldaRoja(valor, proceso){
+  return hxhEsVerdeCelda(valor, proceso) === false;
 }
 
 function hxhFormato(n, unidad){
@@ -260,8 +226,7 @@ function hxhTablaHtml(tabla, unidad, proceso, comentarios, limite){
     tabla.horas.forEach(function(h){
 
       const v = f.valores[h];
-      const minutos = f.minutos ? f.minutos[h] : undefined;
-      const style = hxhColorCelda(v, proceso, minutos);
+      const style = hxhColorCelda(v, proceso);
 
       // Las celdas individuales (por persona) ya no son comentables —
       // el comentario solo se puede dejar en la fila TOTAL.
