@@ -7,7 +7,8 @@ const HXH_METAS = {
   EXTRACCION: 350,
   REPO: 40,
   ALMACENAMIENTO: 700,
-  TURNO_TN: 360
+  TURNO_TN: 360,
+  TN_DESPACHADAS: 350
 };
 
 const HXH_NOMBRES = {
@@ -104,6 +105,12 @@ async function cargarHoraXHora(){
       window.hxhComentarios = await obtenerComentariosHxh(fecha, turno);
     }catch(e){
       window.hxhComentarios = {};
+    }
+
+    try{
+      window.hxhTnlDespachadas = await obtenerTnlDespachadasL400(fecha, turno);
+    }catch(e){
+      window.hxhTnlDespachadas = null;
     }
 
     renderHoraXHora(data, fecha, turno);
@@ -398,6 +405,22 @@ function renderHoraXHora(data, fecha, turno){
       '<div class="hxh-barra"><div class="hxh-barra-fill" style="width:' + pct + '%;background:' + k.color + ';"></div></div>' +
       '</div>';
   });
+
+  const tnDespachadas = window.hxhTnlDespachadas;
+  const metaDespachadas = HXH_METAS.TN_DESPACHADAS;
+  const pctDespachadas = (tnDespachadas !== null && metaDespachadas > 0)
+    ? Math.min(100, Math.round((tnDespachadas / metaDespachadas) * 100))
+    : 0;
+
+  htmlKpis += '<div class="hxh-kpi">' +
+    '<div class="hxh-kpi-label">TN DESPACHADAS</div>' +
+    '<div class="hxh-kpi-fila">' +
+      '<div class="hxh-kpi-valor" style="color:#e67e22">' + (tnDespachadas === null ? "—" : hxhFormato(tnDespachadas)) + '</div>' +
+      '<div class="hxh-kpi-meta">META: ' + metaDespachadas + ' TN</div>' +
+    '</div>' +
+    '<div class="hxh-barra"><div class="hxh-barra-fill" style="width:' + pctDespachadas + '%;background:#e67e22;"></div></div>' +
+    '</div>';
+
   document.getElementById("hxhKpis").innerHTML = htmlKpis;
 
   let htmlLateral = "";

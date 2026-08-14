@@ -257,6 +257,50 @@ function normalizarHoraCitaPlanif(hora){
 }
 
 // ========================================
+// TNL DESPACHADAS (Sheet "L400", filtrado en el servidor de Google)
+// ========================================
+// A diferencia de leerStatusPendienteCSV (descarga el Sheet completo),
+// acá se manda la consulta (fecha + turno) directo a Google vía su API
+// de Visualization Query — Google filtra y solo devuelve la suma de la
+// columna TN que corresponde, en vez de bajar las ~10,000 filas del
+// Sheet completo (~5.9 MB) cada vez que se actualiza Hora x Hora.
+//
+// Columnas del Sheet L400 (por letra, ya verificadas): J = TN,
+// AM = FECHA REPORTE (tipo fecha real), AN = TURNO REPORTE (DIA/NOCHE).
+const SHEET_NOMBRE_L400 = "L400";
+
+async function obtenerTnlDespachadasL400(fecha, turno){
+
+    turno = normalizarTurnoPlanif(turno);
+
+    const consulta = "select J where AM = date '" + fecha + "' and AN = '" + turno + "'";
+
+    const url =
+        "https://docs.google.com/spreadsheets/d/" + SHEET_ID_PLANIF +
+        "/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent(SHEET_NOMBRE_L400) +
+        "&tq=" + encodeURIComponent(consulta);
+
+    const respuesta = await fetch(url);
+
+    if(!respuesta.ok){
+        throw new Error("No se pudo leer el Sheet L400");
+    }
+
+    const texto = await respuesta.text();
+    const filas = parsearCSVFilas(texto);
+
+    let suma = 0;
+
+    filas.forEach(function(fila){
+        const valor = Number(fila[0]);
+        if(!isNaN(valor)) suma += valor;
+    });
+
+    return Math.round(suma * 100) / 100;
+
+}
+
+// ========================================
 // PLANIFICACION_DIARIA (Supabase)
 // ========================================
 
