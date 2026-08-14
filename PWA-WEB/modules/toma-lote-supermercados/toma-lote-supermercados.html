@@ -29,72 +29,108 @@
 
         <div class="header">
 
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
             <h1>
                 TOMA DE LOTE SUPERMERCADOS
             </h1>
 
+            <p class="subtitulo">
+                Validación de OC's · Lote SPSA
+            </p>
+
         </div>
 
-        <!-- DATA MODULADO -->
+        <!-- TABS -->
 
-        <div class="card">
+        <div class="tabs">
 
-            <h2>
-                1. CARGAR DATA MODULADO
-            </h2>
+            <button class="tab-btn activo" data-tab="tabDataModulado">
+                1. Carga Data Modulado
+            </button>
 
-            <div class="data-modulado">
+            <button class="tab-btn" data-tab="tabFaseModulacion">
+                2. Subir Fase y Modulación
+            </button>
 
-                <div class="upload-box">
+            <button class="tab-btn" data-tab="tabObservaciones">
+                3. Observaciones
+            </button>
 
-                    <input
-                        type="file"
-                        id="archivoDataModulado"
-                    >
+            <button class="tab-btn" data-tab="tabPacking">
+                4. Packing List
+            </button>
 
-                </div>
+        </div>
 
-                <div class="detalle-archivo">
+        <!-- ============================================ -->
+        <!-- TAB 1: DATA MODULADO -->
+        <!-- ============================================ -->
 
-                    <p>
-                        Archivo:
-                        <span id="nombreDataModulado">
-                            -
-                        </span>
-                    </p>
+        <div class="tab-contenido" id="tabDataModulado">
 
-                    <p>
-                        Fecha:
-                        <span>
-                            -
-                        </span>
-                    </p>
+            <div class="card">
 
-                    <p>
-                        Registros:
-                        <span id="totalRegistros">
-                            -
-                        </span>
-                    </p>
+                <h2>
+                    1. CARGAR DATA MODULADO
+                </h2>
 
-                    <p>
-                        Viajes:
-                        <span id="totalViajes">
-                            -
-                        </span>
-                    </p>
+                <div class="data-modulado">
 
-                </div>
+                    <div class="upload-box">
 
-                <div class="estado-ok">
+                        <input
+                            type="file"
+                            id="archivoDataModulado"
+                        >
 
-                    <h3>
-                        ✓ Procesado correctamente
-                    </h3>
+                    </div>
 
-                    <p>
-                        Se generaron los viajes disponibles.
-                    </p>
+                    <div class="detalle-archivo">
+
+                        <p>
+                            Archivo:
+                            <span id="nombreDataModulado">
+                                -
+                            </span>
+                        </p>
+
+                        <p>
+                            Fecha:
+                            <span>
+                                -
+                            </span>
+                        </p>
+
+                        <p>
+                            Registros:
+                            <span id="totalRegistros">
+                                -
+                            </span>
+                        </p>
+
+                        <p>
+                            Viajes:
+                            <span id="totalViajes">
+                                -
+                            </span>
+                        </p>
+
+                    </div>
+
+                    <div class="estado-ok">
+
+                        <h3>
+                            ✓ Procesado correctamente
+                        </h3>
+
+                        <p>
+                            Se generaron los viajes disponibles.
+                        </p>
+
+                    </div>
 
                 </div>
 
@@ -102,104 +138,208 @@
 
         </div>
 
-        <!-- CARGAR ARCHIVOS -->
+        <!-- ============================================ -->
+        <!-- TAB 2: FASE Y MODULACIÓN -->
+        <!-- ============================================ -->
 
-        <div class="card">
+        <div class="tab-contenido oculto" id="tabFaseModulacion">
 
-            <h2>
-                2. CARGAR ARCHIVOS POR VIAJE
-            </h2>
+            <div class="card">
 
-            <div class="viaje-grid">
+                <h2>
+                    2. CARGAR ARCHIVOS POR VIAJE
+                </h2>
 
-                <div>
+                <div class="viaje-grid">
 
-                    <label>
-                        Viaje
-                    </label>
+                    <div>
 
-                    <select id="cmbViaje">
+                        <label>
+                            Viaje
+                        </label>
 
-                        <option>
-                            Seleccione viaje
-                        </option>
+                        <select id="cmbViaje">
 
-                    </select>
+                            <option>
+                                Seleccione viaje
+                            </option>
 
-                </div>
+                        </select>
 
-                <div>
+                    </div>
 
-                    <label>
-                        Modulación
-                    </label>
+                    <div>
 
-                    <input
-                        type="file"
-                        id="archivoModulacion"
-                    >
+                        <label>
+                            Modulación
+                        </label>
 
-                </div>
+                        <input
+                            type="file"
+                            id="archivoModulacion"
+                        >
 
-                <div>
+                    </div>
 
-                    <label>
-                        Fase
-                    </label>
+                    <div>
 
-                    <input
-                        type="file"
-                        id="archivoFase"
-                    >
+                        <label>
+                            Fase
+                        </label>
 
-                </div>
+                        <input
+                            type="file"
+                            id="archivoFase"
+                        >
 
-                <div>
+                    </div>
 
-                    <button id="btnProcesar">
+                    <div>
 
-                        PROCESAR VIAJE
+                        <button id="btnProcesar">
 
-                    </button>
+                            PROCESAR VIAJE
+
+                        </button>
+
+                    </div>
 
                 </div>
 
             </div>
 
+            <div class="card">
+
+                <h2>
+                    VIAJES GENERADOS
+                </h2>
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Viaje</th>
+                            <th>Entregas</th>
+                            <th>Total HU</th>
+                            <th>Modulación</th>
+                            <th>Fase</th>
+                            <th>Estado</th>
+                            <th>Usuario</th>
+                            <th>Acción</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="tblViajes">
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
         </div>
 
-        <!-- TABLA -->
+        <!-- ============================================ -->
+        <!-- TAB 3: OBSERVACIONES -->
+        <!-- ============================================ -->
 
-        <div class="card">
+        <div class="tab-contenido oculto" id="tabObservaciones">
 
-            <h2>
-                VIAJES GENERADOS
-            </h2>
+            <div class="card">
 
-            <table>
+                <h2>
+                    3. OBSERVACIONES
+                </h2>
 
-                <thead>
+                <p class="nota-modulo">
+                    Compara lo cargado en Data Modulado contra Modulación:
+                    cantidad solicitada, cantidad modulada y diferencia por
+                    producto/entrega.
+                </p>
 
-                    <tr>
+                <table>
 
-                        <th>Viaje</th>
-                        <th>Entregas</th>
-                        <th>Total HU</th>
-                        <th>Modulación</th>
-                        <th>Fase</th>
-                        <th>Estado</th>
-                        <th>Usuario</th>
-                        <th>Acción</th>
+                    <thead>
 
-                    </tr>
+                        <tr>
 
-                </thead>
+                            <th>FO</th>
+                            <th>N° Orden de Compra</th>
+                            <th>Producto</th>
+                            <th>Ctd Solicitada</th>
+                            <th>Ctd Modulada</th>
+                            <th>Diferencia</th>
+                            <th>Filtro</th>
 
-                <tbody id="tblViajes">
+                        </tr>
 
-                </tbody>
+                    </thead>
 
-            </table>
+                    <tbody id="tblObservaciones">
+
+                        <tr>
+                            <td colspan="7" class="sin-datos">
+                                Carga Data Modulado y Modulación para ver las observaciones.
+                            </td>
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+        <!-- ============================================ -->
+        <!-- TAB 4: PACKING LIST -->
+        <!-- ============================================ -->
+
+        <div class="tab-contenido oculto" id="tabPacking">
+
+            <div class="card">
+
+                <h2>
+                    4. PACKING LIST
+                </h2>
+
+                <p class="nota-modulo">
+                    Resumen por viaje / unidad de transporte listo para despacho.
+                </p>
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Viaje</th>
+                            <th>Unidad de Transporte</th>
+                            <th>Entregas</th>
+                            <th>Total HU</th>
+                            <th>Estado</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="tblPacking">
+
+                        <tr>
+                            <td colspan="5" class="sin-datos">
+                                Aún no hay viajes procesados.
+                            </td>
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
 
         </div>
 

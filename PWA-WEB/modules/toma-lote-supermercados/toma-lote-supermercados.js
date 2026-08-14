@@ -1,8 +1,36 @@
 // ========================================
-// SESIÓN
+// SESIÓN Y PERMISOS
+// ========================================
+// Solo el rol Administrador puede ver este módulo.
+
+const sesion = requerirSesion();
+
+if(sesion && sesion.rol !== "Administrador"){
+    window.location.href = "../inicio/home.html";
+}
+
+// ========================================
+// TABS
 // ========================================
 
-requerirSesion();
+document.querySelectorAll(".tab-btn").forEach(function(boton){
+
+    boton.addEventListener("click", function(){
+
+        document.querySelectorAll(".tab-btn").forEach(function(b){
+            b.classList.remove("activo");
+        });
+
+        document.querySelectorAll(".tab-contenido").forEach(function(c){
+            c.classList.add("oculto");
+        });
+
+        boton.classList.add("activo");
+        document.getElementById(boton.dataset.tab).classList.remove("oculto");
+
+    });
+
+});
 
 // ========================================
 // DATA MODULADO

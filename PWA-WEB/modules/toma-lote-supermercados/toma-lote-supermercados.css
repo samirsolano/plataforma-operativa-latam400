@@ -38,6 +38,102 @@ body{
 
 }
 
+.volver-plataforma{
+
+    display:inline-block;
+
+    color:#6b7280;
+
+    text-decoration:none;
+
+    font-size:13px;
+
+    font-weight:600;
+
+    margin-bottom:10px;
+
+}
+
+.subtitulo{
+
+    color:#8b96a3;
+
+    font-size:13px;
+
+    margin-top:4px;
+
+}
+
+/* TABS */
+
+.tabs{
+
+    display:flex;
+
+    gap:8px;
+
+    margin-bottom:15px;
+
+    flex-wrap:wrap;
+
+}
+
+.tab-btn{
+
+    background:white;
+
+    border:1px solid #d8dde7;
+
+    border-radius:10px;
+
+    padding:12px 18px;
+
+    font-weight:700;
+
+    font-size:13px;
+
+    color:#374151;
+
+    cursor:pointer;
+
+}
+
+.tab-btn.activo{
+
+    background:#FC000D;
+
+    border-color:#FC000D;
+
+    color:white;
+
+}
+
+.tab-contenido.oculto{
+
+    display:none;
+
+}
+
+.nota-modulo{
+
+    color:#6b7280;
+
+    font-size:13px;
+
+    margin-bottom:18px;
+
+}
+
+.sin-datos{
+
+    text-align:center;
+
+    color:#9aa5b1;
+
+    padding:30px !important;
+
+}
+
 /* CARD */
 
 .card{
