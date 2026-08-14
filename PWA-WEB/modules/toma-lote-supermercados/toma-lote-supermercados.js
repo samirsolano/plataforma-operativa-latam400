@@ -5,28 +5,59 @@
 
 const sesion = requerirSesion();
 
-if(sesion && sesion.rol !== "Administrador"){
-    window.location.href = "../inicio/home.html";
+if(sesion){
+
+    if(sesion.rol !== "Administrador"){
+        window.location.href = "../inicio/home.html";
+    }
+
+    document.getElementById("nombreUsuario").textContent = sesion.nombre_completo;
+    document.getElementById("rolUsuario").textContent = sesion.rol;
+
 }
 
+const btnPerfil = document.getElementById("btnPerfil");
+const menuUsuario = document.getElementById("menuUsuario");
+
+btnPerfil.addEventListener("click", function(e){
+
+    e.stopPropagation();
+    menuUsuario.style.display = menuUsuario.style.display === "block" ? "none" : "block";
+
+});
+
+document.addEventListener("click", function(){
+    menuUsuario.style.display = "none";
+});
+
+document.getElementById("btnCerrarSesion").addEventListener("click", function(e){
+
+    e.preventDefault();
+    e.stopPropagation();
+    cerrarSesion();
+
+});
+
 // ========================================
-// TABS
+// TABS (links del sidebar)
 // ========================================
 
-document.querySelectorAll(".tab-btn").forEach(function(boton){
+document.querySelectorAll(".tab-link").forEach(function(link){
 
-    boton.addEventListener("click", function(){
+    link.addEventListener("click", function(e){
 
-        document.querySelectorAll(".tab-btn").forEach(function(b){
-            b.classList.remove("activo");
+        e.preventDefault();
+
+        document.querySelectorAll(".tab-link").forEach(function(l){
+            l.classList.remove("activo");
         });
 
         document.querySelectorAll(".tab-contenido").forEach(function(c){
             c.classList.add("oculto");
         });
 
-        boton.classList.add("activo");
-        document.getElementById(boton.dataset.tab).classList.remove("oculto");
+        link.classList.add("activo");
+        document.getElementById(link.dataset.tab).classList.remove("oculto");
 
     });
 
