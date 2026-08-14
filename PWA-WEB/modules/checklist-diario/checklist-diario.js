@@ -193,14 +193,14 @@ async function cargarDashboard(){
         mostrarTodosHallazgos = false;
         mostrarTodasEvidencias = false;
 
-        pintarKPIs(cabeceraDia, colaboradoresTurno);
+        pintarKPIs(cabeceraDia, colaboradoresTurno, esDiaSeleccionado);
         pintarAvancePorZona(cabeceraDia, colaboradoresTurno);
         pintarUltimasAuditorias(cabeceraDia);
         pintarPendientes(cabeceraDia, colaboradoresTurno);
         pintarTopHallazgos(detalleDia);
         pintarResultado5S(detalleDia);
         pintarEvidencias(detalleDia, cabeceraDia);
-        pintarFooter(cabeceraDia, colaboradoresTurno);
+        pintarFooter(cabeceraDia, colaboradoresTurno, esDiaSeleccionado);
 
         document.getElementById("lblUltimaActualizacion").textContent =
             new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
@@ -238,15 +238,20 @@ function pasillosDistintos(filas){
 // KPIs
 // ========================================
 
-function pintarKPIs(cabeceraDia, colaboradoresTurno){
+function pintarKPIs(cabeceraDia, colaboradoresTurno, esDiaSeleccionado){
 
     const programados = colaboradoresTurno.length;
     const ejecutados = pasillosDistintos(cabeceraDia).size;
     const pendientes = Math.max(programados - ejecutados, 0);
     const avanceGeneral = programados ? Math.round((ejecutados / programados) * 100) : 0;
 
+    // Meta de "terminar temprano": turno Día se mide antes de las
+    // 10:00 AM, turno Noche antes de las 10:00 PM (22:00).
+    const horaLimite = esDiaSeleccionado ? 10 : 22;
+    const horaLimiteTexto = esDiaSeleccionado ? "10:00 AM" : "10:00 PM";
+
     const terminadosAntes10 = pasillosDistintos(
-        cabeceraDia.filter(r => horaAntesDe10AM(r.HORA_FIN))
+        cabeceraDia.filter(r => horaAntesDeLimite(r.HORA_FIN, horaLimite))
     ).size;
     const pendientesA10 = Math.max(programados - terminadosAntes10, 0);
     const cumplimiento10 = programados ? Math.round((terminadosAntes10 / programados) * 100) : 0;
@@ -264,6 +269,11 @@ function pintarKPIs(cabeceraDia, colaboradoresTurno){
     document.getElementById("lblTerminadosAntes").textContent = terminadosAntes10;
     document.getElementById("lblPendientesA10").textContent = pendientesA10;
     document.getElementById("lblMetaCumplimiento").textContent = programados;
+
+    document.getElementById("lblHoraObjetivo").textContent = horaLimiteTexto;
+    document.getElementById("lblHoraCumplimiento").textContent = horaLimiteTexto;
+    document.getElementById("lblHoraTerminados").textContent = horaLimiteTexto.replace(/ (AM|PM)$/, "");
+    document.getElementById("lblHoraPendientes").textContent = horaLimiteTexto.replace(/ (AM|PM)$/, "");
 
     pintarAnilloDonut("donutCumplimiento", cumplimiento10, "#f59e0b");
 
@@ -641,15 +651,18 @@ function pintarEvidencias(detalleDia, cabeceraDia){
 // FOOTER RESUMEN
 // ========================================
 
-function pintarFooter(cabeceraDia, colaboradoresTurno){
+function pintarFooter(cabeceraDia, colaboradoresTurno, esDiaSeleccionado){
 
     const programados = colaboradoresTurno.length;
     const ejecutados = pasillosDistintos(cabeceraDia).size;
     const pendientes = Math.max(programados - ejecutados, 0);
     const avanceGeneral = programados ? Math.round((ejecutados / programados) * 100) : 0;
 
+    const horaLimite = esDiaSeleccionado ? 10 : 22;
+    const horaLimiteTexto = esDiaSeleccionado ? "10:00 AM" : "10:00 PM";
+
     const terminadosAntes10 = pasillosDistintos(
-        cabeceraDia.filter(r => horaAntesDe10AM(r.HORA_FIN))
+        cabeceraDia.filter(r => horaAntesDeLimite(r.HORA_FIN, horaLimite))
     ).size;
     const cumplimiento10 = programados ? Math.round((terminadosAntes10 / programados) * 100) : 0;
 
@@ -658,6 +671,7 @@ function pintarFooter(cabeceraDia, colaboradoresTurno){
     document.getElementById("footPendientes").textContent = pendientes;
     document.getElementById("footCumplimiento").textContent = cumplimiento10 + "%";
     document.getElementById("footAvance").textContent = avanceGeneral + "%";
+    document.getElementById("lblHoraFooter").textContent = horaLimiteTexto;
 
     const barra = document.getElementById("footBarraRelleno");
     barra.style.width = avanceGeneral + "%";

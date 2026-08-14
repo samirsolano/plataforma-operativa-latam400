@@ -79,7 +79,7 @@
                     <h2>DASHBOARD DIARIO – OPERATIVO 5S</h2>
 
                     <p>
-                        Objetivo: Completar todos los checklist programados antes de las 10:00 AM
+                        Objetivo: Completar todos los checklist programados antes de las <span id="lblHoraObjetivo">10:00 AM</span>
                     </p>
 
                 </div>
@@ -179,7 +179,7 @@
                     <div class="kpi-card kpi-donut kpi-destacada">
 
                         <div class="kpi-titulo">
-                            <span class="icono icono-clock-dark"></span> Cumplimiento 10:00 AM
+                            <span class="icono icono-clock-dark"></span> Cumplimiento <span id="lblHoraCumplimiento">10:00 AM</span>
                         </div>
 
                         <div class="kpi-donut-fila">
@@ -198,8 +198,8 @@
                             </div>
 
                             <div class="kpi-nota">
-                                Terminados antes de las 10:00: <b class="texto-ambar" id="lblTerminadosAntes">-</b><br>
-                                Pendientes a las 10:00: <b class="texto-rojo" id="lblPendientesA10">-</b><br>
+                                Terminados antes de las <span id="lblHoraTerminados">10:00</span>: <b class="texto-ambar" id="lblTerminadosAntes">-</b><br>
+                                Pendientes a las <span id="lblHoraPendientes">10:00</span>: <b class="texto-rojo" id="lblPendientesA10">-</b><br>
                                 <span class="kpi-meta">Meta: <b id="lblMetaCumplimiento">-</b> checklist</span>
                             </div>
 
@@ -374,7 +374,7 @@
                         <span><span class="icono icono-info-blue"></span> Meta del día: <b id="footMeta">-</b> checklist</span>
                         <span>Ejecutados: <b id="footEjecutados">-</b></span>
                         <span>Pendientes: <b id="footPendientes">-</b></span>
-                        <span>Cumplimiento 10:00 AM: <b id="footCumplimiento">-</b></span>
+                        <span>Cumplimiento <span id="lblHoraFooter">10:00 AM</span>: <b id="footCumplimiento">-</b></span>
                         <span>Avance general: <b id="footAvance">-</b></span>
 
                     </div>

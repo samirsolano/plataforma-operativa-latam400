@@ -182,8 +182,11 @@ function fechaSheetAISO(fechaTexto){
 }
 
 // Interpreta horas en formato es-PE ("5:25:43 p. m.") y devuelve
-// true si son antes de las 10:00 AM.
-function horaAntesDe10AM(horaTexto){
+// true si son antes de horaLimite (24h). El objetivo de "terminar
+// temprano" es distinto según turno: turno Día se mide contra las
+// 10:00 AM (horaLimite=10), turno Noche contra las 10:00 PM
+// (horaLimite=22).
+function horaAntesDeLimite(horaTexto, horaLimite){
 
     const match = String(horaTexto || "").match(
         /(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?/i
@@ -204,6 +207,6 @@ function horaAntesDe10AM(horaTexto){
         horas = 0;
     }
 
-    return horas < 10;
+    return horas < horaLimite;
 
 }
