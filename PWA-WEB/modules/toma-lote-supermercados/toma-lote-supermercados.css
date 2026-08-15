@@ -181,6 +181,13 @@ body{
     margin-bottom:18px;
 }
 
+.subtitulo-validacion{
+    color:#111827;
+    font-size:15px;
+    font-weight:700;
+    margin-bottom:6px;
+}
+
 .sin-datos{
     text-align:center;
     color:#9aa5b1;

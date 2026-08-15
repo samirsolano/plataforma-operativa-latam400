@@ -59,6 +59,10 @@ document.querySelectorAll(".tab-link").forEach(function(link){
         link.classList.add("activo");
         document.getElementById(link.dataset.tab).classList.remove("oculto");
 
+        if(link.dataset.tab === "tabObservaciones"){
+            cargarObservaciones();
+        }
+
     });
 
 });
@@ -941,3 +945,137 @@ document.getElementById("btnProcesar").addEventListener("click", async function(
     }
 
 });
+
+// ========================================
+// OBSERVACIONES
+// ========================================
+// Se calcula sola comparando Data Modulado (cantidad solicitada)
+// contra Modulación (cantidad modulada), agrupado por Orden de Compra
+// + Número de producto CLIENTE — mismo criterio que la hoja
+// OBSERVACIONES del Excel original. No se sube ningún archivo acá.
+
+function formatearNumeroToma(n){
+    return Number(n || 0).toLocaleString("es-PE", { maximumFractionDigits: 2 });
+}
+
+async function cargarObservaciones(){
+
+    const tbody = document.getElementById("tblObservaciones");
+    tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Calculando...</td></tr>`;
+
+    try{
+
+        const [dataModulado, modulacionFilas] = await Promise.all([
+            supabaseFetch(
+                "/data_modulado?select=fo,orden_compra,numero_producto_cliente," +
+                "denominacion_producto_cliente,cantidad_umb"
+            ),
+            supabaseFetch(
+                "/modulacion?select=orden_compra,numero_producto_cliente,ctd_teor_um_base"
+            )
+        ]);
+
+        if(!dataModulado || !dataModulado.length){
+            tbody.innerHTML =
+                `<tr><td colspan="7" class="sin-datos">Carga Data Modulado y Modulación para ver las observaciones.</td></tr>`;
+            return;
+        }
+
+        function claveGrupo(ordenCompra, numeroProducto){
+            return ordenCompra + "|" + numeroProducto;
+        }
+
+        const solicitado = {};
+
+        dataModulado.forEach(function(f){
+
+            const clave = claveGrupo(f.orden_compra, f.numero_producto_cliente);
+
+            if(!solicitado[clave]){
+                solicitado[clave] = {
+                    fo: f.fo,
+                    ordenCompra: f.orden_compra,
+                    producto: f.denominacion_producto_cliente,
+                    ctdSolicitada: 0
+                };
+            }
+
+            solicitado[clave].ctdSolicitada += Number(f.cantidad_umb || 0);
+
+        });
+
+        const modulado = {};
+
+        (modulacionFilas || []).forEach(function(f){
+
+            const clave = claveGrupo(f.orden_compra, f.numero_producto_cliente);
+
+            modulado[clave] = (modulado[clave] || 0) + Number(f.ctd_teor_um_base || 0);
+
+        });
+
+        const filas = Object.keys(solicitado).map(function(clave){
+
+            const s = solicitado[clave];
+            const ctdModulada = modulado[clave] || 0;
+            const diferencia = s.ctdSolicitada - ctdModulada;
+
+            return {
+                fo: s.fo,
+                ordenCompra: s.ordenCompra,
+                producto: s.producto,
+                ctdSolicitada: s.ctdSolicitada,
+                ctdModulada: ctdModulada,
+                diferencia: diferencia,
+                filtro: diferencia === 0 ? "OK" : "REVISAR"
+            };
+
+        });
+
+        // Los descuadres (REVISAR) van primero — son los que hay que
+        // atender; los que ya calzan (OK) quedan al final.
+        filas.sort(function(a, b){
+
+            if(a.filtro !== b.filtro){
+                return a.filtro === "REVISAR" ? -1 : 1;
+            }
+
+            return (a.fo - b.fo) || (a.ordenCompra - b.ordenCompra);
+
+        });
+
+        tbody.innerHTML = "";
+
+        if(!filas.length){
+            tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Sin datos para comparar.</td></tr>`;
+            return;
+        }
+
+        filas.forEach(function(f){
+
+            const tr = document.createElement("tr");
+
+            const colorFiltro = f.filtro === "OK" ? "#15803d" : "#c0392b";
+
+            tr.innerHTML = `
+                <td>${f.fo}</td>
+                <td>${f.ordenCompra}</td>
+                <td>${f.producto || "-"}</td>
+                <td>${formatearNumeroToma(f.ctdSolicitada)}</td>
+                <td>${formatearNumeroToma(f.ctdModulada)}</td>
+                <td>${formatearNumeroToma(f.diferencia)}</td>
+                <td style="color:${colorFiltro};font-weight:700;">${f.filtro}</td>
+            `;
+
+            tbody.appendChild(tr);
+
+        });
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">No se pudo calcular Observaciones.</td></tr>`;
+
+    }
+
+}
