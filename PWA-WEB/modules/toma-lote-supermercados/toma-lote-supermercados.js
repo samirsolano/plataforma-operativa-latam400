@@ -273,10 +273,12 @@ archivoDataModulado.addEventListener("change", async function(e){
 // Usuario sigue siendo visual por ahora — Viaje, Entregas, Registros,
 // Modulación y Fase ya vienen de datos reales en Supabase.
 
-function cargarViajesReales(filas, conteoModulacionPorViaje, conteoFasePorViaje){
+function cargarViajesReales(filas, conteoModulacionPorViaje, conteoFasePorViaje, sinDescuadreSet, activadosSet){
 
     conteoModulacionPorViaje = conteoModulacionPorViaje || {};
     conteoFasePorViaje = conteoFasePorViaje || {};
+    sinDescuadreSet = sinDescuadreSet || new Set();
+    activadosSet = activadosSet || new Set();
 
     const porViaje = {};
 
@@ -331,20 +333,160 @@ function cargarViajesReales(filas, conteoModulacionPorViaje, conteoFasePorViaje)
             ? "Cargada (" + conteoFase + ")"
             : "Pendiente";
 
+        const yaActivado = activadosSet.has(v.viaje);
+        const sinDescuadre = sinDescuadreSet.has(v.viaje);
+        const listoParaActivar = conteoModulacion > 0 && conteoFase > 0 && sinDescuadre;
+
+        let estadoTexto = "Disponible";
+        let estadoClase = "disponible";
+
+        if(yaActivado){
+            estadoTexto = "Activado";
+            estadoClase = "activado";
+        }else if(conteoModulacion > 0 && conteoFase > 0 && !sinDescuadre){
+            estadoTexto = "Con descuadre";
+            estadoClase = "descuadre";
+        }
+
+        let accion = "-";
+
+        if(yaActivado){
+            accion = "✓ Activado";
+        }else if(listoParaActivar){
+            accion = '<button class="btn-activar" data-viaje="' + v.viaje + '">Activar</button>';
+        }
+
         tr.innerHTML = `
             <td>${v.viaje}</td>
             <td>${v.entregas.size}</td>
             <td>${v.registros}</td>
             <td>${estadoModulacion}</td>
             <td>${estadoFase}</td>
-            <td><span class="estado disponible">Disponible</span></td>
+            <td><span class="estado ${estadoClase}">${estadoTexto}</span></td>
             <td>-</td>
-            <td>Ver</td>
+            <td>${accion}</td>
         `;
 
         tbody.appendChild(tr);
 
     });
+
+}
+
+// Activar un viaje: solo posible cuando Modulación y Fase están
+// cargados y no hay descuadre (Data Modulado vs Modulación). Desde
+// ahí el viaje queda visible para el trabajador en Centro de
+// Proyectos (módulo Toma de Lote SUPESA).
+document.getElementById("tblViajes").addEventListener("click", async function(e){
+
+    const boton = e.target.closest(".btn-activar");
+    if(!boton){
+        return;
+    }
+
+    const viaje = Number(boton.dataset.viaje);
+
+    boton.disabled = true;
+    boton.textContent = "Activando...";
+
+    try{
+
+        await supabaseFetch("/viajes_activados?on_conflict=viaje", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates" },
+            body: JSON.stringify({
+                viaje: viaje,
+                activado_por: (sesion && (sesion.nombre_completo || sesion.usuario)) || ""
+            })
+        });
+
+        await refrescarVistaViajes();
+
+    }catch(err){
+
+        console.error(err);
+        alert("No se pudo activar el viaje: " + err.message);
+        boton.disabled = false;
+        boton.textContent = "Activar";
+
+    }
+
+});
+
+// Compara Data Modulado vs Modulación por viaje (mismo criterio que
+// Observaciones) y devuelve el conjunto de viajes SIN descuadre —
+// requisito para poder activarlos.
+async function obtenerViajesSinDescuadre(){
+
+    const [dataModulado, modulacionFilas] = await Promise.all([
+        supabaseFetch(
+            "/data_modulado?select=unidad_transporte,orden_compra,numero_producto_cliente,cantidad_umb"
+        ),
+        supabaseFetch(
+            "/modulacion?select=viaje,orden_compra,numero_producto_cliente,ctd_teor_um_base"
+        )
+    ]);
+
+    function clave(viaje, ordenCompra, numeroProducto){
+        return viaje + "|" + ordenCompra + "|" + numeroProducto;
+    }
+
+    const solicitado = {};
+
+    (dataModulado || []).forEach(function(f){
+        const k = clave(f.unidad_transporte, f.orden_compra, f.numero_producto_cliente);
+        solicitado[k] = (solicitado[k] || 0) + Number(f.cantidad_umb || 0);
+    });
+
+    const modulado = {};
+
+    (modulacionFilas || []).forEach(function(f){
+        const k = clave(f.viaje, f.orden_compra, f.numero_producto_cliente);
+        modulado[k] = (modulado[k] || 0) + Number(f.ctd_teor_um_base || 0);
+    });
+
+    const todosLosViajes = new Set();
+    const viajesConDescuadre = new Set();
+
+    Object.keys(solicitado).forEach(function(k){
+
+        const viaje = Number(k.split("|")[0]);
+        todosLosViajes.add(viaje);
+
+        const diferencia = solicitado[k] - (modulado[k] || 0);
+
+        if(diferencia !== 0){
+            viajesConDescuadre.add(viaje);
+        }
+
+    });
+
+    const sinDescuadre = new Set();
+
+    todosLosViajes.forEach(function(v){
+        if(!viajesConDescuadre.has(v)){
+            sinDescuadre.add(v);
+        }
+    });
+
+    return sinDescuadre;
+
+}
+
+// Viajes ya activados (visibles para el trabajador en Centro de
+// Proyectos).
+async function obtenerViajesActivados(){
+
+    try{
+
+        const filas = await supabaseFetch("/viajes_activados?select=viaje");
+
+        return new Set((filas || []).map(f => f.viaje));
+
+    }catch(e){
+        console.error(e);
+        return new Set();
+    }
 
 }
 
@@ -409,8 +551,10 @@ async function refrescarVistaViajes(){
 
     const conteoModulacion = await obtenerConteoModulacionPorViaje();
     const conteoFase = await obtenerConteoFasePorViaje();
+    const sinDescuadre = await obtenerViajesSinDescuadre();
+    const activados = await obtenerViajesActivados();
 
-    cargarViajesReales(filas, conteoModulacion, conteoFase);
+    cargarViajesReales(filas, conteoModulacion, conteoFase, sinDescuadre, activados);
 
 }
 
@@ -446,8 +590,10 @@ async function cargarResumenExistente(){
 
         const conteoModulacion = await obtenerConteoModulacionPorViaje();
         const conteoFase = await obtenerConteoFasePorViaje();
+        const sinDescuadre = await obtenerViajesSinDescuadre();
+        const activados = await obtenerViajesActivados();
 
-        cargarViajesReales(filas, conteoModulacion, conteoFase);
+        cargarViajesReales(filas, conteoModulacion, conteoFase, sinDescuadre, activados);
 
     }catch(e){
         console.error(e);
