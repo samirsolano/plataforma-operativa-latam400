@@ -266,11 +266,13 @@ archivoDataModulado.addEventListener("change", async function(e){
 // ========================================
 // VIAJES (a partir de Data Modulado real)
 // ========================================
-// Modulación/Fase/Estado siguen siendo visuales por ahora (paso 2 en
-// adelante todavía no está conectado a Supabase) — solo Viaje y
-// Entregas/Registros vienen de datos reales.
+// Usuario sigue siendo visual por ahora — Viaje, Entregas, Registros,
+// Modulación y Fase ya vienen de datos reales en Supabase.
 
-function cargarViajesReales(filas){
+function cargarViajesReales(filas, conteoModulacionPorViaje, conteoFasePorViaje){
+
+    conteoModulacionPorViaje = conteoModulacionPorViaje || {};
+    conteoFasePorViaje = conteoFasePorViaje || {};
 
     const porViaje = {};
 
@@ -314,12 +316,23 @@ function cargarViajesReales(filas){
 
         const tr = document.createElement("tr");
 
+        const conteoModulacion = conteoModulacionPorViaje[v.viaje] || 0;
+        const conteoFase = conteoFasePorViaje[v.viaje] || 0;
+
+        const estadoModulacion = conteoModulacion > 0
+            ? "Cargada (" + conteoModulacion + ")"
+            : "Pendiente";
+
+        const estadoFase = conteoFase > 0
+            ? "Cargada (" + conteoFase + ")"
+            : "Pendiente";
+
         tr.innerHTML = `
             <td>${v.viaje}</td>
             <td>${v.entregas.size}</td>
             <td>${v.registros}</td>
-            <td>Pendiente</td>
-            <td>Pendiente</td>
+            <td>${estadoModulacion}</td>
+            <td>${estadoFase}</td>
             <td><span class="estado disponible">Disponible</span></td>
             <td>-</td>
             <td>Ver</td>
@@ -328,6 +341,72 @@ function cargarViajesReales(filas){
         tbody.appendChild(tr);
 
     });
+
+}
+
+// Trae el conteo de filas de Modulación ya guardadas por viaje, para
+// pintar la columna "Modulación" de la tabla de arriba.
+async function obtenerConteoModulacionPorViaje(){
+
+    try{
+
+        const filas = await supabaseFetch("/modulacion?select=viaje");
+
+        const conteo = {};
+
+        (filas || []).forEach(function(f){
+            conteo[f.viaje] = (conteo[f.viaje] || 0) + 1;
+        });
+
+        return conteo;
+
+    }catch(e){
+        console.error(e);
+        return {};
+    }
+
+}
+
+// Trae el conteo de filas de Fase ya guardadas por viaje, para pintar
+// la columna "Fase" de la tabla de arriba.
+async function obtenerConteoFasePorViaje(){
+
+    try{
+
+        const filas = await supabaseFetch("/fase?select=viaje");
+
+        const conteo = {};
+
+        (filas || []).forEach(function(f){
+            conteo[f.viaje] = (conteo[f.viaje] || 0) + 1;
+        });
+
+        return conteo;
+
+    }catch(e){
+        console.error(e);
+        return {};
+    }
+
+}
+
+// Vuelve a traer Data Modulado + conteos de Modulación/Fase y repinta
+// la tabla de viajes — se usa después de procesar un viaje y al abrir
+// la página.
+async function refrescarVistaViajes(){
+
+    const filas = await supabaseFetch(
+        "/data_modulado?select=unidad_transporte,entrega"
+    );
+
+    if(!filas || !filas.length){
+        return;
+    }
+
+    const conteoModulacion = await obtenerConteoModulacionPorViaje();
+    const conteoFase = await obtenerConteoFasePorViaje();
+
+    cargarViajesReales(filas, conteoModulacion, conteoFase);
 
 }
 
@@ -361,7 +440,10 @@ async function cargarResumenExistente(){
         fechaDataModulado.textContent =
             new Date(filas[0].created_at).toLocaleDateString("es-PE");
 
-        cargarViajesReales(filas);
+        const conteoModulacion = await obtenerConteoModulacionPorViaje();
+        const conteoFase = await obtenerConteoFasePorViaje();
+
+        cargarViajesReales(filas, conteoModulacion, conteoFase);
 
     }catch(e){
         console.error(e);
@@ -372,66 +454,490 @@ async function cargarResumenExistente(){
 cargarResumenExistente();
 
 // ========================================
-// PROCESAR VIAJE
+// MODULACIÓN Y FASE (real)
 // ========================================
+// Cadena de validación al procesar un viaje:
+//   Modulación  <-> Data Modulado   por "entrega"
+//   Fase        <-> Modulación      por "fase" (el código de lote de
+//                                    la modulación) y línea por línea
+//                                    por "Orden de almacén"
+// Todo queda filtrado siempre al viaje seleccionado en el desplegable.
 
-document.getElementById(
-    "btnProcesar"
-).addEventListener(
+async function guardarEnBloques(tabla, filas){
 
-    "click",
+    const TAMANO_BLOQUE = 200;
 
-    function(){
+    for(let i = 0; i < filas.length; i += TAMANO_BLOQUE){
 
-        const viaje =
-            document.getElementById(
-                "cmbViaje"
-            ).value;
+        const bloque = filas.slice(i, i + TAMANO_BLOQUE);
 
-        const modulacion =
-            document.getElementById(
-                "archivoModulacion"
-            ).files[0];
-
-        const fase =
-            document.getElementById(
-                "archivoFase"
-            ).files[0];
-
-        if(!viaje){
-
-            alert(
-                "Seleccione un viaje"
-            );
-
-            return;
-
-        }
-
-        if(!modulacion){
-
-            alert(
-                "Seleccione archivo de modulación"
-            );
-
-            return;
-
-        }
-
-        if(!fase){
-
-            alert(
-                "Seleccione archivo de fase"
-            );
-
-            return;
-
-        }
-
-        alert(
-            "Viaje procesado correctamente"
-        );
+        await supabaseFetch("/" + tabla, {
+            method: "POST",
+            body: JSON.stringify(bloque)
+        });
 
     }
 
-);
+}
+
+function excelSerialADate(serial){
+
+    if(serial === "" || serial === null || serial === undefined || isNaN(Number(serial))){
+        return null;
+    }
+
+    const epochMs = Date.UTC(1899, 11, 30);
+
+    return new Date(epochMs + Number(serial) * 86400000).toISOString().split("T")[0];
+
+}
+
+async function leerFilasModulacionExcel(archivo){
+
+    const buffer = await archivo.arrayBuffer();
+    const libro = XLSX.read(buffer, { type: "array" });
+
+    const nombreHoja =
+        libro.SheetNames.find(n => n.trim().toLowerCase() === "modulacion") ||
+        libro.SheetNames[0];
+
+    const hoja = libro.Sheets[nombreHoja];
+
+    return XLSX.utils.sheet_to_json(hoja, { header: 1, defval: "" });
+
+}
+
+function validarFormatoModulacion(filas){
+
+    if(!filas.length){
+        return "El archivo está vacío.";
+    }
+
+    const encabezado = filas[0].map(c => String(c).trim().toLowerCase());
+
+    if(encabezado[0] !== "estatus" || encabezado[3] !== "wt modulacion" || encabezado[21] !== "entrega"){
+        return "Este archivo no tiene el formato esperado de Modulación " +
+            "(Estatus en columna A, WT modulacion en D, entrega en V).";
+    }
+
+    return null;
+
+}
+
+function normalizarFilaModulacion(fila, viaje, archivo, cargadoPor){
+
+    function num(indice){
+        const v = fila[indice];
+        return (v === "" || v === null || v === undefined || isNaN(Number(v))) ? null : Number(v);
+    }
+
+    function texto(indice){
+        const v = fila[indice];
+        return (v === null || v === undefined) ? "" : String(v).trim();
+    }
+
+    return {
+        viaje: viaje,
+        estatus: texto(0),
+        ubicacion: texto(1),
+        fase: num(2),
+        wt_modulacion: num(3),
+        orden_compra: num(4),
+        ean_upc: texto(5),
+        numero_producto: texto(6),
+        denominacion_producto: texto(7),
+        ctd_teor_um_base: num(8),
+        unidad_medida_base: texto(9),
+        ctd_teor_um_altern1: num(10),
+        un_medida_altern1: texto(11),
+        volumen: num(12),
+        ctd_teor_um_altern2: num(13),
+        un_medida_altern2: texto(14),
+        lpn: texto(15),
+        numero_producto_cliente: texto(16),
+        lote: texto(17),
+        fecha_expiracion: excelSerialADate(fila[18]),
+        numero_documento_referencia: num(19),
+        orden_almacen: num(20),
+        entrega: num(21),
+        archivo_origen: archivo,
+        cargado_por: cargadoPor
+    };
+
+}
+
+// Modulación <-> Data Modulado, por "entrega". Devuelve el número de
+// filas guardadas, o null si el usuario canceló en algún paso.
+async function procesarModulacion(viaje, archivo, cargadoPor){
+
+    const filasCrudas = await leerFilasModulacionExcel(archivo);
+
+    const errorFormato = validarFormatoModulacion(filasCrudas);
+
+    if(errorFormato){
+        alert(errorFormato);
+        return null;
+    }
+
+    const filasNormalizadas = filasCrudas
+        .slice(1)
+        .map(f => normalizarFilaModulacion(f, viaje, archivo.name, cargadoPor))
+        .filter(f => f.entrega !== null || f.wt_modulacion !== null);
+
+    if(!filasNormalizadas.length){
+        alert("No se encontraron filas válidas en el archivo de Modulación.");
+        return null;
+    }
+
+    // Aviso (no bloqueante): toda entrega de Modulación debe existir
+    // en Data Modulado para el viaje seleccionado.
+    const entregasDataModulado = await supabaseFetch(
+        "/data_modulado?select=entrega&unidad_transporte=eq." + viaje
+    );
+
+    const entregasValidas = new Set((entregasDataModulado || []).map(f => f.entrega));
+
+    const entregasSinCoincidencia = [...new Set(
+        filasNormalizadas
+            .map(f => f.entrega)
+            .filter(e => e !== null && !entregasValidas.has(e))
+    )];
+
+    if(entregasSinCoincidencia.length){
+
+        const continuar = confirm(
+            "Ojo: " + entregasSinCoincidencia.length + " entrega(s) de Modulación no aparecen en " +
+            "Data Modulado para el viaje " + viaje + " (" +
+            entregasSinCoincidencia.slice(0, 5).join(", ") +
+            (entregasSinCoincidencia.length > 5 ? "..." : "") +
+            "). ¿Seguro que es el archivo correcto? ¿Continuar de todos modos?"
+        );
+
+        if(!continuar){
+            return null;
+        }
+
+    }
+
+    // Modulación es por viaje: si ya hay datos para este viaje, se
+    // reemplazan solo los de ese viaje (no los de los demás).
+    const existentes = await supabaseFetch(
+        "/modulacion?select=id&viaje=eq." + viaje + "&limit=1"
+    );
+
+    if(existentes && existentes.length){
+
+        const confirmado = confirm(
+            "Ya hay Modulación cargada para el viaje " + viaje + ". ¿Reemplazarla con este archivo (" +
+            filasNormalizadas.length + " filas)?"
+        );
+
+        if(!confirmado){
+            return null;
+        }
+
+        await supabaseFetch("/modulacion?viaje=eq." + viaje, { method: "DELETE" });
+
+    }
+
+    await guardarEnBloques("modulacion", filasNormalizadas);
+
+    return filasNormalizadas.length;
+
+}
+
+// ========================================
+// FASE
+// ========================================
+// Encabezados únicos en este archivo (a diferencia de Modulación), así
+// que acá sí se puede leer por nombre de columna.
+
+const COLUMNAS_ESPERADAS_FASE = [
+    "orden de almacén", "fase", "tarea de almacén"
+];
+
+async function leerFilasFaseExcel(archivo){
+
+    const buffer = await archivo.arrayBuffer();
+    const libro = XLSX.read(buffer, { type: "array" });
+
+    const nombreHoja =
+        libro.SheetNames.find(n => n.trim().toLowerCase() === "fase") ||
+        libro.SheetNames[0];
+
+    const hoja = libro.Sheets[nombreHoja];
+
+    return XLSX.utils.sheet_to_json(hoja, { defval: "" });
+
+}
+
+function validarFormatoFase(filasCrudas){
+
+    if(!filasCrudas.length){
+        return "El archivo está vacío.";
+    }
+
+    const columnasArchivo = Object.keys(filasCrudas[0]).map(c => c.trim().toLowerCase());
+
+    const faltantes = COLUMNAS_ESPERADAS_FASE.filter(
+        esperada => !columnasArchivo.includes(esperada)
+    );
+
+    if(faltantes.length){
+        return "Este archivo no tiene el formato de Fase. Faltan las columnas: " +
+            faltantes.join(", ") + ".";
+    }
+
+    return null;
+
+}
+
+function normalizarFilaFase(filaOriginal, viaje, archivo, cargadoPor){
+
+    const mapaFila = {};
+
+    Object.keys(filaOriginal).forEach(function(clave){
+        mapaFila[clave.trim().toLowerCase()] = filaOriginal[clave];
+    });
+
+    function valor(clave){
+        const v = mapaFila[clave];
+        return (v === undefined || v === null) ? "" : v;
+    }
+
+    function num(clave){
+        const n = Number(valor(clave));
+        return isNaN(n) || valor(clave) === "" ? null : n;
+    }
+
+    function texto(clave){
+        return String(valor(clave)).trim();
+    }
+
+    function fecha(clave){
+        return excelSerialADate(valor(clave));
+    }
+
+    return {
+        viaje: viaje,
+        tarea_almacen: num("tarea de almacén"),
+        orden_almacen: num("orden de almacén"),
+        status_tarea: texto("status de tarea de almacén"),
+        producto: texto("producto"),
+        descripcion_producto: texto("descripción de producto"),
+        fecaduc_fepreferecons: fecha("fecaduc/fepreferecons"),
+        lote: texto("lote"),
+        tipo_stocks: texto("tipo de stocks"),
+        ctd_prev_proced_uma: num("ctd.prev.proced.uma"),
+        ctd_real_dest_uma: num("ctd.real dest.uma"),
+        ctd_dif_dest_uma: num("ctd.dif.dest.en uma"),
+        ubic_procedencia: texto("ubic.procedencia"),
+        ubicacion_destino: texto("ubicación de destino"),
+        un_medida_alternat: texto("un.medida alternat."),
+        cl_proceso_almacen: texto("cl.proceso almacén"),
+        ubic_dest_original: texto("ubic.dest.original"),
+        un_manipulac_origen: texto("un.manipulac.origen"),
+        ump_destino: texto("ump destino"),
+        confirmado_por: texto("confirmado por"),
+        fecha_confirmacion: fecha("fecha confirmación"),
+        hora_confirmacion: texto("hora de confirmación"),
+        autor: texto("autor"),
+        fecha_creacion: fecha("fecha de creación"),
+        hora_creacion: texto("hora de creación"),
+        grupo_consolidacion: num("grupo consolidación"),
+        fase: num("fase"),
+        peso_carga: num("peso de carga"),
+        unidad_peso: texto("unidad de peso"),
+        cola: texto("cola"),
+        tipo_proceso_almacen: texto("tipo proceso almacén"),
+        denominacion_tipo_proceso: texto("denomin.tipo proceso almacén"),
+        denominacion_tipo_stocks: texto("denominación de tipo de stocks"),
+        ctd_prev_proced_umb: num("ctd.prev.proced.umb"),
+        ctd_real_dest_umb: num("ctd.real dest.umb"),
+        ctd_dif_dest_umb: num("ctd.dif.dest.en umb"),
+        unidad_medida_base: texto("unidad medida base"),
+        archivo_origen: archivo,
+        cargado_por: cargadoPor
+    };
+
+}
+
+// Fase <-> Modulación: primero por "fase" (código de lote), después
+// línea por línea por "Orden de almacén". Devuelve el número de filas
+// guardadas, o null si el usuario canceló o si todavía no hay
+// Modulación cargada para este viaje.
+async function procesarFase(viaje, archivo, cargadoPor){
+
+    const modulacionViaje = await supabaseFetch(
+        "/modulacion?select=fase,orden_almacen&viaje=eq." + viaje
+    );
+
+    if(!modulacionViaje || !modulacionViaje.length){
+        alert("Todavía no hay Modulación cargada para el viaje " + viaje +
+            " — carga Modulación primero, Fase se valida contra ella.");
+        return null;
+    }
+
+    const filasCrudas = await leerFilasFaseExcel(archivo);
+
+    const errorFormato = validarFormatoFase(filasCrudas);
+
+    if(errorFormato){
+        alert(errorFormato);
+        return null;
+    }
+
+    const filasNormalizadas = filasCrudas
+        .map(f => normalizarFilaFase(f, viaje, archivo.name, cargadoPor))
+        .filter(f => f.orden_almacen !== null || f.tarea_almacen !== null);
+
+    if(!filasNormalizadas.length){
+        alert("No se encontraron filas válidas en el archivo de Fase.");
+        return null;
+    }
+
+    const fasesModulacion = new Set(modulacionViaje.map(f => f.fase));
+
+    const fasesSinCoincidencia = [...new Set(
+        filasNormalizadas
+            .map(f => f.fase)
+            .filter(f => f !== null && !fasesModulacion.has(f))
+    )];
+
+    if(fasesSinCoincidencia.length){
+
+        const continuar = confirm(
+            "Ojo: el código de Fase de este archivo (" + fasesSinCoincidencia.join(", ") +
+            ") no coincide con el de Modulación para el viaje " + viaje +
+            ". ¿Seguro que es el archivo correcto? ¿Continuar de todos modos?"
+        );
+
+        if(!continuar){
+            return null;
+        }
+
+    }
+
+    // Línea por línea: cada Orden de almacén de Fase debe existir en
+    // Modulación para este viaje.
+    const ordenesModulacion = new Set(modulacionViaje.map(f => f.orden_almacen));
+
+    const ordenesSinCoincidencia = [...new Set(
+        filasNormalizadas
+            .map(f => f.orden_almacen)
+            .filter(o => o !== null && !ordenesModulacion.has(o))
+    )];
+
+    if(ordenesSinCoincidencia.length){
+
+        const continuar = confirm(
+            "Ojo: " + ordenesSinCoincidencia.length + " Orden(es) de almacén de Fase no calzan línea " +
+            "por línea con Modulación del viaje " + viaje + " (" +
+            ordenesSinCoincidencia.slice(0, 5).join(", ") +
+            (ordenesSinCoincidencia.length > 5 ? "..." : "") +
+            "). ¿Continuar de todos modos?"
+        );
+
+        if(!continuar){
+            return null;
+        }
+
+    }
+
+    const existentes = await supabaseFetch(
+        "/fase?select=id&viaje=eq." + viaje + "&limit=1"
+    );
+
+    if(existentes && existentes.length){
+
+        const confirmado = confirm(
+            "Ya hay Fase cargada para el viaje " + viaje + ". ¿Reemplazarla con este archivo (" +
+            filasNormalizadas.length + " filas)?"
+        );
+
+        if(!confirmado){
+            return null;
+        }
+
+        await supabaseFetch("/fase?viaje=eq." + viaje, { method: "DELETE" });
+
+    }
+
+    await guardarEnBloques("fase", filasNormalizadas);
+
+    return filasNormalizadas.length;
+
+}
+
+document.getElementById("btnProcesar").addEventListener("click", async function(){
+
+    const btnProcesar = document.getElementById("btnProcesar");
+
+    const viajeTexto = document.getElementById("cmbViaje").value;
+    const archivoModulacionInput = document.getElementById("archivoModulacion").files[0];
+    const archivoFaseInput = document.getElementById("archivoFase").files[0];
+
+    if(!viajeTexto){
+        alert("Seleccione un viaje.");
+        return;
+    }
+
+    if(!archivoModulacionInput && !archivoFaseInput){
+        alert("Seleccione al menos un archivo (Modulación y/o Fase).");
+        return;
+    }
+
+    const viaje = Number(viajeTexto);
+    const cargadoPor = (sesion && (sesion.nombre_completo || sesion.usuario)) || "";
+
+    btnProcesar.disabled = true;
+
+    const resultados = [];
+
+    try{
+
+        if(archivoModulacionInput){
+
+            btnProcesar.textContent = "Procesando Modulación...";
+
+            const guardadas = await procesarModulacion(viaje, archivoModulacionInput, cargadoPor);
+
+            if(guardadas !== null){
+                resultados.push("Modulación: " + guardadas + " filas.");
+                document.getElementById("archivoModulacion").value = "";
+            }
+
+        }
+
+        if(archivoFaseInput){
+
+            btnProcesar.textContent = "Procesando Fase...";
+
+            const guardadas = await procesarFase(viaje, archivoFaseInput, cargadoPor);
+
+            if(guardadas !== null){
+                resultados.push("Fase: " + guardadas + " filas.");
+                document.getElementById("archivoFase").value = "";
+            }
+
+        }
+
+        if(resultados.length){
+            alert("Viaje " + viaje + " procesado.\n" + resultados.join("\n"));
+        }
+
+        await refrescarVistaViajes();
+
+    }catch(err){
+
+        console.error(err);
+        alert("No se pudo procesar el viaje: " + err.message);
+
+    }finally{
+
+        btnProcesar.disabled = false;
+        btnProcesar.textContent = "PROCESAR VIAJE";
+
+    }
+
+});
