@@ -23,6 +23,8 @@
 
 <body>
 
+    <div id="toastContainer" class="toast-container"></div>
+
     <div class="layout">
 
         <!-- SIDEBAR -->
@@ -294,6 +296,11 @@
                             <span>Verificando cambios de lote...</span>
                         </div>
 
+                        <div class="estado-resumen-item" id="estadoPacking" data-target="cardPacking">
+                            <span class="estado-resumen-icono">📦</span>
+                            <span>Ver Packing List</span>
+                        </div>
+
                         <button id="btnExportarPacking" class="btn-exportar-packing" style="display:none;">
                             ⬇ Exportar Packing List
                         </button>
@@ -368,6 +375,7 @@
                             <tr>
 
                                 <th>LPN</th>
+                                <th>HU</th>
                                 <th>Producto</th>
                                 <th>Lote SAP</th>
                                 <th>Fecha Vto. SAP</th>
@@ -379,7 +387,7 @@
                         <tbody id="tblPistoleoPendiente">
 
                             <tr>
-                                <td colspan="4" class="sin-datos">
+                                <td colspan="5" class="sin-datos">
                                     Sin paletas pendientes de pistoleo.
                                 </td>
                             </tr>
@@ -437,7 +445,7 @@
 
                 </div>
 
-                <div class="card">
+                <div class="card oculto" id="cardPacking">
 
                     <h3 class="subtitulo-validacion">
                         3. Packing List — Guía de Despacho

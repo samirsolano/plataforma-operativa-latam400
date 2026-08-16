@@ -1,4 +1,34 @@
 // ========================================
+// TOASTS (reemplaza los alert() de aviso — las confirmaciones
+// destructivas siguen usando confirm() nativo a propósito)
+// ========================================
+
+function mostrarToast(mensaje, tipo){
+
+    tipo = tipo || "error";
+
+    const contenedor = document.getElementById("toastContainer");
+
+    const toast = document.createElement("div");
+    toast.className = "toast toast-" + tipo;
+    toast.textContent = mensaje;
+
+    contenedor.appendChild(toast);
+
+    requestAnimationFrame(function(){
+        toast.classList.add("toast-visible");
+    });
+
+    setTimeout(function(){
+
+        toast.classList.remove("toast-visible");
+        setTimeout(function(){ toast.remove(); }, 250);
+
+    }, 4500);
+
+}
+
+// ========================================
 // SESIÓN Y PERMISOS
 // ========================================
 // Solo el rol Administrador puede ver este módulo.
@@ -178,7 +208,7 @@ archivoDataModulado.addEventListener("change", async function(e){
         const errorFormato = validarFormatoDataModulado(filasCrudas);
 
         if(errorFormato){
-            alert(errorFormato);
+            mostrarToast(errorFormato, "error");
             nombreDataModulado.textContent = "-";
             archivoDataModulado.value = "";
             return;
@@ -189,7 +219,7 @@ archivoDataModulado.addEventListener("change", async function(e){
             .filter(f => f.entrega !== null && f.fo !== null);
 
         if(!filasNormalizadas.length){
-            alert("No se encontraron filas válidas en el archivo (revisa columnas ENTREGA y FO).");
+            mostrarToast("No se encontraron filas válidas en el archivo (revisa columnas ENTREGA y FO).", "error");
             nombreDataModulado.textContent = "-";
             archivoDataModulado.value = "";
             return;
@@ -259,7 +289,7 @@ archivoDataModulado.addEventListener("change", async function(e){
     }catch(err){
 
         console.error(err);
-        alert("No se pudo cargar el archivo: " + err.message);
+        mostrarToast("No se pudo cargar el archivo: " + err.message, "error");
         nombreDataModulado.textContent = "-";
         archivoDataModulado.value = "";
 
@@ -405,7 +435,7 @@ document.getElementById("tblViajes").addEventListener("click", async function(e)
     }catch(err){
 
         console.error(err);
-        alert("No se pudo activar el viaje: " + err.message);
+        mostrarToast("No se pudo activar el viaje: " + err.message, "error");
         boton.disabled = false;
         boton.textContent = "Activar";
 
@@ -725,7 +755,7 @@ async function procesarModulacion(viaje, archivo, cargadoPor){
     const errorFormato = validarFormatoModulacion(filasCrudas);
 
     if(errorFormato){
-        alert(errorFormato);
+        mostrarToast(errorFormato, "error");
         return null;
     }
 
@@ -735,7 +765,7 @@ async function procesarModulacion(viaje, archivo, cargadoPor){
         .filter(f => f.entrega !== null || f.wt_modulacion !== null);
 
     if(!filasNormalizadas.length){
-        alert("No se encontraron filas válidas en el archivo de Modulación.");
+        mostrarToast("No se encontraron filas válidas en el archivo de Modulación.", "error");
         return null;
     }
 
@@ -923,8 +953,8 @@ async function procesarFase(viaje, archivo, cargadoPor){
     );
 
     if(!modulacionViaje || !modulacionViaje.length){
-        alert("Todavía no hay Modulación cargada para el viaje " + viaje +
-            " — carga Modulación primero, Fase se valida contra ella.");
+        mostrarToast("Todavía no hay Modulación cargada para el viaje " + viaje +
+            " — carga Modulación primero, Fase se valida contra ella.", "error");
         return null;
     }
 
@@ -933,7 +963,7 @@ async function procesarFase(viaje, archivo, cargadoPor){
     const errorFormato = validarFormatoFase(filasCrudas);
 
     if(errorFormato){
-        alert(errorFormato);
+        mostrarToast(errorFormato, "error");
         return null;
     }
 
@@ -942,7 +972,7 @@ async function procesarFase(viaje, archivo, cargadoPor){
         .filter(f => f.orden_almacen !== null || f.tarea_almacen !== null);
 
     if(!filasNormalizadas.length){
-        alert("No se encontraron filas válidas en el archivo de Fase.");
+        mostrarToast("No se encontraron filas válidas en el archivo de Fase.", "error");
         return null;
     }
 
@@ -1028,12 +1058,12 @@ document.getElementById("btnProcesar").addEventListener("click", async function(
     const archivoFaseInput = document.getElementById("archivoFase").files[0];
 
     if(!viajeTexto){
-        alert("Seleccione un viaje.");
+        mostrarToast("Seleccione un viaje.", "error");
         return;
     }
 
     if(!archivoModulacionInput && !archivoFaseInput){
-        alert("Seleccione al menos un archivo (Modulación y/o Fase).");
+        mostrarToast("Seleccione al menos un archivo (Modulación y/o Fase).", "error");
         return;
     }
 
@@ -1073,7 +1103,7 @@ document.getElementById("btnProcesar").addEventListener("click", async function(
         }
 
         if(resultados.length){
-            alert("Viaje " + viaje + " procesado.\n" + resultados.join("\n"));
+            mostrarToast("Viaje " + viaje + " procesado.\n" + resultados.join("\n"), "exito");
         }
 
         await refrescarVistaViajes();
@@ -1081,7 +1111,7 @@ document.getElementById("btnProcesar").addEventListener("click", async function(
     }catch(err){
 
         console.error(err);
-        alert("No se pudo procesar el viaje: " + err.message);
+        mostrarToast("No se pudo procesar el viaje: " + err.message, "error");
 
     }finally{
 
@@ -1325,7 +1355,8 @@ async function cargarCambioLote(viaje){
                 </td>
                 <td>${formatearFechaToma(f.fv_sap)}</td>
                 <td>
-                    <input type="date" class="inputFvNueva" value="${f.fv_observado || ""}" ${f.aplicado ? "disabled" : ""}>
+                    <input type="date" class="inputFvNueva" value="${/^\d{4}-\d{2}-\d{2}$/.test(f.fv_observado || "") ? f.fv_observado : ""}" ${f.aplicado ? "disabled" : ""}>
+                    ${f.fv_observado ? '<div class="hint-observado">Escrito por el operario: <b>' + String(f.fv_observado).replace(/</g, "&lt;") + '</b></div>' : ""}
                 </td>
                 <td>${f.escaneado_por || "-"}</td>
                 <td>${accion}</td>
@@ -1364,12 +1395,12 @@ document.getElementById("tblCambioLote").addEventListener("click", async functio
     const fvNueva = fila.querySelector(".inputFvNueva").value;
 
     if(!loteNuevo){
-        alert("Escribe el lote antes de aplicar.");
+        mostrarToast("Escribe el lote antes de aplicar.", "error");
         return;
     }
 
     if(!fvNueva){
-        alert("Selecciona la fecha de vencimiento antes de aplicar.");
+        mostrarToast("Selecciona la fecha de vencimiento antes de aplicar.", "error");
         return;
     }
 
@@ -1403,7 +1434,7 @@ document.getElementById("tblCambioLote").addEventListener("click", async functio
     }catch(err){
 
         console.error(err);
-        alert("No se pudo aplicar la corrección: " + err.message);
+        mostrarToast("No se pudo aplicar la corrección: " + err.message, "error");
         boton.disabled = false;
         boton.textContent = "Aplicar a SAP";
 
@@ -1506,12 +1537,12 @@ document.getElementById("btnExportarPacking").addEventListener("click", function
     const viaje = document.getElementById("cmbViajeResumen").value;
 
     if(!viaje){
-        alert("Selecciona un viaje antes de exportar.");
+        mostrarToast("Selecciona un viaje antes de exportar.", "error");
         return;
     }
 
     if(!_ultimasFilasPacking.length){
-        alert("No hay filas de packing list para exportar.");
+        mostrarToast("No hay filas de packing list para exportar.", "error");
         return;
     }
 
@@ -1581,7 +1612,7 @@ document.getElementById("cmbViajeResumen").addEventListener("change", function()
 
     // Al cambiar de viaje se cierran los detalles que hayan quedado
     // abiertos del viaje anterior.
-    ["cardDescuadre", "cardPistoleo", "cardCambioLote"].forEach(function(id){
+    ["cardDescuadre", "cardPistoleo", "cardCambioLote", "cardPacking"].forEach(function(id){
         document.getElementById(id).classList.add("oculto");
     });
 
@@ -1604,24 +1635,37 @@ async function cargarEstadoPistoleo(viaje){
 
     if(!viaje){
         _ultimoPistoleoPendienteCount = null;
-        tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">Selecciona un viaje arriba.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">Selecciona un viaje arriba.</td></tr>`;
         return;
     }
 
     try{
 
-        const [modulacionFilas, pistoleoFilas] = await Promise.all([
+        const [modulacionFilas, pistoleoFilas, faseFilas] = await Promise.all([
             supabaseFetch(
-                "/modulacion?select=lpn,denominacion_producto,lote,fecha_expiracion&viaje=eq." + viaje
+                "/modulacion?select=lpn,orden_almacen,denominacion_producto,lote,fecha_expiracion&viaje=eq." + viaje
             ),
-            supabaseFetch("/pistoleo?select=lpn&viaje=eq." + viaje)
+            supabaseFetch("/pistoleo?select=lpn&viaje=eq." + viaje),
+            supabaseFetch("/fase?select=orden_almacen,un_manipulac_origen&viaje=eq." + viaje).catch(function(e){
+                console.error(e);
+                return [];
+            })
         ]);
 
         if(!modulacionFilas || !modulacionFilas.length){
             _ultimoPistoleoPendienteCount = null;
-            tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">Este viaje todavía no tiene Modulación cargada.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">Este viaje todavía no tiene Modulación cargada.</td></tr>`;
             return;
         }
+
+        // El HU todavía no existe hasta que el operario pistolea —
+        // acá se muestra el HU esperado según Fase (SAP), como
+        // referencia para ubicar la paleta.
+        const huPorOrdenAlmacen = {};
+
+        (faseFilas || []).forEach(function(f){
+            huPorOrdenAlmacen[f.orden_almacen] = f.un_manipulac_origen;
+        });
 
         const lpnsEscaneados = new Set((pistoleoFilas || []).map(f => f.lpn));
 
@@ -1641,7 +1685,7 @@ async function cargarEstadoPistoleo(viaje){
         _ultimoPistoleoPendienteCount = pendientes.length;
 
         if(!pendientes.length){
-            tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">Sin paletas pendientes de pistoleo.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">Sin paletas pendientes de pistoleo.</td></tr>`;
             return;
         }
 
@@ -1653,6 +1697,7 @@ async function cargarEstadoPistoleo(viaje){
 
             tr.innerHTML = `
                 <td>${f.lpn}</td>
+                <td>${huPorOrdenAlmacen[f.orden_almacen] || "-"}</td>
                 <td>${f.denominacion_producto || "-"}</td>
                 <td>${f.lote || "-"}</td>
                 <td>${formatearFechaToma(f.fecha_expiracion)}</td>
@@ -1666,14 +1711,15 @@ async function cargarEstadoPistoleo(viaje){
 
         console.error(e);
         _ultimoPistoleoPendienteCount = null;
-        tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">No se pudo cargar el pistoleo pendiente.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">No se pudo cargar el pistoleo pendiente.</td></tr>`;
 
     }
 
 }
 
-// Los chips de estado son botones: tocar uno muestra/oculta su
-// tarjeta de detalle (Descuadre, Pistoleo o Cambio de Lote).
+// Los chips de estado son botones: tocar uno muestra su tarjeta de
+// detalle (Descuadre, Pistoleo, Cambio de Lote o Packing List) y
+// cierra cualquier otra que haya quedado abierta — solo una a la vez.
 document.getElementById("estadoResumenViaje").addEventListener("click", function(e){
 
     const chip = e.target.closest(".estado-resumen-item");
@@ -1686,10 +1732,20 @@ document.getElementById("estadoResumenViaje").addEventListener("click", function
         return;
     }
 
-    const estaOculto = card.classList.contains("oculto");
+    const seAbria = card.classList.contains("oculto");
 
-    card.classList.toggle("oculto", !estaOculto);
-    chip.classList.toggle("seleccionado", estaOculto);
+    ["cardDescuadre", "cardPistoleo", "cardCambioLote", "cardPacking"].forEach(function(id){
+        document.getElementById(id).classList.add("oculto");
+    });
+
+    document.querySelectorAll(".estado-resumen-item").forEach(function(otroChip){
+        otroChip.classList.remove("seleccionado");
+    });
+
+    if(seAbria){
+        card.classList.remove("oculto");
+        chip.classList.add("seleccionado");
+    }
 
 });
 
