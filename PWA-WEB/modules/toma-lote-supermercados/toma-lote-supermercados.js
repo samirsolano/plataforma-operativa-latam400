@@ -1104,11 +1104,17 @@ function formatearNumeroToma(n){
     return Number(n || 0).toLocaleString("es-PE", { maximumFractionDigits: 2 });
 }
 
+// Descuadre pendiente del último viaje consultado — null = todavía
+// no se sabe (sin viaje/sin datos), 0 = sin descuadre, N = filas en
+// REVISAR. Lo usa actualizarEstadoResumen() para el cuadro de estado.
+let _ultimoDescuadreCount = null;
+
 async function cargarObservaciones(viaje){
 
     const tbody = document.getElementById("tblObservaciones");
 
     if(!viaje){
+        _ultimoDescuadreCount = null;
         tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Selecciona un viaje arriba para ver las observaciones.</td></tr>`;
         return;
     }
@@ -1128,6 +1134,7 @@ async function cargarObservaciones(viaje){
         ]);
 
         if(!dataModulado || !dataModulado.length){
+            _ultimoDescuadreCount = null;
             tbody.innerHTML =
                 `<tr><td colspan="7" class="sin-datos">Este viaje todavía no tiene Data Modulado cargado.</td></tr>`;
             return;
@@ -1196,6 +1203,8 @@ async function cargarObservaciones(viaje){
 
         });
 
+        _ultimoDescuadreCount = filas.filter(f => f.filtro === "REVISAR").length;
+
         tbody.innerHTML = "";
 
         if(!filas.length){
@@ -1226,6 +1235,7 @@ async function cargarObservaciones(viaje){
     }catch(e){
 
         console.error(e);
+        _ultimoDescuadreCount = null;
         tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">No se pudo calcular Observaciones.</td></tr>`;
 
     }
@@ -1251,11 +1261,17 @@ function formatearFechaToma(iso){
 
 }
 
+// Correcciones sin aplicar del último viaje consultado — null =
+// todavía no se sabe, 0 = sin pendientes, N = correcciones sin
+// aplicar. Lo usa actualizarEstadoResumen() para el cuadro de estado.
+let _ultimoCambioLotePendienteCount = null;
+
 async function cargarCambioLote(viaje){
 
     const tbody = document.getElementById("tblCambioLote");
 
     if(!viaje){
+        _ultimoCambioLotePendienteCount = null;
         tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Selecciona un viaje arriba para ver las correcciones de lote.</td></tr>`;
         return;
     }
@@ -1273,9 +1289,12 @@ async function cargarCambioLote(viaje){
         ]);
 
         if(!correcciones || !correcciones.length){
+            _ultimoCambioLotePendienteCount = 0;
             tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Sin correcciones de lote registradas para este viaje.</td></tr>`;
             return;
         }
+
+        _ultimoCambioLotePendienteCount = correcciones.filter(f => !f.aplicado).length;
 
         const productoPorLpn = {};
 
@@ -1319,6 +1338,7 @@ async function cargarCambioLote(viaje){
     }catch(e){
 
         console.error(e);
+        _ultimoCambioLotePendienteCount = null;
         tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar Cambio de Lote.</td></tr>`;
 
     }
@@ -1378,6 +1398,7 @@ document.getElementById("tblCambioLote").addEventListener("click", async functio
         );
 
         await cargarCambioLote(viaje);
+        actualizarEstadoResumen();
 
     }catch(err){
 
@@ -1562,10 +1583,67 @@ async function actualizarResumenViaje(){
 
     const viaje = document.getElementById("cmbViajeResumen").value;
 
+    document.getElementById("estadoResumenViaje").style.display = viaje ? "flex" : "none";
+
     await Promise.all([
         cargarObservaciones(viaje),
         cargarCambioLote(viaje),
         cargarTablaPacking(viaje)
     ]);
+
+    actualizarEstadoResumen();
+
+}
+
+// Cuadro de estado: primero valida Descuadre, después Cambio de
+// Lote — el botón de exportar solo aparece cuando ambos están OK.
+function actualizarEstadoResumen(){
+
+    const viaje = document.getElementById("cmbViajeResumen").value;
+    const elDescuadre = document.getElementById("estadoDescuadre");
+    const elCambioLote = document.getElementById("estadoCambioLote");
+    const btnExportar = document.getElementById("btnExportarPacking");
+
+    if(!viaje){
+        document.getElementById("estadoResumenViaje").style.display = "none";
+        return;
+    }
+
+    function pintar(el, estado, textoOk, textoPendiente, textoSinDatos){
+
+        el.classList.remove("ok", "pendiente");
+
+        if(estado === null){
+            el.innerHTML = `<span class="estado-resumen-icono">…</span><span>${textoSinDatos}</span>`;
+        }else if(estado === 0){
+            el.classList.add("ok");
+            el.innerHTML = `<span class="estado-resumen-icono">✓</span><span>${textoOk}</span>`;
+        }else{
+            el.classList.add("pendiente");
+            el.innerHTML = `<span class="estado-resumen-icono">✗</span><span>${textoPendiente}</span>`;
+        }
+
+    }
+
+    pintar(
+        elDescuadre,
+        _ultimoDescuadreCount,
+        "Sin descuadre",
+        _ultimoDescuadreCount + " descuadre(s) pendiente(s)",
+        "Sin datos de descuadre"
+    );
+
+    pintar(
+        elCambioLote,
+        _ultimoCambioLotePendienteCount,
+        "Sin cambios de lote pendientes",
+        _ultimoCambioLotePendienteCount + " corrección(es) de lote sin aplicar",
+        "Sin datos de cambio de lote"
+    );
+
+    const listoParaExportar =
+        _ultimoDescuadreCount === 0 && _ultimoCambioLotePendienteCount === 0;
+
+    btnExportar.style.display = listoParaExportar ? "inline-block" : "none";
 
 }

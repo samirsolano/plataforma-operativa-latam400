@@ -277,6 +277,24 @@
 
                     </div>
 
+                    <div id="estadoResumenViaje" class="estado-resumen-viaje" style="display:none;">
+
+                        <div class="estado-resumen-item" id="estadoDescuadre">
+                            <span class="estado-resumen-icono">⏳</span>
+                            <span>Verificando descuadre...</span>
+                        </div>
+
+                        <div class="estado-resumen-item" id="estadoCambioLote">
+                            <span class="estado-resumen-icono">⏳</span>
+                            <span>Verificando cambios de lote...</span>
+                        </div>
+
+                        <button id="btnExportarPacking" class="btn-exportar-packing" style="display:none;">
+                            ⬇ Exportar Packing List
+                        </button>
+
+                    </div>
+
                 </div>
 
                 <div class="card">
@@ -372,17 +390,9 @@
 
                 <div class="card">
 
-                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px;">
-
-                        <h3 class="subtitulo-validacion" style="margin-bottom:0;">
-                            3. Packing List — Guía de Despacho
-                        </h3>
-
-                        <button id="btnExportarPacking" style="background:#16a34a;color:white;border:none;border-radius:10px;padding:12px 18px;font-weight:700;cursor:pointer;height:46px;">
-                            ⬇ Exportar a Excel
-                        </button>
-
-                    </div>
+                    <h3 class="subtitulo-validacion">
+                        3. Packing List — Guía de Despacho
+                    </h3>
 
                     <p class="nota-modulo">
                         Guía de despacho por paleta. El lote y la fecha ya reflejan las
