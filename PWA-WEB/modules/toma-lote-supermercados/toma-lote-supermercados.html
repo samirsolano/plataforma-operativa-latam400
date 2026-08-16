@@ -377,8 +377,23 @@
                     </h2>
 
                     <p class="nota-modulo">
-                        Resumen por viaje / unidad de transporte listo para despacho.
+                        Guía de despacho por paleta, para un viaje a la vez. El lote y
+                        la fecha ya reflejan las correcciones aplicadas en Observaciones.
                     </p>
+
+                    <div class="viaje-grid" style="grid-template-columns:1fr;max-width:320px;margin-bottom:20px;">
+
+                        <div>
+
+                            <label>Viaje</label>
+
+                            <select id="cmbViajePacking">
+                                <option value="">Seleccione viaje</option>
+                            </select>
+
+                        </div>
+
+                    </div>
 
                     <table>
 
@@ -386,11 +401,14 @@
 
                             <tr>
 
-                                <th>Viaje</th>
-                                <th>Unidad de Transporte</th>
-                                <th>Entregas</th>
-                                <th>Total HU</th>
-                                <th>Estado</th>
+                                <th>N° Orden de Compra</th>
+                                <th>Número documento de referencia</th>
+                                <th>LPN</th>
+                                <th>Local Destino</th>
+                                <th>SKU</th>
+                                <th>Cantidad</th>
+                                <th>No. Lote</th>
+                                <th>Fecha Vto.</th>
 
                             </tr>
 
@@ -399,8 +417,8 @@
                         <tbody id="tblPacking">
 
                             <tr>
-                                <td colspan="5" class="sin-datos">
-                                    Aún no hay viajes procesados.
+                                <td colspan="8" class="sin-datos">
+                                    Selecciona un viaje para ver el packing list.
                                 </td>
                             </tr>
 

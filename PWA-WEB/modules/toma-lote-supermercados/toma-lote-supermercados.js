@@ -64,6 +64,10 @@ document.querySelectorAll(".tab-link").forEach(function(link){
             cargarCambioLote();
         }
 
+        if(link.dataset.tab === "tabPacking"){
+            cargarPackingList();
+        }
+
     });
 
 });
@@ -1378,3 +1382,117 @@ document.getElementById("tblCambioLote").addEventListener("click", async functio
     }
 
 });
+
+// ========================================
+// PACKING LIST
+// ========================================
+// Guía de despacho por paleta, un viaje a la vez — se calcula solo
+// con lo ya cargado (Data Modulado, Modulación), no se sube ningún
+// archivo acá. Lote y Fecha Vto. salen directo de Modulación, así
+// que ya reflejan las correcciones aplicadas en Observaciones
+// (Cambio de Lote).
+
+let _packingViajesCargados = false;
+
+async function cargarPackingList(){
+
+    const cmb = document.getElementById("cmbViajePacking");
+
+    if(!_packingViajesCargados){
+
+        try{
+
+            const dataModulado = await supabaseFetch(
+                "/data_modulado?select=unidad_transporte"
+            );
+
+            const viajes = [...new Set((dataModulado || []).map(f => f.unidad_transporte))]
+                .filter(v => v !== null && v !== undefined)
+                .sort((a, b) => a - b);
+
+            viajes.forEach(function(v){
+                const option = document.createElement("option");
+                option.value = String(v);
+                option.textContent = String(v);
+                cmb.appendChild(option);
+            });
+
+            _packingViajesCargados = true;
+
+        }catch(e){
+            console.error(e);
+        }
+
+    }
+
+    await cargarTablaPacking();
+
+}
+
+document.getElementById("cmbViajePacking").addEventListener("change", cargarTablaPacking);
+
+async function cargarTablaPacking(){
+
+    const tbody = document.getElementById("tblPacking");
+    const viaje = document.getElementById("cmbViajePacking").value;
+
+    if(!viaje){
+        tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Selecciona un viaje para ver el packing list.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Cargando...</td></tr>`;
+
+    try{
+
+        const [modulacionFilas, dataModuladoFilas] = await Promise.all([
+            supabaseFetch(
+                "/modulacion?select=orden_compra,numero_documento_referencia,lpn,entrega," +
+                "numero_producto,ctd_teor_um_base,lote,fecha_expiracion&viaje=eq." + viaje +
+                "&order=lpn.asc"
+            ),
+            supabaseFetch(
+                "/data_modulado?select=entrega,descripcion_tienda&unidad_transporte=eq." + viaje
+            )
+        ]);
+
+        if(!modulacionFilas || !modulacionFilas.length){
+            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Este viaje todavía no tiene Modulación cargada.</td></tr>`;
+            return;
+        }
+
+        const localPorEntrega = {};
+
+        (dataModuladoFilas || []).forEach(function(f){
+            localPorEntrega[f.entrega] = f.descripcion_tienda;
+        });
+
+        tbody.innerHTML = "";
+
+        modulacionFilas.forEach(function(f){
+
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${f.orden_compra || "-"}</td>
+                <td>${f.numero_documento_referencia || "-"}</td>
+                <td>${f.lpn || "-"}</td>
+                <td>${localPorEntrega[f.entrega] || "-"}</td>
+                <td>${f.numero_producto || "-"}</td>
+                <td>${formatearNumeroToma(f.ctd_teor_um_base)}</td>
+                <td>${f.lote || "-"}</td>
+                <td>${formatearFechaToma(f.fecha_expiracion)}</td>
+            `;
+
+            tbody.appendChild(tr);
+
+        });
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">No se pudo cargar el Packing List.</td></tr>`;
+
+    }
+
+}
