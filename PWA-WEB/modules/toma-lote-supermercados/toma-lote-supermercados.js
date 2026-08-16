@@ -61,6 +61,7 @@ document.querySelectorAll(".tab-link").forEach(function(link){
 
         if(link.dataset.tab === "tabObservaciones"){
             cargarObservaciones();
+            cargarCambioLote();
         }
 
     });
@@ -1225,3 +1226,155 @@ async function cargarObservaciones(){
     }
 
 }
+
+// ========================================
+// CAMBIO DE LOTE (Pistoleo vs SAP)
+// ========================================
+// Paletas donde el operario, al pistolear en Centro de Proyectos,
+// marcó "No Coincide" y registró un lote y/o FV distinto al de SAP
+// (Modulación). Es de solo lectura acá — el pistoleo se hace en
+// Centro de Proyectos.
+
+function formatearFechaToma(iso){
+
+    if(!iso){
+        return "-";
+    }
+
+    const partes = String(iso).split("-");
+    return partes.length === 3 ? (partes[2] + "/" + partes[1] + "/" + partes[0]) : iso;
+
+}
+
+async function cargarCambioLote(){
+
+    const tbody = document.getElementById("tblCambioLote");
+    tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando...</td></tr>`;
+
+    try{
+
+        const [correcciones, modulacionFilas] = await Promise.all([
+            supabaseFetch(
+                "/pistoleo?select=id,viaje,lpn,hu,lote_sap,fv_sap,lote_observado,fv_observado,escaneado_por,aplicado" +
+                "&coincide=eq.false&order=viaje.asc"
+            ),
+            supabaseFetch("/modulacion?select=lpn,denominacion_producto")
+        ]);
+
+        if(!correcciones || !correcciones.length){
+            tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Sin correcciones de lote registradas.</td></tr>`;
+            return;
+        }
+
+        const productoPorLpn = {};
+
+        (modulacionFilas || []).forEach(function(f){
+            productoPorLpn[f.lpn] = f.denominacion_producto;
+        });
+
+        tbody.innerHTML = "";
+
+        correcciones.forEach(function(f){
+
+            const tr = document.createElement("tr");
+            tr.dataset.pistoleoId = f.id;
+            tr.dataset.viaje = f.viaje;
+            tr.dataset.lpn = f.lpn;
+
+            const accion = f.aplicado
+                ? '<span class="estado activado">✓ Aplicado</span>'
+                : '<button class="btn-activar btn-aplicar-lote">Aplicar a SAP</button>';
+
+            tr.innerHTML = `
+                <td>${f.viaje}</td>
+                <td>${f.lpn}</td>
+                <td>${productoPorLpn[f.lpn] || "-"}</td>
+                <td>${f.lote_sap || "-"}</td>
+                <td>
+                    <input type="text" class="inputLoteNuevo" value="${(f.lote_observado || "").replace(/"/g, "&quot;")}" ${f.aplicado ? "disabled" : ""}>
+                </td>
+                <td>${formatearFechaToma(f.fv_sap)}</td>
+                <td>
+                    <input type="date" class="inputFvNueva" value="${f.fv_observado || ""}" ${f.aplicado ? "disabled" : ""}>
+                </td>
+                <td>${f.escaneado_por || "-"}</td>
+                <td>${accion}</td>
+            `;
+
+            tbody.appendChild(tr);
+
+        });
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar Cambio de Lote.</td></tr>`;
+
+    }
+
+}
+
+// Aplica el lote/fecha revisado por el admin: reemplaza el lote y la
+// fecha de vencimiento en Modulación (pasan a ser el dato oficial), y
+// marca el registro de pistoleo como aplicado.
+document.getElementById("tblCambioLote").addEventListener("click", async function(e){
+
+    const boton = e.target.closest(".btn-aplicar-lote");
+    if(!boton){
+        return;
+    }
+
+    const fila = boton.closest("tr");
+    const viaje = fila.dataset.viaje;
+    const lpn = fila.dataset.lpn;
+    const pistoleoId = fila.dataset.pistoleoId;
+
+    const loteNuevo = fila.querySelector(".inputLoteNuevo").value.trim();
+    const fvNueva = fila.querySelector(".inputFvNueva").value;
+
+    if(!loteNuevo){
+        alert("Escribe el lote antes de aplicar.");
+        return;
+    }
+
+    if(!fvNueva){
+        alert("Selecciona la fecha de vencimiento antes de aplicar.");
+        return;
+    }
+
+    boton.disabled = true;
+    boton.textContent = "Aplicando...";
+
+    try{
+
+        await supabaseFetch(
+            "/modulacion?viaje=eq." + viaje + "&lpn=eq." + encodeURIComponent(lpn),
+            {
+                method: "PATCH",
+                body: JSON.stringify({
+                    lote: loteNuevo,
+                    fecha_expiracion: fvNueva
+                })
+            }
+        );
+
+        await supabaseFetch(
+            "/pistoleo?id=eq." + pistoleoId,
+            {
+                method: "PATCH",
+                body: JSON.stringify({ aplicado: true })
+            }
+        );
+
+        await cargarCambioLote();
+
+    }catch(err){
+
+        console.error(err);
+        alert("No se pudo aplicar la corrección: " + err.message);
+        boton.disabled = false;
+        boton.textContent = "Aplicar a SAP";
+
+    }
+
+});
