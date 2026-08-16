@@ -1393,6 +1393,7 @@ document.getElementById("tblCambioLote").addEventListener("click", async functio
 // (Cambio de Lote).
 
 let _packingViajesCargados = false;
+let _ultimasFilasPacking = [];
 
 async function cargarPackingList(){
 
@@ -1468,20 +1469,34 @@ async function cargarTablaPacking(){
         });
 
         tbody.innerHTML = "";
+        _ultimasFilasPacking = [];
 
         modulacionFilas.forEach(function(f){
+
+            const fila = {
+                ordenCompra: f.orden_compra || "-",
+                numeroDocumento: f.numero_documento_referencia || "-",
+                lpn: f.lpn || "-",
+                localDestino: localPorEntrega[f.entrega] || "-",
+                sku: f.numero_producto || "-",
+                cantidad: f.ctd_teor_um_base || 0,
+                lote: f.lote || "-",
+                fechaVto: formatearFechaToma(f.fecha_expiracion)
+            };
+
+            _ultimasFilasPacking.push(fila);
 
             const tr = document.createElement("tr");
 
             tr.innerHTML = `
-                <td>${f.orden_compra || "-"}</td>
-                <td>${f.numero_documento_referencia || "-"}</td>
-                <td>${f.lpn || "-"}</td>
-                <td>${localPorEntrega[f.entrega] || "-"}</td>
-                <td>${f.numero_producto || "-"}</td>
-                <td>${formatearNumeroToma(f.ctd_teor_um_base)}</td>
-                <td>${f.lote || "-"}</td>
-                <td>${formatearFechaToma(f.fecha_expiracion)}</td>
+                <td>${fila.ordenCompra}</td>
+                <td>${fila.numeroDocumento}</td>
+                <td>${fila.lpn}</td>
+                <td>${fila.localDestino}</td>
+                <td>${fila.sku}</td>
+                <td>${formatearNumeroToma(fila.cantidad)}</td>
+                <td>${fila.lote}</td>
+                <td>${fila.fechaVto}</td>
             `;
 
             tbody.appendChild(tr);
@@ -1496,3 +1511,38 @@ async function cargarTablaPacking(){
     }
 
 }
+
+document.getElementById("btnExportarPacking").addEventListener("click", function(){
+
+    const viaje = document.getElementById("cmbViajePacking").value;
+
+    if(!viaje){
+        alert("Selecciona un viaje antes de exportar.");
+        return;
+    }
+
+    if(!_ultimasFilasPacking.length){
+        alert("No hay filas de packing list para exportar.");
+        return;
+    }
+
+    const encabezados = [
+        "N° Orden de Compra", "Número documento de referencia", "LPN",
+        "Local Destino", "SKU", "Cantidad", "No. Lote", "Fecha Vto."
+    ];
+
+    const filas = _ultimasFilasPacking.map(function(f){
+        return [
+            f.ordenCompra, f.numeroDocumento, f.lpn, f.localDestino,
+            f.sku, f.cantidad, f.lote, f.fechaVto
+        ];
+    });
+
+    const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filas]);
+    const libro = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(libro, hoja, "PACKING");
+
+    XLSX.writeFile(libro, "ALMACENAJE_" + viaje + ".xlsx");
+
+});
