@@ -175,6 +175,10 @@ body{
     display:none;
 }
 
+.card.oculto{
+    display:none;
+}
+
 .nota-modulo{
     color:#6b7280;
     font-size:13px;
@@ -210,6 +214,17 @@ body{
     border-radius:20px;
     background:#eef1f4;
     color:#6b7280;
+    cursor:pointer;
+    border:2px solid transparent;
+    transition:.15s;
+}
+
+.estado-resumen-item:hover{
+    filter:brightness(.96);
+}
+
+.estado-resumen-item.seleccionado{
+    border-color:currentColor;
 }
 
 .estado-resumen-item.ok{

@@ -1577,7 +1577,121 @@ async function cargarResumenViaje(){
 
 }
 
-document.getElementById("cmbViajeResumen").addEventListener("change", actualizarResumenViaje);
+document.getElementById("cmbViajeResumen").addEventListener("change", function(){
+
+    // Al cambiar de viaje se cierran los detalles que hayan quedado
+    // abiertos del viaje anterior.
+    ["cardDescuadre", "cardPistoleo", "cardCambioLote"].forEach(function(id){
+        document.getElementById(id).classList.add("oculto");
+    });
+
+    document.querySelectorAll(".estado-resumen-item").forEach(function(chip){
+        chip.classList.remove("seleccionado");
+    });
+
+    actualizarResumenViaje();
+
+});
+
+// Paletas sin pistolear del último viaje consultado — null = todavía
+// no se sabe, 0 = todas pistoleadas, N = paletas pendientes de
+// pistolear. Lo usa actualizarEstadoResumen() para el cuadro de estado.
+let _ultimoPistoleoPendienteCount = null;
+
+async function cargarEstadoPistoleo(viaje){
+
+    const tbody = document.getElementById("tblPistoleoPendiente");
+
+    if(!viaje){
+        _ultimoPistoleoPendienteCount = null;
+        tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">Selecciona un viaje arriba.</td></tr>`;
+        return;
+    }
+
+    try{
+
+        const [modulacionFilas, pistoleoFilas] = await Promise.all([
+            supabaseFetch(
+                "/modulacion?select=lpn,denominacion_producto,lote,fecha_expiracion&viaje=eq." + viaje
+            ),
+            supabaseFetch("/pistoleo?select=lpn&viaje=eq." + viaje)
+        ]);
+
+        if(!modulacionFilas || !modulacionFilas.length){
+            _ultimoPistoleoPendienteCount = null;
+            tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">Este viaje todavía no tiene Modulación cargada.</td></tr>`;
+            return;
+        }
+
+        const lpnsEscaneados = new Set((pistoleoFilas || []).map(f => f.lpn));
+
+        const vistos = new Set();
+
+        const pendientes = modulacionFilas.filter(function(f){
+
+            if(!f.lpn || vistos.has(f.lpn) || lpnsEscaneados.has(f.lpn)){
+                return false;
+            }
+
+            vistos.add(f.lpn);
+            return true;
+
+        });
+
+        _ultimoPistoleoPendienteCount = pendientes.length;
+
+        if(!pendientes.length){
+            tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">Sin paletas pendientes de pistoleo.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = "";
+
+        pendientes.forEach(function(f){
+
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${f.lpn}</td>
+                <td>${f.denominacion_producto || "-"}</td>
+                <td>${f.lote || "-"}</td>
+                <td>${formatearFechaToma(f.fecha_expiracion)}</td>
+            `;
+
+            tbody.appendChild(tr);
+
+        });
+
+    }catch(e){
+
+        console.error(e);
+        _ultimoPistoleoPendienteCount = null;
+        tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">No se pudo cargar el pistoleo pendiente.</td></tr>`;
+
+    }
+
+}
+
+// Los chips de estado son botones: tocar uno muestra/oculta su
+// tarjeta de detalle (Descuadre, Pistoleo o Cambio de Lote).
+document.getElementById("estadoResumenViaje").addEventListener("click", function(e){
+
+    const chip = e.target.closest(".estado-resumen-item");
+    if(!chip){
+        return;
+    }
+
+    const card = document.getElementById(chip.dataset.target);
+    if(!card){
+        return;
+    }
+
+    const estaOculto = card.classList.contains("oculto");
+
+    card.classList.toggle("oculto", !estaOculto);
+    chip.classList.toggle("seleccionado", estaOculto);
+
+});
 
 async function actualizarResumenViaje(){
 
@@ -1587,6 +1701,7 @@ async function actualizarResumenViaje(){
 
     await Promise.all([
         cargarObservaciones(viaje),
+        cargarEstadoPistoleo(viaje),
         cargarCambioLote(viaje),
         cargarTablaPacking(viaje)
     ]);
@@ -1601,6 +1716,7 @@ function actualizarEstadoResumen(){
 
     const viaje = document.getElementById("cmbViajeResumen").value;
     const elDescuadre = document.getElementById("estadoDescuadre");
+    const elPistoleo = document.getElementById("estadoPistoleo");
     const elCambioLote = document.getElementById("estadoCambioLote");
     const btnExportar = document.getElementById("btnExportarPacking");
 
@@ -1634,6 +1750,14 @@ function actualizarEstadoResumen(){
     );
 
     pintar(
+        elPistoleo,
+        _ultimoPistoleoPendienteCount,
+        "Pistoleo completo",
+        _ultimoPistoleoPendienteCount + " paleta(s) pendiente(s) de pistoleo",
+        "Sin datos de pistoleo"
+    );
+
+    pintar(
         elCambioLote,
         _ultimoCambioLotePendienteCount,
         "Sin cambios de lote pendientes",
@@ -1642,7 +1766,9 @@ function actualizarEstadoResumen(){
     );
 
     const listoParaExportar =
-        _ultimoDescuadreCount === 0 && _ultimoCambioLotePendienteCount === 0;
+        _ultimoDescuadreCount === 0 &&
+        _ultimoPistoleoPendienteCount === 0 &&
+        _ultimoCambioLotePendienteCount === 0;
 
     btnExportar.style.display = listoParaExportar ? "inline-block" : "none";
 

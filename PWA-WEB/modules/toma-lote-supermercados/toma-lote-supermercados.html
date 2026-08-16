@@ -279,12 +279,17 @@
 
                     <div id="estadoResumenViaje" class="estado-resumen-viaje" style="display:none;">
 
-                        <div class="estado-resumen-item" id="estadoDescuadre">
+                        <div class="estado-resumen-item" id="estadoDescuadre" data-target="cardDescuadre">
                             <span class="estado-resumen-icono">⏳</span>
                             <span>Verificando descuadre...</span>
                         </div>
 
-                        <div class="estado-resumen-item" id="estadoCambioLote">
+                        <div class="estado-resumen-item" id="estadoPistoleo" data-target="cardPistoleo">
+                            <span class="estado-resumen-icono">⏳</span>
+                            <span>Verificando pistoleo...</span>
+                        </div>
+
+                        <div class="estado-resumen-item" id="estadoCambioLote" data-target="cardCambioLote">
                             <span class="estado-resumen-icono">⏳</span>
                             <span>Verificando cambios de lote...</span>
                         </div>
@@ -295,9 +300,13 @@
 
                     </div>
 
+                    <p class="nota-modulo" style="margin-top:12px;margin-bottom:0;">
+                        Toca uno de los estados de arriba para ver el detalle.
+                    </p>
+
                 </div>
 
-                <div class="card">
+                <div class="card oculto" id="cardDescuadre">
 
                     <h3 class="subtitulo-validacion">
                         1. Descuadre — Cantidades por OC
@@ -341,7 +350,47 @@
 
                 </div>
 
-                <div class="card">
+                <div class="card oculto" id="cardPistoleo">
+
+                    <h3 class="subtitulo-validacion">
+                        Pistoleo — Paletas pendientes de escanear
+                    </h3>
+
+                    <p class="nota-modulo">
+                        Paletas de este viaje que todavía no se han pistoleado en
+                        Centro de Proyectos.
+                    </p>
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>LPN</th>
+                                <th>Producto</th>
+                                <th>Lote SAP</th>
+                                <th>Fecha Vto. SAP</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblPistoleoPendiente">
+
+                            <tr>
+                                <td colspan="4" class="sin-datos">
+                                    Sin paletas pendientes de pistoleo.
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+                <div class="card oculto" id="cardCambioLote">
 
                     <h3 class="subtitulo-validacion">
                         2. Cambio de Lote — Pistoleo vs SAP
