@@ -60,12 +60,7 @@ document.querySelectorAll(".tab-link").forEach(function(link){
         document.getElementById(link.dataset.tab).classList.remove("oculto");
 
         if(link.dataset.tab === "tabObservaciones"){
-            cargarObservaciones();
-            cargarCambioLote();
-        }
-
-        if(link.dataset.tab === "tabPacking"){
-            cargarPackingList();
+            cargarResumenViaje();
         }
 
     });
@@ -1109,9 +1104,15 @@ function formatearNumeroToma(n){
     return Number(n || 0).toLocaleString("es-PE", { maximumFractionDigits: 2 });
 }
 
-async function cargarObservaciones(){
+async function cargarObservaciones(viaje){
 
     const tbody = document.getElementById("tblObservaciones");
+
+    if(!viaje){
+        tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Selecciona un viaje arriba para ver las observaciones.</td></tr>`;
+        return;
+    }
+
     tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Calculando...</td></tr>`;
 
     try{
@@ -1119,16 +1120,16 @@ async function cargarObservaciones(){
         const [dataModulado, modulacionFilas] = await Promise.all([
             supabaseFetch(
                 "/data_modulado?select=fo,orden_compra,numero_producto_cliente," +
-                "denominacion_producto_cliente,cantidad_umb"
+                "denominacion_producto_cliente,cantidad_umb&unidad_transporte=eq." + viaje
             ),
             supabaseFetch(
-                "/modulacion?select=orden_compra,numero_producto_cliente,ctd_teor_um_base"
+                "/modulacion?select=orden_compra,numero_producto_cliente,ctd_teor_um_base&viaje=eq." + viaje
             )
         ]);
 
         if(!dataModulado || !dataModulado.length){
             tbody.innerHTML =
-                `<tr><td colspan="7" class="sin-datos">Carga Data Modulado y Modulación para ver las observaciones.</td></tr>`;
+                `<tr><td colspan="7" class="sin-datos">Este viaje todavía no tiene Data Modulado cargado.</td></tr>`;
             return;
         }
 
@@ -1250,9 +1251,15 @@ function formatearFechaToma(iso){
 
 }
 
-async function cargarCambioLote(){
+async function cargarCambioLote(viaje){
 
     const tbody = document.getElementById("tblCambioLote");
+
+    if(!viaje){
+        tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Selecciona un viaje arriba para ver las correcciones de lote.</td></tr>`;
+        return;
+    }
+
     tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando...</td></tr>`;
 
     try{
@@ -1260,13 +1267,13 @@ async function cargarCambioLote(){
         const [correcciones, modulacionFilas] = await Promise.all([
             supabaseFetch(
                 "/pistoleo?select=id,viaje,lpn,hu,lote_sap,fv_sap,lote_observado,fv_observado,escaneado_por,aplicado" +
-                "&coincide=eq.false&order=viaje.asc"
+                "&coincide=eq.false&viaje=eq." + viaje + "&order=viaje.asc"
             ),
-            supabaseFetch("/modulacion?select=lpn,denominacion_producto")
+            supabaseFetch("/modulacion?select=lpn,denominacion_producto&viaje=eq." + viaje)
         ]);
 
         if(!correcciones || !correcciones.length){
-            tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Sin correcciones de lote registradas.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Sin correcciones de lote registradas para este viaje.</td></tr>`;
             return;
         }
 
@@ -1370,7 +1377,7 @@ document.getElementById("tblCambioLote").addEventListener("click", async functio
             }
         );
 
-        await cargarCambioLote();
+        await cargarCambioLote(viaje);
 
     }catch(err){
 
@@ -1392,50 +1399,11 @@ document.getElementById("tblCambioLote").addEventListener("click", async functio
 // que ya reflejan las correcciones aplicadas en Observaciones
 // (Cambio de Lote).
 
-let _packingViajesCargados = false;
 let _ultimasFilasPacking = [];
 
-async function cargarPackingList(){
-
-    const cmb = document.getElementById("cmbViajePacking");
-
-    if(!_packingViajesCargados){
-
-        try{
-
-            const dataModulado = await supabaseFetch(
-                "/data_modulado?select=unidad_transporte"
-            );
-
-            const viajes = [...new Set((dataModulado || []).map(f => f.unidad_transporte))]
-                .filter(v => v !== null && v !== undefined)
-                .sort((a, b) => a - b);
-
-            viajes.forEach(function(v){
-                const option = document.createElement("option");
-                option.value = String(v);
-                option.textContent = String(v);
-                cmb.appendChild(option);
-            });
-
-            _packingViajesCargados = true;
-
-        }catch(e){
-            console.error(e);
-        }
-
-    }
-
-    await cargarTablaPacking();
-
-}
-
-document.getElementById("cmbViajePacking").addEventListener("change", cargarTablaPacking);
-
-async function cargarTablaPacking(){
+async function cargarTablaPacking(viaje){
 
     const tbody = document.getElementById("tblPacking");
-    const viaje = document.getElementById("cmbViajePacking").value;
 
     if(!viaje){
         tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Selecciona un viaje para ver el packing list.</td></tr>`;
@@ -1514,7 +1482,7 @@ async function cargarTablaPacking(){
 
 document.getElementById("btnExportarPacking").addEventListener("click", function(){
 
-    const viaje = document.getElementById("cmbViajePacking").value;
+    const viaje = document.getElementById("cmbViajeResumen").value;
 
     if(!viaje){
         alert("Selecciona un viaje antes de exportar.");
@@ -1546,3 +1514,58 @@ document.getElementById("btnExportarPacking").addEventListener("click", function
     XLSX.writeFile(libro, "ALMACENAJE_" + viaje + ".xlsx");
 
 });
+
+// ========================================
+// RESUMEN (Observaciones + Packing List) — selector de viaje compartido
+// ========================================
+
+let _viajesResumenCargados = false;
+
+async function cargarResumenViaje(){
+
+    const cmb = document.getElementById("cmbViajeResumen");
+
+    if(!_viajesResumenCargados){
+
+        try{
+
+            const dataModulado = await supabaseFetch(
+                "/data_modulado?select=unidad_transporte"
+            );
+
+            const viajes = [...new Set((dataModulado || []).map(f => f.unidad_transporte))]
+                .filter(v => v !== null && v !== undefined)
+                .sort((a, b) => a - b);
+
+            viajes.forEach(function(v){
+                const option = document.createElement("option");
+                option.value = String(v);
+                option.textContent = String(v);
+                cmb.appendChild(option);
+            });
+
+            _viajesResumenCargados = true;
+
+        }catch(e){
+            console.error(e);
+        }
+
+    }
+
+    await actualizarResumenViaje();
+
+}
+
+document.getElementById("cmbViajeResumen").addEventListener("change", actualizarResumenViaje);
+
+async function actualizarResumenViaje(){
+
+    const viaje = document.getElementById("cmbViajeResumen").value;
+
+    await Promise.all([
+        cargarObservaciones(viaje),
+        cargarCambioLote(viaje),
+        cargarTablaPacking(viaje)
+    ]);
+
+}

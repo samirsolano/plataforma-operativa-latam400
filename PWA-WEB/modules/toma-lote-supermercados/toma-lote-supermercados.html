@@ -59,8 +59,7 @@
             <nav class="menu">
 
                 <a href="#" class="tab-link activo" data-tab="tabDataModulado">1. Carga Data Modulado, Fase y Modulación</a>
-                <a href="#" class="tab-link" data-tab="tabObservaciones">2. Observaciones</a>
-                <a href="#" class="tab-link" data-tab="tabPacking">3. Packing List</a>
+                <a href="#" class="tab-link" data-tab="tabObservaciones">2. Observaciones y Packing List</a>
 
             </nav>
 
@@ -253,7 +252,7 @@
             </div>
 
             <!-- ============================================ -->
-            <!-- TAB 2: OBSERVACIONES -->
+            <!-- TAB 2: OBSERVACIONES Y PACKING LIST -->
             <!-- ============================================ -->
 
             <div class="tab-contenido oculto" id="tabObservaciones">
@@ -261,8 +260,26 @@
                 <div class="card">
 
                     <h2>
-                        2. OBSERVACIONES
+                        2. OBSERVACIONES Y PACKING LIST
                     </h2>
+
+                    <div class="viaje-grid" style="grid-template-columns:1fr;max-width:320px;">
+
+                        <div>
+
+                            <label>Viaje</label>
+
+                            <select id="cmbViajeResumen">
+                                <option value="">Seleccione viaje</option>
+                            </select>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="card">
 
                     <h3 class="subtitulo-validacion">
                         1. Descuadre — Cantidades por OC
@@ -296,7 +313,7 @@
 
                             <tr>
                                 <td colspan="7" class="sin-datos">
-                                    Carga Data Modulado y Modulación para ver las observaciones.
+                                    Selecciona un viaje arriba para ver las observaciones.
                                 </td>
                             </tr>
 
@@ -353,48 +370,24 @@
 
                 </div>
 
-            </div>
-
-            <!-- ============================================ -->
-            <!-- TAB 3: PACKING LIST -->
-            <!-- ============================================ -->
-
-            <div class="tab-contenido oculto" id="tabPacking">
-
                 <div class="card">
 
-                    <h2>
-                        3. PACKING LIST
-                    </h2>
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px;">
 
-                    <p class="nota-modulo">
-                        Guía de despacho por paleta, para un viaje a la vez. El lote y
-                        la fecha ya reflejan las correcciones aplicadas en Observaciones.
-                    </p>
+                        <h3 class="subtitulo-validacion" style="margin-bottom:0;">
+                            3. Packing List — Guía de Despacho
+                        </h3>
 
-                    <div class="viaje-grid" style="grid-template-columns:1fr auto;max-width:420px;margin-bottom:20px;">
-
-                        <div>
-
-                            <label>Viaje</label>
-
-                            <select id="cmbViajePacking">
-                                <option value="">Seleccione viaje</option>
-                            </select>
-
-                        </div>
-
-                        <div>
-
-                            <label>&nbsp;</label>
-
-                            <button id="btnExportarPacking" style="background:#16a34a;color:white;border:none;border-radius:10px;padding:12px 18px;font-weight:700;cursor:pointer;height:46px;">
-                                ⬇ Exportar a Excel
-                            </button>
-
-                        </div>
+                        <button id="btnExportarPacking" style="background:#16a34a;color:white;border:none;border-radius:10px;padding:12px 18px;font-weight:700;cursor:pointer;height:46px;">
+                            ⬇ Exportar a Excel
+                        </button>
 
                     </div>
+
+                    <p class="nota-modulo">
+                        Guía de despacho por paleta. El lote y la fecha ya reflejan las
+                        correcciones aplicadas en Cambio de Lote.
+                    </p>
 
                     <table>
 
