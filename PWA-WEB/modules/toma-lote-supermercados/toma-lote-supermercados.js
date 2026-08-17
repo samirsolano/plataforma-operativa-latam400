@@ -1511,6 +1511,7 @@ async function cargarTablaPacking(viaje){
                 cantidad: f.ctd_teor_um_base || 0,
                 lote: f.lote || "-",
                 fechaVto: formatearFechaToma(f.fecha_expiracion),
+                fechaVtoISO: f.fecha_expiracion || null,
                 costo: ""
             };
 
@@ -1562,14 +1563,65 @@ document.getElementById("btnExportarPacking").addEventListener("click", function
         "SKU", "CANTIDAD", "No. Lote", "Fecha Vto.", "COSTO"
     ];
 
+    // Todas las columnas van como texto (para que Excel no le quite los
+    // ceros a la izquierda ni convierta los números largos a notación
+    // científica) — Fecha Vto. es la única excepción: va como fecha real.
     const filas = _ultimasFilasPacking.map(function(f){
         return [
-            f.ordenCompra, f.numeroDocumento, f.lpn, f.localDestino,
-            f.sku, f.cantidad, f.lote, f.fechaVto, f.costo || ""
+            String(f.ordenCompra), String(f.numeroDocumento), f.lpn, String(f.localDestino),
+            f.sku, String(f.cantidad), f.lote, f.fechaVto, f.costo || ""
         ];
     });
 
     const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filas]);
+    const COLUMNA_FECHA = 7;
+
+    // Serial de fecha de Excel (días desde 1899-12-30) calculado a mano
+    // en vez de con un objeto Date — un Date se lee con la hora local
+    // del navegador y eso puede correr la fecha un día según el huso
+    // horario; así queda exacta sin importar la zona horaria.
+    function fechaISOaSerialExcel(iso){
+
+        const partes = iso.split("-").map(Number);
+        const epochMs = Date.UTC(1899, 11, 30);
+        const ms = Date.UTC(partes[0], partes[1] - 1, partes[2]);
+
+        return Math.round((ms - epochMs) / 86400000);
+
+    }
+
+    filas.forEach(function(fila, i){
+
+        const filaHoja = i + 1;
+
+        for(let col = 0; col < encabezados.length; col++){
+
+            const direccion = XLSX.utils.encode_cell({ r: filaHoja, c: col });
+            const celda = hoja[direccion];
+
+            if(!celda){
+                continue;
+            }
+
+            if(col === COLUMNA_FECHA){
+
+                const fechaIso = _ultimasFilasPacking[i].fechaVtoISO;
+
+                if(fechaIso){
+                    hoja[direccion] = { t: "n", v: fechaISOaSerialExcel(fechaIso), z: "dd/mm/yyyy" };
+                }
+
+            }else{
+
+                celda.t = "s";
+                celda.z = "@";
+
+            }
+
+        }
+
+    });
+
     const libro = XLSX.utils.book_new();
 
     XLSX.utils.book_append_sheet(libro, hoja, "PACKING");
