@@ -298,6 +298,86 @@ archivoDataModulado.addEventListener("change", async function(e){
 });
 
 // ========================================
+// LIMPIAR TODO (empezar de nuevo)
+// ========================================
+// Borra Data Modulado, Modulación, Fase, viajes activados y pistoleo —
+// de TODOS los viajes, no solo el seleccionado. Es la acción más
+// destructiva del módulo (deja el módulo como recién instalado), así
+// que además del confirm() nativo se pide escribir "BORRAR" para
+// reducir el riesgo de un clic accidental.
+
+document.getElementById("btnLimpiarTodo").addEventListener("click", async function(){
+
+    const btnLimpiar = document.getElementById("btnLimpiarTodo");
+
+    const confirmado = confirm(
+        "Esto borra TODO lo cargado en Toma de Lote Supermercados: Data Modulado, " +
+        "Modulación, Fase, viajes activados y registros de pistoleo — de todos los " +
+        "viajes, no solo el seleccionado. No se puede deshacer.\n\n¿Seguro que quieres continuar?"
+    );
+
+    if(!confirmado){
+        return;
+    }
+
+    const escrito = prompt('Para confirmar, escribe BORRAR (en mayúsculas):');
+
+    if(escrito !== "BORRAR"){
+        mostrarToast("Cancelado: no se escribió BORRAR, no se borró nada.", "info");
+        return;
+    }
+
+    btnLimpiar.disabled = true;
+    btnLimpiar.textContent = "Borrando...";
+
+    try{
+
+        await supabaseFetch("/pistoleo?id=gt.0", { method: "DELETE" });
+        await supabaseFetch("/viajes_activados?viaje=gt.0", { method: "DELETE" });
+        await supabaseFetch("/fase?id=gt.0", { method: "DELETE" });
+        await supabaseFetch("/modulacion?id=gt.0", { method: "DELETE" });
+        await supabaseFetch("/data_modulado?id=gt.0", { method: "DELETE" });
+
+        // Tab 1: Data Modulado + Viajes Generados
+        nombreDataModulado.textContent = "-";
+        fechaDataModulado.textContent = "-";
+        document.getElementById("totalRegistros").textContent = "-";
+        document.getElementById("totalViajes").textContent = "-";
+        archivoDataModulado.value = "";
+        document.getElementById("cmbViaje").innerHTML = '<option>Seleccione viaje</option>';
+        document.getElementById("archivoModulacion").value = "";
+        document.getElementById("archivoFase").value = "";
+        document.getElementById("tblViajes").innerHTML = "";
+
+        // Tab 2: Observaciones y Packing List
+        _viajesResumenCargados = false;
+        const cmbResumen = document.getElementById("cmbViajeResumen");
+        cmbResumen.innerHTML = '<option value="">Seleccione viaje</option>';
+        document.getElementById("estadoResumenViaje").style.display = "none";
+        ["cardDescuadre", "cardPistoleo", "cardCambioLote", "cardPacking"].forEach(function(id){
+            document.getElementById(id).classList.add("oculto");
+        });
+        document.querySelectorAll(".estado-resumen-item").forEach(function(chip){
+            chip.classList.remove("seleccionado");
+        });
+
+        mostrarToast("Todo borrado. El módulo quedó listo para empezar de nuevo.", "exito");
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo borrar todo: " + err.message, "error");
+
+    }finally{
+
+        btnLimpiar.disabled = false;
+        btnLimpiar.textContent = "🗑 Borrar Todo";
+
+    }
+
+});
+
+// ========================================
 // VIAJES (a partir de Data Modulado real)
 // ========================================
 // Usuario sigue siendo visual por ahora — Viaje, Entregas, Registros,
