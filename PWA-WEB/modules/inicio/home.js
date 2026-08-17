@@ -20,6 +20,8 @@ if(sesion){
         document.getElementById("cardUsuariosCentro").style.display = "none";
         document.getElementById("linkTomaLote").style.display = "none";
         document.getElementById("cardTomaLote").style.display = "none";
+        document.getElementById("linkTomaLoteFarmacia").style.display = "none";
+        document.getElementById("cardTomaLoteFarmacia").style.display = "none";
     }
 
 }

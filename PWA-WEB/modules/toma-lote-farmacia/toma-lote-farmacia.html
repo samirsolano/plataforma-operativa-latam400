@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Toma de Lote Farmacia - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="toma-lote-farmacia.css"
+    >
+
+</head>
+
+<body>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+
+                <h1>TOMA DE LOTE</h1>
+                <h1>FARMACIA</h1>
+
+                <span>LATAM 400 CL</span>
+
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="contenido">
+
+            <header class="topbar">
+
+                <div class="topbar-titulo">
+
+                    <h2>TOMA DE LOTE FARMACIA</h2>
+
+                    <p>Validación de lote por foto (droguería)</p>
+
+                </div>
+
+            </header>
+
+            <div class="card">
+
+                <div class="card-header-flex">
+
+                    <h2>
+                        1. CARGAR PLANTILLA DE TOMA DE LOTE FARMACIA
+                    </h2>
+
+                    <button id="btnDescargarPlantilla" class="btn-secundario">
+                        ⬇ Descargar Plantilla
+                    </button>
+
+                </div>
+
+                <p class="nota-modulo">
+                    Sube la plantilla lineal (una fila por código) con las columnas:
+                    VIAJE, ORDEN DE COMPRA, ENTREGA, N° CITA, CODIGO/SKU, DESCRIPCION, UN, CANTIDAD SOLICITADA.
+                </p>
+
+                <div class="data-modulado">
+
+                    <div class="upload-box">
+
+                        <input
+                            type="file"
+                            id="archivoFarmacia"
+                        >
+
+                    </div>
+
+                    <div class="detalle-archivo">
+
+                        <p>
+                            Archivo:
+                            <span id="nombreArchivo">
+                                -
+                            </span>
+                        </p>
+
+                        <p>
+                            Fecha:
+                            <span id="fechaArchivo">
+                                -
+                            </span>
+                        </p>
+
+                        <p>
+                            Registros:
+                            <span id="totalRegistros">
+                                -
+                            </span>
+                        </p>
+
+                        <p>
+                            Viajes:
+                            <span id="totalViajes">
+                                -
+                            </span>
+                        </p>
+
+                    </div>
+
+                    <div class="estado-ok">
+
+                        <h3>
+                            ✓ Procesado correctamente
+                        </h3>
+
+                        <p>
+                            Se generaron los viajes disponibles.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="card">
+
+                <h2>
+                    VIAJES GENERADOS
+                </h2>
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Viaje</th>
+                            <th>OC</th>
+                            <th>Códigos</th>
+                            <th>Cantidad Total</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="tblViajes">
+
+                        <tr>
+                            <td colspan="6" class="sin-datos">
+                                Sube la plantilla para ver los viajes.
+                            </td>
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="toma-lote-farmacia.js"></script>
+
+</body>
+
+</html>
