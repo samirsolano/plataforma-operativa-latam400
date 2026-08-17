@@ -58,6 +58,13 @@
 
             </div>
 
+            <nav class="menu">
+
+                <a href="#" class="tab-link activo" data-tab="tabCarga">1. Carga y Viajes</a>
+                <a href="#" class="tab-link" data-tab="tabLecturas">2. Lecturas y Evidencias</a>
+
+            </nav>
+
         </aside>
 
         <!-- CONTENIDO -->
@@ -76,122 +83,235 @@
 
             </header>
 
-            <div class="card">
+            <!-- ============================================ -->
+            <!-- TAB 1: CARGA Y VIAJES -->
+            <!-- ============================================ -->
 
-                <div class="card-header-flex">
+            <div class="tab-contenido" id="tabCarga">
 
-                    <h2>
-                        1. CARGAR PLANTILLA DE TOMA DE LOTE FARMACIA
-                    </h2>
+                <div class="card">
 
-                    <button id="btnDescargarPlantilla" class="btn-secundario">
-                        ⬇ Descargar Plantilla
-                    </button>
+                    <div class="card-header-flex">
+
+                        <h2>
+                            1. CARGAR PLANTILLA DE TOMA DE LOTE FARMACIA
+                        </h2>
+
+                        <button id="btnDescargarPlantilla" class="btn-secundario">
+                            ⬇ Descargar Plantilla
+                        </button>
+
+                    </div>
+
+                    <p class="nota-modulo">
+                        Sube la plantilla lineal (una fila por código) con las columnas:
+                        VIAJE, ORDEN DE COMPRA, ENTREGA, N° CITA, CODIGO/SKU, DESCRIPCION, UN, CANTIDAD SOLICITADA.
+                    </p>
+
+                    <div class="data-modulado">
+
+                        <div class="upload-box">
+
+                            <input
+                                type="file"
+                                id="archivoFarmacia"
+                            >
+
+                        </div>
+
+                        <div class="detalle-archivo">
+
+                            <p>
+                                Archivo:
+                                <span id="nombreArchivo">
+                                    -
+                                </span>
+                            </p>
+
+                            <p>
+                                Fecha:
+                                <span id="fechaArchivo">
+                                    -
+                                </span>
+                            </p>
+
+                            <p>
+                                Registros:
+                                <span id="totalRegistros">
+                                    -
+                                </span>
+                            </p>
+
+                            <p>
+                                Viajes:
+                                <span id="totalViajes">
+                                    -
+                                </span>
+                            </p>
+
+                        </div>
+
+                        <div class="estado-ok">
+
+                            <h3>
+                                ✓ Procesado correctamente
+                            </h3>
+
+                            <p>
+                                Se generaron los viajes disponibles.
+                            </p>
+
+                        </div>
+
+                    </div>
 
                 </div>
 
-                <p class="nota-modulo">
-                    Sube la plantilla lineal (una fila por código) con las columnas:
-                    VIAJE, ORDEN DE COMPRA, ENTREGA, N° CITA, CODIGO/SKU, DESCRIPCION, UN, CANTIDAD SOLICITADA.
-                </p>
+                <div class="card">
 
-                <div class="data-modulado">
+                    <h2>
+                        VIAJES GENERADOS
+                    </h2>
 
-                    <div class="upload-box">
+                    <table>
 
-                        <input
-                            type="file"
-                            id="archivoFarmacia"
-                        >
+                        <thead>
 
-                    </div>
+                            <tr>
 
-                    <div class="detalle-archivo">
+                                <th>Viaje</th>
+                                <th>OC</th>
+                                <th>Códigos</th>
+                                <th>Cantidad Total</th>
+                                <th>Estado</th>
+                                <th>Acción</th>
 
-                        <p>
-                            Archivo:
-                            <span id="nombreArchivo">
-                                -
-                            </span>
-                        </p>
+                            </tr>
 
-                        <p>
-                            Fecha:
-                            <span id="fechaArchivo">
-                                -
-                            </span>
-                        </p>
+                        </thead>
 
-                        <p>
-                            Registros:
-                            <span id="totalRegistros">
-                                -
-                            </span>
-                        </p>
+                        <tbody id="tblViajes">
 
-                        <p>
-                            Viajes:
-                            <span id="totalViajes">
-                                -
-                            </span>
-                        </p>
+                            <tr>
+                                <td colspan="6" class="sin-datos">
+                                    Sube la plantilla para ver los viajes.
+                                </td>
+                            </tr>
 
-                    </div>
+                        </tbody>
 
-                    <div class="estado-ok">
-
-                        <h3>
-                            ✓ Procesado correctamente
-                        </h3>
-
-                        <p>
-                            Se generaron los viajes disponibles.
-                        </p>
-
-                    </div>
+                    </table>
 
                 </div>
 
             </div>
 
-            <div class="card">
+            <!-- ============================================ -->
+            <!-- TAB 2: LECTURAS Y EVIDENCIAS -->
+            <!-- ============================================ -->
 
-                <h2>
-                    VIAJES GENERADOS
-                </h2>
+            <div class="tab-contenido oculto" id="tabLecturas">
 
-                <table>
+                <div class="card">
 
-                    <thead>
+                    <div class="card-header-flex">
 
-                        <tr>
+                        <h2>
+                            2. LECTURAS Y EVIDENCIAS
+                        </h2>
 
-                            <th>Viaje</th>
-                            <th>OC</th>
-                            <th>Códigos</th>
-                            <th>Cantidad Total</th>
-                            <th>Estado</th>
-                            <th>Acción</th>
+                        <button id="btnExportarLecturas" class="btn-secundario">
+                            ⬇ Exportar Excel
+                        </button>
 
-                        </tr>
+                    </div>
 
-                    </thead>
+                    <p class="nota-modulo">
+                        Busca por viaje, código y/o lote para revisar lo que escanearon los auxiliares y ver la foto de evidencia de cada caja.
+                    </p>
 
-                    <tbody id="tblViajes">
+                    <div class="filtros-lecturas">
 
-                        <tr>
-                            <td colspan="6" class="sin-datos">
-                                Sube la plantilla para ver los viajes.
-                            </td>
-                        </tr>
+                        <div>
+                            <label>Viaje</label>
+                            <select id="cmbViajeLecturas">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
 
-                    </tbody>
+                        <div>
+                            <label>Código</label>
+                            <input type="text" id="filtroCodigo" placeholder="Ej: 8321151">
+                        </div>
 
-                </table>
+                        <div>
+                            <label>Lote</label>
+                            <input type="text" id="filtroLote" placeholder="Ej: 20600026">
+                        </div>
+
+                        <div>
+                            <button id="btnBuscarLecturas">Buscar</button>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Viaje</th>
+                                <th>OC</th>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Lote</th>
+                                <th>F.V.</th>
+                                <th>Cajas</th>
+                                <th>Escaneado por</th>
+                                <th>Fecha</th>
+                                <th>Evidencia</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblLecturas">
+
+                            <tr>
+                                <td colspan="10" class="sin-datos">
+                                    Usa los filtros de arriba para buscar lecturas.
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
 
             </div>
 
         </main>
+
+    </div>
+
+    <!-- MODAL VER FOTO -->
+
+    <div class="modal-foto oculto" id="modalFoto">
+
+        <div class="modal-foto-fondo" id="modalFotoFondo"></div>
+
+        <div class="modal-foto-caja">
+
+            <button class="modal-foto-cerrar" id="btnCerrarModalFoto">✕</button>
+            <img id="modalFotoImg" src="" alt="Evidencia">
+
+        </div>
 
     </div>
 

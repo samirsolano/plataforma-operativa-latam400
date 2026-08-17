@@ -68,6 +68,35 @@ document.getElementById("btnCerrarSesion").addEventListener("click", function(e)
 });
 
 // ========================================
+// TABS (links del sidebar)
+// ========================================
+
+document.querySelectorAll(".tab-link").forEach(function(link){
+
+    link.addEventListener("click", function(e){
+
+        e.preventDefault();
+
+        document.querySelectorAll(".tab-link").forEach(function(l){
+            l.classList.remove("activo");
+        });
+
+        document.querySelectorAll(".tab-contenido").forEach(function(c){
+            c.classList.add("oculto");
+        });
+
+        link.classList.add("activo");
+        document.getElementById(link.dataset.tab).classList.remove("oculto");
+
+        if(link.dataset.tab === "tabLecturas"){
+            cargarViajesParaFiltro();
+        }
+
+    });
+
+});
+
+// ========================================
 // DESCARGAR PLANTILLA
 // ========================================
 
@@ -458,3 +487,175 @@ async function cargarResumenExistente(){
 }
 
 cargarResumenExistente();
+
+// ========================================
+// LECTURAS Y EVIDENCIAS
+// ========================================
+
+let _viajesLecturasCargados = false;
+let _ultimasLecturas = [];
+
+async function cargarViajesParaFiltro(){
+
+    if(_viajesLecturasCargados){
+        return;
+    }
+
+    try{
+
+        const filas = await supabaseFetch("/farmacia_data?select=viaje");
+
+        const viajes = [...new Set((filas || []).map(f => f.viaje))]
+            .filter(v => v !== null && v !== undefined)
+            .sort((a, b) => a - b);
+
+        const cmb = document.getElementById("cmbViajeLecturas");
+
+        viajes.forEach(function(v){
+            const option = document.createElement("option");
+            option.value = String(v);
+            option.textContent = String(v);
+            cmb.appendChild(option);
+        });
+
+        _viajesLecturasCargados = true;
+
+    }catch(e){
+        console.error(e);
+    }
+
+}
+
+function formatearFechaHoraLecturas(iso){
+
+    if(!iso){
+        return "-";
+    }
+
+    return new Date(iso).toLocaleString("es-PE", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit"
+    });
+
+}
+
+async function buscarLecturas(){
+
+    const viaje = document.getElementById("cmbViajeLecturas").value;
+    const codigo = document.getElementById("filtroCodigo").value.trim();
+    const lote = document.getElementById("filtroLote").value.trim();
+
+    const tbody = document.getElementById("tblLecturas");
+    tbody.innerHTML = `<tr><td colspan="10" class="sin-datos">Buscando...</td></tr>`;
+
+    try{
+
+        let ruta = "/farmacia_lecturas?select=viaje,oc,codigo,descripcion,lote,fv,cantidad_cajas,escaneado_por,foto_url,created_at&order=created_at.desc";
+
+        if(viaje){
+            ruta += "&viaje=eq." + viaje;
+        }
+
+        if(codigo){
+            ruta += "&codigo=ilike.*" + encodeURIComponent(codigo) + "*";
+        }
+
+        if(lote){
+            ruta += "&lote=ilike.*" + encodeURIComponent(lote) + "*";
+        }
+
+        const filas = await supabaseFetch(ruta);
+
+        _ultimasLecturas = filas || [];
+
+        tbody.innerHTML = "";
+
+        if(!_ultimasLecturas.length){
+            tbody.innerHTML = `<tr><td colspan="10" class="sin-datos">No se encontraron lecturas con esos filtros.</td></tr>`;
+            return;
+        }
+
+        _ultimasLecturas.forEach(function(f){
+
+            const tr = document.createElement("tr");
+
+            const accionFoto = f.foto_url
+                ? '<button class="btn-ver-foto" data-foto="' + f.foto_url.replace(/"/g, "&quot;") + '">Ver Foto</button>'
+                : '<span class="sin-foto">Sin foto</span>';
+
+            tr.innerHTML = `
+                <td>${f.viaje}</td>
+                <td>${f.oc}</td>
+                <td>${f.codigo}</td>
+                <td>${f.descripcion || "-"}</td>
+                <td>${f.lote || "-"}</td>
+                <td>${f.fv || "-"}</td>
+                <td>${formatearNumeroFarmacia(f.cantidad_cajas)}</td>
+                <td>${f.escaneado_por || "-"}</td>
+                <td>${formatearFechaHoraLecturas(f.created_at)}</td>
+                <td>${accionFoto}</td>
+            `;
+
+            tbody.appendChild(tr);
+
+        });
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="10" class="sin-datos">No se pudo cargar las lecturas.</td></tr>`;
+
+    }
+
+}
+
+document.getElementById("btnBuscarLecturas").addEventListener("click", buscarLecturas);
+
+document.getElementById("tblLecturas").addEventListener("click", function(e){
+
+    const boton = e.target.closest(".btn-ver-foto");
+    if(!boton){
+        return;
+    }
+
+    document.getElementById("modalFotoImg").src = boton.dataset.foto;
+    document.getElementById("modalFoto").classList.remove("oculto");
+
+});
+
+function cerrarModalFoto(){
+    document.getElementById("modalFoto").classList.add("oculto");
+    document.getElementById("modalFotoImg").src = "";
+}
+
+document.getElementById("btnCerrarModalFoto").addEventListener("click", cerrarModalFoto);
+document.getElementById("modalFotoFondo").addEventListener("click", cerrarModalFoto);
+
+document.getElementById("btnExportarLecturas").addEventListener("click", async function(){
+
+    if(!_ultimasLecturas.length){
+        mostrarToast("Busca lecturas antes de exportar.", "error");
+        return;
+    }
+
+    const encabezados = [
+        "Viaje", "OC", "Código", "Descripción", "Lote", "F.V.",
+        "Cantidad de Cajas", "Escaneado por", "Fecha", "URL Foto"
+    ];
+
+    const filas = _ultimasLecturas.map(function(f){
+        return [
+            String(f.viaje), String(f.oc), f.codigo, f.descripcion || "",
+            f.lote || "", f.fv || "", String(f.cantidad_cajas || 0),
+            f.escaneado_por || "", formatearFechaHoraLecturas(f.created_at), f.foto_url || ""
+        ];
+    });
+
+    const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filas]);
+    const libro = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(libro, hoja, "LECTURAS FARMACIA");
+
+    XLSX.writeFile(libro, "LECTURAS_FARMACIA_" + new Date().toISOString().slice(0, 10) + ".xlsx");
+
+});
