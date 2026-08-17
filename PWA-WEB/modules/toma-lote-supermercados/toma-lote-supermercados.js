@@ -1469,23 +1469,25 @@ async function cargarTablaPacking(viaje){
         const [modulacionFilas, dataModuladoFilas] = await Promise.all([
             supabaseFetch(
                 "/modulacion?select=orden_compra,numero_documento_referencia,lpn,entrega," +
-                "numero_producto,ctd_teor_um_base,lote,fecha_expiracion&viaje=eq." + viaje +
+                "numero_producto_cliente,ctd_teor_um_base,lote,fecha_expiracion&viaje=eq." + viaje +
                 "&order=lpn.asc"
             ),
             supabaseFetch(
-                "/data_modulado?select=entrega,descripcion_tienda&unidad_transporte=eq." + viaje
+                "/data_modulado?select=entrega,tienda&unidad_transporte=eq." + viaje
             )
         ]);
 
         if(!modulacionFilas || !modulacionFilas.length){
-            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Este viaje todavía no tiene Modulación cargada.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Este viaje todavía no tiene Modulación cargada.</td></tr>`;
             return;
         }
 
+        // Local Destino es el código de tienda (numérico), no la
+        // descripción — así lo pide el formato de guía de despacho.
         const localPorEntrega = {};
 
         (dataModuladoFilas || []).forEach(function(f){
-            localPorEntrega[f.entrega] = f.descripcion_tienda;
+            localPorEntrega[f.entrega] = f.tienda;
         });
 
         tbody.innerHTML = "";
@@ -1493,15 +1495,23 @@ async function cargarTablaPacking(viaje){
 
         modulacionFilas.forEach(function(f){
 
+            // El SKU de la guía de despacho es el número de producto
+            // CLIENTE, con ceros a la izquierda hasta 18 dígitos (así
+            // viene en el formato real de SAP), no el número de
+            // producto interno.
+            const skuTexto = String(f.numero_producto_cliente || "").trim();
+
             const fila = {
                 ordenCompra: f.orden_compra || "-",
                 numeroDocumento: f.numero_documento_referencia || "-",
                 lpn: f.lpn || "-",
-                localDestino: localPorEntrega[f.entrega] || "-",
-                sku: f.numero_producto || "-",
+                localDestino: (localPorEntrega[f.entrega] !== undefined && localPorEntrega[f.entrega] !== null)
+                    ? localPorEntrega[f.entrega] : "-",
+                sku: skuTexto ? skuTexto.padStart(18, "0") : "-",
                 cantidad: f.ctd_teor_um_base || 0,
                 lote: f.lote || "-",
-                fechaVto: formatearFechaToma(f.fecha_expiracion)
+                fechaVto: formatearFechaToma(f.fecha_expiracion),
+                costo: ""
             };
 
             _ultimasFilasPacking.push(fila);
@@ -1517,6 +1527,7 @@ async function cargarTablaPacking(viaje){
                 <td>${formatearNumeroToma(fila.cantidad)}</td>
                 <td>${fila.lote}</td>
                 <td>${fila.fechaVto}</td>
+                <td>${fila.costo || "-"}</td>
             `;
 
             tbody.appendChild(tr);
@@ -1526,7 +1537,7 @@ async function cargarTablaPacking(viaje){
     }catch(e){
 
         console.error(e);
-        tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">No se pudo cargar el Packing List.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar el Packing List.</td></tr>`;
 
     }
 
@@ -1547,14 +1558,14 @@ document.getElementById("btnExportarPacking").addEventListener("click", function
     }
 
     const encabezados = [
-        "N° Orden de Compra", "Número documento de referencia", "LPN",
-        "Local Destino", "SKU", "Cantidad", "No. Lote", "Fecha Vto."
+        "No. OC", "No. Fact.", "LPN", "LOCAL DESTINO",
+        "SKU", "CANTIDAD", "No. Lote", "Fecha Vto.", "COSTO"
     ];
 
     const filas = _ultimasFilasPacking.map(function(f){
         return [
             f.ordenCompra, f.numeroDocumento, f.lpn, f.localDestino,
-            f.sku, f.cantidad, f.lote, f.fechaVto
+            f.sku, f.cantidad, f.lote, f.fechaVto, f.costo || ""
         ];
     });
 
