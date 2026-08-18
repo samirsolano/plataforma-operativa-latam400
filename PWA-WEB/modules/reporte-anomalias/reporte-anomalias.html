@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Gestión de Anomalías - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="reporte-anomalias.css"
+    >
+
+</head>
+
+<body>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+
+                <h1>GESTIÓN DE</h1>
+                <h1>ANOMALÍAS</h1>
+
+                <span>LATAM 400 CL</span>
+
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+
+                </div>
+
+            </div>
+
+            <div class="leyenda-sidebar">
+
+                <div class="leyenda-titulo">ESTADOS</div>
+
+                <div class="leyenda-item"><span class="punto pendiente"></span> Pendiente</div>
+                <div class="leyenda-item"><span class="punto revision"></span> En revisión</div>
+                <div class="leyenda-item"><span class="punto atendido"></span> Atendido</div>
+                <div class="leyenda-item"><span class="punto cerrado"></span> Cerrado</div>
+
+            </div>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="contenido">
+
+            <header class="topbar">
+
+                <div class="topbar-titulo">
+
+                    <h2>GESTIÓN DE ANOMALÍAS</h2>
+
+                    <p>Listado de registros — datos en vivo desde el reporte de Centro de Proyectos</p>
+
+                </div>
+
+                <button id="btnActualizar" class="btn-secundario">
+                    ⟳ Actualizar
+                </button>
+
+            </header>
+
+            <!-- KPIs -->
+
+            <div class="kpis" id="kpis">
+
+                <div class="kpi-card">
+                    <div class="kpi-titulo">Total anomalías</div>
+                    <div class="kpi-numero" id="kpiTotal">-</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-titulo">Pendientes</div>
+                    <div class="kpi-numero pendiente" id="kpiPendientes">-</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-titulo">En revisión</div>
+                    <div class="kpi-numero revision" id="kpiRevision">-</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-titulo">Atendidas</div>
+                    <div class="kpi-numero atendido" id="kpiAtendidas">-</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-titulo">Cerradas</div>
+                    <div class="kpi-numero cerrado" id="kpiCerradas">-</div>
+                </div>
+
+            </div>
+
+            <!-- FILTROS -->
+
+            <div class="card">
+
+                <div class="filtros-anomalias">
+
+                    <div class="buscador">
+                        <input type="text" id="buscador" placeholder="Buscar por código, nombre, zona, descripción...">
+                    </div>
+
+                    <select id="filtroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="En revisión">En revisión</option>
+                        <option value="Atendido">Atendido</option>
+                        <option value="Cerrado">Cerrado</option>
+                    </select>
+
+                    <select id="filtroTipo">
+                        <option value="">Todos los tipos</option>
+                    </select>
+
+                </div>
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Código</th>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Resumen</th>
+                            <th>Zona</th>
+                            <th>Registrado por</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="tblAnomalias">
+
+                        <tr>
+                            <td colspan="8" class="sin-datos">Cargando reportes...</td>
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+                <div class="paginacion" id="paginacion"></div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- MODAL DETALLE -->
+
+    <div class="modal-detalle oculto" id="modalDetalle">
+
+        <div class="modal-detalle-fondo" id="modalDetalleFondo"></div>
+
+        <div class="modal-detalle-caja">
+
+            <button class="modal-detalle-cerrar" id="btnCerrarDetalle">✕</button>
+
+            <div class="detalle-header">
+
+                <h3 id="detalleCodigo">-</h3>
+                <span class="badge-estado" id="detalleEstadoBadge">-</span>
+
+            </div>
+
+            <div class="detalle-grid">
+
+                <div class="detalle-campo">
+                    <label>Fecha y hora</label>
+                    <div id="detalleFecha">-</div>
+                </div>
+
+                <div class="detalle-campo">
+                    <label>Tipo de anomalía</label>
+                    <div id="detalleTipo">-</div>
+                </div>
+
+                <div class="detalle-campo">
+                    <label>Zona</label>
+                    <div id="detalleZona">-</div>
+                </div>
+
+                <div class="detalle-campo">
+                    <label>Ubicación</label>
+                    <div id="detalleUbicacion">-</div>
+                </div>
+
+                <div class="detalle-campo">
+                    <label>Registrado por</label>
+                    <div id="detalleRegistradoPor">-</div>
+                </div>
+
+                <div class="detalle-campo">
+                    <label>Jefe directo</label>
+                    <div id="detalleJefe">-</div>
+                </div>
+
+            </div>
+
+            <div class="detalle-campo detalle-campo-full">
+                <label>Descripción</label>
+                <div id="detalleDescripcion">-</div>
+            </div>
+
+            <div class="detalle-campo detalle-campo-full">
+
+                <label>Evidencias</label>
+
+                <div class="detalle-fotos" id="detalleFotos"></div>
+
+                <a href="#" id="detalleLinkDrive" target="_blank" class="btn-secundario btn-ver-drive">
+                    Ver carpeta en Drive
+                </a>
+
+            </div>
+
+            <div class="detalle-campo detalle-campo-full">
+
+                <label>Cambiar estado</label>
+
+                <div class="cambiar-estado-fila">
+
+                    <select id="detalleSelectEstado">
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="En revisión">En revisión</option>
+                        <option value="Atendido">Atendido</option>
+                        <option value="Cerrado">Cerrado</option>
+                    </select>
+
+                    <button id="btnGuardarEstado">Guardar</button>
+
+                </div>
+
+                <textarea id="detalleObservaciones" placeholder="Observaciones internas (opcional)"></textarea>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="reporte-anomalias.js"></script>
+
+</body>
+
+</html>

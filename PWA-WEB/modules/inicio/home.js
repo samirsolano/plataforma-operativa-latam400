@@ -22,6 +22,8 @@ if(sesion){
         document.getElementById("cardTomaLote").style.display = "none";
         document.getElementById("linkTomaLoteFarmacia").style.display = "none";
         document.getElementById("cardTomaLoteFarmacia").style.display = "none";
+        document.getElementById("linkAnomalias").style.display = "none";
+        document.getElementById("cardAnomalias").style.display = "none";
     }
 
 }
