@@ -61,22 +61,30 @@ document.getElementById("btnCerrarSesion").addEventListener("click", function(e)
 });
 
 // ========================================
-// FUENTE DE DATOS: GOOGLE SHEET (reporte de Anomalías)
+// TABS (links del sidebar)
 // ========================================
-// El registro de cada anomalía vive en el Sheet que llena Centro de
-// Proyectos (vía Apps Script) — acá solo se LEE en vivo con el link
-// de exportación CSV pública. El estado de gestión (Pendiente/En
-// revisión/Atendido/Cerrado) es lo único que se guarda en Supabase,
-// en la tabla anomalias_estado, para no tocar el flujo de envío.
 
-const SHEET_ID = "1NKQmRv31HQsC5tu2sBUiCRmsS2OdWckOdlDGLWjHnBg";
-const SHEET_GID = "0";
-const SHEET_CSV_URL =
-    "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/export?format=csv&gid=" + SHEET_GID;
+document.querySelectorAll(".tab-link").forEach(function(link){
 
-// Parser de CSV que respeta comillas (campos con comas o saltos de
-// línea adentro, como la descripción) — un split(",") simple rompe
-// esos casos.
+    link.addEventListener("click", function(e){
+
+        e.preventDefault();
+
+        document.querySelectorAll(".tab-link").forEach(l => l.classList.remove("activo"));
+        document.querySelectorAll(".tab-contenido").forEach(c => c.classList.add("oculto"));
+
+        link.classList.add("activo");
+        document.getElementById(link.dataset.tab).classList.remove("oculto");
+
+    });
+
+});
+
+// ========================================
+// PARSER DE CSV (respeta comillas: comas y saltos de línea
+// adentro de un campo, como en la descripción)
+// ========================================
+
 function parsearCSV(texto){
 
     const filas = [];
@@ -152,47 +160,25 @@ function filasAObjetos(filas){
 
 }
 
-function normalizarReporte(fila){
+function claveOrdenFecha(fecha, hora){
 
-    const fotos = [
-        fila.FOTO_1, fila.FOTO_2, fila.FOTO_3, fila.FOTO_4, fila.FOTO_5
-    ].filter(f => f);
-
-    return {
-        id: fila.ID || "",
-        fecha: fila.FECHA || "",
-        hora: fila.HORA || "",
-        dni: fila.DNI || "",
-        nombre: fila.NOMBRE || "",
-        puesto: fila.PUESTO || "",
-        jefeDirecto: fila.JEFE_DIRECTO || "",
-        tipo: fila.TIPO_ANOMALIA || "Otra",
-        zona: fila.ZONA || "",
-        ubicacion: fila.UBICACION || "",
-        descripcion: fila.DESCRIPCION || "",
-        fotos: fotos,
-        carpetaDrive: fila.CARPETA_DRIVE || ""
-    };
-
-}
-
-// Google devuelve la fecha en fila.FECHA como DD/MM/AAAA — se arma
-// una clave ordenable (AAAAMMDD + hora) para poder ordenar por fecha
-// real y no alfabéticamente.
-function claveOrdenFecha(reporte){
-
-    const partes = (reporte.fecha || "").split("/");
+    const partes = (fecha || "").split("/");
 
     if(partes.length !== 3){
         return "";
     }
 
-    return partes[2] + partes[1].padStart(2, "0") + partes[0].padStart(2, "0") + (reporte.hora || "");
+    return partes[2] + partes[1].padStart(2, "0") + partes[0].padStart(2, "0") + (hora || "");
 
 }
 
+function urlFotoDrive(fileId){
+    return "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w800";
+}
+
 // ========================================
-// ESTADO EN SUPABASE
+// ESTADO EN SUPABASE (compartido entre Anomalías y Sugerencias,
+// una sola tabla, la clave es el código del reporte)
 // ========================================
 
 let _estadosPorId = {};
@@ -212,8 +198,6 @@ async function cargarEstados(){
     }catch(e){
 
         console.error(e);
-        // Si la tabla todavía no existe (SQL no corrido), se sigue
-        // funcionando con todo en "Pendiente" por defecto.
         _estadosPorId = {};
 
     }
@@ -235,70 +219,210 @@ function claseEstado(estado){
 }
 
 // ========================================
-// CARGA PRINCIPAL
+// CONFIGURACIÓN POR FUENTE (Anomalías / Sugerencias)
 // ========================================
+// Cada fuente sabe leer su propio Sheet y cómo mostrarse — el resto
+// del código (filtros, paginación, KPIs, modal de detalle, guardar
+// estado) es genérico y funciona igual para las dos.
 
-let _todosLosReportes = [];
-let _paginaActual = 1;
+const FUENTES = {
+
+    anomalias: {
+
+        sheetGid: "0",
+
+        normalizar(fila){
+
+            const fotos = [fila.FOTO_1, fila.FOTO_2, fila.FOTO_3, fila.FOTO_4, fila.FOTO_5].filter(f => f);
+
+            return {
+                id: fila.ID || "",
+                fecha: fila.FECHA || "",
+                hora: fila.HORA || "",
+                nombre: fila.NOMBRE || "",
+                puesto: fila.PUESTO || "",
+                jefeDirecto: fila.JEFE_DIRECTO || "",
+                tipo: fila.TIPO_ANOMALIA || "Otra",
+                zona: fila.ZONA || "",
+                ubicacion: fila.UBICACION || "",
+                descripcion: fila.DESCRIPCION || "",
+                fotos: fotos,
+                carpetaDrive: fila.CARPETA_DRIVE || ""
+            };
+
+        },
+
+        filaTabla(r){
+            const resumen = r.descripcion.length > 70 ? r.descripcion.slice(0, 70) + "…" : r.descripcion;
+            return [r.id, r.fecha, `<span class="badge-tipo">${r.tipo}</span>`, resumen || "-", r.zona || "-", r.nombre || "-"];
+        },
+
+        textoBusqueda(r){
+            return [r.id, r.nombre, r.zona, r.ubicacion, r.descripcion, r.tipo].join(" ").toLowerCase();
+        },
+
+        campoTipo(r){ return r.tipo; },
+
+        camposGrid(r){
+            return [
+                { label: "Fecha y hora", valor: (r.fecha || "-") + " " + (r.hora || "") },
+                { label: "Tipo de anomalía", valor: r.tipo || "-" },
+                { label: "Zona", valor: r.zona || "-" },
+                { label: "Ubicación", valor: r.ubicacion || "-" },
+                { label: "Registrado por", valor: (r.nombre || "-") + (r.puesto ? " — " + r.puesto : "") },
+                { label: "Jefe directo", valor: r.jefeDirecto || "-" }
+            ];
+        },
+
+        camposLargos(r){
+            return [
+                { label: "Descripción", valor: r.descripcion || "-" }
+            ];
+        }
+
+    },
+
+    sugerencias: {
+
+        sheetGid: "1257141144",
+
+        normalizar(fila){
+
+            const fotos = [fila.FOTO_1, fila.FOTO_2, fila.FOTO_3, fila.FOTO_4, fila.FOTO_5].filter(f => f);
+
+            return {
+                id: fila.CORRELATIVO || "",
+                fecha: fila.FECHA || "",
+                hora: fila.HORA || "",
+                nombre: fila.NOMBRE || "",
+                puesto: fila.PUESTO || "",
+                jefeDirecto: fila.JEFE_DIRECTO || "",
+                area: fila.AREA || "Otra",
+                tipoMejora: fila.TIPO_MEJORA || "",
+                situacionActual: fila.SITUACION_ACTUAL || "",
+                propuestaMejora: fila.PROPUESTA_MEJORA || "",
+                beneficios: fila.BENEFICIOS || "",
+                fotos: fotos,
+                carpetaDrive: fila.CARPETA_DRIVE || ""
+            };
+
+        },
+
+        filaTabla(r){
+            const resumen = r.propuestaMejora.length > 70 ? r.propuestaMejora.slice(0, 70) + "…" : r.propuestaMejora;
+            return [r.id, r.fecha, `<span class="badge-tipo">${r.area}</span>`, resumen || "-", r.tipoMejora || "-", r.nombre || "-"];
+        },
+
+        textoBusqueda(r){
+            return [r.id, r.nombre, r.area, r.tipoMejora, r.situacionActual, r.propuestaMejora].join(" ").toLowerCase();
+        },
+
+        campoTipo(r){ return r.area; },
+
+        camposGrid(r){
+            return [
+                { label: "Fecha y hora", valor: (r.fecha || "-") + " " + (r.hora || "") },
+                { label: "Área", valor: r.area || "-" },
+                { label: "Tipo de mejora", valor: r.tipoMejora || "-" },
+                { label: "Registrado por", valor: (r.nombre || "-") + (r.puesto ? " — " + r.puesto : "") },
+                { label: "Jefe directo", valor: r.jefeDirecto || "-" }
+            ];
+        },
+
+        camposLargos(r){
+            return [
+                { label: "Situación actual", valor: r.situacionActual || "-" },
+                { label: "Propuesta de mejora", valor: r.propuestaMejora || "-" },
+                { label: "Beneficios esperados", valor: r.beneficios || "-" }
+            ];
+        }
+
+    }
+
+};
+
+Object.keys(FUENTES).forEach(function(key){
+    FUENTES[key].key = key;
+    FUENTES[key].datos = [];
+    FUENTES[key].pagina = 1;
+});
+
 const FILAS_POR_PAGINA = 15;
 
-async function cargarTodo(){
+// ========================================
+// CARGA
+// ========================================
 
-    document.getElementById("tblAnomalias").innerHTML =
-        `<tr><td colspan="8" class="sin-datos">Cargando reportes...</td></tr>`;
+async function cargarFuente(key){
+
+    const fuente = FUENTES[key];
+    const tbody = document.getElementById("tbl-" + key);
+
+    tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Cargando reportes...</td></tr>`;
 
     try{
 
+        const url = "https://docs.google.com/spreadsheets/d/1NKQmRv31HQsC5tu2sBUiCRmsS2OdWckOdlDGLWjHnBg/export?format=csv&gid=" + fuente.sheetGid;
+
         const [textoCsv] = await Promise.all([
-            fetch(SHEET_CSV_URL).then(r => {
-                if(!r.ok){ throw new Error("No se pudo leer el Google Sheet (¿sigue compartido como 'cualquiera con el link'?)."); }
+            fetch(url).then(r => {
+                if(!r.ok){ throw new Error("No se pudo leer el Google Sheet."); }
                 return r.text();
             }),
             cargarEstados()
         ]);
 
-        const filas = parsearCSV(textoCsv);
-        const objetos = filasAObjetos(filas);
+        const objetos = filasAObjetos(parsearCSV(textoCsv));
 
-        _todosLosReportes = objetos.map(normalizarReporte)
+        fuente.datos = objetos.map(f => fuente.normalizar(f))
             .filter(r => r.id)
-            .sort((a, b) => claveOrdenFecha(b).localeCompare(claveOrdenFecha(a)));
+            .sort((a, b) => claveOrdenFecha(b.fecha, b.hora).localeCompare(claveOrdenFecha(a.fecha, a.hora)));
 
-        poblarFiltroTipo();
-        actualizarKpis();
-        _paginaActual = 1;
-        aplicarFiltrosYRenderizar();
+        poblarFiltroTipo(key);
+        actualizarKpis(key);
+        fuente.pagina = 1;
+        aplicarFiltrosYRenderizar(key);
 
     }catch(e){
 
         console.error(e);
-        document.getElementById("tblAnomalias").innerHTML =
-            `<tr><td colspan="8" class="sin-datos">No se pudo cargar el reporte de anomalías: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">No se pudo cargar: ${e.message}</td></tr>`;
 
     }
 
 }
 
-function poblarFiltroTipo(){
+function poblarFiltroTipo(key){
 
-    const select = document.getElementById("filtroTipo");
+    const fuente = FUENTES[key];
+    const select = document.getElementById("filtroTipo-" + key);
     const actual = select.value;
 
-    const tipos = [...new Set(_todosLosReportes.map(r => r.tipo))].sort();
+    const tipos = [...new Set(fuente.datos.map(r => fuente.campoTipo(r)))].filter(t => t).sort();
 
-    select.innerHTML = '<option value="">Todos los tipos</option>' +
-        tipos.map(t => `<option value="${t}">${t}</option>`).join("");
+    const primeraOpcion = select.options[0];
+
+    select.innerHTML = "";
+    select.appendChild(primeraOpcion);
+
+    tipos.forEach(function(t){
+        const opt = document.createElement("option");
+        opt.value = t;
+        opt.textContent = t;
+        select.appendChild(opt);
+    });
 
     select.value = actual;
 
 }
 
-function actualizarKpis(){
+function actualizarKpis(key){
 
-    const total = _todosLosReportes.length;
+    const fuente = FUENTES[key];
+
     let pendientes = 0, revision = 0, atendidas = 0, cerradas = 0;
 
-    _todosLosReportes.forEach(function(r){
+    fuente.datos.forEach(function(r){
 
         const estado = estadoDe(r);
 
@@ -309,11 +433,11 @@ function actualizarKpis(){
 
     });
 
-    document.getElementById("kpiTotal").textContent = total.toLocaleString("es-PE");
-    document.getElementById("kpiPendientes").textContent = pendientes.toLocaleString("es-PE");
-    document.getElementById("kpiRevision").textContent = revision.toLocaleString("es-PE");
-    document.getElementById("kpiAtendidas").textContent = atendidas.toLocaleString("es-PE");
-    document.getElementById("kpiCerradas").textContent = cerradas.toLocaleString("es-PE");
+    document.getElementById("kpiTotal-" + key).textContent = fuente.datos.length.toLocaleString("es-PE");
+    document.getElementById("kpiPendientes-" + key).textContent = pendientes.toLocaleString("es-PE");
+    document.getElementById("kpiRevision-" + key).textContent = revision.toLocaleString("es-PE");
+    document.getElementById("kpiAtendidas-" + key).textContent = atendidas.toLocaleString("es-PE");
+    document.getElementById("kpiCerradas-" + key).textContent = cerradas.toLocaleString("es-PE");
 
 }
 
@@ -321,33 +445,26 @@ function actualizarKpis(){
 // FILTROS + TABLA + PAGINACIÓN
 // ========================================
 
-function reportesFiltrados(){
+function reportesFiltrados(key){
 
-    const texto = document.getElementById("buscador").value.trim().toLowerCase();
-    const estadoFiltro = document.getElementById("filtroEstado").value;
-    const tipoFiltro = document.getElementById("filtroTipo").value;
+    const fuente = FUENTES[key];
 
-    return _todosLosReportes.filter(function(r){
+    const texto = document.getElementById("buscador-" + key).value.trim().toLowerCase();
+    const estadoFiltro = document.getElementById("filtroEstado-" + key).value;
+    const tipoFiltro = document.getElementById("filtroTipo-" + key).value;
+
+    return fuente.datos.filter(function(r){
 
         if(estadoFiltro && estadoDe(r) !== estadoFiltro){
             return false;
         }
 
-        if(tipoFiltro && r.tipo !== tipoFiltro){
+        if(tipoFiltro && fuente.campoTipo(r) !== tipoFiltro){
             return false;
         }
 
-        if(texto){
-
-            const enTexto = (
-                r.id + " " + r.nombre + " " + r.zona + " " + r.ubicacion + " " +
-                r.descripcion + " " + r.tipo
-            ).toLowerCase();
-
-            if(enTexto.indexOf(texto) === -1){
-                return false;
-            }
-
+        if(texto && fuente.textoBusqueda(r).indexOf(texto) === -1){
+            return false;
         }
 
         return true;
@@ -356,24 +473,26 @@ function reportesFiltrados(){
 
 }
 
-function aplicarFiltrosYRenderizar(){
+function aplicarFiltrosYRenderizar(key){
 
-    const filtrados = reportesFiltrados();
+    const fuente = FUENTES[key];
+    const filtrados = reportesFiltrados(key);
 
     const totalPaginas = Math.max(1, Math.ceil(filtrados.length / FILAS_POR_PAGINA));
-    _paginaActual = Math.min(_paginaActual, totalPaginas);
+    fuente.pagina = Math.min(fuente.pagina, totalPaginas);
 
-    const inicio = (_paginaActual - 1) * FILAS_POR_PAGINA;
+    const inicio = (fuente.pagina - 1) * FILAS_POR_PAGINA;
     const pagina = filtrados.slice(inicio, inicio + FILAS_POR_PAGINA);
 
-    renderTabla(pagina, filtrados.length);
-    renderPaginacion(totalPaginas);
+    renderTabla(key, pagina, filtrados.length);
+    renderPaginacion(key, totalPaginas);
 
 }
 
-function renderTabla(reportes, totalFiltrados){
+function renderTabla(key, reportes, totalFiltrados){
 
-    const tbody = document.getElementById("tblAnomalias");
+    const fuente = FUENTES[key];
+    const tbody = document.getElementById("tbl-" + key);
 
     if(!totalFiltrados){
         tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">No hay reportes que coincidan con el filtro.</td></tr>`;
@@ -385,20 +504,15 @@ function renderTabla(reportes, totalFiltrados){
     reportes.forEach(function(r){
 
         const estado = estadoDe(r);
-        const resumen = r.descripcion.length > 70 ? r.descripcion.slice(0, 70) + "…" : r.descripcion;
+        const celdas = fuente.filaTabla(r);
 
         const tr = document.createElement("tr");
 
-        tr.innerHTML = `
-            <td><b>${r.id}</b></td>
-            <td>${r.fecha}</td>
-            <td><span class="badge-tipo">${r.tipo}</span></td>
-            <td>${resumen || "-"}</td>
-            <td>${r.zona || "-"}</td>
-            <td>${r.nombre || "-"}</td>
-            <td><span class="badge-estado ${claseEstado(estado)}">${estado}</span></td>
-            <td><button class="btn-ver-detalle" data-id="${r.id}">Ver detalle</button></td>
-        `;
+        tr.innerHTML =
+            `<td><b>${celdas[0]}</b></td>` +
+            celdas.slice(1).map(c => `<td>${c}</td>`).join("") +
+            `<td><span class="badge-estado ${claseEstado(estado)}">${estado}</span></td>` +
+            `<td><button class="btn-ver-detalle" data-fuente="${key}" data-id="${r.id}">Ver detalle</button></td>`;
 
         tbody.appendChild(tr);
 
@@ -406,9 +520,10 @@ function renderTabla(reportes, totalFiltrados){
 
 }
 
-function renderPaginacion(totalPaginas){
+function renderPaginacion(key, totalPaginas){
 
-    const cont = document.getElementById("paginacion");
+    const fuente = FUENTES[key];
+    const cont = document.getElementById("paginacion-" + key);
     cont.innerHTML = "";
 
     if(totalPaginas <= 1){
@@ -423,20 +538,20 @@ function renderPaginacion(totalPaginas){
         if(activo){ b.classList.add("activo"); }
 
         b.addEventListener("click", function(){
-            _paginaActual = pagina;
-            aplicarFiltrosYRenderizar();
+            fuente.pagina = pagina;
+            aplicarFiltrosYRenderizar(key);
         });
 
         cont.appendChild(b);
 
     }
 
-    boton("‹", Math.max(1, _paginaActual - 1), _paginaActual === 1, false);
+    boton("‹", Math.max(1, fuente.pagina - 1), fuente.pagina === 1, false);
 
     for(let p = 1; p <= totalPaginas; p++){
 
-        if(p === 1 || p === totalPaginas || Math.abs(p - _paginaActual) <= 1){
-            boton(String(p), p, false, p === _paginaActual);
+        if(p === 1 || p === totalPaginas || Math.abs(p - fuente.pagina) <= 1){
+            boton(String(p), p, false, p === fuente.pagina);
         }else if(p === 2 || p === totalPaginas - 1){
             const span = document.createElement("span");
             span.textContent = "…";
@@ -446,55 +561,61 @@ function renderPaginacion(totalPaginas){
 
     }
 
-    boton("›", Math.min(totalPaginas, _paginaActual + 1), _paginaActual === totalPaginas, false);
+    boton("›", Math.min(totalPaginas, fuente.pagina + 1), fuente.pagina === totalPaginas, false);
 
 }
 
-document.getElementById("buscador").addEventListener("input", function(){
-    _paginaActual = 1;
-    aplicarFiltrosYRenderizar();
+["anomalias", "sugerencias"].forEach(function(key){
+
+    document.getElementById("buscador-" + key).addEventListener("input", function(){
+        FUENTES[key].pagina = 1;
+        aplicarFiltrosYRenderizar(key);
+    });
+
+    document.getElementById("filtroEstado-" + key).addEventListener("change", function(){
+        FUENTES[key].pagina = 1;
+        aplicarFiltrosYRenderizar(key);
+    });
+
+    document.getElementById("filtroTipo-" + key).addEventListener("change", function(){
+        FUENTES[key].pagina = 1;
+        aplicarFiltrosYRenderizar(key);
+    });
+
+    document.getElementById("tbl-" + key).addEventListener("click", function(e){
+
+        const boton = e.target.closest(".btn-ver-detalle");
+        if(!boton){
+            return;
+        }
+
+        const reporte = FUENTES[key].datos.find(r => r.id === boton.dataset.id);
+        if(reporte){
+            abrirDetalle(key, reporte);
+        }
+
+    });
+
 });
 
-document.getElementById("filtroEstado").addEventListener("change", function(){
-    _paginaActual = 1;
-    aplicarFiltrosYRenderizar();
+document.querySelectorAll(".btn-actualizar").forEach(function(btn){
+    btn.addEventListener("click", function(){
+        cargarFuente(btn.dataset.fuente);
+    });
 });
-
-document.getElementById("filtroTipo").addEventListener("change", function(){
-    _paginaActual = 1;
-    aplicarFiltrosYRenderizar();
-});
-
-document.getElementById("btnActualizar").addEventListener("click", cargarTodo);
 
 // ========================================
-// MODAL DETALLE
+// MODAL DETALLE (genérico, se llena según la fuente)
 // ========================================
 
+let _fuenteAbierta = null;
 let _reporteAbierto = null;
 
-function urlFotoDrive(fileId){
-    return "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w800";
-}
+function abrirDetalle(key, reporte){
 
-document.getElementById("tblAnomalias").addEventListener("click", function(e){
+    const fuente = FUENTES[key];
 
-    const boton = e.target.closest(".btn-ver-detalle");
-    if(!boton){
-        return;
-    }
-
-    const reporte = _todosLosReportes.find(r => r.id === boton.dataset.id);
-    if(!reporte){
-        return;
-    }
-
-    abrirDetalle(reporte);
-
-});
-
-function abrirDetalle(reporte){
-
+    _fuenteAbierta = key;
     _reporteAbierto = reporte;
 
     const estado = estadoDe(reporte);
@@ -506,13 +627,15 @@ function abrirDetalle(reporte){
     badge.textContent = estado;
     badge.className = "badge-estado " + claseEstado(estado);
 
-    document.getElementById("detalleFecha").textContent = (reporte.fecha || "-") + " " + (reporte.hora || "");
-    document.getElementById("detalleTipo").textContent = reporte.tipo || "-";
-    document.getElementById("detalleZona").textContent = reporte.zona || "-";
-    document.getElementById("detalleUbicacion").textContent = reporte.ubicacion || "-";
-    document.getElementById("detalleRegistradoPor").textContent = (reporte.nombre || "-") + (reporte.puesto ? " — " + reporte.puesto : "");
-    document.getElementById("detalleJefe").textContent = reporte.jefeDirecto || "-";
-    document.getElementById("detalleDescripcion").textContent = reporte.descripcion || "-";
+    const grid = document.getElementById("detalleGrid");
+    grid.innerHTML = fuente.camposGrid(reporte).map(function(c){
+        return `<div class="detalle-campo"><label>${c.label}</label><div>${c.valor}</div></div>`;
+    }).join("");
+
+    const largos = document.getElementById("detalleCamposLargos");
+    largos.innerHTML = fuente.camposLargos(reporte).map(function(c){
+        return `<div class="detalle-campo detalle-campo-full"><label>${c.label}</label><div>${c.valor}</div></div>`;
+    }).join("");
 
     const contFotos = document.getElementById("detalleFotos");
     contFotos.innerHTML = "";
@@ -554,6 +677,7 @@ function abrirDetalle(reporte){
 
 function cerrarDetalle(){
     document.getElementById("modalDetalle").classList.add("oculto");
+    _fuenteAbierta = null;
     _reporteAbierto = null;
 }
 
@@ -598,8 +722,10 @@ document.getElementById("btnGuardarEstado").addEventListener("click", async func
         badge.textContent = nuevoEstado;
         badge.className = "badge-estado " + claseEstado(nuevoEstado);
 
-        actualizarKpis();
-        aplicarFiltrosYRenderizar();
+        if(_fuenteAbierta){
+            actualizarKpis(_fuenteAbierta);
+            aplicarFiltrosYRenderizar(_fuenteAbierta);
+        }
 
     }catch(err){
 
@@ -615,4 +741,5 @@ document.getElementById("btnGuardarEstado").addEventListener("click", async func
 
 });
 
-cargarTodo();
+cargarFuente("anomalias");
+cargarFuente("sugerencias");

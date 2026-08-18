@@ -63,7 +63,7 @@ body{
 
 .sidebar{
     width:280px;
-    background:#7c3aed;
+    background:#FC000D;
     color:white;
     display:flex;
     flex-direction:column;
@@ -107,7 +107,7 @@ body{
     display:block;
     margin-top:15px;
     font-size:16px;
-    color:#ede9fe;
+    color:#fbd8d8;
 }
 
 .perfil-sidebar{
@@ -130,7 +130,7 @@ body{
 .rol-sidebar{
     margin-top:5px;
     font-size:13px;
-    color:#ede9fe;
+    color:#fbd8d8;
 }
 
 .menu-usuario{
@@ -234,7 +234,7 @@ body{
 }
 
 .card h2{
-    color:#7c3aed;
+    color:#FC000D;
     font-size:22px;
     margin-bottom:20px;
 }
@@ -253,8 +253,8 @@ body{
 
 .btn-secundario{
     background:white;
-    color:#7c3aed;
-    border:1.5px solid #7c3aed;
+    color:#FC000D;
+    border:1.5px solid #FC000D;
     border-radius:10px;
     padding:10px 16px;
     font-weight:700;
@@ -264,7 +264,7 @@ body{
 }
 
 .btn-secundario:hover{
-    background:#7c3aed;
+    background:#FC000D;
     color:white;
 }
 
@@ -295,7 +295,7 @@ body{
 
 .detalle-archivo span{
     font-weight:700;
-    color:#7c3aed;
+    color:#FC000D;
 }
 
 .estado-ok{
@@ -385,15 +385,15 @@ body{
     height:46px;
     border:none;
     border-radius:10px;
-    background:#7c3aed;
+    background:#FC000D;
     color:white;
     font-weight:700;
     cursor:pointer;
 }
 
 .btn-ver-foto{
-    background:#f2e9fe;
-    color:#7c3aed;
+    background:#fde8e8;
+    color:#FC000D;
     border:none;
     border-radius:8px;
     padding:7px 12px;
@@ -403,7 +403,7 @@ body{
 }
 
 .btn-ver-foto:hover{
-    background:#e4d4fd;
+    background:#fbd0d0;
 }
 
 .sin-foto{

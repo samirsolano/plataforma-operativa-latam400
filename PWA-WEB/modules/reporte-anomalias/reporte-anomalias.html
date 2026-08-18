@@ -11,7 +11,7 @@
     >
 
     <title>
-        Gestión de Anomalías - Plataforma Operativa
+        Gestión de Mejoras - Plataforma Operativa
     </title>
 
     <link
@@ -38,7 +38,7 @@
             <div class="logo">
 
                 <h1>GESTIÓN DE</h1>
-                <h1>ANOMALÍAS</h1>
+                <h1>MEJORAS</h1>
 
                 <span>LATAM 400 CL</span>
 
@@ -58,6 +58,13 @@
 
             </div>
 
+            <nav class="menu">
+
+                <a href="#" class="tab-link activo" data-tab="tabAnomalias">⚠ Anomalías</a>
+                <a href="#" class="tab-link" data-tab="tabSugerencias">💡 Sugerencias</a>
+
+            </nav>
+
             <div class="leyenda-sidebar">
 
                 <div class="leyenda-titulo">ESTADOS</div>
@@ -75,107 +82,219 @@
 
         <main class="contenido">
 
-            <header class="topbar">
+            <!-- ============================================ -->
+            <!-- TAB: ANOMALÍAS -->
+            <!-- ============================================ -->
 
-                <div class="topbar-titulo">
+            <div class="tab-contenido" id="tabAnomalias">
 
-                    <h2>GESTIÓN DE ANOMALÍAS</h2>
+                <header class="topbar">
 
-                    <p>Listado de registros — datos en vivo desde el reporte de Centro de Proyectos</p>
+                    <div class="topbar-titulo">
+
+                        <h2>GESTIÓN DE ANOMALÍAS</h2>
+
+                        <p>Listado de registros — datos en vivo desde el reporte de Centro de Proyectos</p>
+
+                    </div>
+
+                    <button class="btn-secundario btn-actualizar" data-fuente="anomalias">
+                        ⟳ Actualizar
+                    </button>
+
+                </header>
+
+                <div class="kpis">
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Total anomalías</div>
+                        <div class="kpi-numero" id="kpiTotal-anomalias">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Pendientes</div>
+                        <div class="kpi-numero pendiente" id="kpiPendientes-anomalias">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">En revisión</div>
+                        <div class="kpi-numero revision" id="kpiRevision-anomalias">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Atendidas</div>
+                        <div class="kpi-numero atendido" id="kpiAtendidas-anomalias">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Cerradas</div>
+                        <div class="kpi-numero cerrado" id="kpiCerradas-anomalias">-</div>
+                    </div>
 
                 </div>
 
-                <button id="btnActualizar" class="btn-secundario">
-                    ⟳ Actualizar
-                </button>
+                <div class="card">
 
-            </header>
+                    <div class="filtros-anomalias">
 
-            <!-- KPIs -->
+                        <div class="buscador">
+                            <input type="text" id="buscador-anomalias" placeholder="Buscar por código, nombre, zona, descripción...">
+                        </div>
 
-            <div class="kpis" id="kpis">
+                        <select id="filtroEstado-anomalias">
+                            <option value="">Todos los estados</option>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="En revisión">En revisión</option>
+                            <option value="Atendido">Atendido</option>
+                            <option value="Cerrado">Cerrado</option>
+                        </select>
 
-                <div class="kpi-card">
-                    <div class="kpi-titulo">Total anomalías</div>
-                    <div class="kpi-numero" id="kpiTotal">-</div>
-                </div>
+                        <select id="filtroTipo-anomalias">
+                            <option value="">Todos los tipos</option>
+                        </select>
 
-                <div class="kpi-card">
-                    <div class="kpi-titulo">Pendientes</div>
-                    <div class="kpi-numero pendiente" id="kpiPendientes">-</div>
-                </div>
+                    </div>
 
-                <div class="kpi-card">
-                    <div class="kpi-titulo">En revisión</div>
-                    <div class="kpi-numero revision" id="kpiRevision">-</div>
-                </div>
+                    <table>
 
-                <div class="kpi-card">
-                    <div class="kpi-titulo">Atendidas</div>
-                    <div class="kpi-numero atendido" id="kpiAtendidas">-</div>
-                </div>
+                        <thead>
 
-                <div class="kpi-card">
-                    <div class="kpi-titulo">Cerradas</div>
-                    <div class="kpi-numero cerrado" id="kpiCerradas">-</div>
+                            <tr>
+
+                                <th>Código</th>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Resumen</th>
+                                <th>Zona</th>
+                                <th>Registrado por</th>
+                                <th>Estado</th>
+                                <th>Acción</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tbl-anomalias">
+
+                            <tr>
+                                <td colspan="8" class="sin-datos">Cargando reportes...</td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                    <div class="paginacion" id="paginacion-anomalias"></div>
+
                 </div>
 
             </div>
 
-            <!-- FILTROS -->
+            <!-- ============================================ -->
+            <!-- TAB: SUGERENCIAS -->
+            <!-- ============================================ -->
 
-            <div class="card">
+            <div class="tab-contenido oculto" id="tabSugerencias">
 
-                <div class="filtros-anomalias">
+                <header class="topbar">
 
-                    <div class="buscador">
-                        <input type="text" id="buscador" placeholder="Buscar por código, nombre, zona, descripción...">
+                    <div class="topbar-titulo">
+
+                        <h2>GESTIÓN DE SUGERENCIAS</h2>
+
+                        <p>Listado de registros — datos en vivo desde el reporte de Centro de Proyectos</p>
+
                     </div>
 
-                    <select id="filtroEstado">
-                        <option value="">Todos los estados</option>
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="En revisión">En revisión</option>
-                        <option value="Atendido">Atendido</option>
-                        <option value="Cerrado">Cerrado</option>
-                    </select>
+                    <button class="btn-secundario btn-actualizar" data-fuente="sugerencias">
+                        ⟳ Actualizar
+                    </button>
 
-                    <select id="filtroTipo">
-                        <option value="">Todos los tipos</option>
-                    </select>
+                </header>
+
+                <div class="kpis">
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Total sugerencias</div>
+                        <div class="kpi-numero" id="kpiTotal-sugerencias">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Pendientes</div>
+                        <div class="kpi-numero pendiente" id="kpiPendientes-sugerencias">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">En revisión</div>
+                        <div class="kpi-numero revision" id="kpiRevision-sugerencias">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Atendidas</div>
+                        <div class="kpi-numero atendido" id="kpiAtendidas-sugerencias">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Cerradas</div>
+                        <div class="kpi-numero cerrado" id="kpiCerradas-sugerencias">-</div>
+                    </div>
 
                 </div>
 
-                <table>
+                <div class="card">
 
-                    <thead>
+                    <div class="filtros-anomalias">
 
-                        <tr>
+                        <div class="buscador">
+                            <input type="text" id="buscador-sugerencias" placeholder="Buscar por código, nombre, área, propuesta...">
+                        </div>
 
-                            <th>Código</th>
-                            <th>Fecha</th>
-                            <th>Tipo</th>
-                            <th>Resumen</th>
-                            <th>Zona</th>
-                            <th>Registrado por</th>
-                            <th>Estado</th>
-                            <th>Acción</th>
+                        <select id="filtroEstado-sugerencias">
+                            <option value="">Todos los estados</option>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="En revisión">En revisión</option>
+                            <option value="Atendido">Atendido</option>
+                            <option value="Cerrado">Cerrado</option>
+                        </select>
 
-                        </tr>
+                        <select id="filtroTipo-sugerencias">
+                            <option value="">Todas las áreas</option>
+                        </select>
 
-                    </thead>
+                    </div>
 
-                    <tbody id="tblAnomalias">
+                    <table>
 
-                        <tr>
-                            <td colspan="8" class="sin-datos">Cargando reportes...</td>
-                        </tr>
+                        <thead>
 
-                    </tbody>
+                            <tr>
 
-                </table>
+                                <th>Código</th>
+                                <th>Fecha</th>
+                                <th>Área</th>
+                                <th>Resumen</th>
+                                <th>Tipo de mejora</th>
+                                <th>Registrado por</th>
+                                <th>Estado</th>
+                                <th>Acción</th>
 
-                <div class="paginacion" id="paginacion"></div>
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tbl-sugerencias">
+
+                            <tr>
+                                <td colspan="8" class="sin-datos">Cargando reportes...</td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                    <div class="paginacion" id="paginacion-sugerencias"></div>
+
+                </div>
 
             </div>
 
@@ -183,7 +302,7 @@
 
     </div>
 
-    <!-- MODAL DETALLE -->
+    <!-- MODAL DETALLE (compartido entre ambas pestañas) -->
 
     <div class="modal-detalle oculto" id="modalDetalle">
 
@@ -200,44 +319,9 @@
 
             </div>
 
-            <div class="detalle-grid">
+            <div class="detalle-grid" id="detalleGrid"></div>
 
-                <div class="detalle-campo">
-                    <label>Fecha y hora</label>
-                    <div id="detalleFecha">-</div>
-                </div>
-
-                <div class="detalle-campo">
-                    <label>Tipo de anomalía</label>
-                    <div id="detalleTipo">-</div>
-                </div>
-
-                <div class="detalle-campo">
-                    <label>Zona</label>
-                    <div id="detalleZona">-</div>
-                </div>
-
-                <div class="detalle-campo">
-                    <label>Ubicación</label>
-                    <div id="detalleUbicacion">-</div>
-                </div>
-
-                <div class="detalle-campo">
-                    <label>Registrado por</label>
-                    <div id="detalleRegistradoPor">-</div>
-                </div>
-
-                <div class="detalle-campo">
-                    <label>Jefe directo</label>
-                    <div id="detalleJefe">-</div>
-                </div>
-
-            </div>
-
-            <div class="detalle-campo detalle-campo-full">
-                <label>Descripción</label>
-                <div id="detalleDescripcion">-</div>
-            </div>
+            <div id="detalleCamposLargos"></div>
 
             <div class="detalle-campo detalle-campo-full">
 
