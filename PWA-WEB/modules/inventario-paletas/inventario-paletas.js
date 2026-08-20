@@ -311,15 +311,19 @@ cargarAsignacion();
 // TAB 2: CRUCE CON SAP
 // ========================================
 
-// Borra todo el saldo SAP cargado (de todas las fechas) para volver a
-// empezar con un archivo nuevo. Es destructivo y no se puede
-// deshacer, así que además del confirm() pide escribir "BORRAR".
+// Borra TODO el módulo — saldo SAP, lo auditado por los auxiliares
+// (inventario_paletas) y las asignaciones de pasillo — para empezar
+// de cero. Es destructivo y no se puede deshacer, así que además del
+// confirm() pide escribir "BORRAR".
 document.getElementById("btnBorrarSap").addEventListener("click", async function(){
 
     const btn = document.getElementById("btnBorrarSap");
 
     const confirmado = confirm(
-        "Esto borra TODO el saldo SAP cargado (de todas las fechas), para que puedas subir un archivo nuevo. " +
+        "Esto borra TODO el módulo de Inventario de Paletas:\n" +
+        "• El saldo SAP cargado (todas las fechas)\n" +
+        "• Todo lo auditado por los auxiliares en Centro de Proyectos (todas las semanas)\n" +
+        "• Las asignaciones de pasillo\n\n" +
         "No se puede deshacer.\n\n¿Seguro que quieres continuar?"
     );
 
@@ -340,13 +344,16 @@ document.getElementById("btnBorrarSap").addEventListener("click", async function
     try{
 
         await supabaseFetch("/inventario_sap_saldo?id=gt.0", { method: "DELETE" });
+        await supabaseFetch("/inventario_paletas?id=gt.0", { method: "DELETE" });
+        await supabaseFetch("/inventario_asignaciones?id=gt.0", { method: "DELETE" });
 
         document.getElementById("estadoCargaSap").textContent = "";
         document.getElementById("fechaSaldoSap").value = "";
 
-        mostrarToast("Saldo SAP borrado. Ya puedes subir un archivo nuevo.", "exito");
+        mostrarToast("Todo borrado: saldo SAP, auditorías y asignaciones. Listo para empezar de nuevo.", "exito");
 
         await cargarCruce();
+        await cargarAsignacion();
 
     }catch(err){
 
