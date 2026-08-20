@@ -1,4 +1,41 @@
 // ========================================
+// FETCH PAGINADO
+// ========================================
+// Supabase/PostgREST limita cada respuesta a 1000 filas por defecto
+// sin importar el "limit" que se pida — con 14,000+ filas de saldo
+// SAP hace falta pedirlo por páginas (header Range) hasta traer todo.
+
+async function supabaseFetchTodo(ruta){
+
+    const TAMANO_PAGINA = 1000;
+    let desde = 0;
+    let todas = [];
+
+    while(true){
+
+        const pagina = await supabaseFetch(ruta, {
+            headers: { "Range": desde + "-" + (desde + TAMANO_PAGINA - 1) }
+        });
+
+        if(!pagina || !pagina.length){
+            break;
+        }
+
+        todas = todas.concat(pagina);
+
+        if(pagina.length < TAMANO_PAGINA){
+            break;
+        }
+
+        desde += TAMANO_PAGINA;
+
+    }
+
+    return todas;
+
+}
+
+// ========================================
 // TOASTS
 // ========================================
 
@@ -151,7 +188,7 @@ async function cargarAsignacion(){
 
         const [asignaciones, filasInventario] = await Promise.all([
             supabaseFetch("/inventario_asignaciones?select=pasillo,asignado_a&semana=eq." + SEMANA),
-            supabaseFetch("/inventario_paletas?select=pasillo,posiciones_totales&semana=eq." + SEMANA)
+            supabaseFetchTodo("/inventario_paletas?select=pasillo,posiciones_totales&semana=eq." + SEMANA)
         ]);
 
         const asignadoPorPasillo = {};
@@ -273,6 +310,57 @@ cargarAsignacion();
 // ========================================
 // TAB 2: CRUCE CON SAP
 // ========================================
+
+// Borra todo el saldo SAP cargado (de todas las fechas) para volver a
+// empezar con un archivo nuevo. Es destructivo y no se puede
+// deshacer, así que además del confirm() pide escribir "BORRAR".
+document.getElementById("btnBorrarSap").addEventListener("click", async function(){
+
+    const btn = document.getElementById("btnBorrarSap");
+
+    const confirmado = confirm(
+        "Esto borra TODO el saldo SAP cargado (de todas las fechas), para que puedas subir un archivo nuevo. " +
+        "No se puede deshacer.\n\n¿Seguro que quieres continuar?"
+    );
+
+    if(!confirmado){
+        return;
+    }
+
+    const escrito = prompt('Para confirmar, escribe BORRAR (en mayúsculas):');
+
+    if(escrito !== "BORRAR"){
+        mostrarToast("Cancelado: no se escribió BORRAR, no se borró nada.", "info");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Borrando...";
+
+    try{
+
+        await supabaseFetch("/inventario_sap_saldo?id=gt.0", { method: "DELETE" });
+
+        document.getElementById("estadoCargaSap").textContent = "";
+        document.getElementById("fechaSaldoSap").value = "";
+
+        mostrarToast("Saldo SAP borrado. Ya puedes subir un archivo nuevo.", "exito");
+
+        await cargarCruce();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo borrar: " + err.message, "error");
+
+    }finally{
+
+        btn.disabled = false;
+        btn.textContent = "🗑 Borrar Todo";
+
+    }
+
+});
 
 document.getElementById("archivoSapSaldo").addEventListener("change", async function(e){
 
@@ -403,8 +491,8 @@ async function cargarCruce(){
     try{
 
         const [sapFilas, auditadoFilas] = await Promise.all([
-            supabaseFetch("/inventario_sap_saldo?select=pasillo,lado&order=fecha_saldo.desc"),
-            supabaseFetch("/inventario_paletas?select=pasillo,lado,llenas&semana=eq." + SEMANA)
+            supabaseFetchTodo("/inventario_sap_saldo?select=pasillo,lado&order=fecha_saldo.desc"),
+            supabaseFetchTodo("/inventario_paletas?select=pasillo,lado,llenas&semana=eq." + SEMANA)
         ]);
 
         if(!sapFilas || !sapFilas.length){

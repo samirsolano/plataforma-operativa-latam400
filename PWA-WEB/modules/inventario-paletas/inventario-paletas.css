@@ -291,6 +291,28 @@ body{
     color:white;
 }
 
+.btn-peligro{
+    background:white;
+    color:#c0392b;
+    border:1.5px solid #c0392b;
+    border-radius:10px;
+    padding:10px 16px;
+    font-weight:700;
+    font-size:12.5px;
+    cursor:pointer;
+    transition:.15s;
+}
+
+.btn-peligro:hover{
+    background:#c0392b;
+    color:white;
+}
+
+.btn-peligro:disabled{
+    opacity:.6;
+    cursor:default;
+}
+
 /* CARGA SAP */
 
 .filaCargaSap{
