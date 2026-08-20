@@ -24,6 +24,8 @@ if(sesion){
         document.getElementById("cardTomaLoteFarmacia").style.display = "none";
         document.getElementById("linkAnomalias").style.display = "none";
         document.getElementById("cardAnomalias").style.display = "none";
+        document.getElementById("linkInventarioPaletas").style.display = "none";
+        document.getElementById("cardInventarioPaletas").style.display = "none";
     }
 
 }

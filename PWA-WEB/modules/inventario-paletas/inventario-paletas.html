@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Inventario de Paletas - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="inventario-paletas.css"
+    >
+
+</head>
+
+<body>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+
+                <h1>INVENTARIO DE</h1>
+                <h1>PALETAS</h1>
+
+                <span>LATAM 400 CL</span>
+
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+
+                </div>
+
+            </div>
+
+            <nav class="menu">
+
+                <a href="#" class="tab-link activo" data-tab="tabAsignacion">1. Asignación de Pasillos</a>
+                <a href="#" class="tab-link" data-tab="tabCruce">2. Cruce con SAP</a>
+
+            </nav>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="contenido">
+
+            <!-- ============================================ -->
+            <!-- TAB 1: ASIGNACIÓN DE PASILLOS -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido" id="tabAsignacion">
+
+                <header class="topbar">
+
+                    <div class="topbar-titulo">
+
+                        <h2>ASIGNACIÓN DE PASILLOS</h2>
+
+                        <p>Semana <span id="semanaTextoAsignacion">-</span> — asigna quién audita cada pasillo</p>
+
+                    </div>
+
+                </header>
+
+                <div class="kpis">
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Total pasillos</div>
+                        <div class="kpi-numero" id="kpiTotalPasillos">24</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Asignados</div>
+                        <div class="kpi-numero azul" id="kpiAsignados">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Completados</div>
+                        <div class="kpi-numero verde" id="kpiCompletados">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Avance general</div>
+                        <div class="kpi-numero" id="kpiAvanceGeneral">-</div>
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Pasillo</th>
+                                <th>Asignado a</th>
+                                <th>Avance</th>
+                                <th>Estado</th>
+                                <th>Acción</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblAsignacion">
+
+                            <tr>
+                                <td colspan="5" class="sin-datos">Cargando pasillos...</td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 2: CRUCE CON SAP -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabCruce">
+
+                <header class="topbar">
+
+                    <div class="topbar-titulo">
+
+                        <h2>CRUCE CON SAP</h2>
+
+                        <p>Compara lo auditado en físico contra el saldo de SAP, por pasillo y lado</p>
+
+                    </div>
+
+                </header>
+
+                <div class="card">
+
+                    <h2>
+                        Cargar saldo SAP
+                    </h2>
+
+                    <p class="nota-modulo">
+                        Sube el Excel de saldo de SAP (columna "Ubicación" con el código completo, ej. AA-01-005-5).
+                        Se cuenta cada ubicación única como una posición llena.
+                    </p>
+
+                    <div class="filaCargaSap">
+
+                        <div>
+                            <label>Fecha del saldo</label>
+                            <input type="date" id="fechaSaldoSap">
+                        </div>
+
+                        <div class="upload-box-sap">
+                            <input type="file" id="archivoSapSaldo">
+                        </div>
+
+                    </div>
+
+                    <div id="estadoCargaSap" class="nota-modulo"></div>
+
+                </div>
+
+                <div class="card">
+
+                    <div class="card-header-flex">
+
+                        <h2>
+                            Comparativa por pasillo y lado
+                        </h2>
+
+                        <button id="btnActualizarCruce" class="btn-secundario">
+                            ⟳ Actualizar
+                        </button>
+
+                    </div>
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Pasillo</th>
+                                <th>Lado</th>
+                                <th>SAP — Llenas</th>
+                                <th>Auditado — Llenas</th>
+                                <th>Diferencia</th>
+                                <th>Estado</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblCruce">
+
+                            <tr>
+                                <td colspan="6" class="sin-datos">Carga un saldo SAP para ver la comparativa.</td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="inventario-paletas.js"></script>
+
+</body>
+
+</html>
