@@ -305,6 +305,8 @@ document.getElementById("tblAsignacion").addEventListener("click", async functio
 
 });
 
+document.getElementById("btnActualizarAsignacion").addEventListener("click", cargarAsignacion);
+
 cargarAsignacion();
 
 // ========================================

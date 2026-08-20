@@ -185,6 +185,11 @@ body{
     padding:16px 20px;
     margin-bottom:15px;
     box-shadow:0 5px 15px rgba(0,0,0,.05);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
 }
 
 .topbar-titulo h2{
