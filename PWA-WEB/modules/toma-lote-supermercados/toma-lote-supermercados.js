@@ -93,6 +93,20 @@ document.querySelectorAll(".tab-link").forEach(function(link){
             cargarResumenViaje();
         }
 
+        if(link.dataset.tab === "tabMara" && !_maraCargadaAlMenosUnaVez){
+            cargarMara();
+        }
+
+    });
+
+});
+
+// Enlace "Catálogo MARA" dentro del texto de ayuda de la pestaña Carga LPN.
+document.querySelectorAll("[data-tab-link]").forEach(function(enlace){
+
+    enlace.addEventListener("click", function(e){
+        e.preventDefault();
+        document.querySelector('.tab-link[data-tab="' + enlace.dataset.tabLink + '"]').click();
     });
 
 });
@@ -117,8 +131,16 @@ async function leerFilasDataModuladoExcel(archivo){
     const buffer = await archivo.arrayBuffer();
     const libro = XLSX.read(buffer, { type: "array" });
 
+    // La plantilla "Carga LPN Supermercados" (.xlsm) trae varias hojas
+    // (PEDIDOS, FORMATO, AJUSTE, MARA...) — "FORMATO" es la que ya
+    // trae calculado, con fórmulas, el mismo formato de Data Modulado
+    // (Entrega, Tienda, N° Orden de Compra, EAN, Cantidad UMB, FO...).
+    // Como el navegador no ejecuta fórmulas, se lee el valor que Excel
+    // ya dejó guardado en cada celda (comportamiento normal de
+    // SheetJS), así que funciona igual que un Data Modulado plano.
     const nombreHoja =
         libro.SheetNames.find(n => n.trim().toLowerCase() === "data modulado") ||
+        libro.SheetNames.find(n => n.trim().toLowerCase() === "formato") ||
         libro.SheetNames[0];
 
     const hoja = libro.Sheets[nombreHoja];
@@ -1972,3 +1994,826 @@ function actualizarEstadoResumen(){
     btnExportar.style.display = listoParaExportar ? "inline-block" : "none";
 
 }
+
+// ========================================
+// CARGA LPN (Pedidos + VL06F -> Data Modulado)
+// ========================================
+// Réplica en JS de las fórmulas de la hoja "FORMATO" de la plantilla
+// Excel "Carga LPN Supermercados": se cruzan los 2 archivos crudos de
+// SAP (Pedidos y VL06F) con el Catálogo MARA para armar cada fila de
+// Data Modulado, sin necesidad de que el admin suba un Excel ya
+// calculado. Reglas verificadas fórmula por fórmula contra la
+// plantilla real:
+//   - FO / Tipo de OC: se busca en Pedidos la fila cuya ENTREGA
+//     coincida con la Entrega de VL06F.
+//   - N° Orden de Compra: se busca en Pedidos la fila cuyo PEDIDOS
+//     coincida con el "documento de compra" de VL06F.
+//   - EAN, descripción, unidades y factor de conversión: se buscan en
+//     MARA por SKU.
+//   - Cantidad UMB: si la unidad de VL06F coincide con la Unidad Base
+//     de MARA, se usa la cantidad tal cual; si coincide con la Unidad
+//     de Venta, se multiplica por el factor de conversión. Si el Tipo
+//     de OC es ALMACENAJE, el resultado se redondea hacia abajo al
+//     múltiplo de "Ctd por Palet" (así llega paletizado completo).
+
+function normalizarEncabezadoLpn(texto){
+
+    return String(texto || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "");
+
+}
+
+function mapearEncabezadosLpn(filas, aliasPorCampo){
+
+    if(!filas.length){
+        return {};
+    }
+
+    const encabezadosReales = Object.keys(filas[0]);
+    const mapa = {};
+
+    Object.keys(aliasPorCampo).forEach(function(campo){
+
+        const alias = aliasPorCampo[campo];
+
+        mapa[campo] = encabezadosReales.find(function(h){
+            return alias.includes(normalizarEncabezadoLpn(h));
+        }) || null;
+
+    });
+
+    return mapa;
+
+}
+
+const ALIAS_PEDIDOS_LPN = {
+    fo: ["fo"],
+    tipoOc: ["tipo oc", "tipo de oc"],
+    pedido: ["pedidos", "pedido"],
+    oc: ["oc", "orden de compra", "n° orden de compra", "numero de orden de compra"],
+    entrega: ["entrega"]
+};
+
+const ALIAS_VL06F_LPN = {
+    entrega: ["entrega"],
+    posicionEntrega: ["posicion de entrega", "posicion entrega"],
+    sku: ["sku", "material"],
+    ctdEntregaSalida: ["ctd entrega de salida", "ctd. entrega de salida", "cantidad entrega de salida"],
+    umEntregaSalida: ["um entrega de salida", "um. entrega de salida", "unidad entrega de salida"],
+    documentoCompra: ["documento de compra", "doc. de compra", "documento compra"]
+};
+
+async function leerFilasLpn(archivo){
+
+    const buffer = await archivo.arrayBuffer();
+    const libro = XLSX.read(buffer, { type: "array" });
+    const hoja = libro.Sheets[libro.SheetNames[0]];
+
+    return XLSX.utils.sheet_to_json(hoja, { defval: "" });
+
+}
+
+function textoLpn(v){
+    return String(v === undefined || v === null ? "" : v).trim();
+}
+
+function numeroLpn(v){
+    const texto = textoLpn(v);
+    if(texto === ""){
+        return null;
+    }
+    const n = Number(texto);
+    return isNaN(n) ? null : n;
+}
+
+let _filasLpnCalculadas = [];
+let _advertenciasLpn = [];
+
+document.getElementById("btnCalcularLpn").addEventListener("click", async function(){
+
+    const archivoPedidos = document.getElementById("archivoPedidosLpn").files[0];
+    const archivoVl06f = document.getElementById("archivoVl06fLpn").files[0];
+
+    if(!archivoPedidos || !archivoVl06f){
+        mostrarToast("Sube los 2 archivos (Pedidos y VL06F) antes de calcular.", "error");
+        return;
+    }
+
+    const btnCalcular = document.getElementById("btnCalcularLpn");
+    btnCalcular.disabled = true;
+    btnCalcular.textContent = "Calculando...";
+
+    try{
+
+        const [filasPedidosCrudas, filasVl06fCrudas, catalogoMara] = await Promise.all([
+            leerFilasLpn(archivoPedidos),
+            leerFilasLpn(archivoVl06f),
+            supabaseFetchTodoMara("/mara_productos?select=*")
+        ]);
+
+        if(!filasPedidosCrudas.length || !filasVl06fCrudas.length){
+            mostrarToast("Uno de los 2 archivos está vacío.", "error");
+            return;
+        }
+
+        const mapaPedidos = mapearEncabezadosLpn(filasPedidosCrudas, ALIAS_PEDIDOS_LPN);
+        const mapaVl06f = mapearEncabezadosLpn(filasVl06fCrudas, ALIAS_VL06F_LPN);
+
+        const faltantesPedidos = Object.keys(ALIAS_PEDIDOS_LPN).filter(c => !mapaPedidos[c]);
+        const faltantesVl06f = Object.keys(ALIAS_VL06F_LPN).filter(c => !mapaVl06f[c]);
+
+        if(faltantesPedidos.length){
+            mostrarToast("Al archivo de Pedidos le faltan columnas: " + faltantesPedidos.join(", "), "error");
+            return;
+        }
+
+        if(faltantesVl06f.length){
+            mostrarToast("Al archivo de VL06F le faltan columnas: " + faltantesVl06f.join(", "), "error");
+            return;
+        }
+
+        const pedidos = filasPedidosCrudas.map(function(f){
+            return {
+                fo: textoLpn(f[mapaPedidos.fo]),
+                tipoOc: textoLpn(f[mapaPedidos.tipoOc]),
+                pedido: textoLpn(f[mapaPedidos.pedido]),
+                oc: textoLpn(f[mapaPedidos.oc]),
+                entrega: textoLpn(f[mapaPedidos.entrega])
+            };
+        });
+
+        // Índices por clave para no recorrer Pedidos por cada fila de VL06F.
+        // Si hay Pedidos duplicados para la misma clave, se usa el último
+        // (igual que un VLOOKUP normal, que siempre trae la primera
+        // coincidencia de arriba hacia abajo — acá se recorre en orden
+        // y se sobreescribe, así que en la práctica queda el último; con
+        // datos reales de SAP esto no debería pasar porque Entrega y
+        // Pedido son únicos por línea).
+        const pedidosPorEntrega = {};
+        const pedidosPorPedido = {};
+
+        pedidos.forEach(function(p){
+            if(p.entrega) pedidosPorEntrega[p.entrega] = p;
+            if(p.pedido) pedidosPorPedido[p.pedido] = p;
+        });
+
+        const maraPorSku = {};
+
+        (catalogoMara || []).forEach(function(m){
+            maraPorSku[textoLpn(m.sku)] = m;
+        });
+
+        const filasOk = [];
+        const advertencias = [];
+
+        filasVl06fCrudas.forEach(function(f){
+
+            const v = {
+                entrega: textoLpn(f[mapaVl06f.entrega]),
+                posicionEntrega: textoLpn(f[mapaVl06f.posicionEntrega]),
+                sku: textoLpn(f[mapaVl06f.sku]),
+                ctdEntregaSalida: Number(f[mapaVl06f.ctdEntregaSalida]),
+                umEntregaSalida: textoLpn(f[mapaVl06f.umEntregaSalida]),
+                documentoCompra: textoLpn(f[mapaVl06f.documentoCompra])
+            };
+
+            if(!v.entrega || !v.sku){
+                return;
+            }
+
+            const pedidoPorEntrega = pedidosPorEntrega[v.entrega];
+            const pedidoPorDocCompra = pedidosPorPedido[v.documentoCompra];
+            const mara = maraPorSku[v.sku];
+
+            function advertir(motivo){
+                advertencias.push({
+                    entrega: v.entrega,
+                    sku: v.sku,
+                    documentoCompra: v.documentoCompra,
+                    motivo: motivo
+                });
+            }
+
+            if(!pedidoPorEntrega){
+                advertir("No se encontró la Entrega " + v.entrega + " en el archivo de Pedidos.");
+                return;
+            }
+
+            if(!pedidoPorDocCompra){
+                advertir("No se encontró el documento de compra " + v.documentoCompra + " en el archivo de Pedidos.");
+                return;
+            }
+
+            if(!mara){
+                advertir("El SKU " + v.sku + " no está en el Catálogo MARA.");
+                return;
+            }
+
+            const primeraLetraTipoOc = pedidoPorEntrega.tipoOc.charAt(0).toUpperCase();
+            const tipoOc =
+                primeraLetraTipoOc === "A" ? "ALMACENAJE" :
+                primeraLetraTipoOc === "J" ? "JOKER" :
+                "FLUJO";
+
+            let cantidadConvertida;
+
+            if(v.umEntregaSalida === textoLpn(mara.unidad_base)){
+                cantidadConvertida = v.ctdEntregaSalida;
+            }else if(v.umEntregaSalida === textoLpn(mara.unidad_venta)){
+                cantidadConvertida = v.ctdEntregaSalida * Number(mara.conversion || 0);
+            }else{
+                advertir(
+                    "La unidad \"" + v.umEntregaSalida + "\" del SKU " + v.sku +
+                    " no coincide con la Unidad Base (" + mara.unidad_base +
+                    ") ni la Unidad de Venta (" + mara.unidad_venta + ") de MARA."
+                );
+                return;
+            }
+
+            let cantidadUmb = cantidadConvertida;
+
+            if(tipoOc === "ALMACENAJE"){
+
+                const ctdPorPalet = Number(mara.ctd_por_palet || 0);
+
+                if(!ctdPorPalet){
+                    advertir("El SKU " + v.sku + " es ALMACENAJE pero no tiene Ctd. por Palet en MARA.");
+                    return;
+                }
+
+                cantidadUmb = Math.floor(cantidadConvertida / ctdPorPalet) * ctdPorPalet;
+
+            }
+
+            filasOk.push({
+                numero_almacen: 1054,
+                entrega: numeroLpn(v.entrega),
+                posicion_entrega: numeroLpn(v.posicionEntrega),
+                tienda: 917,
+                descripcion_tienda: "SUPERMERCADOS PERUANOS S.A.",
+                unidad_transporte: numeroLpn(pedidoPorEntrega.fo),
+                tipo_oc: tipoOc,
+                tipo_proceso: "PICK",
+                pedido: numeroLpn(v.documentoCompra),
+                posicion_pedido: numeroLpn(v.posicionEntrega),
+                orden_compra: numeroLpn(pedidoPorDocCompra.oc),
+                ean_upc: textoLpn(mara.ean14) || textoLpn(mara.ean13) || null,
+                numero_producto_cliente: textoLpn(mara.codigo_spsa) || null,
+                denominacion_producto_cliente: v.sku + "-" + textoLpn(mara.descripcion).slice(0, 40),
+                cantidad_umb: cantidadUmb,
+                fo: numeroLpn(pedidoPorEntrega.fo)
+            });
+
+        });
+
+        _filasLpnCalculadas = filasOk;
+        _advertenciasLpn = advertencias;
+
+        document.getElementById("cardResultadoLpn").classList.remove("oculto");
+        document.getElementById("lpnTotalFilas").textContent = filasVl06fCrudas.length.toLocaleString("es-PE");
+        document.getElementById("lpnTotalOk").textContent = filasOk.length.toLocaleString("es-PE");
+        document.getElementById("lpnTotalAdvertencia").textContent = advertencias.length.toLocaleString("es-PE");
+
+        const btnGuardar = document.getElementById("btnGuardarLpn");
+        btnGuardar.disabled = filasOk.length === 0;
+
+        const bloqueAdvertencias = document.getElementById("bloqueAdvertenciasLpn");
+        const tblAdvertencias = document.getElementById("tblAdvertenciasLpn");
+
+        if(advertencias.length){
+
+            bloqueAdvertencias.classList.remove("oculto");
+
+            tblAdvertencias.innerHTML = advertencias.map(function(a){
+                return `
+                    <tr>
+                        <td>${a.entrega}</td>
+                        <td>${a.sku}</td>
+                        <td>${a.documentoCompra}</td>
+                        <td>${a.motivo}</td>
+                    </tr>
+                `;
+            }).join("");
+
+        }else{
+
+            bloqueAdvertencias.classList.add("oculto");
+            tblAdvertencias.innerHTML = "";
+
+        }
+
+        mostrarToast(
+            filasOk.length + " fila(s) calculada(s) correctamente" +
+            (advertencias.length ? ", " + advertencias.length + " con advertencia" : "") + ".",
+            advertencias.length ? "info" : "exito"
+        );
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo calcular la Data Modulado: " + err.message, "error");
+
+    }finally{
+
+        btnCalcular.disabled = false;
+        btnCalcular.textContent = "CALCULAR";
+
+    }
+
+});
+
+document.getElementById("btnGuardarLpn").addEventListener("click", async function(){
+
+    if(!_filasLpnCalculadas.length){
+        return;
+    }
+
+    const btnGuardar = document.getElementById("btnGuardarLpn");
+
+    try{
+
+        const existentes = await supabaseFetch("/data_modulado?select=id&limit=1");
+
+        if(existentes && existentes.length){
+
+            const confirmado = confirm(
+                "Ya hay Data Modulado cargada. ¿Deseas reemplazarla con las " +
+                _filasLpnCalculadas.length + " filas calculadas?"
+            );
+
+            if(!confirmado){
+                return;
+            }
+
+            await supabaseFetch("/data_modulado?id=gt.0", { method: "DELETE" });
+
+        }
+
+        btnGuardar.disabled = true;
+        btnGuardar.textContent = "Guardando...";
+
+        const cargadoPor = (sesion && (sesion.nombre_completo || sesion.usuario)) || "";
+        const nombreArchivos =
+            document.getElementById("archivoPedidosLpn").files[0].name +
+            " + " +
+            document.getElementById("archivoVl06fLpn").files[0].name;
+
+        const filasParaInsertar = _filasLpnCalculadas.map(function(f){
+            return Object.assign({}, f, {
+                archivo_origen: nombreArchivos,
+                cargado_por: cargadoPor
+            });
+        });
+
+        const TAMANO_BLOQUE = 200;
+
+        for(let i = 0; i < filasParaInsertar.length; i += TAMANO_BLOQUE){
+
+            const bloque = filasParaInsertar.slice(i, i + TAMANO_BLOQUE);
+
+            await supabaseFetch("/data_modulado", {
+                method: "POST",
+                body: JSON.stringify(bloque)
+            });
+
+        }
+
+        document.getElementById("nombreDataModulado").textContent = nombreArchivos;
+        document.getElementById("fechaDataModulado").textContent = new Date().toLocaleDateString("es-PE");
+        document.getElementById("totalRegistros").textContent = filasParaInsertar.length.toLocaleString("es-PE");
+
+        const viajesUnicos = [...new Set(filasParaInsertar.map(f => f.unidad_transporte))];
+        document.getElementById("totalViajes").textContent = viajesUnicos.length.toLocaleString("es-PE");
+
+        cargarViajesReales(filasParaInsertar);
+
+        mostrarToast("Data Modulado guardada: " + filasParaInsertar.length + " fila(s).", "exito");
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo guardar la Data Modulado: " + err.message, "error");
+
+    }finally{
+
+        btnGuardar.disabled = false;
+        btnGuardar.textContent = "Guardar en Data Modulado";
+
+    }
+
+});
+
+// ========================================
+// CATÁLOGO MARA (maestro de productos)
+// ========================================
+
+// Supabase/PostgREST limita cada respuesta a 1000 filas por defecto —
+// el catálogo real puede superar eso, así que se pagina con el header
+// Range hasta traer todo.
+async function supabaseFetchTodoMara(ruta){
+
+    const TAMANO_PAGINA = 1000;
+    let desde = 0;
+    let todas = [];
+
+    while(true){
+
+        const pagina = await supabaseFetch(ruta, {
+            headers: { "Range": desde + "-" + (desde + TAMANO_PAGINA - 1) }
+        });
+
+        if(!pagina || !pagina.length){
+            break;
+        }
+
+        todas = todas.concat(pagina);
+
+        if(pagina.length < TAMANO_PAGINA){
+            break;
+        }
+
+        desde += TAMANO_PAGINA;
+
+    }
+
+    return todas;
+
+}
+
+let _maraCargadaAlMenosUnaVez = false;
+let _catalogoMara = [];
+let _paginaActualMara = 1;
+const FILAS_POR_PAGINA_MARA = 50;
+
+const tblMara = document.getElementById("tblMara");
+const paginacionMara = document.getElementById("paginacionMara");
+const buscadorMara = document.getElementById("buscadorMara");
+
+const modalMara = document.getElementById("modalMara");
+const modalMaraTitulo = document.getElementById("modalMaraTitulo");
+const formMara = document.getElementById("formMara");
+
+async function cargarMara(){
+
+    tblMara.innerHTML = `<tr><td colspan="10" class="sin-datos">Cargando catálogo...</td></tr>`;
+
+    try{
+
+        _catalogoMara = await supabaseFetchTodoMara("/mara_productos?select=*&order=sku.asc");
+        _maraCargadaAlMenosUnaVez = true;
+        _paginaActualMara = 1;
+        pintarMara();
+
+    }catch(e){
+
+        console.error(e);
+        tblMara.innerHTML = `<tr><td colspan="10" class="sin-datos">No se pudo cargar el catálogo MARA.</td></tr>`;
+
+    }
+
+}
+
+function filasFiltradasMara(){
+
+    const texto = buscadorMara.value.trim().toLowerCase();
+
+    if(!texto){
+        return _catalogoMara;
+    }
+
+    return _catalogoMara.filter(function(p){
+
+        return (
+            (p.sku || "").toLowerCase().includes(texto) ||
+            (p.descripcion || "").toLowerCase().includes(texto) ||
+            (p.codigo_spsa || "").toLowerCase().includes(texto)
+        );
+
+    });
+
+}
+
+function pintarMara(){
+
+    const filas = filasFiltradasMara();
+
+    if(!filas.length){
+        tblMara.innerHTML = `<tr><td colspan="10" class="sin-datos">Sin productos en el catálogo.</td></tr>`;
+        paginacionMara.innerHTML = "";
+        return;
+    }
+
+    const totalPaginas = Math.max(1, Math.ceil(filas.length / FILAS_POR_PAGINA_MARA));
+    _paginaActualMara = Math.min(_paginaActualMara, totalPaginas);
+
+    const desde = (_paginaActualMara - 1) * FILAS_POR_PAGINA_MARA;
+    const visibles = filas.slice(desde, desde + FILAS_POR_PAGINA_MARA);
+
+    tblMara.innerHTML = visibles.map(function(p){
+
+        return `
+            <tr>
+                <td>${p.sku || "-"}</td>
+                <td>${p.descripcion || "-"}</td>
+                <td>${p.codigo_spsa || "-"}</td>
+                <td>${p.unidad_venta || "-"}</td>
+                <td>${p.unidad_base || "-"}</td>
+                <td>${p.conversion ?? "-"}</td>
+                <td>${p.ean14 || "-"}</td>
+                <td>${p.ean13 || "-"}</td>
+                <td>${p.ctd_por_palet ?? "-"}</td>
+                <td>
+                    <button class="btn-fila-mara" title="Editar" onclick="abrirModalMara('${p.sku}')">✏️</button>
+                    <button class="btn-fila-mara" title="Eliminar" onclick="eliminarProductoMara('${p.sku}')">🗑</button>
+                </td>
+            </tr>
+        `;
+
+    }).join("");
+
+    paginacionMara.innerHTML = `
+        <button ${_paginaActualMara <= 1 ? "disabled" : ""} onclick="cambiarPaginaMara(-1)">‹ Anterior</button>
+        <span>Página ${_paginaActualMara} de ${totalPaginas} · ${filas.length} producto(s)</span>
+        <button ${_paginaActualMara >= totalPaginas ? "disabled" : ""} onclick="cambiarPaginaMara(1)">Siguiente ›</button>
+    `;
+
+}
+
+function cambiarPaginaMara(delta){
+    _paginaActualMara += delta;
+    pintarMara();
+}
+
+buscadorMara.addEventListener("input", function(){
+    _paginaActualMara = 1;
+    pintarMara();
+});
+
+function abrirModalMara(sku){
+
+    formMara.reset();
+    document.getElementById("campoSku").disabled = false;
+
+    if(sku){
+
+        const p = _catalogoMara.find(x => x.sku === sku);
+
+        if(!p){
+            return;
+        }
+
+        modalMaraTitulo.textContent = "Editar Producto";
+        document.getElementById("campoSku").value = p.sku || "";
+        document.getElementById("campoSku").disabled = true;
+        document.getElementById("campoDescripcion").value = p.descripcion || "";
+        document.getElementById("campoCodigoSpsa").value = p.codigo_spsa || "";
+        document.getElementById("campoUnidadVenta").value = p.unidad_venta || "";
+        document.getElementById("campoUnidadBase").value = p.unidad_base || "";
+        document.getElementById("campoConversion").value = p.conversion ?? "";
+        document.getElementById("campoCtdPorPalet").value = p.ctd_por_palet ?? "";
+        document.getElementById("campoEan14").value = p.ean14 || "";
+        document.getElementById("campoEan13").value = p.ean13 || "";
+
+    }else{
+        modalMaraTitulo.textContent = "Agregar Producto";
+    }
+
+    modalMara.classList.remove("oculto");
+
+}
+
+function cerrarModalMara(){
+    modalMara.classList.add("oculto");
+}
+
+document.getElementById("btnAgregarMara").addEventListener("click", function(){
+    abrirModalMara(null);
+});
+
+document.getElementById("modalMaraCerrar").addEventListener("click", cerrarModalMara);
+document.getElementById("modalMaraFondo").addEventListener("click", cerrarModalMara);
+
+formMara.addEventListener("submit", async function(e){
+
+    e.preventDefault();
+
+    const sku = document.getElementById("campoSku").value.trim();
+
+    if(!sku){
+        mostrarToast("El SKU es obligatorio.", "error");
+        return;
+    }
+
+    const registro = {
+        sku: sku,
+        descripcion: document.getElementById("campoDescripcion").value.trim() || null,
+        codigo_spsa: document.getElementById("campoCodigoSpsa").value.trim() || null,
+        unidad_venta: document.getElementById("campoUnidadVenta").value.trim() || null,
+        unidad_base: document.getElementById("campoUnidadBase").value.trim() || null,
+        conversion: document.getElementById("campoConversion").value === "" ? null : Number(document.getElementById("campoConversion").value),
+        ctd_por_palet: document.getElementById("campoCtdPorPalet").value === "" ? null : Number(document.getElementById("campoCtdPorPalet").value),
+        ean14: document.getElementById("campoEan14").value.trim() || null,
+        ean13: document.getElementById("campoEan13").value.trim() || null,
+        actualizado_por: (sesion && sesion.nombre_completo) || null
+    };
+
+    const btnGuardar = document.getElementById("btnGuardarMara");
+    btnGuardar.disabled = true;
+    btnGuardar.textContent = "Guardando...";
+
+    try{
+
+        await supabaseFetch("/mara_productos?on_conflict=sku", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates" },
+            body: JSON.stringify(registro)
+        });
+
+        mostrarToast("Producto guardado.", "exito");
+        cerrarModalMara();
+        await cargarMara();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo guardar el producto.", "error");
+
+    }finally{
+
+        btnGuardar.disabled = false;
+        btnGuardar.textContent = "Guardar";
+
+    }
+
+});
+
+async function eliminarProductoMara(sku){
+
+    if(!confirm("¿Eliminar el producto " + sku + " del catálogo MARA?")){
+        return;
+    }
+
+    try{
+
+        await supabaseFetch("/mara_productos?sku=eq." + encodeURIComponent(sku), {
+            method: "DELETE"
+        });
+
+        mostrarToast("Producto eliminado.", "exito");
+        await cargarMara();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo eliminar el producto.", "error");
+
+    }
+
+}
+
+// Carga masiva: acepta un Excel/CSV con encabezados similares a la
+// hoja MARA real de SAP. Se reconoce cada columna por varias
+// variantes de nombre posibles (mayúsculas/minúsculas, con o sin
+// tildes) para no depender de un formato exacto de encabezado.
+function normalizarEncabezadoMara(texto){
+
+    return String(texto || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "");
+
+}
+
+const ALIAS_COLUMNAS_MARA = {
+    sku: ["material", "sku", "material s4h", "codigo material"],
+    descripcion: ["descripcion", "des. de material", "denominacion", "descripcion de material"],
+    codigo_spsa: ["codigo spsa", "cod. spsa", "codigo cliente", "numero producto cliente"],
+    unidad_venta: ["umb", "unidad de venta", "unidad venta"],
+    unidad_base: ["uma", "unidad base", "unidad de medida alternativa"],
+    conversion: ["conversion", "conversion por und", "factor conversion"],
+    ean14: ["ean14", "ean 14"],
+    ean13: ["ean13", "ean 13"],
+    ctd_por_palet: ["ctd x palet", "ctd por palet", "cantidad por palet", "und x palet", "unidades por palet"]
+};
+
+function mapearFilaMara(filaObjeto, mapaColumnas){
+
+    const registro = {};
+
+    Object.keys(mapaColumnas).forEach(function(campo){
+
+        const encabezadoReal = mapaColumnas[campo];
+
+        if(!encabezadoReal){
+            registro[campo] = null;
+            return;
+        }
+
+        let valor = filaObjeto[encabezadoReal];
+
+        if(valor === undefined || valor === null || valor === ""){
+            registro[campo] = null;
+            return;
+        }
+
+        if(campo === "conversion" || campo === "ctd_por_palet"){
+            const numero = Number(valor);
+            registro[campo] = isNaN(numero) ? null : numero;
+        }else{
+            registro[campo] = String(valor).trim();
+        }
+
+    });
+
+    return registro;
+
+}
+
+document.getElementById("archivoMara").addEventListener("change", async function(e){
+
+    const archivo = e.target.files[0];
+
+    if(!archivo){
+        return;
+    }
+
+    try{
+
+        const buffer = await archivo.arrayBuffer();
+        const libro = XLSX.read(buffer, { type: "array" });
+        const hoja = libro.Sheets[libro.SheetNames[0]];
+        const filas = XLSX.utils.sheet_to_json(hoja, { defval: "" });
+
+        if(!filas.length){
+            mostrarToast("El archivo no tiene filas.", "error");
+            e.target.value = "";
+            return;
+        }
+
+        // Arma el mapa campo -> encabezado real, buscando por alias.
+        const encabezadosReales = Object.keys(filas[0]);
+        const mapaColumnas = {};
+
+        Object.keys(ALIAS_COLUMNAS_MARA).forEach(function(campo){
+
+            const alias = ALIAS_COLUMNAS_MARA[campo];
+
+            const encontrado = encabezadosReales.find(function(h){
+                return alias.includes(normalizarEncabezadoMara(h));
+            });
+
+            mapaColumnas[campo] = encontrado || null;
+
+        });
+
+        if(!mapaColumnas.sku){
+            mostrarToast("No se encontró la columna de SKU/Material en el archivo.", "error");
+            e.target.value = "";
+            return;
+        }
+
+        const registros = filas
+            .map(function(fila){ return mapearFilaMara(fila, mapaColumnas); })
+            .filter(function(r){ return r.sku; })
+            .map(function(r){ return Object.assign(r, { actualizado_por: (sesion && sesion.nombre_completo) || null }); });
+
+        if(!registros.length){
+            mostrarToast("No se encontraron productos con SKU válido.", "error");
+            e.target.value = "";
+            return;
+        }
+
+        // Se sube en bloques para no exceder el tamaño de un solo POST.
+        const TAMANO_BLOQUE = 500;
+
+        for(let i = 0; i < registros.length; i += TAMANO_BLOQUE){
+
+            const bloque = registros.slice(i, i + TAMANO_BLOQUE);
+
+            await supabaseFetch("/mara_productos?on_conflict=sku", {
+                method: "POST",
+                headers: { "Prefer": "resolution=merge-duplicates" },
+                body: JSON.stringify(bloque)
+            });
+
+        }
+
+        mostrarToast(registros.length + " producto(s) cargado(s)/actualizado(s) en el catálogo MARA.", "exito");
+        await cargarMara();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo procesar el archivo de MARA.", "error");
+
+    }finally{
+
+        e.target.value = "";
+
+    }
+
+});

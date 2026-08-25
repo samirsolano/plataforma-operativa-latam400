@@ -62,6 +62,8 @@
 
                 <a href="#" class="tab-link activo" data-tab="tabDataModulado">1. Carga Data Modulado, Fase y Modulación</a>
                 <a href="#" class="tab-link" data-tab="tabObservaciones">2. Observaciones y Packing List</a>
+                <a href="#" class="tab-link" data-tab="tabCargaLpn">3. Carga LPN (Pedidos + VL06F)</a>
+                <a href="#" class="tab-link" data-tab="tabMara">4. Catálogo MARA</a>
 
             </nav>
 
@@ -500,7 +502,263 @@
 
             </div>
 
+            <!-- ============================================ -->
+            <!-- TAB 3: CARGA LPN (PEDIDOS + VL06F) -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabCargaLpn">
+
+                <div class="card">
+
+                    <h2>
+                        CARGAR PEDIDOS + VL06F
+                    </h2>
+
+                    <p class="nota-modulo">
+                        Sube los 2 archivos crudos de SAP. La app calcula la Data Modulado
+                        cruzando ambos archivos con el <a href="#" data-tab-link="tabMara">Catálogo MARA</a>
+                        (mismas fórmulas de la plantilla Excel: Entrega↔Entrega para FO/Tipo de OC,
+                        Pedido↔Documento de Compra para N° Orden de Compra, y SKU para EAN/descripción/conversión/paletas).
+                    </p>
+
+                    <div class="viaje-grid" style="grid-template-columns:1fr 1fr 220px;">
+
+                        <div>
+                            <label>Archivo Pedidos (FO, TIPO OC, PEDIDOS, OC, ENTREGA)</label>
+                            <input type="file" id="archivoPedidosLpn" accept=".xlsx,.xls,.csv">
+                        </div>
+
+                        <div>
+                            <label>Archivo VL06F (Entrega, Posición, SKU, CTD, UM, Documento de Compra)</label>
+                            <input type="file" id="archivoVl06fLpn" accept=".xlsx,.xls,.csv">
+                        </div>
+
+                        <div>
+                            <button id="btnCalcularLpn">
+                                CALCULAR
+                            </button>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="card oculto" id="cardResultadoLpn">
+
+                    <h2>
+                        RESULTADO DEL CÁLCULO
+                    </h2>
+
+                    <div class="detalle-archivo" style="margin-bottom:18px;">
+
+                        <p>Filas VL06F leídas: <span id="lpnTotalFilas">-</span></p>
+                        <p>Filas calculadas correctamente: <span id="lpnTotalOk">-</span></p>
+                        <p>Filas con advertencia (no se cargarán): <span id="lpnTotalAdvertencia">-</span></p>
+
+                    </div>
+
+                    <button id="btnGuardarLpn" class="btn-primario" disabled>
+                        Guardar en Data Modulado
+                    </button>
+
+                    <div id="bloqueAdvertenciasLpn" class="oculto" style="margin-top:20px;">
+
+                        <h3 class="subtitulo-validacion">
+                            Filas con advertencia
+                        </h3>
+
+                        <p class="nota-modulo">
+                            Estas filas no se guardarán hasta corregir el motivo (por ejemplo,
+                            agregar el SKU faltante en el Catálogo MARA y volver a calcular).
+                        </p>
+
+                        <table>
+
+                            <thead>
+                                <tr>
+                                    <th>Entrega</th>
+                                    <th>SKU</th>
+                                    <th>Documento de Compra</th>
+                                    <th>Motivo</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="tblAdvertenciasLpn"></tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 4: CATÁLOGO MARA -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabMara">
+
+                <div class="card">
+
+                    <div class="card-header-flex">
+
+                        <h2>
+                            CATÁLOGO MARA
+                        </h2>
+
+                        <div class="acciones-mara">
+
+                            <label class="btn-secundario btn-carga-archivo">
+                                ⬆ Cargar Excel
+                                <input type="file" id="archivoMara" accept=".xlsx,.xls,.csv" hidden>
+                            </label>
+
+                            <button id="btnAgregarMara" class="btn-primario">
+                                + Agregar Producto
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                    <p class="nota-modulo">
+                        Maestro de productos SAP (MARA) usado para calcular la Data Modulado
+                        a partir de Pedidos + VL06F. Se puede agregar, editar o eliminar
+                        productos uno por uno, o actualizar varios a la vez subiendo un Excel
+                        (se actualiza por SKU; los que no existan se crean).
+                    </p>
+
+                    <input
+                        type="text"
+                        id="buscadorMara"
+                        placeholder="Buscar por SKU, descripción o código SPSA..."
+                        class="input-buscador"
+                    >
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>SKU</th>
+                                <th>Descripción</th>
+                                <th>Cód. SPSA</th>
+                                <th>UMB</th>
+                                <th>UMA</th>
+                                <th>Conversión</th>
+                                <th>EAN14</th>
+                                <th>EAN13</th>
+                                <th>Ctd x Palet</th>
+                                <th>Acción</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblMara">
+
+                            <tr>
+                                <td colspan="10" class="sin-datos">
+                                    Cargando catálogo...
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                    <div class="paginacion" id="paginacionMara"></div>
+
+                </div>
+
+            </div>
+
         </main>
+
+    </div>
+
+    <!-- MODAL: AGREGAR / EDITAR PRODUCTO MARA -->
+
+    <div class="modal-detalle oculto" id="modalMara">
+
+        <div class="modal-detalle-fondo" id="modalMaraFondo"></div>
+
+        <div class="modal-detalle-caja">
+
+            <button class="modal-detalle-cerrar" id="modalMaraCerrar">✕</button>
+
+            <h3 id="modalMaraTitulo" style="margin-bottom:18px;color:#111827;">
+                Agregar Producto
+            </h3>
+
+            <form id="formMara" class="form-mara">
+
+                <div>
+                    <label>SKU *</label>
+                    <input type="text" id="campoSku" required>
+                </div>
+
+                <div>
+                    <label>Descripción</label>
+                    <input type="text" id="campoDescripcion">
+                </div>
+
+                <div>
+                    <label>Código SPSA</label>
+                    <input type="text" id="campoCodigoSpsa">
+                </div>
+
+                <div class="form-mara-fila">
+
+                    <div>
+                        <label>Unidad de Venta (UMB)</label>
+                        <input type="text" id="campoUnidadVenta">
+                    </div>
+
+                    <div>
+                        <label>Unidad Base (UMA)</label>
+                        <input type="text" id="campoUnidadBase">
+                    </div>
+
+                </div>
+
+                <div class="form-mara-fila">
+
+                    <div>
+                        <label>Conversión (UMB → UMA)</label>
+                        <input type="number" step="any" id="campoConversion">
+                    </div>
+
+                    <div>
+                        <label>Ctd. por Palet</label>
+                        <input type="number" step="any" id="campoCtdPorPalet">
+                    </div>
+
+                </div>
+
+                <div class="form-mara-fila">
+
+                    <div>
+                        <label>EAN14</label>
+                        <input type="text" id="campoEan14">
+                    </div>
+
+                    <div>
+                        <label>EAN13</label>
+                        <input type="text" id="campoEan13">
+                    </div>
+
+                </div>
+
+                <button type="submit" id="btnGuardarMara">
+                    Guardar
+                </button>
+
+            </form>
+
+        </div>
 
     </div>
 
