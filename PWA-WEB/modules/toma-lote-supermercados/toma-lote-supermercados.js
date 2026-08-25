@@ -617,9 +617,13 @@ async function descargarDataModulado(viaje){
 
     // bookSST fuerza la tabla de shared strings al guardar: sin esto,
     // SheetJS escribe los textos como celdas tipo "str" (string de
-    // fórmula) en vez de texto real, y Excel no las reconoce como texto
-    // (no aparece el triángulo verde "Número guardado como texto").
-    XLSX.writeFile(libro, nombreArchivo, { bookSST: true });
+    // fórmula) en vez de texto real. Y aunque queden como texto real,
+    // SheetJS agrega por su cuenta un bloque <ignoredErrors> que le
+    // dice a Excel "no avises que esto es número guardado como texto"
+    // — ignoreEC:false es lo que hay que pasar para que NO agregue ese
+    // bloque, y así sí aparezca el triángulo verde igual que en el
+    // archivo original.
+    XLSX.writeFile(libro, nombreArchivo, { bookSST: true, ignoreEC: false });
 
 }
 
