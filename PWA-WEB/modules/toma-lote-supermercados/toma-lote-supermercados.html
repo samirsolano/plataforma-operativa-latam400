@@ -600,6 +600,44 @@
 
                 </div>
 
+                <div class="card oculto" id="cardViajesLpn">
+
+                    <div class="card-header-flex">
+
+                        <h2>
+                            DESCARGA MASIVA POR VIAJE
+                        </h2>
+
+                        <button id="btnDescargarSeleccionadosLpn" class="btn-primario" disabled>
+                            ⬇ Descargar seleccionados
+                        </button>
+
+                    </div>
+
+                    <p class="nota-modulo">
+                        Un archivo Excel por viaje (igual al formato de "FO_&lt;viaje&gt;.xlsx"),
+                        armado directamente con lo que se acaba de calcular arriba — no hace falta
+                        guardarlo en Data Modulado primero. Los viajes marcados ⚠ tienen al menos
+                        una fila con advertencia, así que ese archivo podría venir incompleto.
+                    </p>
+
+                    <table>
+
+                        <thead>
+                            <tr>
+                                <th style="width:36px;"><input type="checkbox" id="chkTodosViajesLpn"></th>
+                                <th>Viaje</th>
+                                <th>Filas</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="tblViajesLpn"></tbody>
+
+                    </table>
+
+                </div>
+
             </div>
 
             <!-- ============================================ -->

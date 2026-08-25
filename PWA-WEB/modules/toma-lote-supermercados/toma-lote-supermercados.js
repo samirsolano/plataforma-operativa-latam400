@@ -585,18 +585,12 @@ async function supabaseFetchTodoDataModulado(ruta){
 
 }
 
-async function descargarDataModulado(viaje){
-
-    const ruta = viaje
-        ? "/data_modulado?select=*&unidad_transporte=eq." + viaje + "&order=entrega.asc,posicion_entrega.asc"
-        : "/data_modulado?select=*&order=unidad_transporte.asc,entrega.asc,posicion_entrega.asc";
-
-    const filas = await supabaseFetchTodoDataModulado(ruta);
-
-    if(!filas.length){
-        mostrarToast("No hay Data Modulado para descargar" + (viaje ? " en el viaje " + viaje : "") + ".", "error");
-        return;
-    }
+// Arma el Excel (mismas 15 columnas, mismo formato texto/número que
+// el archivo original) y lo descarga. Reutilizable tanto para datos
+// que ya están guardados en Supabase (tab "Viajes Generados") como
+// para datos recién calculados en memoria (tab "Carga LPN") que
+// todavía no se guardaron.
+function escribirYDescargarExcelDataModulado(filas, nombreHoja, nombreArchivo){
 
     const hoja = XLSX.utils.json_to_sheet(filas.map(filaDataModuladoAExcel), { header: ENCABEZADOS_DATA_MODULADO });
 
@@ -627,17 +621,7 @@ async function descargarDataModulado(viaje){
     }
 
     const libro = XLSX.utils.book_new();
-
-    // Mismo nombre de hoja y de archivo que la macro original
-    // (FO_<código>.xls, hoja renombrada al FO) para viajes individuales;
-    // la descarga completa usa un nombre genérico porque no tiene un
-    // solo FO al que asociarla.
-    const nombreHoja = viaje ? String(viaje).slice(0, 31) : "DATA MODULADO";
-    XLSX.utils.book_append_sheet(libro, hoja, nombreHoja);
-
-    const nombreArchivo = viaje
-        ? "FO_" + viaje + ".xlsx"
-        : "Data Modulado - Todos los viajes.xlsx";
+    XLSX.utils.book_append_sheet(libro, hoja, nombreHoja.slice(0, 31));
 
     // bookSST fuerza la tabla de shared strings al guardar: sin esto,
     // SheetJS escribe los textos como celdas tipo "str" (string de
@@ -648,6 +632,32 @@ async function descargarDataModulado(viaje){
     // bloque, y así sí aparezca el triángulo verde igual que en el
     // archivo original.
     XLSX.writeFile(libro, nombreArchivo, { bookSST: true, ignoreEC: false, cellStyles: true });
+
+}
+
+async function descargarDataModulado(viaje){
+
+    const ruta = viaje
+        ? "/data_modulado?select=*&unidad_transporte=eq." + viaje + "&order=entrega.asc,posicion_entrega.asc"
+        : "/data_modulado?select=*&order=unidad_transporte.asc,entrega.asc,posicion_entrega.asc";
+
+    const filas = await supabaseFetchTodoDataModulado(ruta);
+
+    if(!filas.length){
+        mostrarToast("No hay Data Modulado para descargar" + (viaje ? " en el viaje " + viaje : "") + ".", "error");
+        return;
+    }
+
+    // Mismo nombre de hoja y de archivo que la macro original
+    // (FO_<código>.xls, hoja renombrada al FO) para viajes individuales;
+    // la descarga completa usa un nombre genérico porque no tiene un
+    // solo FO al que asociarla.
+    const nombreHoja = viaje ? String(viaje) : "DATA MODULADO";
+    const nombreArchivo = viaje
+        ? "FO_" + viaje + ".xlsx"
+        : "Data Modulado - Todos los viajes.xlsx";
+
+    escribirYDescargarExcelDataModulado(filas, nombreHoja, nombreArchivo);
 
 }
 
@@ -2377,7 +2387,11 @@ document.getElementById("btnCalcularLpn").addEventListener("click", async functi
                     entrega: v.entrega,
                     sku: v.sku,
                     documentoCompra: v.documentoCompra,
-                    motivo: motivo
+                    motivo: motivo,
+                    // El viaje (FO) solo se conoce si ya se encontró el
+                    // Pedido de esta Entrega — si no, queda sin viaje
+                    // asociado (no se puede saber a qué viaje pertenece).
+                    viaje: pedidoPorEntrega ? numeroLpn(pedidoPorEntrega.fo) : null
                 });
             }
 
@@ -2489,6 +2503,8 @@ document.getElementById("btnCalcularLpn").addEventListener("click", async functi
 
         }
 
+        pintarViajesLpn(filasOk, advertencias);
+
         mostrarToast(
             filasOk.length + " fila(s) calculada(s) correctamente" +
             (advertencias.length ? ", " + advertencias.length + " con advertencia" : "") + ".",
@@ -2504,6 +2520,153 @@ document.getElementById("btnCalcularLpn").addEventListener("click", async functi
 
         btnCalcular.disabled = false;
         btnCalcular.textContent = "CALCULAR";
+
+    }
+
+});
+
+// ========================================
+// DESCARGA MASIVA POR VIAJE (Carga LPN) — un Excel por viaje, armado
+// directo desde lo calculado en memoria, sin necesidad de guardarlo
+// primero en Data Modulado.
+// ========================================
+
+let _viajesLpnCalculados = {};
+
+function pintarViajesLpn(filasOk, advertencias){
+
+    const porViaje = {};
+
+    filasOk.forEach(function(f){
+
+        const viaje = f.unidad_transporte;
+        if(viaje === null || viaje === undefined){
+            return;
+        }
+
+        if(!porViaje[viaje]){
+            porViaje[viaje] = [];
+        }
+
+        porViaje[viaje].push(f);
+
+    });
+
+    const viajesConAdvertencia = new Set(
+        advertencias
+            .filter(a => a.viaje !== null && a.viaje !== undefined)
+            .map(a => a.viaje)
+    );
+
+    _viajesLpnCalculados = porViaje;
+
+    const viajes = Object.keys(porViaje).map(Number).sort((a, b) => a - b);
+
+    const cardViajesLpn = document.getElementById("cardViajesLpn");
+    const tbody = document.getElementById("tblViajesLpn");
+    const btnDescargarSeleccionados = document.getElementById("btnDescargarSeleccionadosLpn");
+    const chkTodos = document.getElementById("chkTodosViajesLpn");
+
+    if(!viajes.length){
+        cardViajesLpn.classList.add("oculto");
+        tbody.innerHTML = "";
+        return;
+    }
+
+    cardViajesLpn.classList.remove("oculto");
+
+    tbody.innerHTML = viajes.map(function(v){
+
+        const sinObservaciones = !viajesConAdvertencia.has(v);
+
+        return `
+            <tr>
+                <td><input type="checkbox" class="chk-viaje-lpn" data-viaje="${v}" ${sinObservaciones ? "checked" : ""}></td>
+                <td>${v}</td>
+                <td>${porViaje[v].length}</td>
+                <td>${sinObservaciones ? "✓ Sin observaciones" : "⚠ Con observaciones"}</td>
+            </tr>
+        `;
+
+    }).join("");
+
+    chkTodos.checked = false;
+    actualizarBotonDescargarSeleccionadosLpn();
+
+}
+
+function actualizarBotonDescargarSeleccionadosLpn(){
+
+    const seleccionados = document.querySelectorAll(".chk-viaje-lpn:checked").length;
+    document.getElementById("btnDescargarSeleccionadosLpn").disabled = seleccionados === 0;
+
+}
+
+document.getElementById("tblViajesLpn").addEventListener("change", function(e){
+
+    if(e.target.classList.contains("chk-viaje-lpn")){
+        actualizarBotonDescargarSeleccionadosLpn();
+    }
+
+});
+
+document.getElementById("chkTodosViajesLpn").addEventListener("change", function(){
+
+    document.querySelectorAll(".chk-viaje-lpn").forEach(chk => { chk.checked = this.checked; });
+    actualizarBotonDescargarSeleccionadosLpn();
+
+});
+
+// Un solo click de usuario, pero varias descargas — algunos
+// navegadores bloquean descargas múltiples disparadas todas de golpe,
+// así que se espacian con un pequeño delay entre cada una.
+function esperar(ms){
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+document.getElementById("btnDescargarSeleccionadosLpn").addEventListener("click", async function(){
+
+    const viajesSeleccionados = [...document.querySelectorAll(".chk-viaje-lpn:checked")]
+        .map(chk => chk.dataset.viaje);
+
+    if(!viajesSeleccionados.length){
+        return;
+    }
+
+    const boton = this;
+    boton.disabled = true;
+
+    try{
+
+        for(let i = 0; i < viajesSeleccionados.length; i++){
+
+            const viaje = viajesSeleccionados[i];
+            const filas = _viajesLpnCalculados[viaje];
+
+            if(!filas || !filas.length){
+                continue;
+            }
+
+            boton.textContent = "Descargando " + (i + 1) + " de " + viajesSeleccionados.length + "...";
+
+            escribirYDescargarExcelDataModulado(filas, viaje, "FO_" + viaje + ".xlsx");
+
+            await esperar(400);
+
+        }
+
+        mostrarToast(viajesSeleccionados.length + " archivo(s) descargado(s).", "exito");
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo completar la descarga masiva: " + err.message, "error");
+
+    }finally{
+
+        boton.disabled = false;
+        boton.textContent = "⬇ Descargar seleccionados";
+        actualizarBotonDescargarSeleccionadosLpn();
 
     }
 
