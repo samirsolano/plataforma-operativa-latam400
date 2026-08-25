@@ -599,6 +599,33 @@ async function descargarDataModulado(viaje){
     }
 
     const hoja = XLSX.utils.json_to_sheet(filas.map(filaDataModuladoAExcel), { header: ENCABEZADOS_DATA_MODULADO });
+
+    // El tipo de celda (t="s") ya hace que el VALOR se guarde como
+    // texto, pero el FORMATO de la celda (el que se ve en el combo
+    // "Número" de Excel) queda en "General" mientras no se le asigne
+    // explícitamente el formato "Texto" (@). Se recorren todas las
+    // filas de datos y se fuerza "@" en las columnas de texto y
+    // "0.00" en Cantidad UMB (última columna), igual que el archivo
+    // original.
+    const ultimaColumna = ENCABEZADOS_DATA_MODULADO.length - 1;
+
+    for(let fila = 1; fila <= filas.length; fila++){
+
+        for(let col = 0; col <= ultimaColumna; col++){
+
+            const ref = XLSX.utils.encode_cell({ r: fila, c: col });
+            const celda = hoja[ref];
+
+            if(!celda){
+                continue;
+            }
+
+            celda.z = (col === ultimaColumna) ? "0.00" : "@";
+
+        }
+
+    }
+
     const libro = XLSX.utils.book_new();
 
     // Mismo nombre de hoja y de archivo que la macro original
@@ -620,7 +647,7 @@ async function descargarDataModulado(viaje){
     // — ignoreEC:false es lo que hay que pasar para que NO agregue ese
     // bloque, y así sí aparezca el triángulo verde igual que en el
     // archivo original.
-    XLSX.writeFile(libro, nombreArchivo, { bookSST: true, ignoreEC: false });
+    XLSX.writeFile(libro, nombreArchivo, { bookSST: true, ignoreEC: false, cellStyles: true });
 
 }
 
