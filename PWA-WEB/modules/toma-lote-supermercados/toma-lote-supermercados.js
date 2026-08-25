@@ -497,6 +497,7 @@ function cargarViajesReales(filas, conteoModulacionPorViaje, conteoFasePorViaje,
             <td><span class="estado ${estadoClase}">${estadoTexto}</span></td>
             <td>-</td>
             <td>${accion}</td>
+            <td><button class="btn-fila-mara" title="Descargar Data Modulado de este viaje" data-descargar-viaje="${v.viaje}">⬇</button></td>
         `;
 
         tbody.appendChild(tr);
@@ -505,11 +506,162 @@ function cargarViajesReales(filas, conteoModulacionPorViaje, conteoFasePorViaje,
 
 }
 
+// ========================================
+// DESCARGAR DATA MODULADO (Excel, con los mismos encabezados que la
+// plantilla original) — por viaje o completa.
+// ========================================
+
+// 15 columnas (A-O), sin la "FO" repetida al final — igual al archivo
+// real que baja la macro original (PRUEBA 11111.xlsx: dimension
+// A1:O11, hoja nombrada con el FO/viaje).
+const ENCABEZADOS_DATA_MODULADO = [
+    "Número de almacén", "Entrega", "Posición de entrega", "Tienda",
+    "Descripción de Tienda", "Unidad de Transporte", "Tipo de OC",
+    "Tipo de Proceso", "Pedido", "Posición de Pedido", "N° Orden de Compra",
+    "EAN o UPC (EAN 14 SPSA)", "Número de producto CLIENTE",
+    "Denomin.producto CLIENTE", "Cantidad UMB"
+];
+
+function textoCelda(v){
+    return (v === null || v === undefined) ? "" : String(v);
+}
+
+function numeroCelda(v){
+    const n = Number(v);
+    return isNaN(n) ? "" : n;
+}
+
+// El archivo real de referencia trae una mezcla específica de
+// texto/número por columna (heredada del formato de cada columna en
+// SAP/MARA/Pedidos, no es arbitraria): Unidad de Transporte, N° Orden
+// de Compra, Número de producto CLIENTE y Cantidad UMB son números;
+// el resto (incluidos Entrega y Pedido, aunque parezcan numéricos) son
+// texto — así se evita que Excel trunque ceros a la izquierda o
+// muestre el EAN en notación científica.
+function filaDataModuladoAExcel(f){
+    return {
+        "Número de almacén": textoCelda(f.numero_almacen),
+        "Entrega": textoCelda(f.entrega),
+        "Posición de entrega": textoCelda(f.posicion_entrega),
+        "Tienda": textoCelda(f.tienda),
+        "Descripción de Tienda": f.descripcion_tienda || "",
+        "Unidad de Transporte": numeroCelda(f.unidad_transporte),
+        "Tipo de OC": f.tipo_oc || "",
+        "Tipo de Proceso": f.tipo_proceso || "",
+        "Pedido": textoCelda(f.pedido),
+        "Posición de Pedido": textoCelda(f.posicion_pedido),
+        "N° Orden de Compra": numeroCelda(f.orden_compra),
+        "EAN o UPC (EAN 14 SPSA)": textoCelda(f.ean_upc),
+        "Número de producto CLIENTE": numeroCelda(f.numero_producto_cliente),
+        "Denomin.producto CLIENTE": f.denominacion_producto_cliente || "",
+        "Cantidad UMB": numeroCelda(f.cantidad_umb)
+    };
+}
+
+async function supabaseFetchTodoDataModulado(ruta){
+
+    const TAMANO_PAGINA = 1000;
+    let desde = 0;
+    let todas = [];
+
+    while(true){
+
+        const pagina = await supabaseFetch(ruta, {
+            headers: { "Range": desde + "-" + (desde + TAMANO_PAGINA - 1) }
+        });
+
+        if(!pagina || !pagina.length){
+            break;
+        }
+
+        todas = todas.concat(pagina);
+
+        if(pagina.length < TAMANO_PAGINA){
+            break;
+        }
+
+        desde += TAMANO_PAGINA;
+
+    }
+
+    return todas;
+
+}
+
+async function descargarDataModulado(viaje){
+
+    const ruta = viaje
+        ? "/data_modulado?select=*&unidad_transporte=eq." + viaje + "&order=entrega.asc,posicion_entrega.asc"
+        : "/data_modulado?select=*&order=unidad_transporte.asc,entrega.asc,posicion_entrega.asc";
+
+    const filas = await supabaseFetchTodoDataModulado(ruta);
+
+    if(!filas.length){
+        mostrarToast("No hay Data Modulado para descargar" + (viaje ? " en el viaje " + viaje : "") + ".", "error");
+        return;
+    }
+
+    const hoja = XLSX.utils.json_to_sheet(filas.map(filaDataModuladoAExcel), { header: ENCABEZADOS_DATA_MODULADO });
+    const libro = XLSX.utils.book_new();
+
+    // Mismo nombre de hoja y de archivo que la macro original
+    // (FO_<código>.xls, hoja renombrada al FO) para viajes individuales;
+    // la descarga completa usa un nombre genérico porque no tiene un
+    // solo FO al que asociarla.
+    const nombreHoja = viaje ? String(viaje).slice(0, 31) : "DATA MODULADO";
+    XLSX.utils.book_append_sheet(libro, hoja, nombreHoja);
+
+    const nombreArchivo = viaje
+        ? "FO_" + viaje + ".xlsx"
+        : "Data Modulado - Todos los viajes.xlsx";
+
+    XLSX.writeFile(libro, nombreArchivo);
+
+}
+
+document.getElementById("btnDescargarDataModuladoTodo").addEventListener("click", async function(){
+
+    const boton = this;
+    boton.disabled = true;
+    boton.textContent = "Descargando...";
+
+    try{
+        await descargarDataModulado(null);
+    }catch(err){
+        console.error(err);
+        mostrarToast("No se pudo descargar la Data Modulado: " + err.message, "error");
+    }finally{
+        boton.disabled = false;
+        boton.textContent = "⬇ Descargar Data Modulado (Todo)";
+    }
+
+});
+
 // Activar un viaje: solo posible cuando Modulación y Fase están
 // cargados y no hay descuadre (Data Modulado vs Modulación). Desde
 // ahí el viaje queda visible para el trabajador en Centro de
 // Proyectos (módulo Toma de Lote SUPESA).
 document.getElementById("tblViajes").addEventListener("click", async function(e){
+
+    const botonDescargar = e.target.closest("[data-descargar-viaje]");
+
+    if(botonDescargar){
+
+        const viaje = botonDescargar.dataset.descargarViaje;
+        botonDescargar.disabled = true;
+
+        try{
+            await descargarDataModulado(viaje);
+        }catch(err){
+            console.error(err);
+            mostrarToast("No se pudo descargar el viaje: " + err.message, "error");
+        }finally{
+            botonDescargar.disabled = false;
+        }
+
+        return;
+
+    }
 
     const boton = e.target.closest(".btn-activar");
     if(!boton){
