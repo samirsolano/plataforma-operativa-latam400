@@ -12,6 +12,10 @@ async function actualizarDrive(){
         return;
     }
 
+    if(bloquearSiNoEsTurnoActivo()){
+        return;
+    }
+
     const boton = document.getElementById("btnActualizar");
 
     boton.disabled = true;
@@ -299,6 +303,10 @@ async function guardarPlanificacionUI(){
 
     if(!fecha || !turno){
         mostrarAlertaModal("Selecciona fecha y turno antes de guardar.", "warning");
+        return;
+    }
+
+    if(bloquearSiNoEsTurnoActivo()){
         return;
     }
 

@@ -480,6 +480,10 @@ async function guardarPlanificacionRecursos(forzar){
     const fecha = document.getElementById("fecha").value;
     const turno = document.getElementById("turno").value;
 
+    if(bloquearSiNoEsTurnoActivo()){
+        return;
+    }
+
     const boton = document.getElementById("btnGuardarRecursos");
 
     boton.disabled = true;
@@ -661,6 +665,10 @@ async function confirmarAgregarApoyo(forzar){
 
     if(!fecha || !turno){
         mostrarAlertaModal("Selecciona fecha y turno antes de agregar un apoyo.", "warning");
+        return;
+    }
+
+    if(bloquearSiNoEsTurnoActivo()){
         return;
     }
 

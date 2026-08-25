@@ -38,6 +38,41 @@ function normalizarTurnoPlanif(turno){
 }
 
 // ========================================
+// FECHA/TURNO ACTIVO (ventana real de planificación)
+// ========================================
+// Turno DÍA: 07:00–18:59:59 de la misma fecha.
+// Turno NOCHE: 19:00–06:59:59 — empieza a las 19:00 de una fecha y
+// cruza medianoche hasta las 07:00 del día siguiente; la "fecha" que
+// le corresponde es la fecha en la que EMPEZÓ (19:00), no en la que
+// amanece. Por eso entre 00:00 y 07:00 el turno activo sigue siendo
+// NOCHE pero con la fecha de AYER.
+function obtenerFechaTurnoActivo(){
+
+    const ahora = new Date();
+    const hora = ahora.getHours();
+
+    function formatearFecha(d){
+        return d.getFullYear() + "-" +
+            String(d.getMonth() + 1).padStart(2, "0") + "-" +
+            String(d.getDate()).padStart(2, "0");
+    }
+
+    if(hora >= 7 && hora < 19){
+        return { fecha: formatearFecha(ahora), turno: "DIA" };
+    }
+
+    if(hora >= 19){
+        return { fecha: formatearFecha(ahora), turno: "NOCHE" };
+    }
+
+    const ayer = new Date(ahora);
+    ayer.setDate(ayer.getDate() - 1);
+
+    return { fecha: formatearFecha(ayer), turno: "NOCHE" };
+
+}
+
+// ========================================
 // LECTURA DEL GOOGLE SHEET "STATUS PENDIENTE"
 // ========================================
 // Reemplaza a Drive.js (SpreadsheetApp), que solo funciona dentro

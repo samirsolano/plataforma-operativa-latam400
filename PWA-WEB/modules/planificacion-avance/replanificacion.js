@@ -306,6 +306,10 @@ function confirmarModalObservacion(){
 
 function guardarReplanificacionUnaFila(index){
 
+    if(bloquearSiNoEsTurnoActivo()){
+        return;
+    }
+
     const item = rpData[index];
 
     abrirModalObservacion(
@@ -333,6 +337,10 @@ function guardarReplanificacionUnaFila(index){
 //========================================
 
 function guardarReplanificacionTodo(){
+
+    if(bloquearSiNoEsTurnoActivo()){
+        return;
+    }
 
     const pendientes = rpData.filter(function(f){ return f._modificado; });
 

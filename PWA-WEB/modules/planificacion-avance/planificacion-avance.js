@@ -8,6 +8,56 @@ let fechaSeleccionada = "";
 let turnoSeleccionado = "";
 
 // =====================================================================
+// FECHA/TURNO ACTIVO — se puede elegir cualquier fecha/turno en el
+// sidebar para VER su planificación (Planificado Drive, Recursos,
+// Replanificación), pero solo se puede GUARDAR/MODIFICAR cuando lo
+// elegido coincide con el turno que está corriendo ahora mismo
+// (obtenerFechaTurnoActivo, en planificacion-config.js). Cada acción
+// de guardado llama a bloquearSiNoEsTurnoActivo() primero.
+// =====================================================================
+
+// Al abrir la página, arranca con la fecha/turno activo como punto de
+// partida (conveniencia) — de ahí en adelante el usuario puede
+// cambiarlo libremente para solo consultar otro día.
+(function inicializarFechaTurno(){
+    const activo = obtenerFechaTurnoActivo();
+    document.getElementById("fecha").value = activo.fecha;
+    document.getElementById("turno").value = activo.turno;
+})();
+
+function esFechaTurnoActivo(fecha, turno){
+    const activo = obtenerFechaTurnoActivo();
+    return fecha === activo.fecha && normalizarTurnoPlanif(turno) === activo.turno;
+}
+
+/**
+ * Guard para cualquier acción que GUARDE/MODIFIQUE datos de
+ * Planificación. Usa fechaSeleccionada/turnoSeleccionado (lo que el
+ * usuario tiene elegido en el sidebar en este momento). Devuelve
+ * `true` si la acción debe bloquearse (y ya mostró el aviso), `false`
+ * si puede continuar.
+ */
+function bloquearSiNoEsTurnoActivo(){
+
+    if(esFechaTurnoActivo(fechaSeleccionada, turnoSeleccionado)){
+        return false;
+    }
+
+    const activo = obtenerFechaTurnoActivo();
+    const nombreTurno = activo.turno === "DIA" ? "DÍA" : "NOCHE";
+
+    mostrarAlertaModal(
+        "Solo puedes planificar o modificar el turno que está corriendo ahora mismo: " +
+        nombreTurno + " del " + activo.fecha + ". " +
+        "Estás viendo " + fechaSeleccionada + " / " + turnoSeleccionado + ", que aquí es solo de consulta.",
+        "warning"
+    );
+
+    return true;
+
+}
+
+// =====================================================================
 // MODAL GLOBAL — reemplaza a alert()/confirm() nativos en todo el sistema
 // =====================================================================
 
@@ -80,9 +130,7 @@ function abrirModulo(modulo, boton){
     window.botonPrevio = window.botonActual || null;
 
     fechaSeleccionada = document.getElementById("fecha").value;
-
-    const turnoCrudo = document.getElementById("turno").value;
-    turnoSeleccionado = normalizarTurnoPlanif(turnoCrudo);
+    turnoSeleccionado = normalizarTurnoPlanif(document.getElementById("turno").value);
 
     if(fechaSeleccionada === ""){
         mostrarAlertaModal("Seleccione una fecha antes de continuar.", "warning");
