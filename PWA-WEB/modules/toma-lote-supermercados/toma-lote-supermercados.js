@@ -2270,6 +2270,103 @@ async function leerFilasLpn(archivo){
 
 }
 
+// Pegar directo desde Excel: al copiar un rango y pegarlo en un
+// textarea, el portapapeles trae las celdas separadas por tabulador y
+// las filas por salto de línea (TSV) — se arma el mismo tipo de
+// array de objetos que produce leerFilasLpn() con un archivo real.
+function parsearFilasPegadas(texto){
+
+    const lineas = texto.replace(/\r/g, "").split("\n").filter(l => l.trim() !== "");
+
+    if(!lineas.length){
+        return [];
+    }
+
+    const encabezados = lineas[0].split("\t").map(h => h.trim());
+
+    return lineas.slice(1).map(function(linea){
+
+        const valores = linea.split("\t");
+        const fila = {};
+
+        encabezados.forEach(function(h, i){
+            fila[h] = valores[i] !== undefined ? valores[i].trim() : "";
+        });
+
+        return fila;
+
+    });
+
+}
+
+// Cada fuente (Pedidos / VL06F) puede venir de un archivo o de texto
+// pegado — el botón activo (.lpn-fuente-tab.activo) dice cuál de los
+// dos usar en este momento. Devuelve null si a la fuente elegida le
+// falta el dato (archivo sin seleccionar o textarea vacío).
+async function obtenerFilasFuenteLpn(fuente){
+
+    const modoActivo = document.querySelector('.lpn-fuente-tab.activo[data-fuente="' + fuente + '"]').dataset.modo;
+    const idArchivo = fuente === "pedidos" ? "archivoPedidosLpn" : "archivoVl06fLpn";
+    const idTextarea = fuente === "pedidos" ? "pegarPedidosLpn" : "pegarVl06fLpn";
+
+    if(modoActivo === "pegar"){
+
+        const texto = document.getElementById(idTextarea).value;
+        const filas = parsearFilasPegadas(texto);
+
+        return filas.length ? filas : null;
+
+    }
+
+    const archivo = document.getElementById(idArchivo).files[0];
+
+    if(!archivo){
+        return null;
+    }
+
+    return await leerFilasLpn(archivo);
+
+}
+
+// Nombre para mostrar/guardar como "archivo_origen" — funciona igual
+// venga de un archivo real o de datos pegados.
+function nombreFuenteLpn(fuente){
+
+    const modoActivo = document.querySelector('.lpn-fuente-tab.activo[data-fuente="' + fuente + '"]').dataset.modo;
+
+    if(modoActivo === "pegar"){
+        return fuente === "pedidos" ? "Pedidos (pegado)" : "VL06F (pegado)";
+    }
+
+    const idArchivo = fuente === "pedidos" ? "archivoPedidosLpn" : "archivoVl06fLpn";
+    const archivo = document.getElementById(idArchivo).files[0];
+
+    return archivo ? archivo.name : (fuente === "pedidos" ? "Pedidos" : "VL06F");
+
+}
+
+// Tabs "📁 Archivo" / "📋 Pegar" por fuente.
+document.querySelectorAll(".lpn-fuente-tab").forEach(function(tab){
+
+    tab.addEventListener("click", function(){
+
+        const fuente = tab.dataset.fuente;
+        const modo = tab.dataset.modo;
+
+        document.querySelectorAll('.lpn-fuente-tab[data-fuente="' + fuente + '"]').forEach(function(t){
+            t.classList.toggle("activo", t === tab);
+        });
+
+        const idArchivo = fuente === "pedidos" ? "archivoPedidosLpn" : "archivoVl06fLpn";
+        const idTextarea = fuente === "pedidos" ? "pegarPedidosLpn" : "pegarVl06fLpn";
+
+        document.getElementById(idArchivo).classList.toggle("oculto", modo === "pegar");
+        document.getElementById(idTextarea).classList.toggle("oculto", modo !== "pegar");
+
+    });
+
+});
+
 function textoLpn(v){
     return String(v === undefined || v === null ? "" : v).trim();
 }
@@ -2288,14 +2385,6 @@ let _advertenciasLpn = [];
 
 document.getElementById("btnCalcularLpn").addEventListener("click", async function(){
 
-    const archivoPedidos = document.getElementById("archivoPedidosLpn").files[0];
-    const archivoVl06f = document.getElementById("archivoVl06fLpn").files[0];
-
-    if(!archivoPedidos || !archivoVl06f){
-        mostrarToast("Sube los 2 archivos (Pedidos y VL06F) antes de calcular.", "error");
-        return;
-    }
-
     const btnCalcular = document.getElementById("btnCalcularLpn");
     btnCalcular.disabled = true;
     btnCalcular.textContent = "Calculando...";
@@ -2303,13 +2392,13 @@ document.getElementById("btnCalcularLpn").addEventListener("click", async functi
     try{
 
         const [filasPedidosCrudas, filasVl06fCrudas, catalogoMara] = await Promise.all([
-            leerFilasLpn(archivoPedidos),
-            leerFilasLpn(archivoVl06f),
+            obtenerFilasFuenteLpn("pedidos"),
+            obtenerFilasFuenteLpn("vl06f"),
             supabaseFetchTodoMara("/mara_productos?select=*")
         ]);
 
-        if(!filasPedidosCrudas.length || !filasVl06fCrudas.length){
-            mostrarToast("Uno de los 2 archivos está vacío.", "error");
+        if(!filasPedidosCrudas || !filasVl06fCrudas){
+            mostrarToast("Sube o pega los datos de Pedidos y VL06F antes de calcular.", "error");
             return;
         }
 
@@ -2703,10 +2792,7 @@ document.getElementById("btnGuardarLpn").addEventListener("click", async functio
         btnGuardar.textContent = "Guardando...";
 
         const cargadoPor = (sesion && (sesion.nombre_completo || sesion.usuario)) || "";
-        const nombreArchivos =
-            document.getElementById("archivoPedidosLpn").files[0].name +
-            " + " +
-            document.getElementById("archivoVl06fLpn").files[0].name;
+        const nombreArchivos = nombreFuenteLpn("pedidos") + " + " + nombreFuenteLpn("vl06f");
 
         const filasParaInsertar = _filasLpnCalculadas.map(function(f){
             return Object.assign({}, f, {

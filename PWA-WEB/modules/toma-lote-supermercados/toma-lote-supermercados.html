@@ -530,25 +530,55 @@
                         Pedido↔Documento de Compra para N° Orden de Compra, y SKU para EAN/descripción/conversión/paletas).
                     </p>
 
-                    <div class="viaje-grid" style="grid-template-columns:1fr 1fr 220px;">
+                    <div class="lpn-fuentes-grid">
 
-                        <div>
-                            <label>Archivo Pedidos (FO, TIPO OC, PEDIDOS, OC, ENTREGA)</label>
+                        <div class="lpn-fuente">
+
+                            <div class="lpn-fuente-header">
+                                <label>Pedidos (FO, TIPO OC, PEDIDOS, OC, ENTREGA)</label>
+                                <div class="lpn-fuente-tabs">
+                                    <button type="button" class="lpn-fuente-tab activo" data-fuente="pedidos" data-modo="archivo">📁 Archivo</button>
+                                    <button type="button" class="lpn-fuente-tab" data-fuente="pedidos" data-modo="pegar">📋 Pegar</button>
+                                </div>
+                            </div>
+
                             <input type="file" id="archivoPedidosLpn" accept=".xlsx,.xls,.csv">
+
+                            <textarea
+                                id="pegarPedidosLpn"
+                                class="lpn-textarea oculto"
+                                placeholder="Copia el rango de Excel (con encabezados: FO, TIPO OC, PEDIDOS, OC, ENTREGA) y pégalo aquí con Ctrl+V..."
+                                rows="6"
+                            ></textarea>
+
                         </div>
 
-                        <div>
-                            <label>Archivo VL06F (Entrega, Posición, SKU, CTD, UM, Documento de Compra)</label>
+                        <div class="lpn-fuente">
+
+                            <div class="lpn-fuente-header">
+                                <label>VL06F (Entrega, Posición, SKU, CTD, UM, Documento de Compra)</label>
+                                <div class="lpn-fuente-tabs">
+                                    <button type="button" class="lpn-fuente-tab activo" data-fuente="vl06f" data-modo="archivo">📁 Archivo</button>
+                                    <button type="button" class="lpn-fuente-tab" data-fuente="vl06f" data-modo="pegar">📋 Pegar</button>
+                                </div>
+                            </div>
+
                             <input type="file" id="archivoVl06fLpn" accept=".xlsx,.xls,.csv">
-                        </div>
 
-                        <div>
-                            <button id="btnCalcularLpn">
-                                CALCULAR
-                            </button>
+                            <textarea
+                                id="pegarVl06fLpn"
+                                class="lpn-textarea oculto"
+                                placeholder="Copia el rango de Excel (con encabezados: Entrega, Posición de entrega, SKU, CTD Entrega de salida, UM Entrega de salida, documento de compra) y pégalo aquí con Ctrl+V..."
+                                rows="6"
+                            ></textarea>
+
                         </div>
 
                     </div>
+
+                    <button id="btnCalcularLpn" style="margin-top:16px;">
+                        CALCULAR
+                    </button>
 
                 </div>
 
