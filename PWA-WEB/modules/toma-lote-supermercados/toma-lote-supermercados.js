@@ -531,13 +531,10 @@ function numeroCelda(v){
     return isNaN(n) ? "" : n;
 }
 
-// El archivo real de referencia trae una mezcla específica de
-// texto/número por columna (heredada del formato de cada columna en
-// SAP/MARA/Pedidos, no es arbitraria): Unidad de Transporte, N° Orden
-// de Compra, Número de producto CLIENTE y Cantidad UMB son números;
-// el resto (incluidos Entrega y Pedido, aunque parezcan numéricos) son
-// texto — así se evita que Excel trunque ceros a la izquierda o
-// muestre el EAN en notación científica.
+// Todas las columnas van como TEXTO excepto "Cantidad UMB" (esa sí
+// como número real, para poder sumarla en Excel) — así se evita que
+// Excel trunque ceros a la izquierda o muestre el EAN en notación
+// científica en el resto de códigos.
 function filaDataModuladoAExcel(f){
     return {
         "Número de almacén": textoCelda(f.numero_almacen),
@@ -545,14 +542,14 @@ function filaDataModuladoAExcel(f){
         "Posición de entrega": textoCelda(f.posicion_entrega),
         "Tienda": textoCelda(f.tienda),
         "Descripción de Tienda": f.descripcion_tienda || "",
-        "Unidad de Transporte": numeroCelda(f.unidad_transporte),
+        "Unidad de Transporte": textoCelda(f.unidad_transporte),
         "Tipo de OC": f.tipo_oc || "",
         "Tipo de Proceso": f.tipo_proceso || "",
         "Pedido": textoCelda(f.pedido),
         "Posición de Pedido": textoCelda(f.posicion_pedido),
-        "N° Orden de Compra": numeroCelda(f.orden_compra),
+        "N° Orden de Compra": textoCelda(f.orden_compra),
         "EAN o UPC (EAN 14 SPSA)": textoCelda(f.ean_upc),
-        "Número de producto CLIENTE": numeroCelda(f.numero_producto_cliente),
+        "Número de producto CLIENTE": textoCelda(f.numero_producto_cliente),
         "Denomin.producto CLIENTE": f.denominacion_producto_cliente || "",
         "Cantidad UMB": numeroCelda(f.cantidad_umb)
     };
