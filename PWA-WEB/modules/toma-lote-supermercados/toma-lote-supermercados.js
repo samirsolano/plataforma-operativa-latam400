@@ -615,7 +615,11 @@ async function descargarDataModulado(viaje){
         ? "FO_" + viaje + ".xlsx"
         : "Data Modulado - Todos los viajes.xlsx";
 
-    XLSX.writeFile(libro, nombreArchivo);
+    // bookSST fuerza la tabla de shared strings al guardar: sin esto,
+    // SheetJS escribe los textos como celdas tipo "str" (string de
+    // fórmula) en vez de texto real, y Excel no las reconoce como texto
+    // (no aparece el triángulo verde "Número guardado como texto").
+    XLSX.writeFile(libro, nombreArchivo, { bookSST: true });
 
 }
 
