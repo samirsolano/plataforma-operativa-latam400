@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Inventario Picking - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="inventario-picking.css"
+    >
+
+</head>
+
+<body>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+
+                <h1>INVENTARIO</h1>
+                <h1>PICKING</h1>
+
+                <span>LATAM 400 CL</span>
+
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+
+                </div>
+
+            </div>
+
+            <nav class="menu">
+
+                <a href="#" class="tab-link activo" data-tab="tabAsignacion">1. Asignación de Pasillos</a>
+                <a href="#" class="tab-link" data-tab="tabMara">2. Catálogo MARA Picking</a>
+                <a href="#" class="tab-link" data-tab="tabSap">3. Cargar SAP</a>
+                <a href="#" class="tab-link" data-tab="tabDiscrepancias">4. Discrepancias</a>
+
+            </nav>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="contenido">
+
+            <!-- ============================================ -->
+            <!-- TAB 1: ASIGNACIÓN DE PASILLOS -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido" id="tabAsignacion">
+
+                <header class="topbar">
+
+                    <div class="topbar-titulo">
+
+                        <h2>ASIGNACIÓN DE PASILLOS</h2>
+
+                        <p>Semana <span id="semanaTextoAsignacion">-</span> — quién está contando cada pasillo</p>
+
+                    </div>
+
+                    <button id="btnActualizarAsignacion" class="btn-secundario">
+                        ⟳ Actualizar
+                    </button>
+
+                </header>
+
+                <div class="kpis">
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Total pasillos</div>
+                        <div class="kpi-numero" id="kpiTotalPasillos">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">En proceso / Asignados</div>
+                        <div class="kpi-numero azul" id="kpiAsignados">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Completados</div>
+                        <div class="kpi-numero verde" id="kpiCompletados">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Avance general</div>
+                        <div class="kpi-numero" id="kpiAvanceGeneral">-</div>
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Pasillo</th>
+                                <th>Colaborador</th>
+                                <th>Avance</th>
+                                <th>Estado</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblAsignacion">
+
+                            <tr>
+                                <td colspan="4" class="sin-datos">Cargando pasillos...</td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 2: CATÁLOGO MARA PICKING -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabMara">
+
+                <div class="card">
+
+                    <div class="card-header-flex">
+
+                        <h2>
+                            CATÁLOGO MARA PICKING
+                        </h2>
+
+                        <div class="acciones-mara">
+
+                            <label class="btn-secundario btn-carga-archivo">
+                                ⬆ Cargar Excel
+                                <input type="file" id="archivoMaraPicking" accept=".xlsx,.xls,.csv" hidden>
+                            </label>
+
+                            <button id="btnAgregarMaraPicking" class="btn-primario">
+                                + Agregar Producto
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                    <p class="nota-modulo">
+                        Maestro de productos de picking: SKU, EAN, ubicación donde debería estar cada
+                        producto y el factor de conversión cama→unidad. Se usa en Centro de Proyectos
+                        para resolver el producto al escanear y para detectar ubicaciones incorrectas.
+                    </p>
+
+                    <input
+                        type="text"
+                        id="buscadorMaraPicking"
+                        placeholder="Buscar por SKU, descripción o ubicación..."
+                        class="input-buscador"
+                    >
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>SKU</th>
+                                <th>Descripción</th>
+                                <th>Ubicación Picking</th>
+                                <th>UMB</th>
+                                <th>UMA</th>
+                                <th>Conversión</th>
+                                <th>Conv. Cama/Pqt</th>
+                                <th>EAN14</th>
+                                <th>Acción</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblMaraPicking">
+
+                            <tr>
+                                <td colspan="9" class="sin-datos">
+                                    Cargando catálogo...
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                    <div class="paginacion" id="paginacionMaraPicking"></div>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 3: CARGAR SAP -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabSap">
+
+                <div class="card">
+
+                    <div class="card-header-flex">
+
+                        <h2>
+                            CARGAR SALDO SAP
+                        </h2>
+
+                        <button id="btnBorrarSap" class="btn-peligro">
+                            🗑 Borrar Todo
+                        </button>
+
+                    </div>
+
+                    <p class="nota-modulo">
+                        Sube el extracto crudo de SAP (stock por ubicación). Se usa en la pestaña
+                        "Discrepancias" para comparar contra lo contado en Centro de Proyectos.
+                    </p>
+
+                    <div class="upload-box">
+                        <input type="file" id="archivoSapPicking" accept=".xlsx,.xls,.csv">
+                    </div>
+
+                    <div id="estadoCargaSapPicking" class="nota-modulo"></div>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 4: DISCREPANCIAS -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabDiscrepancias">
+
+                <header class="topbar">
+
+                    <div class="topbar-titulo">
+
+                        <h2>DISCREPANCIAS</h2>
+
+                        <p>Semana <span id="semanaTextoDiscrepancias">-</span></p>
+
+                    </div>
+
+                    <button id="btnActualizarDiscrepancias" class="btn-secundario">
+                        ⟳ Actualizar
+                    </button>
+
+                </header>
+
+                <div class="kpis">
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Códigos contados</div>
+                        <div class="kpi-numero" id="kpiCodigosContados">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Códigos cuadrados</div>
+                        <div class="kpi-numero verde" id="kpiCodigosCuadrados">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Errores de ubicación</div>
+                        <div class="kpi-numero rojo" id="kpiErroresUbicacion">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">% Exactitud</div>
+                        <div class="kpi-numero azul" id="kpiExactitud">-</div>
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <h2>Ubicaciones mal contadas (Cruce = ERROR)</h2>
+
+                    <p class="nota-modulo">
+                        El producto se contó en una ubicación distinta a la que dice el Catálogo MARA.
+                    </p>
+
+                    <table>
+
+                        <thead>
+                            <tr>
+                                <th>Pasillo</th>
+                                <th>SKU</th>
+                                <th>Descripción</th>
+                                <th>Ubicación Escaneada</th>
+                                <th>Ubicación Esperada</th>
+                                <th>Colaborador</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="tblErroresUbicacion">
+                            <tr>
+                                <td colspan="6" class="sin-datos">Cargando...</td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+                <div class="card">
+
+                    <h2>Contado vs. Saldo SAP (por SKU)</h2>
+
+                    <p class="nota-modulo">
+                        Compara el total contado en Centro de Proyectos contra el stock de SAP cargado.
+                        Solo se muestran los SKUs con diferencia.
+                    </p>
+
+                    <table>
+
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Descripción</th>
+                                <th>SAP</th>
+                                <th>Contado</th>
+                                <th>Diferencia</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="tblDiferenciasStock">
+                            <tr>
+                                <td colspan="5" class="sin-datos">Carga un saldo SAP para ver la comparativa.</td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- MODAL: AGREGAR / EDITAR PRODUCTO MARA PICKING -->
+
+    <div class="modal-detalle oculto" id="modalMaraPicking">
+
+        <div class="modal-detalle-fondo" id="modalMaraPickingFondo"></div>
+
+        <div class="modal-detalle-caja">
+
+            <button class="modal-detalle-cerrar" id="modalMaraPickingCerrar">✕</button>
+
+            <h3 id="modalMaraPickingTitulo" style="margin-bottom:18px;color:#111827;">
+                Agregar Producto
+            </h3>
+
+            <form id="formMaraPicking" class="form-mara">
+
+                <div>
+                    <label>SKU *</label>
+                    <input type="text" id="campoSkuPicking" required>
+                </div>
+
+                <div>
+                    <label>Descripción</label>
+                    <input type="text" id="campoDescripcionPicking">
+                </div>
+
+                <div>
+                    <label>Ubicación de Picking</label>
+                    <input type="text" id="campoUbicacionPicking" placeholder="Ej: PP-08-022-1" style="text-transform:uppercase;">
+                </div>
+
+                <div class="form-mara-fila">
+
+                    <div>
+                        <label>Unidad de Venta (UMB)</label>
+                        <input type="text" id="campoUnidadVentaPicking">
+                    </div>
+
+                    <div>
+                        <label>Unidad Base (UMA)</label>
+                        <input type="text" id="campoUnidadBasePicking">
+                    </div>
+
+                </div>
+
+                <div class="form-mara-fila">
+
+                    <div>
+                        <label>Conversión (UMB → UMA)</label>
+                        <input type="number" step="any" id="campoConversionPicking">
+                    </div>
+
+                    <div>
+                        <label>Conversión Cama/Pqt</label>
+                        <input type="number" step="any" id="campoConversionCamaPicking">
+                    </div>
+
+                </div>
+
+                <div class="form-mara-fila">
+
+                    <div>
+                        <label>EAN14</label>
+                        <input type="text" id="campoEan14Picking">
+                    </div>
+
+                    <div>
+                        <label>EAN13</label>
+                        <input type="text" id="campoEan13Picking">
+                    </div>
+
+                </div>
+
+                <button type="submit" id="btnGuardarMaraPicking">
+                    Guardar
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="inventario-picking.js"></script>
+
+</body>
+
+</html>

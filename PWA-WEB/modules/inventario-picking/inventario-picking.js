@@ -1,0 +1,944 @@
+// ========================================
+// FETCH PAGINADO
+// ========================================
+
+async function supabaseFetchTodo(ruta){
+
+    const TAMANO_PAGINA = 1000;
+    let desde = 0;
+    let todas = [];
+
+    while(true){
+
+        const pagina = await supabaseFetch(ruta, {
+            headers: { "Range": desde + "-" + (desde + TAMANO_PAGINA - 1) }
+        });
+
+        if(!pagina || !pagina.length){
+            break;
+        }
+
+        todas = todas.concat(pagina);
+
+        if(pagina.length < TAMANO_PAGINA){
+            break;
+        }
+
+        desde += TAMANO_PAGINA;
+
+    }
+
+    return todas;
+
+}
+
+// ========================================
+// TOASTS
+// ========================================
+
+function mostrarToast(mensaje, tipo){
+
+    tipo = tipo || "error";
+
+    const contenedor = document.getElementById("toastContainer");
+
+    const toast = document.createElement("div");
+    toast.className = "toast toast-" + tipo;
+    toast.textContent = mensaje;
+
+    contenedor.appendChild(toast);
+
+    requestAnimationFrame(function(){
+        toast.classList.add("toast-visible");
+    });
+
+    setTimeout(function(){
+        toast.classList.remove("toast-visible");
+        setTimeout(function(){ toast.remove(); }, 250);
+    }, 4500);
+
+}
+
+// ========================================
+// SESIÓN
+// ========================================
+
+const sesion = requerirSesion();
+
+if(sesion){
+
+    if(sesion.rol !== "Administrador"){
+        window.location.href = "../inicio/home.html";
+    }
+
+    document.getElementById("nombreUsuario").textContent = sesion.nombre_completo;
+    document.getElementById("rolUsuario").textContent = sesion.rol;
+
+}
+
+const btnPerfil = document.getElementById("btnPerfil");
+const menuUsuario = document.getElementById("menuUsuario");
+
+btnPerfil.addEventListener("click", function(e){
+    e.stopPropagation();
+    menuUsuario.style.display = menuUsuario.style.display === "block" ? "none" : "block";
+});
+
+document.addEventListener("click", function(){
+    menuUsuario.style.display = "none";
+});
+
+document.getElementById("btnCerrarSesion").addEventListener("click", function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    cerrarSesion();
+});
+
+// ========================================
+// TABS
+// ========================================
+
+document.querySelectorAll(".tab-link").forEach(function(link){
+
+    link.addEventListener("click", function(e){
+
+        e.preventDefault();
+
+        document.querySelectorAll(".tab-link").forEach(l => l.classList.remove("activo"));
+        document.querySelectorAll(".tab-contenido").forEach(c => c.classList.add("oculto"));
+
+        link.classList.add("activo");
+        document.getElementById(link.dataset.tab).classList.remove("oculto");
+
+        if(link.dataset.tab === "tabMara" && !_maraPickingCargadaAlMenosUnaVez){
+            cargarMaraPicking();
+        }
+
+        if(link.dataset.tab === "tabDiscrepancias"){
+            cargarDiscrepancias();
+        }
+
+    });
+
+});
+
+// ========================================
+// SEMANA ISO + UBICACIONES (mismas reglas que Centro de Proyectos)
+// ========================================
+
+function semanaActual(fecha){
+
+    fecha = fecha || new Date();
+
+    const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+    const diaNum = (d.getUTCDay() + 6) % 7;
+    d.setUTCDate(d.getUTCDate() - diaNum + 3);
+
+    const primerJueves = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+    const numSemana = 1 + Math.round(
+        ((d - primerJueves) / 86400000 - 3 + ((primerJueves.getUTCDay() + 6) % 7)) / 7
+    );
+
+    return d.getUTCFullYear() + "-W" + String(numSemana).padStart(2, "0");
+
+}
+
+const SEMANA = semanaActual();
+
+document.getElementById("semanaTextoAsignacion").textContent = SEMANA.split("-W")[1];
+document.getElementById("semanaTextoDiscrepancias").textContent = SEMANA.split("-W")[1];
+
+const PREFIJOS_UBICACION = ["PP", "PA", "AA", "AP", "CH"];
+
+function parsearCodigoUbicacion(texto){
+
+    const patron = new RegExp("^(?:" + PREFIJOS_UBICACION.join("|") + ")-(\\d{1,2})-(\\d{1,3})(?:-\\d+)?$");
+    const m = String(texto || "").trim().toUpperCase().match(patron);
+
+    if(!m){
+        return null;
+    }
+
+    return { pasillo: Number(m[1]), ubicacion: Number(m[2]) };
+
+}
+
+// ========================================
+// TAB 1: ASIGNACIÓN DE PASILLOS
+// ========================================
+
+async function cargarAsignacion(){
+
+    const tbody = document.getElementById("tblAsignacion");
+    tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">Cargando pasillos...</td></tr>`;
+
+    try{
+
+        const [maraFilas, conteoFilas, pasillosFilas] = await Promise.all([
+            supabaseFetchTodo("/picking_mara?select=sku,ubicacion_picking"),
+            supabaseFetchTodo("/picking_conteos?select=pasillo,sku&semana=eq." + SEMANA + "&es_reconteo=eq.false"),
+            supabaseFetch("/picking_pasillos?select=pasillo,colaborador,estado&semana=eq." + SEMANA).catch(function(e){
+                console.error(e);
+                return [];
+            })
+        ]);
+
+        const totalPorPasillo = {};
+
+        (maraFilas || []).forEach(function(f){
+            const parseado = parsearCodigoUbicacion(f.ubicacion_picking);
+            if(!parseado){ return; }
+            totalPorPasillo[parseado.pasillo] = (totalPorPasillo[parseado.pasillo] || 0) + 1;
+        });
+
+        const registradoPorPasillo = {};
+
+        (conteoFilas || []).forEach(function(f){
+            registradoPorPasillo[f.pasillo] = (registradoPorPasillo[f.pasillo] || 0) + 1;
+        });
+
+        const colaboradorPorPasillo = {};
+
+        (pasillosFilas || []).forEach(function(a){
+            if(a.colaborador){ colaboradorPorPasillo[a.pasillo] = a.colaborador; }
+        });
+
+        const pasillos = Object.keys(totalPorPasillo).map(Number).sort((a, b) => a - b);
+
+        tbody.innerHTML = "";
+
+        if(!pasillos.length){
+            tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">Carga el Catálogo MARA Picking para ver los pasillos.</td></tr>`;
+            document.getElementById("kpiTotalPasillos").textContent = "0";
+            document.getElementById("kpiAsignados").textContent = "0";
+            document.getElementById("kpiCompletados").textContent = "0";
+            document.getElementById("kpiAvanceGeneral").textContent = "0%";
+            return;
+        }
+
+        let enProceso = 0;
+        let completados = 0;
+        let sumaPorcentajes = 0;
+
+        pasillos.forEach(function(p){
+
+            const colaborador = colaboradorPorPasillo[p] || "";
+            const total = totalPorPasillo[p] || 0;
+            const registrado = Math.min(registradoPorPasillo[p] || 0, total);
+            const porcentaje = total > 0 ? Math.round((registrado / total) * 100) : 0;
+
+            sumaPorcentajes += porcentaje;
+
+            let estado = "sin-asignar";
+            let estadoTexto = "Sin iniciar";
+
+            if(porcentaje >= 100){
+                estado = "completado";
+                estadoTexto = "Completado";
+                completados++;
+            }else if(porcentaje > 0 || colaborador){
+                estado = "en-proceso";
+                estadoTexto = colaborador ? "En proceso" : "Sin iniciar";
+                if(colaborador){ enProceso++; }
+            }
+
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td><b>Pasillo ${String(p).padStart(2, "0")}</b></td>
+                <td>${colaborador || "-"}</td>
+                <td>
+                    <span class="barraAvanceMini"><span class="barraAvanceMiniRelleno" style="width:${porcentaje}%;"></span></span>
+                    ${porcentaje}% (${registrado}/${total})
+                </td>
+                <td><span class="badge-estado-asig ${estado}">${estadoTexto}</span></td>
+            `;
+
+            tbody.appendChild(tr);
+
+        });
+
+        document.getElementById("kpiTotalPasillos").textContent = pasillos.length;
+        document.getElementById("kpiAsignados").textContent = enProceso;
+        document.getElementById("kpiCompletados").textContent = completados;
+        document.getElementById("kpiAvanceGeneral").textContent = Math.round(sumaPorcentajes / pasillos.length) + "%";
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">No se pudo cargar la asignación de pasillos.</td></tr>`;
+
+    }
+
+}
+
+document.getElementById("btnActualizarAsignacion").addEventListener("click", cargarAsignacion);
+
+cargarAsignacion();
+
+// ========================================
+// TAB 2: CATÁLOGO MARA PICKING (CRUD + carga masiva)
+// ========================================
+
+let _maraPickingCargadaAlMenosUnaVez = false;
+let _catalogoMaraPicking = [];
+let _paginaActualMaraPicking = 1;
+const FILAS_POR_PAGINA_MARA_PICKING = 50;
+
+const tblMaraPicking = document.getElementById("tblMaraPicking");
+const paginacionMaraPicking = document.getElementById("paginacionMaraPicking");
+const buscadorMaraPicking = document.getElementById("buscadorMaraPicking");
+
+const modalMaraPicking = document.getElementById("modalMaraPicking");
+const modalMaraPickingTitulo = document.getElementById("modalMaraPickingTitulo");
+const formMaraPicking = document.getElementById("formMaraPicking");
+
+async function cargarMaraPicking(){
+
+    tblMaraPicking.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando catálogo...</td></tr>`;
+
+    try{
+
+        _catalogoMaraPicking = await supabaseFetchTodo("/picking_mara?select=*&order=sku.asc");
+        _maraPickingCargadaAlMenosUnaVez = true;
+        _paginaActualMaraPicking = 1;
+        pintarMaraPicking();
+
+    }catch(e){
+
+        console.error(e);
+        tblMaraPicking.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar el catálogo.</td></tr>`;
+
+    }
+
+}
+
+function filasFiltradasMaraPicking(){
+
+    const texto = buscadorMaraPicking.value.trim().toLowerCase();
+
+    if(!texto){
+        return _catalogoMaraPicking;
+    }
+
+    return _catalogoMaraPicking.filter(function(p){
+        return (
+            (p.sku || "").toLowerCase().includes(texto) ||
+            (p.descripcion || "").toLowerCase().includes(texto) ||
+            (p.ubicacion_picking || "").toLowerCase().includes(texto)
+        );
+    });
+
+}
+
+function pintarMaraPicking(){
+
+    const filas = filasFiltradasMaraPicking();
+
+    if(!filas.length){
+        tblMaraPicking.innerHTML = `<tr><td colspan="9" class="sin-datos">Sin productos en el catálogo.</td></tr>`;
+        paginacionMaraPicking.innerHTML = "";
+        return;
+    }
+
+    const totalPaginas = Math.max(1, Math.ceil(filas.length / FILAS_POR_PAGINA_MARA_PICKING));
+    _paginaActualMaraPicking = Math.min(_paginaActualMaraPicking, totalPaginas);
+
+    const desde = (_paginaActualMaraPicking - 1) * FILAS_POR_PAGINA_MARA_PICKING;
+    const visibles = filas.slice(desde, desde + FILAS_POR_PAGINA_MARA_PICKING);
+
+    tblMaraPicking.innerHTML = visibles.map(function(p){
+
+        return `
+            <tr>
+                <td>${p.sku || "-"}</td>
+                <td>${p.descripcion || "-"}</td>
+                <td>${p.ubicacion_picking || "-"}</td>
+                <td>${p.unidad_venta || "-"}</td>
+                <td>${p.unidad_base || "-"}</td>
+                <td>${p.conversion ?? "-"}</td>
+                <td>${p.conversion_cama_pqt ?? "-"}</td>
+                <td>${p.ean14 || "-"}</td>
+                <td>
+                    <button class="btn-fila-mara" title="Editar" onclick="abrirModalMaraPicking('${p.sku}')">✏️</button>
+                    <button class="btn-fila-mara" title="Eliminar" onclick="eliminarProductoMaraPicking('${p.sku}')">🗑</button>
+                </td>
+            </tr>
+        `;
+
+    }).join("");
+
+    paginacionMaraPicking.innerHTML = `
+        <button ${_paginaActualMaraPicking <= 1 ? "disabled" : ""} onclick="cambiarPaginaMaraPicking(-1)">‹ Anterior</button>
+        <span>Página ${_paginaActualMaraPicking} de ${totalPaginas} · ${filas.length} producto(s)</span>
+        <button ${_paginaActualMaraPicking >= totalPaginas ? "disabled" : ""} onclick="cambiarPaginaMaraPicking(1)">Siguiente ›</button>
+    `;
+
+}
+
+function cambiarPaginaMaraPicking(delta){
+    _paginaActualMaraPicking += delta;
+    pintarMaraPicking();
+}
+
+buscadorMaraPicking.addEventListener("input", function(){
+    _paginaActualMaraPicking = 1;
+    pintarMaraPicking();
+});
+
+function abrirModalMaraPicking(sku){
+
+    formMaraPicking.reset();
+    document.getElementById("campoSkuPicking").disabled = false;
+
+    if(sku){
+
+        const p = _catalogoMaraPicking.find(x => x.sku === sku);
+        if(!p){ return; }
+
+        modalMaraPickingTitulo.textContent = "Editar Producto";
+        document.getElementById("campoSkuPicking").value = p.sku || "";
+        document.getElementById("campoSkuPicking").disabled = true;
+        document.getElementById("campoDescripcionPicking").value = p.descripcion || "";
+        document.getElementById("campoUbicacionPicking").value = p.ubicacion_picking || "";
+        document.getElementById("campoUnidadVentaPicking").value = p.unidad_venta || "";
+        document.getElementById("campoUnidadBasePicking").value = p.unidad_base || "";
+        document.getElementById("campoConversionPicking").value = p.conversion ?? "";
+        document.getElementById("campoConversionCamaPicking").value = p.conversion_cama_pqt ?? "";
+        document.getElementById("campoEan14Picking").value = p.ean14 || "";
+        document.getElementById("campoEan13Picking").value = p.ean13 || "";
+
+    }else{
+        modalMaraPickingTitulo.textContent = "Agregar Producto";
+    }
+
+    modalMaraPicking.classList.remove("oculto");
+
+}
+
+function cerrarModalMaraPicking(){
+    modalMaraPicking.classList.add("oculto");
+}
+
+document.getElementById("btnAgregarMaraPicking").addEventListener("click", function(){
+    abrirModalMaraPicking(null);
+});
+
+document.getElementById("modalMaraPickingCerrar").addEventListener("click", cerrarModalMaraPicking);
+document.getElementById("modalMaraPickingFondo").addEventListener("click", cerrarModalMaraPicking);
+
+formMaraPicking.addEventListener("submit", async function(e){
+
+    e.preventDefault();
+
+    const sku = document.getElementById("campoSkuPicking").value.trim();
+
+    if(!sku){
+        mostrarToast("El SKU es obligatorio.", "error");
+        return;
+    }
+
+    const registro = {
+        sku: sku,
+        descripcion: document.getElementById("campoDescripcionPicking").value.trim() || null,
+        ubicacion_picking: document.getElementById("campoUbicacionPicking").value.trim().toUpperCase() || null,
+        unidad_venta: document.getElementById("campoUnidadVentaPicking").value.trim() || null,
+        unidad_base: document.getElementById("campoUnidadBasePicking").value.trim() || null,
+        conversion: document.getElementById("campoConversionPicking").value === "" ? null : Number(document.getElementById("campoConversionPicking").value),
+        conversion_cama_pqt: document.getElementById("campoConversionCamaPicking").value === "" ? null : Number(document.getElementById("campoConversionCamaPicking").value),
+        ean14: document.getElementById("campoEan14Picking").value.trim() || null,
+        ean13: document.getElementById("campoEan13Picking").value.trim() || null,
+        actualizado_por: (sesion && sesion.nombre_completo) || null
+    };
+
+    const btnGuardar = document.getElementById("btnGuardarMaraPicking");
+    btnGuardar.disabled = true;
+    btnGuardar.textContent = "Guardando...";
+
+    try{
+
+        await supabaseFetch("/picking_mara?on_conflict=sku", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates" },
+            body: JSON.stringify(registro)
+        });
+
+        mostrarToast("Producto guardado.", "exito");
+        cerrarModalMaraPicking();
+        await cargarMaraPicking();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo guardar el producto.", "error");
+
+    }finally{
+
+        btnGuardar.disabled = false;
+        btnGuardar.textContent = "Guardar";
+
+    }
+
+});
+
+async function eliminarProductoMaraPicking(sku){
+
+    if(!confirm("¿Eliminar el producto " + sku + " del Catálogo MARA Picking?")){
+        return;
+    }
+
+    try{
+
+        await supabaseFetch("/picking_mara?sku=eq." + encodeURIComponent(sku), { method: "DELETE" });
+        mostrarToast("Producto eliminado.", "exito");
+        await cargarMaraPicking();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo eliminar el producto.", "error");
+
+    }
+
+}
+
+function normalizarEncabezadoMaraPicking(texto){
+
+    return String(texto || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "");
+
+}
+
+const ALIAS_COLUMNAS_MARA_PICKING = {
+    sku: ["material ewm", "material", "sku", "material s4h", "codigo material"],
+    descripcion: ["des. de material", "descripcion", "denominacion", "descripcion de material"],
+    ubicacion_picking: ["ubicacion de picking", "ubicacion picking", "ubicacion"],
+    unidad_venta: ["unidad de venta", "umb"],
+    unidad_base: ["unidad base", "uma"],
+    conversion: ["conversion por und", "conversion", "factor conversion"],
+    conversion_cama_pqt: ["conversion cama / pqt", "conversion cama/pqt", "conversion cama pqt"],
+    ean14: ["ean14", "ean 14"],
+    ean13: ["ean13", "ean 13"]
+};
+
+function mapearFilaMaraPicking(filaObjeto, mapaColumnas){
+
+    const registro = {};
+
+    Object.keys(mapaColumnas).forEach(function(campo){
+
+        const encabezadoReal = mapaColumnas[campo];
+
+        if(!encabezadoReal){
+            registro[campo] = null;
+            return;
+        }
+
+        let valor = filaObjeto[encabezadoReal];
+
+        if(valor === undefined || valor === null || valor === ""){
+            registro[campo] = null;
+            return;
+        }
+
+        if(campo === "conversion" || campo === "conversion_cama_pqt"){
+            const numero = Number(valor);
+            registro[campo] = isNaN(numero) ? null : numero;
+        }else if(campo === "ubicacion_picking"){
+            registro[campo] = String(valor).trim().toUpperCase();
+        }else{
+            registro[campo] = String(valor).trim();
+        }
+
+    });
+
+    return registro;
+
+}
+
+document.getElementById("archivoMaraPicking").addEventListener("change", async function(e){
+
+    const archivo = e.target.files[0];
+    if(!archivo){ return; }
+
+    try{
+
+        const buffer = await archivo.arrayBuffer();
+        const libro = XLSX.read(buffer, { type: "array" });
+        const hoja = libro.Sheets[libro.SheetNames[0]];
+        const filas = XLSX.utils.sheet_to_json(hoja, { defval: "" });
+
+        if(!filas.length){
+            mostrarToast("El archivo no tiene filas.", "error");
+            e.target.value = "";
+            return;
+        }
+
+        const encabezadosReales = Object.keys(filas[0]);
+        const mapaColumnas = {};
+
+        Object.keys(ALIAS_COLUMNAS_MARA_PICKING).forEach(function(campo){
+
+            const alias = ALIAS_COLUMNAS_MARA_PICKING[campo];
+
+            const encontrado = encabezadosReales.find(function(h){
+                return alias.includes(normalizarEncabezadoMaraPicking(h));
+            });
+
+            mapaColumnas[campo] = encontrado || null;
+
+        });
+
+        if(!mapaColumnas.sku){
+            mostrarToast("No se encontró la columna de SKU/Material en el archivo.", "error");
+            e.target.value = "";
+            return;
+        }
+
+        const registros = filas
+            .map(function(fila){ return mapearFilaMaraPicking(fila, mapaColumnas); })
+            .filter(function(r){ return r.sku; })
+            .map(function(r){ return Object.assign(r, { actualizado_por: (sesion && sesion.nombre_completo) || null }); });
+
+        if(!registros.length){
+            mostrarToast("No se encontraron productos con SKU válido.", "error");
+            e.target.value = "";
+            return;
+        }
+
+        const TAMANO_BLOQUE = 500;
+
+        for(let i = 0; i < registros.length; i += TAMANO_BLOQUE){
+
+            const bloque = registros.slice(i, i + TAMANO_BLOQUE);
+
+            await supabaseFetch("/picking_mara?on_conflict=sku", {
+                method: "POST",
+                headers: { "Prefer": "resolution=merge-duplicates" },
+                body: JSON.stringify(bloque)
+            });
+
+        }
+
+        mostrarToast(registros.length + " producto(s) cargado(s)/actualizado(s) en el Catálogo MARA Picking.", "exito");
+        await cargarMaraPicking();
+        await cargarAsignacion();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo procesar el archivo.", "error");
+
+    }finally{
+
+        e.target.value = "";
+
+    }
+
+});
+
+// ========================================
+// TAB 3: CARGAR SAP
+// ========================================
+
+const ALIAS_COLUMNAS_SAP_PICKING = {
+    tipo_almacen: ["tipo almacen"],
+    ubicacion: ["ubicacion"],
+    sku: ["producto"],
+    descripcion: ["descripcion de producto"],
+    lote: ["lote"],
+    fecha_caducidad: ["fecaduc/feprefercons", "fecaduc / feprefercons", "fecaduc feprefercons"],
+    tipo_stock: ["tipo de stocks", "tipo de stock"],
+    stock: ["stock"],
+    umb: ["umb"],
+    unidad_manipulacion: ["unidad manipulacion"],
+    ctd: ["ctd.", "ctd"],
+    fecha_em: ["fecha em"],
+    hora_em: ["hora em"],
+    documento: ["documento"],
+    grupo_consolidacion: ["grupo consolidacion"],
+    insp_calidad: ["insp.calidad", "insp calidad"],
+    peso_carga: ["peso de carga"]
+};
+
+document.getElementById("archivoSapPicking").addEventListener("change", async function(e){
+
+    const archivo = e.target.files[0];
+    if(!archivo){ return; }
+
+    const estadoEl = document.getElementById("estadoCargaSapPicking");
+    estadoEl.textContent = "Leyendo " + archivo.name + "...";
+
+    try{
+
+        const buffer = await archivo.arrayBuffer();
+        const libro = XLSX.read(buffer, { type: "array" });
+        const hoja = libro.Sheets[libro.SheetNames[0]];
+        const filasCrudas = XLSX.utils.sheet_to_json(hoja, { defval: "" });
+
+        if(!filasCrudas.length){
+            mostrarToast("El archivo está vacío.", "error");
+            estadoEl.textContent = "";
+            return;
+        }
+
+        const encabezadosReales = Object.keys(filasCrudas[0]);
+        const mapaColumnas = {};
+
+        Object.keys(ALIAS_COLUMNAS_SAP_PICKING).forEach(function(campo){
+
+            const alias = ALIAS_COLUMNAS_SAP_PICKING[campo];
+
+            const encontrado = encabezadosReales.find(function(h){
+                return alias.includes(normalizarEncabezadoMaraPicking(h));
+            });
+
+            mapaColumnas[campo] = encontrado || null;
+
+        });
+
+        if(!mapaColumnas.ubicacion || !mapaColumnas.sku){
+            mostrarToast("No se encontraron las columnas Ubicación/Producto en el archivo.", "error");
+            estadoEl.textContent = "";
+            return;
+        }
+
+        const cargadoPor = (sesion && sesion.nombre_completo) || "";
+
+        const registros = filasCrudas.map(function(f){
+
+            const registro = {};
+
+            Object.keys(mapaColumnas).forEach(function(campo){
+
+                const encabezadoReal = mapaColumnas[campo];
+                let valor = encabezadoReal ? f[encabezadoReal] : "";
+
+                if(valor === undefined || valor === null || valor === ""){
+                    registro[campo] = null;
+                    return;
+                }
+
+                if(campo === "stock" || campo === "ctd" || campo === "peso_carga"){
+                    const numero = Number(valor);
+                    registro[campo] = isNaN(numero) ? null : numero;
+                }else{
+                    registro[campo] = String(valor).trim();
+                }
+
+            });
+
+            registro.cargado_por = cargadoPor;
+
+            return registro;
+
+        }).filter(function(r){ return r.ubicacion && r.sku; });
+
+        if(!registros.length){
+            mostrarToast("No se encontraron filas válidas (revisa Ubicación y Producto).", "error");
+            estadoEl.textContent = "";
+            return;
+        }
+
+        estadoEl.textContent = "Guardando " + registros.length.toLocaleString("es-PE") + " filas...";
+
+        const TAMANO_BLOQUE = 500;
+
+        for(let i = 0; i < registros.length; i += TAMANO_BLOQUE){
+
+            const bloque = registros.slice(i, i + TAMANO_BLOQUE);
+
+            await supabaseFetch("/picking_sap_stock", {
+                method: "POST",
+                body: JSON.stringify(bloque)
+            });
+
+            estadoEl.textContent = "Guardando... " + Math.min(i + TAMANO_BLOQUE, registros.length).toLocaleString("es-PE") +
+                " / " + registros.length.toLocaleString("es-PE");
+
+        }
+
+        estadoEl.textContent = "✓ Cargado: " + registros.length.toLocaleString("es-PE") + " filas de " + archivo.name + ".";
+        mostrarToast("Saldo SAP cargado: " + registros.length.toLocaleString("es-PE") + " filas.", "exito");
+
+        document.getElementById("archivoSapPicking").value = "";
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo cargar el archivo: " + err.message, "error");
+        estadoEl.textContent = "";
+
+    }
+
+});
+
+document.getElementById("btnBorrarSap").addEventListener("click", async function(){
+
+    const btn = document.getElementById("btnBorrarSap");
+
+    const confirmado = confirm(
+        "Esto borra TODO el saldo SAP cargado en Inventario Picking. No se puede deshacer.\n\n¿Continuar?"
+    );
+
+    if(!confirmado){ return; }
+
+    const escrito = prompt('Para confirmar, escribe BORRAR (en mayúsculas):');
+
+    if(escrito !== "BORRAR"){
+        mostrarToast("Cancelado: no se escribió BORRAR, no se borró nada.", "info");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Borrando...";
+
+    try{
+
+        await supabaseFetch("/picking_sap_stock?id=gt.0", { method: "DELETE" });
+
+        document.getElementById("estadoCargaSapPicking").textContent = "";
+        mostrarToast("Saldo SAP borrado.", "exito");
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo borrar: " + err.message, "error");
+
+    }finally{
+
+        btn.disabled = false;
+        btn.textContent = "🗑 Borrar Todo";
+
+    }
+
+});
+
+// ========================================
+// TAB 4: DISCREPANCIAS
+// ========================================
+
+async function cargarDiscrepancias(){
+
+    const tblErrores = document.getElementById("tblErroresUbicacion");
+    const tblDiferencias = document.getElementById("tblDiferenciasStock");
+
+    tblErrores.innerHTML = `<tr><td colspan="6" class="sin-datos">Cargando...</td></tr>`;
+    tblDiferencias.innerHTML = `<tr><td colspan="5" class="sin-datos">Cargando...</td></tr>`;
+
+    try{
+
+        const [conteoFilas, sapFilas] = await Promise.all([
+            supabaseFetchTodo(
+                "/picking_conteos?select=pasillo,sku,descripcion,ubicacion_escaneada,ubicacion_esperada,colaborador,cruce,conteo_total" +
+                "&semana=eq." + SEMANA + "&es_reconteo=eq.false"
+            ),
+            supabaseFetchTodo("/picking_sap_stock?select=sku,descripcion,stock")
+        ]);
+
+        // KPIs generales (equivalente a "Eri Eru"/Dashboard de la
+        // plantilla original): códigos únicos contados, cuántos
+        // cuadraron (Cruce = OK), y % de exactitud.
+        const skusContados = new Set((conteoFilas || []).map(f => f.sku));
+        const errores = (conteoFilas || []).filter(f => f.cruce === "ERROR");
+        const skusConError = new Set(errores.map(f => f.sku));
+        const skusCuadrados = [...skusContados].filter(sku => !skusConError.has(sku));
+
+        document.getElementById("kpiCodigosContados").textContent = skusContados.size;
+        document.getElementById("kpiCodigosCuadrados").textContent = skusCuadrados.length;
+        document.getElementById("kpiErroresUbicacion").textContent = errores.length;
+        document.getElementById("kpiExactitud").textContent = skusContados.size > 0
+            ? Math.round((skusCuadrados.length / skusContados.size) * 100) + "%"
+            : "-";
+
+        if(!errores.length){
+            tblErrores.innerHTML = `<tr><td colspan="6" class="sin-datos">Sin errores de ubicación esta semana.</td></tr>`;
+        }else{
+
+            tblErrores.innerHTML = errores.map(function(f){
+                return `
+                    <tr>
+                        <td>${String(f.pasillo).padStart(2, "0")}</td>
+                        <td>${f.sku || "-"}</td>
+                        <td>${f.descripcion || "-"}</td>
+                        <td>${f.ubicacion_escaneada || "-"}</td>
+                        <td>${f.ubicacion_esperada || "-"}</td>
+                        <td>${f.colaborador || "-"}</td>
+                    </tr>
+                `;
+            }).join("");
+
+        }
+
+        // Contado vs SAP, por SKU
+        const contadoPorSku = {};
+        const descripcionPorSku = {};
+
+        (conteoFilas || []).forEach(function(f){
+            contadoPorSku[f.sku] = (contadoPorSku[f.sku] || 0) + Number(f.conteo_total || 0);
+            if(f.descripcion){ descripcionPorSku[f.sku] = f.descripcion; }
+        });
+
+        const sapPorSku = {};
+
+        (sapFilas || []).forEach(function(f){
+            sapPorSku[f.sku] = (sapPorSku[f.sku] || 0) + Number(f.stock || 0);
+            if(f.descripcion && !descripcionPorSku[f.sku]){ descripcionPorSku[f.sku] = f.descripcion; }
+        });
+
+        if(!sapFilas || !sapFilas.length){
+            tblDiferencias.innerHTML = `<tr><td colspan="5" class="sin-datos">Carga un saldo SAP para ver la comparativa.</td></tr>`;
+        }else{
+
+            const skusTodos = new Set([...Object.keys(contadoPorSku), ...Object.keys(sapPorSku)]);
+
+            const filasDiferencia = [...skusTodos]
+                .map(function(sku){
+                    return {
+                        sku: sku,
+                        descripcion: descripcionPorSku[sku] || "-",
+                        sap: sapPorSku[sku] || 0,
+                        contado: contadoPorSku[sku] || 0
+                    };
+                })
+                .filter(f => f.sap !== f.contado)
+                .sort((a, b) => Math.abs(b.sap - b.contado) - Math.abs(a.sap - a.contado));
+
+            if(!filasDiferencia.length){
+                tblDiferencias.innerHTML = `<tr><td colspan="5" class="sin-datos">Todo cuadra — sin diferencias.</td></tr>`;
+            }else{
+
+                tblDiferencias.innerHTML = filasDiferencia.map(function(f){
+
+                    const diferencia = f.sap - f.contado;
+
+                    return `
+                        <tr>
+                            <td>${f.sku}</td>
+                            <td>${f.descripcion}</td>
+                            <td>${f.sap.toLocaleString("es-PE")}</td>
+                            <td>${f.contado.toLocaleString("es-PE")}</td>
+                            <td class="${diferencia === 0 ? "diferencia-cero" : "diferencia-positiva"}">${diferencia > 0 ? "+" : ""}${diferencia}</td>
+                        </tr>
+                    `;
+
+                }).join("");
+
+            }
+
+        }
+
+    }catch(e){
+
+        console.error(e);
+        tblErrores.innerHTML = `<tr><td colspan="6" class="sin-datos">No se pudo cargar.</td></tr>`;
+        tblDiferencias.innerHTML = `<tr><td colspan="5" class="sin-datos">No se pudo cargar.</td></tr>`;
+
+    }
+
+}
+
+document.getElementById("btnActualizarDiscrepancias").addEventListener("click", cargarDiscrepancias);

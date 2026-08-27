@@ -26,6 +26,8 @@ if(sesion){
         document.getElementById("cardAnomalias").style.display = "none";
         document.getElementById("linkInventarioPaletas").style.display = "none";
         document.getElementById("cardInventarioPaletas").style.display = "none";
+        document.getElementById("linkInventarioPicking").style.display = "none";
+        document.getElementById("cardInventarioPicking").style.display = "none";
     }
 
 }
