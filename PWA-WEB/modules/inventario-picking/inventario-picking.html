@@ -61,9 +61,10 @@
             <nav class="menu">
 
                 <a href="#" class="tab-link activo" data-tab="tabAsignacion">1. Asignación de Pasillos</a>
-                <a href="#" class="tab-link" data-tab="tabMara">2. Catálogo MARA Picking</a>
-                <a href="#" class="tab-link" data-tab="tabSap">3. Cargar SAP</a>
-                <a href="#" class="tab-link" data-tab="tabDiscrepancias">4. Discrepancias</a>
+                <a href="#" class="tab-link" data-tab="tabUbicaciones">2. Ubicaciones de Picking</a>
+                <a href="#" class="tab-link" data-tab="tabMara">3. Catálogo MARA Picking</a>
+                <a href="#" class="tab-link" data-tab="tabSap">4. Cargar SAP</a>
+                <a href="#" class="tab-link" data-tab="tabDiscrepancias">5. Discrepancias</a>
 
             </nav>
 
@@ -151,7 +152,71 @@
             </div>
 
             <!-- ============================================ -->
-            <!-- TAB 2: CATÁLOGO MARA PICKING -->
+            <!-- TAB 2: UBICACIONES DE PICKING -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabUbicaciones">
+
+                <div class="card">
+
+                    <div class="card-header-flex">
+
+                        <h2>
+                            UBICACIONES DE PICKING
+                        </h2>
+
+                        <div class="acciones-mara">
+
+                            <label class="btn-secundario btn-carga-archivo">
+                                ⬆ Cargar Excel
+                                <input type="file" id="archivoUbicaciones" accept=".xlsx,.xls,.csv" hidden>
+                            </label>
+
+                            <button id="btnBorrarUbicaciones" class="btn-peligro">
+                                🗑 Borrar Todo
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                    <p class="nota-modulo">
+                        Lista maestra de las posiciones físicas a auditar (Ubicación, Pasillo, Columna,
+                        Nivel). Define qué pasillos existen y en qué orden se recorren en Centro de
+                        Proyectos: primero el lado impar de menor a mayor, y al terminar, el lado par
+                        de mayor a menor.
+                    </p>
+
+                    <div id="estadoCargaUbicaciones" class="nota-modulo"></div>
+
+                    <table>
+
+                        <thead>
+                            <tr>
+                                <th>Ubicación</th>
+                                <th>Pasillo</th>
+                                <th>Columna</th>
+                                <th>Nivel</th>
+                                <th>Tipo Almacén</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="tblUbicaciones">
+                            <tr>
+                                <td colspan="5" class="sin-datos">Cargando...</td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+
+                    <div class="paginacion" id="paginacionUbicaciones"></div>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 3: CATÁLOGO MARA PICKING -->
             <!-- ============================================ -->
 
             <div class="tab-contenido oculto" id="tabMara">
@@ -180,15 +245,15 @@
                     </div>
 
                     <p class="nota-modulo">
-                        Maestro de productos de picking: SKU, EAN, ubicación donde debería estar cada
-                        producto y el factor de conversión cama→unidad. Se usa en Centro de Proyectos
-                        para resolver el producto al escanear y para detectar ubicaciones incorrectas.
+                        Maestro de productos de picking: SKU, EAN y el factor de conversión cama→unidad.
+                        Se usa en Centro de Proyectos para resolver el producto al escanear. La ubicación
+                        esperada de cada código sale del saldo SAP (pestaña "Cargar SAP"), no de acá.
                     </p>
 
                     <input
                         type="text"
                         id="buscadorMaraPicking"
-                        placeholder="Buscar por SKU, descripción o ubicación..."
+                        placeholder="Buscar por SKU o descripción..."
                         class="input-buscador"
                     >
 
@@ -200,12 +265,11 @@
 
                                 <th>SKU</th>
                                 <th>Descripción</th>
-                                <th>Ubicación Picking</th>
                                 <th>UMB</th>
                                 <th>UMA</th>
-                                <th>Conversión</th>
                                 <th>Conv. Cama/Pqt</th>
                                 <th>EAN14</th>
+                                <th>EAN13</th>
                                 <th>Acción</th>
 
                             </tr>
@@ -215,7 +279,7 @@
                         <tbody id="tblMaraPicking">
 
                             <tr>
-                                <td colspan="9" class="sin-datos">
+                                <td colspan="8" class="sin-datos">
                                     Cargando catálogo...
                                 </td>
                             </tr>
@@ -251,8 +315,10 @@
                     </div>
 
                     <p class="nota-modulo">
-                        Sube el extracto crudo de SAP (stock por ubicación). Se usa en la pestaña
-                        "Discrepancias" para comparar contra lo contado en Centro de Proyectos.
+                        Sube el extracto crudo de SAP (código + ubicación). Esto es lo que le dice a la
+                        app qué código debería estar en cada ubicación — de acá sale el OK/ERROR al
+                        contar en Centro de Proyectos, y también se usa en "Discrepancias" para comparar
+                        el stock.
                     </p>
 
                     <div class="upload-box">
@@ -313,10 +379,11 @@
 
                 <div class="card">
 
-                    <h2>Ubicaciones mal contadas (Cruce = ERROR)</h2>
+                    <h2>Ubicaciones con diferencia (Cruce = ERROR)</h2>
 
                     <p class="nota-modulo">
-                        El producto se contó en una ubicación distinta a la que dice el Catálogo MARA.
+                        El código contado en esa ubicación no coincide con lo que dice el saldo SAP
+                        (o la ubicación quedó vacía cuando SAP esperaba stock, o viceversa).
                     </p>
 
                     <table>
@@ -405,11 +472,6 @@
                     <input type="text" id="campoDescripcionPicking">
                 </div>
 
-                <div>
-                    <label>Ubicación de Picking</label>
-                    <input type="text" id="campoUbicacionPicking" placeholder="Ej: PP-08-022-1" style="text-transform:uppercase;">
-                </div>
-
                 <div class="form-mara-fila">
 
                     <div>
@@ -424,18 +486,9 @@
 
                 </div>
 
-                <div class="form-mara-fila">
-
-                    <div>
-                        <label>Conversión (UMB → UMA)</label>
-                        <input type="number" step="any" id="campoConversionPicking">
-                    </div>
-
-                    <div>
-                        <label>Conversión Cama/Pqt</label>
-                        <input type="number" step="any" id="campoConversionCamaPicking">
-                    </div>
-
+                <div>
+                    <label>Conversión Cama/Pqt</label>
+                    <input type="number" step="any" id="campoConversionCamaPicking">
                 </div>
 
                 <div class="form-mara-fila">

@@ -110,6 +110,10 @@ document.querySelectorAll(".tab-link").forEach(function(link){
         link.classList.add("activo");
         document.getElementById(link.dataset.tab).classList.remove("oculto");
 
+        if(link.dataset.tab === "tabUbicaciones" && !_ubicacionesCargadasAlMenosUnaVez){
+            cargarUbicaciones();
+        }
+
         if(link.dataset.tab === "tabMara" && !_maraPickingCargadaAlMenosUnaVez){
             cargarMaraPicking();
         }
@@ -148,20 +152,6 @@ const SEMANA = semanaActual();
 document.getElementById("semanaTextoAsignacion").textContent = SEMANA.split("-W")[1];
 document.getElementById("semanaTextoDiscrepancias").textContent = SEMANA.split("-W")[1];
 
-const PREFIJOS_UBICACION = ["PP", "PA", "AA", "AP", "CH"];
-
-function parsearCodigoUbicacion(texto){
-
-    const patron = new RegExp("^(?:" + PREFIJOS_UBICACION.join("|") + ")-(\\d{1,2})-(\\d{1,3})(?:-\\d+)?$");
-    const m = String(texto || "").trim().toUpperCase().match(patron);
-
-    if(!m){
-        return null;
-    }
-
-    return { pasillo: Number(m[1]), ubicacion: Number(m[2]) };
-
-}
 
 // ========================================
 // TAB 1: ASIGNACIÓN DE PASILLOS
@@ -174,9 +164,9 @@ async function cargarAsignacion(){
 
     try{
 
-        const [maraFilas, conteoFilas, pasillosFilas] = await Promise.all([
-            supabaseFetchTodo("/picking_mara?select=sku,ubicacion_picking"),
-            supabaseFetchTodo("/picking_conteos?select=pasillo,sku&semana=eq." + SEMANA + "&es_reconteo=eq.false"),
+        const [ubicacionesFilas, conteoFilas, pasillosFilas] = await Promise.all([
+            supabaseFetchTodo("/picking_ubicaciones?select=pasillo"),
+            supabaseFetchTodo("/picking_conteos?select=pasillo&semana=eq." + SEMANA + "&es_reconteo=eq.false"),
             supabaseFetch("/picking_pasillos?select=pasillo,colaborador,estado&semana=eq." + SEMANA).catch(function(e){
                 console.error(e);
                 return [];
@@ -185,10 +175,8 @@ async function cargarAsignacion(){
 
         const totalPorPasillo = {};
 
-        (maraFilas || []).forEach(function(f){
-            const parseado = parsearCodigoUbicacion(f.ubicacion_picking);
-            if(!parseado){ return; }
-            totalPorPasillo[parseado.pasillo] = (totalPorPasillo[parseado.pasillo] || 0) + 1;
+        (ubicacionesFilas || []).forEach(function(f){
+            totalPorPasillo[f.pasillo] = (totalPorPasillo[f.pasillo] || 0) + 1;
         });
 
         const registradoPorPasillo = {};
@@ -208,7 +196,7 @@ async function cargarAsignacion(){
         tbody.innerHTML = "";
 
         if(!pasillos.length){
-            tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">Carga el Catálogo MARA Picking para ver los pasillos.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">Carga las Ubicaciones de Picking para ver los pasillos.</td></tr>`;
             document.getElementById("kpiTotalPasillos").textContent = "0";
             document.getElementById("kpiAsignados").textContent = "0";
             document.getElementById("kpiCompletados").textContent = "0";
@@ -277,6 +265,232 @@ document.getElementById("btnActualizarAsignacion").addEventListener("click", car
 cargarAsignacion();
 
 // ========================================
+// TAB: UBICACIONES DE PICKING (lista maestra)
+// ========================================
+
+let _ubicacionesCargadasAlMenosUnaVez = false;
+let _catalogoUbicaciones = [];
+let _paginaActualUbicaciones = 1;
+const FILAS_POR_PAGINA_UBICACIONES = 50;
+
+async function cargarUbicaciones(){
+
+    const tbody = document.getElementById("tblUbicaciones");
+    tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">Cargando...</td></tr>`;
+
+    try{
+
+        _catalogoUbicaciones = await supabaseFetchTodo("/picking_ubicaciones?select=*&order=pasillo.asc,columna.asc");
+        _ubicacionesCargadasAlMenosUnaVez = true;
+        _paginaActualUbicaciones = 1;
+        pintarUbicaciones();
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">No se pudo cargar la lista.</td></tr>`;
+
+    }
+
+}
+
+function pintarUbicaciones(){
+
+    const tbody = document.getElementById("tblUbicaciones");
+    const paginacion = document.getElementById("paginacionUbicaciones");
+
+    if(!_catalogoUbicaciones.length){
+        tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">Sin ubicaciones cargadas.</td></tr>`;
+        paginacion.innerHTML = "";
+        return;
+    }
+
+    const totalPaginas = Math.max(1, Math.ceil(_catalogoUbicaciones.length / FILAS_POR_PAGINA_UBICACIONES));
+    _paginaActualUbicaciones = Math.min(_paginaActualUbicaciones, totalPaginas);
+
+    const desde = (_paginaActualUbicaciones - 1) * FILAS_POR_PAGINA_UBICACIONES;
+    const visibles = _catalogoUbicaciones.slice(desde, desde + FILAS_POR_PAGINA_UBICACIONES);
+
+    tbody.innerHTML = visibles.map(function(u){
+        return `
+            <tr>
+                <td>${u.ubicacion}</td>
+                <td>${String(u.pasillo).padStart(2, "0")}</td>
+                <td>${u.columna}</td>
+                <td>${u.nivel || "-"}</td>
+                <td>${u.tipo_almacen || "-"}</td>
+            </tr>
+        `;
+    }).join("");
+
+    paginacion.innerHTML = `
+        <button ${_paginaActualUbicaciones <= 1 ? "disabled" : ""} onclick="cambiarPaginaUbicaciones(-1)">‹ Anterior</button>
+        <span>Página ${_paginaActualUbicaciones} de ${totalPaginas} · ${_catalogoUbicaciones.length} ubicación(es)</span>
+        <button ${_paginaActualUbicaciones >= totalPaginas ? "disabled" : ""} onclick="cambiarPaginaUbicaciones(1)">Siguiente ›</button>
+    `;
+
+}
+
+function cambiarPaginaUbicaciones(delta){
+    _paginaActualUbicaciones += delta;
+    pintarUbicaciones();
+}
+
+const ALIAS_COLUMNAS_UBICACIONES = {
+    ubicacion: ["ubicacion"],
+    tipo_almacen: ["tipo almacen"],
+    area: ["area almacenamiento"],
+    tipo_ubicacion: ["tipo de ubicacion"],
+    tp_acceso: ["tp.acceso ubicacion", "tp acceso ubicacion"],
+    pasillo: ["pasillo de ubicacion"],
+    columna: ["columna ubicacion"],
+    nivel: ["nivel de ubicacion"]
+};
+
+document.getElementById("archivoUbicaciones").addEventListener("change", async function(e){
+
+    const archivo = e.target.files[0];
+    if(!archivo){ return; }
+
+    const estadoEl = document.getElementById("estadoCargaUbicaciones");
+    estadoEl.textContent = "Leyendo " + archivo.name + "...";
+
+    try{
+
+        const buffer = await archivo.arrayBuffer();
+        const libro = XLSX.read(buffer, { type: "array" });
+        const hoja = libro.Sheets[libro.SheetNames[0]];
+        const filas = XLSX.utils.sheet_to_json(hoja, { defval: "" });
+
+        if(!filas.length){
+            mostrarToast("El archivo no tiene filas.", "error");
+            estadoEl.textContent = "";
+            return;
+        }
+
+        const encabezadosReales = Object.keys(filas[0]);
+        const mapaColumnas = {};
+
+        Object.keys(ALIAS_COLUMNAS_UBICACIONES).forEach(function(campo){
+
+            const alias = ALIAS_COLUMNAS_UBICACIONES[campo];
+
+            const encontrado = encabezadosReales.find(function(h){
+                return alias.includes(normalizarEncabezadoMaraPicking(h));
+            });
+
+            mapaColumnas[campo] = encontrado || null;
+
+        });
+
+        if(!mapaColumnas.ubicacion || !mapaColumnas.pasillo || !mapaColumnas.columna){
+            mostrarToast("No se encontraron las columnas Ubicación/Pasillo/Columna en el archivo.", "error");
+            estadoEl.textContent = "";
+            return;
+        }
+
+        const registrosCrudos = filas.map(function(f){
+
+            const ubicacion = String(f[mapaColumnas.ubicacion] || "").trim().toUpperCase();
+            const pasillo = Number(f[mapaColumnas.pasillo]);
+            const columna = Number(f[mapaColumnas.columna]);
+
+            if(!ubicacion || isNaN(pasillo) || isNaN(columna)){
+                return null;
+            }
+
+            return {
+                ubicacion: ubicacion,
+                pasillo: pasillo,
+                columna: columna,
+                nivel: mapaColumnas.nivel ? String(f[mapaColumnas.nivel] || "").trim() : null,
+                tipo_almacen: mapaColumnas.tipo_almacen ? String(f[mapaColumnas.tipo_almacen] || "").trim() : null,
+                area: mapaColumnas.area ? String(f[mapaColumnas.area] || "").trim() : null,
+                tipo_ubicacion: mapaColumnas.tipo_ubicacion ? String(f[mapaColumnas.tipo_ubicacion] || "").trim() : null,
+                tp_acceso: mapaColumnas.tp_acceso ? String(f[mapaColumnas.tp_acceso] || "").trim() : null
+            };
+
+        }).filter(Boolean);
+
+        const porUbicacion = new Map();
+        registrosCrudos.forEach(function(r){ porUbicacion.set(r.ubicacion, r); });
+        const registros = [...porUbicacion.values()];
+
+        if(!registros.length){
+            mostrarToast("No se encontraron filas válidas.", "error");
+            estadoEl.textContent = "";
+            return;
+        }
+
+        const TAMANO_BLOQUE = 500;
+
+        for(let i = 0; i < registros.length; i += TAMANO_BLOQUE){
+
+            const bloque = registros.slice(i, i + TAMANO_BLOQUE);
+
+            await supabaseFetch("/picking_ubicaciones?on_conflict=ubicacion", {
+                method: "POST",
+                headers: { "Prefer": "resolution=merge-duplicates" },
+                body: JSON.stringify(bloque)
+            });
+
+        }
+
+        estadoEl.textContent = "✓ Cargado: " + registros.length.toLocaleString("es-PE") + " ubicación(es).";
+        mostrarToast(registros.length + " ubicación(es) cargada(s)/actualizada(s).", "exito");
+
+        document.getElementById("archivoUbicaciones").value = "";
+        await cargarUbicaciones();
+        await cargarAsignacion();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo procesar el archivo.", "error");
+        estadoEl.textContent = "";
+
+    }
+
+});
+
+document.getElementById("btnBorrarUbicaciones").addEventListener("click", async function(){
+
+    const btn = document.getElementById("btnBorrarUbicaciones");
+
+    const confirmado = confirm(
+        "Esto borra TODA la lista de Ubicaciones de Picking. Los pasillos dejarán de aparecer en " +
+        "Centro de Proyectos hasta que se vuelva a cargar. No se puede deshacer.\n\n¿Continuar?"
+    );
+
+    if(!confirmado){ return; }
+
+    btn.disabled = true;
+    btn.textContent = "Borrando...";
+
+    try{
+
+        await supabaseFetch("/picking_ubicaciones?ubicacion=not.is.null", { method: "DELETE" });
+
+        mostrarToast("Ubicaciones de Picking borradas.", "exito");
+        document.getElementById("estadoCargaUbicaciones").textContent = "";
+        await cargarUbicaciones();
+        await cargarAsignacion();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo borrar: " + err.message, "error");
+
+    }finally{
+
+        btn.disabled = false;
+        btn.textContent = "🗑 Borrar Todo";
+
+    }
+
+});
+
+// ========================================
 // TAB 2: CATÁLOGO MARA PICKING (CRUD + carga masiva)
 // ========================================
 
@@ -324,8 +538,7 @@ function filasFiltradasMaraPicking(){
     return _catalogoMaraPicking.filter(function(p){
         return (
             (p.sku || "").toLowerCase().includes(texto) ||
-            (p.descripcion || "").toLowerCase().includes(texto) ||
-            (p.ubicacion_picking || "").toLowerCase().includes(texto)
+            (p.descripcion || "").toLowerCase().includes(texto)
         );
     });
 
@@ -353,12 +566,11 @@ function pintarMaraPicking(){
             <tr>
                 <td>${p.sku || "-"}</td>
                 <td>${p.descripcion || "-"}</td>
-                <td>${p.ubicacion_picking || "-"}</td>
                 <td>${p.unidad_venta || "-"}</td>
                 <td>${p.unidad_base || "-"}</td>
-                <td>${p.conversion ?? "-"}</td>
                 <td>${p.conversion_cama_pqt ?? "-"}</td>
                 <td>${p.ean14 || "-"}</td>
+                <td>${p.ean13 || "-"}</td>
                 <td>
                     <button class="btn-fila-mara" title="Editar" onclick="abrirModalMaraPicking('${p.sku}')">✏️</button>
                     <button class="btn-fila-mara" title="Eliminar" onclick="eliminarProductoMaraPicking('${p.sku}')">🗑</button>
@@ -400,10 +612,8 @@ function abrirModalMaraPicking(sku){
         document.getElementById("campoSkuPicking").value = p.sku || "";
         document.getElementById("campoSkuPicking").disabled = true;
         document.getElementById("campoDescripcionPicking").value = p.descripcion || "";
-        document.getElementById("campoUbicacionPicking").value = p.ubicacion_picking || "";
         document.getElementById("campoUnidadVentaPicking").value = p.unidad_venta || "";
         document.getElementById("campoUnidadBasePicking").value = p.unidad_base || "";
-        document.getElementById("campoConversionPicking").value = p.conversion ?? "";
         document.getElementById("campoConversionCamaPicking").value = p.conversion_cama_pqt ?? "";
         document.getElementById("campoEan14Picking").value = p.ean14 || "";
         document.getElementById("campoEan13Picking").value = p.ean13 || "";
@@ -441,10 +651,8 @@ formMaraPicking.addEventListener("submit", async function(e){
     const registro = {
         sku: sku,
         descripcion: document.getElementById("campoDescripcionPicking").value.trim() || null,
-        ubicacion_picking: document.getElementById("campoUbicacionPicking").value.trim().toUpperCase() || null,
         unidad_venta: document.getElementById("campoUnidadVentaPicking").value.trim() || null,
         unidad_base: document.getElementById("campoUnidadBasePicking").value.trim() || null,
-        conversion: document.getElementById("campoConversionPicking").value === "" ? null : Number(document.getElementById("campoConversionPicking").value),
         conversion_cama_pqt: document.getElementById("campoConversionCamaPicking").value === "" ? null : Number(document.getElementById("campoConversionCamaPicking").value),
         ean14: document.getElementById("campoEan14Picking").value.trim() || null,
         ean13: document.getElementById("campoEan13Picking").value.trim() || null,
@@ -513,15 +721,13 @@ function normalizarEncabezadoMaraPicking(texto){
 }
 
 const ALIAS_COLUMNAS_MARA_PICKING = {
-    sku: ["material ewm", "material", "sku", "material s4h", "codigo material"],
-    descripcion: ["des. de material", "descripcion", "denominacion", "descripcion de material"],
-    ubicacion_picking: ["ubicacion de picking", "ubicacion picking", "ubicacion"],
-    unidad_venta: ["unidad de venta", "umb"],
-    unidad_base: ["unidad base", "uma"],
-    conversion: ["conversion por und", "conversion", "factor conversion"],
+    sku: ["codigo", "material ewm", "material", "sku", "material s4h", "codigo material"],
+    descripcion: ["descripcion", "des. de material", "denominacion", "descripcion de material"],
+    unidad_venta: ["umb", "unidad de venta"],
+    unidad_base: ["uma", "unidad base"],
     conversion_cama_pqt: ["conversion cama / pqt", "conversion cama/pqt", "conversion cama pqt"],
-    ean14: ["ean14", "ean 14"],
-    ean13: ["ean13", "ean 13"]
+    ean14: ["ean 14", "ean14"],
+    ean13: ["ean 13", "ean13"]
 };
 
 function mapearFilaMaraPicking(filaObjeto, mapaColumnas){
@@ -544,11 +750,9 @@ function mapearFilaMaraPicking(filaObjeto, mapaColumnas){
             return;
         }
 
-        if(campo === "conversion" || campo === "conversion_cama_pqt"){
+        if(campo === "conversion_cama_pqt"){
             const numero = Number(valor);
             registro[campo] = isNaN(numero) ? null : numero;
-        }else if(campo === "ubicacion_picking"){
-            registro[campo] = String(valor).trim().toUpperCase();
         }else{
             registro[campo] = String(valor).trim();
         }
@@ -598,10 +802,19 @@ document.getElementById("archivoMaraPicking").addEventListener("change", async f
             return;
         }
 
-        const registros = filas
+        const registrosCrudos = filas
             .map(function(fila){ return mapearFilaMaraPicking(fila, mapaColumnas); })
             .filter(function(r){ return r.sku; })
             .map(function(r){ return Object.assign(r, { actualizado_por: (sesion && sesion.nombre_completo) || null }); });
+
+        // Si el mismo SKU se repite en el archivo, Postgres rechaza el
+        // upsert ("no puede afectar la misma fila 2 veces") — se deja
+        // solo la última fila de cada SKU repetido.
+        const porSku = new Map();
+        registrosCrudos.forEach(function(r){
+            porSku.set(r.sku, r);
+        });
+        const registros = [...porSku.values()];
 
         if(!registros.length){
             mostrarToast("No se encontraron productos con SKU válido.", "error");
