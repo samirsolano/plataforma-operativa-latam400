@@ -1034,30 +1034,112 @@ document.getElementById("btnBorrarSap").addEventListener("click", async function
 // TAB 4: DISCREPANCIAS
 // ========================================
 
+function normalizarTextoAuditoria(t){
+    return String(t || "").trim().toUpperCase();
+}
+
+let _catalogoAuditoria = [];
+let _paginaActualAuditoria = 1;
+const FILAS_POR_PAGINA_AUDITORIA = 50;
+
+function filasFiltradasAuditoria(){
+
+    const texto = document.getElementById("buscadorAuditoria").value.trim().toLowerCase();
+
+    if(!texto){
+        return _catalogoAuditoria;
+    }
+
+    return _catalogoAuditoria.filter(function(f){
+        return (
+            f.ubicacion.toLowerCase().includes(texto) ||
+            f.codigoContado.toLowerCase().includes(texto) ||
+            f.codigoSap.toLowerCase().includes(texto) ||
+            f.colaborador.toLowerCase().includes(texto)
+        );
+    });
+
+}
+
+function pintarAuditoria(){
+
+    const tbody = document.getElementById("tblAuditoria");
+    const paginacion = document.getElementById("paginacionAuditoria");
+    const filas = filasFiltradasAuditoria();
+
+    if(!filas.length){
+        tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Sin ubicaciones auditadas todavía.</td></tr>`;
+        paginacion.innerHTML = "";
+        return;
+    }
+
+    const totalPaginas = Math.max(1, Math.ceil(filas.length / FILAS_POR_PAGINA_AUDITORIA));
+    _paginaActualAuditoria = Math.min(_paginaActualAuditoria, totalPaginas);
+
+    const desde = (_paginaActualAuditoria - 1) * FILAS_POR_PAGINA_AUDITORIA;
+    const visibles = filas.slice(desde, desde + FILAS_POR_PAGINA_AUDITORIA);
+
+    tbody.innerHTML = visibles.map(function(f){
+        return `
+            <tr>
+                <td>${String(f.pasillo).padStart(2, "0")}</td>
+                <td>${f.ubicacion}</td>
+                <td>${f.codigoSap}</td>
+                <td>${f.codigoContado}</td>
+                <td>${f.cantidad}</td>
+                <td>${f.colaborador}</td>
+                <td><span class="badge-auditoria ${f.claseEstado}">${f.estado}</span></td>
+            </tr>
+        `;
+    }).join("");
+
+    paginacion.innerHTML = `
+        <button ${_paginaActualAuditoria <= 1 ? "disabled" : ""} onclick="cambiarPaginaAuditoria(-1)">‹ Anterior</button>
+        <span>Página ${_paginaActualAuditoria} de ${totalPaginas} · ${filas.length} ubicación(es)</span>
+        <button ${_paginaActualAuditoria >= totalPaginas ? "disabled" : ""} onclick="cambiarPaginaAuditoria(1)">Siguiente ›</button>
+    `;
+
+}
+
+function cambiarPaginaAuditoria(delta){
+    _paginaActualAuditoria += delta;
+    pintarAuditoria();
+}
+
+document.getElementById("buscadorAuditoria").addEventListener("input", function(){
+    _paginaActualAuditoria = 1;
+    pintarAuditoria();
+});
+
 async function cargarDiscrepancias(){
 
-    const tblErrores = document.getElementById("tblErroresUbicacion");
+    const tblAuditoria = document.getElementById("tblAuditoria");
     const tblDiferencias = document.getElementById("tblDiferenciasStock");
 
-    tblErrores.innerHTML = `<tr><td colspan="6" class="sin-datos">Cargando...</td></tr>`;
+    tblAuditoria.innerHTML = `<tr><td colspan="7" class="sin-datos">Cargando...</td></tr>`;
     tblDiferencias.innerHTML = `<tr><td colspan="5" class="sin-datos">Cargando...</td></tr>`;
 
     try{
 
         const [conteoFilas, sapFilas] = await Promise.all([
             supabaseFetchTodo(
-                "/picking_conteos?select=pasillo,sku,descripcion,ubicacion_escaneada,ubicacion_esperada,colaborador,cruce,conteo_total" +
-                "&semana=eq." + SEMANA + "&es_reconteo=eq.false"
+                "/picking_conteos?select=pasillo,sku,descripcion,ubicacion_escaneada,ubicacion_esperada,colaborador,cruce,conteo_total,vacia,es_reconteo" +
+                "&semana=eq." + SEMANA
             ),
-            supabaseFetchTodo("/picking_sap_stock?select=sku,descripcion,stock")
+            supabaseFetchTodo("/picking_sap_stock?select=sku,descripcion,stock,ubicacion")
         ]);
+
+        // El % de avance/exactitud y la tabla de auditoría solo miran
+        // el conteo normal — un reconteo es una verificación aparte,
+        // no una ubicación nueva.
+        const normales = (conteoFilas || []).filter(function(f){ return !f.es_reconteo; });
 
         // KPIs generales (equivalente a "Eri Eru"/Dashboard de la
         // plantilla original): códigos únicos contados, cuántos
         // cuadraron (Cruce = OK), y % de exactitud.
-        const skusContados = new Set((conteoFilas || []).map(f => f.sku));
-        const errores = (conteoFilas || []).filter(f => f.cruce === "ERROR");
-        const skusConError = new Set(errores.map(f => f.sku));
+        const skusContados = new Set(normales.map(f => f.sku).filter(Boolean));
+        const errores = normales.filter(f => f.cruce === "ERROR");
+        const skusConError = new Set(errores.map(f => f.sku).filter(Boolean));
         const skusCuadrados = [...skusContados].filter(sku => !skusConError.has(sku));
 
         document.getElementById("kpiCodigosContados").textContent = skusContados.size;
@@ -1067,30 +1149,67 @@ async function cargarDiscrepancias(){
             ? Math.round((skusCuadrados.length / skusContados.size) * 100) + "%"
             : "-";
 
-        if(!errores.length){
-            tblErrores.innerHTML = `<tr><td colspan="6" class="sin-datos">Sin errores de ubicación esta semana.</td></tr>`;
-        }else{
+        // Código SAP esperado por ubicación (puede haber más de un
+        // código registrado en la misma ubicación).
+        const sapPorUbicacion = {};
 
-            tblErrores.innerHTML = errores.map(function(f){
-                return `
-                    <tr>
-                        <td>${String(f.pasillo).padStart(2, "0")}</td>
-                        <td>${f.sku || "-"}</td>
-                        <td>${f.descripcion || "-"}</td>
-                        <td>${f.ubicacion_escaneada || "-"}</td>
-                        <td>${f.ubicacion_esperada || "-"}</td>
-                        <td>${f.colaborador || "-"}</td>
-                    </tr>
-                `;
-            }).join("");
+        (sapFilas || []).forEach(function(f){
 
-        }
+            if(!f.sku){
+                return;
+            }
+
+            const u = normalizarTextoAuditoria(f.ubicacion);
+
+            if(!sapPorUbicacion[u]){
+                sapPorUbicacion[u] = [];
+            }
+
+            if(sapPorUbicacion[u].indexOf(f.sku) === -1){
+                sapPorUbicacion[u].push(f.sku);
+            }
+
+        });
+
+        _catalogoAuditoria = normales.map(function(f){
+
+            const ubicacion = f.ubicacion_escaneada || "-";
+            const codigoSap = sapPorUbicacion[normalizarTextoAuditoria(ubicacion)] || [];
+
+            let estado = "Cuadrada";
+            let claseEstado = "cuadrada";
+
+            if(f.vacia){
+                estado = "Ubicación Vacía";
+                claseEstado = "vacia";
+            }else if(f.cruce === "ERROR"){
+                estado = "Segundo Conteo";
+                claseEstado = "segundo-conteo";
+            }
+
+            return {
+                pasillo: f.pasillo,
+                ubicacion: ubicacion,
+                codigoSap: codigoSap.join(" / ") || "-",
+                codigoContado: f.vacia ? "-" : (f.sku || "-"),
+                cantidad: f.conteo_total ?? 0,
+                colaborador: f.colaborador || "-",
+                estado: estado,
+                claseEstado: claseEstado
+            };
+
+        }).sort(function(a, b){
+            return a.pasillo - b.pasillo || a.ubicacion.localeCompare(b.ubicacion);
+        });
+
+        _paginaActualAuditoria = 1;
+        pintarAuditoria();
 
         // Contado vs SAP, por SKU
         const contadoPorSku = {};
         const descripcionPorSku = {};
 
-        (conteoFilas || []).forEach(function(f){
+        normales.forEach(function(f){
             contadoPorSku[f.sku] = (contadoPorSku[f.sku] || 0) + Number(f.conteo_total || 0);
             if(f.descripcion){ descripcionPorSku[f.sku] = f.descripcion; }
         });
@@ -1147,7 +1266,7 @@ async function cargarDiscrepancias(){
     }catch(e){
 
         console.error(e);
-        tblErrores.innerHTML = `<tr><td colspan="6" class="sin-datos">No se pudo cargar.</td></tr>`;
+        tblAuditoria.innerHTML = `<tr><td colspan="7" class="sin-datos">No se pudo cargar.</td></tr>`;
         tblDiferencias.innerHTML = `<tr><td colspan="5" class="sin-datos">No se pudo cargar.</td></tr>`;
 
     }
