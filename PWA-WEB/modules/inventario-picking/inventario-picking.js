@@ -1180,14 +1180,21 @@ async function cargarDiscrepancias(){
             const ubicacion = f.ubicacion_escaneada || "-";
             const claveUbicacion = normalizarTextoAuditoria(ubicacion);
             const codigoSap = sapPorUbicacion[claveUbicacion] || [];
+            const tieneStockSap = claveUbicacion in stockPorUbicacion;
+            const cantidadSap = tieneStockSap ? stockPorUbicacion[claveUbicacion] : null;
+            const cantidadRegistrada = f.conteo_total ?? 0;
 
+            // "Cuadrada" exige DOS cosas: que el código coincida (cruce
+            // OK) Y que la cantidad contada coincida con la del saldo
+            // SAP — un código correcto con cantidad distinta también es
+            // una diferencia que hay que reverificar.
             let estado = "Cuadrada";
             let claseEstado = "cuadrada";
 
             if(f.vacia){
                 estado = "Ubicación Vacía";
                 claseEstado = "vacia";
-            }else if(f.cruce === "ERROR"){
+            }else if(f.cruce === "ERROR" || !tieneStockSap || Number(cantidadSap) !== Number(cantidadRegistrada)){
                 estado = "Segundo Conteo";
                 claseEstado = "segundo-conteo";
             }
@@ -1196,9 +1203,9 @@ async function cargarDiscrepancias(){
                 pasillo: f.pasillo,
                 ubicacion: ubicacion,
                 codigoSap: codigoSap.join(" / ") || "-",
-                cantidadSap: claveUbicacion in stockPorUbicacion ? stockPorUbicacion[claveUbicacion] : "-",
+                cantidadSap: tieneStockSap ? cantidadSap : "-",
                 codigoContado: f.vacia ? "-" : (f.sku || "-"),
-                cantidad: f.conteo_total ?? 0,
+                cantidad: cantidadRegistrada,
                 colaborador: f.colaborador || "-",
                 estado: estado,
                 claseEstado: claseEstado
