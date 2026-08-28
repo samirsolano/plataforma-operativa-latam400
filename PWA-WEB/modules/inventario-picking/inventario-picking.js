@@ -1068,7 +1068,7 @@ function pintarAuditoria(){
     const filas = filasFiltradasAuditoria();
 
     if(!filas.length){
-        tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Sin ubicaciones auditadas todavía.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Sin ubicaciones auditadas todavía.</td></tr>`;
         paginacion.innerHTML = "";
         return;
     }
@@ -1085,6 +1085,7 @@ function pintarAuditoria(){
                 <td>${String(f.pasillo).padStart(2, "0")}</td>
                 <td>${f.ubicacion}</td>
                 <td>${f.codigoSap}</td>
+                <td>${f.cantidadSap}</td>
                 <td>${f.codigoContado}</td>
                 <td>${f.cantidad}</td>
                 <td>${f.colaborador}</td>
@@ -1152,6 +1153,7 @@ async function cargarDiscrepancias(){
         // Código SAP esperado por ubicación (puede haber más de un
         // código registrado en la misma ubicación).
         const sapPorUbicacion = {};
+        const stockPorUbicacion = {};
 
         (sapFilas || []).forEach(function(f){
 
@@ -1169,12 +1171,15 @@ async function cargarDiscrepancias(){
                 sapPorUbicacion[u].push(f.sku);
             }
 
+            stockPorUbicacion[u] = (stockPorUbicacion[u] || 0) + Number(f.stock || 0);
+
         });
 
         _catalogoAuditoria = normales.map(function(f){
 
             const ubicacion = f.ubicacion_escaneada || "-";
-            const codigoSap = sapPorUbicacion[normalizarTextoAuditoria(ubicacion)] || [];
+            const claveUbicacion = normalizarTextoAuditoria(ubicacion);
+            const codigoSap = sapPorUbicacion[claveUbicacion] || [];
 
             let estado = "Cuadrada";
             let claseEstado = "cuadrada";
@@ -1191,6 +1196,7 @@ async function cargarDiscrepancias(){
                 pasillo: f.pasillo,
                 ubicacion: ubicacion,
                 codigoSap: codigoSap.join(" / ") || "-",
+                cantidadSap: claveUbicacion in stockPorUbicacion ? stockPorUbicacion[claveUbicacion] : "-",
                 codigoContado: f.vacia ? "-" : (f.sku || "-"),
                 cantidad: f.conteo_total ?? 0,
                 colaborador: f.colaborador || "-",
