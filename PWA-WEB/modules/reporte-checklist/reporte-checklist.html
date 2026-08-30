@@ -108,104 +108,203 @@
 
             <div id="contenidoReporte" class="oculto">
 
-                <!-- KPIs -->
+                <!-- ============================================ -->
+                <!-- VISTA SEMANA (equipos por cuadrilla, cobertura de pasillos) -->
+                <!-- ============================================ -->
 
-                <section class="kpis">
+                <div id="vistaSemana">
 
-                    <div class="kpi-card">
-                        <div class="kpi-card-header">
-                            <div class="kpi-titulo">Auditorías Realizadas</div>
-                            <span class="icono icono-lg icono-clipboard-blue"></span>
-                        </div>
-                        <div class="kpi-valor azul" id="lblTotalAuditorias">-</div>
-                        <div class="kpi-nota">En el periodo seleccionado</div>
-                    </div>
+                    <section class="kpis">
 
-                    <div class="kpi-card kpi-donut kpi-destacada">
-                        <div class="kpi-titulo">
-                            <span class="icono icono-star-gold"></span> Cumplimiento Promedio
-                        </div>
-                        <div class="kpi-donut-fila">
-                            <div class="donut">
-                                <svg class="donut-svg" viewBox="0 0 100 100">
-                                    <circle class="donut-track" cx="50" cy="50" r="42"></circle>
-                                    <circle class="donut-progreso" id="donutPromedio" cx="50" cy="50" r="42"></circle>
-                                </svg>
-                                <div class="donut-centro">
-                                    <span class="donut-porcentaje" id="lblPromedioPct">-</span>
-                                </div>
+                        <div class="kpi-card">
+                            <div class="kpi-card-header">
+                                <div class="kpi-titulo">Pasillos Totales</div>
+                                <span class="icono icono-lg icono-clipboard-blue"></span>
                             </div>
-                            <div class="kpi-nota">Promedio de todas las auditorías del periodo</div>
+                            <div class="kpi-valor azul" id="lblPasillosTotales">-</div>
+                            <div class="kpi-nota">Meta semanal</div>
                         </div>
-                    </div>
 
-                    <div class="kpi-card">
-                        <div class="kpi-card-header">
-                            <div class="kpi-titulo">Mejor Zona</div>
-                            <span class="icono icono-lg icono-clipboard-check-green"></span>
+                        <div class="kpi-card">
+                            <div class="kpi-card-header">
+                                <div class="kpi-titulo">Promedio Semanal</div>
+                                <span class="icono icono-lg icono-clipboard-check-green"></span>
+                            </div>
+                            <div class="kpi-valor verde" id="lblPromedioSemanal">-</div>
+                            <div class="kpi-nota">Cumplimiento</div>
                         </div>
-                        <div class="kpi-valor verde" id="lblMejorZona">-</div>
-                        <div class="kpi-nota" id="lblMejorZonaPct">-</div>
-                    </div>
 
-                    <div class="kpi-card">
-                        <div class="kpi-card-header">
-                            <div class="kpi-titulo">Zona a Reforzar</div>
-                            <span class="icono icono-lg icono-warn-amber"></span>
+                        <div class="kpi-card">
+                            <div class="kpi-card-header">
+                                <div class="kpi-titulo">Auditados Semana</div>
+                                <span class="icono icono-lg icono-clipboard-check-green"></span>
+                            </div>
+                            <div class="kpi-valor verde" id="lblAuditadosSemana">-</div>
+                            <div class="kpi-nota">Total pasillos</div>
                         </div>
-                        <div class="kpi-valor rojo" id="lblPeorZona">-</div>
-                        <div class="kpi-nota" id="lblPeorZonaPct">-</div>
-                    </div>
 
-                    <div class="kpi-card">
-                        <div class="kpi-card-header">
-                            <div class="kpi-titulo">Supervisores Auditando</div>
-                            <span class="icono icono-lg icono-target-green"></span>
+                        <div class="kpi-card">
+                            <div class="kpi-card-header">
+                                <div class="kpi-titulo">Pendientes Semana</div>
+                                <span class="icono icono-lg icono-warn-amber"></span>
+                            </div>
+                            <div class="kpi-valor rojo" id="lblPendientesSemana">-</div>
+                            <div class="kpi-nota">Total pasillos</div>
                         </div>
-                        <div class="kpi-valor azul" id="lblTotalSupervisores">-</div>
-                        <div class="kpi-nota">Con al menos 1 auditoría</div>
-                    </div>
 
-                </section>
+                        <div class="kpi-card">
+                            <div class="kpi-card-header">
+                                <div class="kpi-titulo">Mejor Equipo</div>
+                                <span class="icono icono-lg icono-star-gold"></span>
+                            </div>
+                            <div class="kpi-valor azul" id="lblMejorEquipo">-</div>
+                            <div class="kpi-nota" id="lblMejorEquipoPct">-</div>
+                        </div>
 
-                <!-- TENDENCIA -->
+                    </section>
 
-                <section class="card card-ancho">
+                    <section class="grid-dos">
 
-                    <h3><span class="icono icono-clock-blue"></span> Tendencia de Cumplimiento (% por día)</h3>
+                        <div class="card card-ancho">
+                            <h3>Cumplimiento por Equipo (Semana)</h3>
+                            <div id="contEquipos" class="fila-equipos"></div>
+                        </div>
 
-                    <div id="contTendencia" class="tendencia"></div>
+                        <div class="card card-ancho">
+                            <h3><span class="icono icono-clock-blue"></span> Cumplimiento por Día (Semana)</h3>
+                            <div id="contTendencia" class="tendencia"></div>
+                        </div>
 
-                </section>
+                    </section>
 
-                <!-- FILA 2 -->
+                    <section class="grid-cuatro">
+
+                        <div class="card">
+                            <h3>Cumplimiento por Zona (Semana)</h3>
+                            <div id="contZonas"></div>
+                        </div>
+
+                        <div class="card">
+                            <h3><span class="icono icono-info-blue"></span> Resumen Semanal</h3>
+                            <div id="contResumenSemanal" class="resumen-semanal"></div>
+                        </div>
+
+                        <div class="card">
+                            <h3><span class="icono icono-star-gold"></span> Ranking de Equipos</h3>
+                            <div id="contRankingEquipos" class="ranking-equipos"></div>
+                        </div>
+
+                        <div class="card">
+                            <h3>Pendientes por Equipo</h3>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Equipo</th>
+                                        <th>Pendientes</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tblPendientesEquipo"></tbody>
+                            </table>
+                        </div>
+
+                    </section>
+
+                </div>
+
+                <!-- ============================================ -->
+                <!-- VISTA MES (promedio de puntaje, por supervisor) -->
+                <!-- ============================================ -->
+
+                <div id="vistaMes">
+
+                    <section class="kpis">
+
+                        <div class="kpi-card">
+                            <div class="kpi-card-header">
+                                <div class="kpi-titulo">Auditorías Realizadas</div>
+                                <span class="icono icono-lg icono-clipboard-blue"></span>
+                            </div>
+                            <div class="kpi-valor azul" id="lblTotalAuditorias">-</div>
+                            <div class="kpi-nota">En el periodo seleccionado</div>
+                        </div>
+
+                        <div class="kpi-card kpi-donut kpi-destacada">
+                            <div class="kpi-titulo">
+                                <span class="icono icono-star-gold"></span> Cumplimiento Promedio
+                            </div>
+                            <div class="kpi-donut-fila">
+                                <div class="donut">
+                                    <svg class="donut-svg" viewBox="0 0 100 100">
+                                        <circle class="donut-track" cx="50" cy="50" r="42"></circle>
+                                        <circle class="donut-progreso" id="donutPromedio" cx="50" cy="50" r="42"></circle>
+                                    </svg>
+                                    <div class="donut-centro">
+                                        <span class="donut-porcentaje" id="lblPromedioPct">-</span>
+                                    </div>
+                                </div>
+                                <div class="kpi-nota">Promedio de todas las auditorías del periodo</div>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div class="kpi-card-header">
+                                <div class="kpi-titulo">Mejor Zona</div>
+                                <span class="icono icono-lg icono-clipboard-check-green"></span>
+                            </div>
+                            <div class="kpi-valor verde" id="lblMejorZona">-</div>
+                            <div class="kpi-nota" id="lblMejorZonaPct">-</div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div class="kpi-card-header">
+                                <div class="kpi-titulo">Zona a Reforzar</div>
+                                <span class="icono icono-lg icono-warn-amber"></span>
+                            </div>
+                            <div class="kpi-valor rojo" id="lblPeorZona">-</div>
+                            <div class="kpi-nota" id="lblPeorZonaPct">-</div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div class="kpi-card-header">
+                                <div class="kpi-titulo">Supervisores Auditando</div>
+                                <span class="icono icono-lg icono-target-green"></span>
+                            </div>
+                            <div class="kpi-valor azul" id="lblTotalSupervisores">-</div>
+                            <div class="kpi-nota">Con al menos 1 auditoría</div>
+                        </div>
+
+                    </section>
+
+                    <section class="grid-tres">
+
+                        <div class="card">
+                            <h3>% Cumplimiento por Zona</h3>
+                            <div id="contZonasMes"></div>
+                        </div>
+
+                        <div class="card">
+                            <h3><span class="icono icono-star-gold"></span> Cumplimiento por Supervisor</h3>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Supervisor</th>
+                                        <th>Auditorías</th>
+                                        <th>% Prom.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tblSupervisores"></tbody>
+                            </table>
+                        </div>
+
+                    </section>
+
+                </div>
+
+                <!-- ============================================ -->
+                <!-- COMPARTIDO: PREGUNTAS CON MÁS FALLAS -->
+                <!-- ============================================ -->
 
                 <section class="grid-tres">
-
-                    <div class="card">
-
-                        <h3>% Cumplimiento por Zona</h3>
-
-                        <div id="contZonas"></div>
-
-                    </div>
-
-                    <div class="card">
-
-                        <h3><span class="icono icono-star-gold"></span> Cumplimiento por Supervisor</h3>
-
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Supervisor</th>
-                                    <th>Auditorías</th>
-                                    <th>% Prom.</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tblSupervisores"></tbody>
-                        </table>
-
-                    </div>
 
                     <div class="card">
 

@@ -27,6 +27,143 @@
     max-height:none;
 }
 
+.grid-dos{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+}
+
+.grid-cuatro{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:10px;
+    margin-bottom:10px;
+}
+
+@media (max-width: 1200px){
+    .grid-dos{ grid-template-columns:1fr; }
+    .grid-cuatro{ grid-template-columns:1fr 1fr; }
+}
+
+/* CUMPLIMIENTO POR EQUIPO */
+
+.fila-equipos{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.tarjeta-equipo{
+    flex:1;
+    min-width:120px;
+    text-align:center;
+    background:#f9fafb;
+    border-radius:12px;
+    padding:10px;
+}
+
+.tarjeta-equipo-nombre{
+    font-size:12px;
+    font-weight:800;
+    color:#1f2937;
+}
+
+.tarjeta-equipo-horario{
+    font-size:9.5px;
+    color:#9ca3af;
+    margin-bottom:6px;
+    min-height:22px;
+}
+
+.tarjeta-equipo-fraccion{
+    font-size:10px;
+    color:#6b7280;
+    margin-top:4px;
+}
+
+/* RESUMEN SEMANAL */
+
+.resumen-semanal{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.resumen-semanal-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-size:11.5px;
+    color:#374151;
+}
+
+.resumen-semanal-item b{
+    color:#1f2937;
+    font-size:13px;
+}
+
+/* RANKING DE EQUIPOS */
+
+.ranking-equipos{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.ranking-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:12px;
+}
+
+.ranking-puesto{
+    width:20px;
+    height:20px;
+    border-radius:50%;
+    background:#f3f4f6;
+    color:#374151;
+    font-weight:800;
+    font-size:10.5px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+}
+
+.ranking-puesto.oro{ background:#fde68a; color:#92400e; }
+.ranking-puesto.plata{ background:#e5e7eb; color:#374151; }
+.ranking-puesto.bronce{ background:#fed7aa; color:#9a3412; }
+
+.ranking-nombre{
+    flex:1;
+    color:#1f2937;
+    font-weight:600;
+}
+
+.ranking-pct{
+    font-weight:800;
+    color:#16a34a;
+}
+
+.btn-ver-pendientes{
+    background:none;
+    border:none;
+    color:#2563eb;
+    font-size:10.5px;
+    font-weight:700;
+    cursor:pointer;
+    text-decoration:underline;
+}
+
+.detalle-pendientes{
+    margin-top:4px;
+    font-size:10px;
+    color:#6b7280;
+    padding-left:8px;
+    border-left:2px solid #e5e7eb;
+}
+
 /* TENDENCIA (barras verticales por día) */
 
 .tendencia{
