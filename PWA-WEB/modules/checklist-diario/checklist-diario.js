@@ -14,6 +14,7 @@ if(sesion){
         document.getElementById("linkColaboradoresActivos").style.display = "none";
         document.getElementById("linkFotosColaboradores").style.display = "none";
         document.getElementById("linkPreguntasChecklist").style.display = "none";
+        document.getElementById("linkReporteChecklist").style.display = "none";
     }
 
 }

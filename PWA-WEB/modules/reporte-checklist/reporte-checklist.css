@@ -1,0 +1,118 @@
+.selectorPeriodo{
+    display:flex;
+    gap:4px;
+    background:#f3f4f6;
+    padding:3px;
+    border-radius:9px;
+}
+
+.btnPeriodo{
+    border:none;
+    background:none;
+    padding:6px 12px;
+    font-size:11.5px;
+    font-weight:700;
+    color:#6b7280;
+    border-radius:7px;
+    cursor:pointer;
+}
+
+.btnPeriodo.activo{
+    background:#FC000D;
+    color:white;
+}
+
+.card-ancho{
+    margin-bottom:10px;
+    max-height:none;
+}
+
+/* TENDENCIA (barras verticales por día) */
+
+.tendencia{
+    display:flex;
+    align-items:flex-end;
+    gap:6px;
+    min-height:110px;
+    padding-top:10px;
+}
+
+.tendencia-vacio{
+    color:#9ca3af;
+    font-size:11px;
+    padding:20px 0;
+}
+
+.barra-tendencia{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    min-width:0;
+}
+
+.barra-tendencia-valor{
+    font-size:9.5px;
+    font-weight:700;
+    color:#374151;
+}
+
+.barra-tendencia-relleno{
+    width:100%;
+    max-width:26px;
+    border-radius:5px 5px 0 0;
+}
+
+.barra-tendencia-fecha{
+    font-size:9px;
+    color:#9ca3af;
+    white-space:nowrap;
+}
+
+/* ZONAS (lista de barras horizontales) */
+
+.fila-zona{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:9px;
+}
+
+.fila-zona:last-child{
+    margin-bottom:0;
+}
+
+.etiqueta-zona{
+    width:60px;
+    font-size:11px;
+    color:#374151;
+    flex-shrink:0;
+}
+
+.etiqueta-zona small{
+    display:block;
+    color:#9ca3af;
+    font-size:9.5px;
+}
+
+.barra-zona{
+    flex:1;
+    height:9px;
+    background:#f3f4f6;
+    border-radius:6px;
+    overflow:hidden;
+}
+
+.relleno-zona{
+    height:100%;
+    border-radius:6px;
+}
+
+.valor-zona{
+    width:34px;
+    text-align:right;
+    font-size:11px;
+    font-weight:700;
+    color:#1f2937;
+}

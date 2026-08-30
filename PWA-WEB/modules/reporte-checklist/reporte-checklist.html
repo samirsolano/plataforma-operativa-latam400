@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Reporte Semanal/Mensual - Plataforma Operativa
+    </title>
+
+    <link rel="stylesheet" href="../checklist-diario/checklist-diario.css">
+    <link rel="stylesheet" href="reporte-checklist.css">
+
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+
+                <h1>CHECK LIST</h1>
+                <h1>5S</h1>
+
+                <span>LATAM 400 CL</span>
+
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+                </div>
+
+            </div>
+
+            <nav class="menu">
+                <a href="../checklist-diario/checklist-diario.html">Check List Diario</a>
+                <a href="../carga-mensual/carga-mensual.html" id="linkCargaMensual">Carga Mensual</a>
+                <a href="../colaboradores-activos/colaboradores-activos.html" id="linkColaboradoresActivos">Colaboradores Activos</a>
+                <a href="../fotos-colaboradores/fotos-colaboradores.html" id="linkFotosColaboradores">Fotos de Colaboradores</a>
+                <a href="../preguntas-checklist/preguntas-checklist.html" id="linkPreguntasChecklist">Preguntas Checklist</a>
+                <a href="reporte-checklist.html" class="activo">Reporte Semanal/Mensual</a>
+            </nav>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="contenido">
+
+            <header class="topbar">
+
+                <div class="topbar-titulo">
+
+                    <h2>REPORTE SEMANAL / MENSUAL</h2>
+
+                    <p id="lblRangoTexto">Cargando...</p>
+
+                </div>
+
+                <div class="topbar-filtros">
+
+                    <div class="selectorPeriodo">
+                        <button type="button" class="btnPeriodo activo" id="btnPeriodoSemana">Semana</button>
+                        <button type="button" class="btnPeriodo" id="btnPeriodoMes">Mes</button>
+                    </div>
+
+                    <div class="filtro">
+                        <label>Fecha (de esa semana)</label>
+                        <input type="date" id="selectFechaSemana">
+                    </div>
+
+                    <div class="filtro oculto" id="filtroMes">
+                        <label>Mes</label>
+                        <input type="month" id="selectMes">
+                    </div>
+
+                    <button id="btnActualizar" class="btn-actualizar" title="Actualizar">
+                        <span class="icono icono-lg icono-refresh-white"></span>
+                    </button>
+
+                </div>
+
+            </header>
+
+            <p id="mensajeCarga" class="mensaje-carga">
+                Cargando datos del Sheet...
+            </p>
+
+            <div id="contenidoReporte" class="oculto">
+
+                <!-- KPIs -->
+
+                <section class="kpis">
+
+                    <div class="kpi-card">
+                        <div class="kpi-card-header">
+                            <div class="kpi-titulo">Auditorías Realizadas</div>
+                            <span class="icono icono-lg icono-clipboard-blue"></span>
+                        </div>
+                        <div class="kpi-valor azul" id="lblTotalAuditorias">-</div>
+                        <div class="kpi-nota">En el periodo seleccionado</div>
+                    </div>
+
+                    <div class="kpi-card kpi-donut kpi-destacada">
+                        <div class="kpi-titulo">
+                            <span class="icono icono-star-gold"></span> Cumplimiento Promedio
+                        </div>
+                        <div class="kpi-donut-fila">
+                            <div class="donut">
+                                <svg class="donut-svg" viewBox="0 0 100 100">
+                                    <circle class="donut-track" cx="50" cy="50" r="42"></circle>
+                                    <circle class="donut-progreso" id="donutPromedio" cx="50" cy="50" r="42"></circle>
+                                </svg>
+                                <div class="donut-centro">
+                                    <span class="donut-porcentaje" id="lblPromedioPct">-</span>
+                                </div>
+                            </div>
+                            <div class="kpi-nota">Promedio de todas las auditorías del periodo</div>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-card-header">
+                            <div class="kpi-titulo">Mejor Zona</div>
+                            <span class="icono icono-lg icono-clipboard-check-green"></span>
+                        </div>
+                        <div class="kpi-valor verde" id="lblMejorZona">-</div>
+                        <div class="kpi-nota" id="lblMejorZonaPct">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-card-header">
+                            <div class="kpi-titulo">Zona a Reforzar</div>
+                            <span class="icono icono-lg icono-warn-amber"></span>
+                        </div>
+                        <div class="kpi-valor rojo" id="lblPeorZona">-</div>
+                        <div class="kpi-nota" id="lblPeorZonaPct">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-card-header">
+                            <div class="kpi-titulo">Supervisores Auditando</div>
+                            <span class="icono icono-lg icono-target-green"></span>
+                        </div>
+                        <div class="kpi-valor azul" id="lblTotalSupervisores">-</div>
+                        <div class="kpi-nota">Con al menos 1 auditoría</div>
+                    </div>
+
+                </section>
+
+                <!-- TENDENCIA -->
+
+                <section class="card card-ancho">
+
+                    <h3><span class="icono icono-clock-blue"></span> Tendencia de Cumplimiento (% por día)</h3>
+
+                    <div id="contTendencia" class="tendencia"></div>
+
+                </section>
+
+                <!-- FILA 2 -->
+
+                <section class="grid-tres">
+
+                    <div class="card">
+
+                        <h3>% Cumplimiento por Zona</h3>
+
+                        <div id="contZonas"></div>
+
+                    </div>
+
+                    <div class="card">
+
+                        <h3><span class="icono icono-star-gold"></span> Cumplimiento por Supervisor</h3>
+
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Supervisor</th>
+                                    <th>Auditorías</th>
+                                    <th>% Prom.</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblSupervisores"></tbody>
+                        </table>
+
+                    </div>
+
+                    <div class="card">
+
+                        <h3><span class="icono icono-warn-red"></span> Preguntas con Más Fallas</h3>
+
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Pregunta</th>
+                                    <th>Fallas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblPreguntasFallas"></tbody>
+                        </table>
+
+                        <button class="btn-ver-mas" id="btnVerPreguntas">
+                            Ver todas →
+                        </button>
+
+                    </div>
+
+                </section>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script src="../../shared/auth.js"></script>
+    <script src="../../shared/sheets-config.js"></script>
+    <script src="../../shared/checklist-config.js"></script>
+    <script src="reporte-checklist.js"></script>
+
+</body>
+
+</html>
