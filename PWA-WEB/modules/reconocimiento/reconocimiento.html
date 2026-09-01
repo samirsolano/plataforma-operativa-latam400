@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Reconocimiento - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="reconocimiento.css"
+    >
+
+</head>
+
+<body>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+
+                <h1>RECONOCIMIENTO</h1>
+
+                <span>LATAM 400 CL</span>
+
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+
+                </div>
+
+            </div>
+
+            <nav class="menu">
+
+                <a href="#" class="activo">🏆 Reconocimiento</a>
+
+            </nav>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="contenido">
+
+            <!-- ============================================ -->
+            <!-- VISTA: LISTADO -->
+            <!-- ============================================ -->
+
+            <div id="vistaListado">
+
+                <header class="topbar">
+
+                    <div class="topbar-titulo">
+
+                        <h2>RECONOCIMIENTO</h2>
+
+                        <p>Evaluación trimestral de reconocimiento por colaborador</p>
+
+                    </div>
+
+                    <button class="btn-primario" id="btnAgregar">
+                        ✎ Agregar
+                    </button>
+
+                </header>
+
+                <div class="card">
+
+                    <div class="filtros-recon">
+
+                        <select id="filtroAnio"></select>
+
+                        <select id="filtroTrimestre">
+                            <option value="">Todos</option>
+                            <option value="Q1">Q1</option>
+                            <option value="Q2">Q2</option>
+                            <option value="Q3">Q3</option>
+                            <option value="Q4">Q4</option>
+                        </select>
+
+                        <div class="buscador">
+                            <input type="text" id="buscadorNombre" placeholder="Nombre o DNI...">
+                        </div>
+
+                        <button class="btn-secundario" id="btnBuscar">🔍 Buscar</button>
+                        <button class="btn-secundario" id="btnExportar">⬇️ Exportar</button>
+
+                    </div>
+
+                    <div class="barra-actualizado" id="barraActualizado" style="display:none;"></div>
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+                                <th>Trimestre</th>
+                                <th>Jefe Inmediato</th>
+                                <th>Fecha</th>
+                                <th>DNI</th>
+                                <th>Nombre</th>
+                                <th>Nota</th>
+                                <th>PE</th>
+                                <th>Estado</th>
+                                <th>Ver</th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblReconocimiento">
+                            <tr>
+                                <td colspan="9" class="sin-datos">Cargando registros...</td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- VISTA: EVALUAR -->
+            <!-- ============================================ -->
+
+            <div id="vistaEvaluar" class="oculto">
+
+                <header class="topbar">
+
+                    <div class="topbar-titulo">
+                        <h2>EVALUACIÓN DE RECONOCIMIENTO</h2>
+                    </div>
+
+                    <button class="btn-secundario" id="btnVolver">
+                        ✕ Volver
+                    </button>
+
+                </header>
+
+                <div class="card">
+
+                    <div class="ev-cabecera-grid">
+
+                        <div class="ev-box">
+
+                            <div class="ev-box-titulo">Datos Generales</div>
+
+                            <div class="ev-box-cuerpo">
+
+                                <label>Año</label>
+                                <select id="evAnio"></select>
+
+                                <label>Trimestre</label>
+                                <select id="evTrimestre">
+                                    <option value="">Selecciona un trimestre</option>
+                                    <option value="Q1">Q1</option>
+                                    <option value="Q2">Q2</option>
+                                    <option value="Q3">Q3</option>
+                                    <option value="Q4">Q4</option>
+                                </select>
+
+                            </div>
+
+                        </div>
+
+                        <div class="ev-box ev-box-personal">
+
+                            <div class="ev-box-titulo">Datos del Personal</div>
+
+                            <div class="ev-box-cuerpo ev-box-cuerpo-personal">
+
+                                <div class="ev-box-campos">
+
+                                    <label>Jefe Inmediato</label>
+                                    <select id="evJefe">
+                                        <option value="">Selecciona un jefe</option>
+                                    </select>
+
+                                    <label>Nombre</label>
+                                    <select id="evNombre" disabled>
+                                        <option value="">Selecciona un personal</option>
+                                    </select>
+
+                                </div>
+
+                                <div class="ev-foto">
+                                    <img id="evFotoImg" style="display:none;">
+                                    <span id="evFotoPlaceholder">👤</span>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div id="evGridCategorias" class="ev-grid-categorias"></div>
+
+                    <button class="btn-evaluar" id="btnEvaluar">Evaluar</button>
+
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- MODAL VER DETALLE -->
+
+    <div class="modal-detalle oculto" id="modalDetalle">
+
+        <div class="modal-detalle-fondo" id="modalDetalleFondo"></div>
+
+        <div class="modal-detalle-caja">
+
+            <button class="modal-detalle-cerrar" id="btnCerrarDetalle">✕</button>
+
+            <div class="detalle-header">
+                <h3 id="detNombre">-</h3>
+                <span class="badge-estado" id="detEstado">-</span>
+            </div>
+
+            <div class="detalle-grid" id="detGrid"></div>
+
+            <div id="detCategorias"></div>
+
+        </div>
+
+    </div>
+
+    <script src="../../shared/auth.js"></script>
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/checklist-config.js"></script>
+    <script src="../../shared/colaboradores-fotos.js"></script>
+    <script src="../../shared/reconocimiento-config.js"></script>
+    <script src="reconocimiento.js"></script>
+
+</body>
+
+</html>
