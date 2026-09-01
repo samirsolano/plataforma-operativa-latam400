@@ -186,8 +186,9 @@ function renderTabla(){
                         ${esReconocido ? "🏆 Reconocido" : "Sin reconocimiento"}
                     </span>
                 </td>
-                <td>
+                <td class="celda-acciones">
                     <button class="btn-ver-detalle" onclick="abrirDetalle(${item.id})">👁 Ver</button>
+                    <button class="btn-eliminar-fila" onclick="confirmarEliminar(${item.id})">🗑️</button>
                 </td>
             </tr>
         `;
@@ -222,6 +223,38 @@ async function guardarPe(input){
 
         console.error(error);
         mostrarToast("❌ No se pudo actualizar PE", "error");
+
+    }
+
+}
+
+async function confirmarEliminar(id){
+
+    const item = reconocimientosData.find(r => r.id === id);
+    if(!item){ return; }
+
+    const confirmado = confirm(
+        "¿Eliminar la evaluación de " + (item.nombre_completo || "").toUpperCase() +
+        " (" + item.trimestre + " " + item.anio + ")?\n\nEsta acción no se puede deshacer."
+    );
+
+    if(!confirmado){
+        return;
+    }
+
+    try{
+
+        await eliminarReconocimiento(id);
+
+        reconocimientosData = reconocimientosData.filter(r => r.id !== id);
+        renderTabla();
+
+        mostrarToast("🗑️ Evaluación eliminada", "exito");
+
+    }catch(error){
+
+        console.error(error);
+        mostrarToast("❌ No se pudo eliminar: " + error.message, "error");
 
     }
 

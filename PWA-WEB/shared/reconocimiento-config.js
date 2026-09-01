@@ -373,3 +373,24 @@ async function actualizarPeReconocimiento(id, pe){
     return Array.isArray(datos) ? datos[0] : null;
 
 }
+
+async function eliminarReconocimiento(id){
+
+    const datos = await reconFetch(
+        "/reconocimientos?id=eq." + id,
+        {
+            method: "DELETE",
+            headers: { Prefer: "return=representation" }
+        }
+    );
+
+    if(!Array.isArray(datos) || datos.length === 0){
+        throw new Error(
+            "No se eliminó ninguna fila (id " + id + "). Revisa que exista la " +
+            "política RLS 'reconocimientos_delete_anon' (ver reconocimiento.sql)."
+        );
+    }
+
+    return datos[0];
+
+}

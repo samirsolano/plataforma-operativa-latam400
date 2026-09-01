@@ -354,6 +354,25 @@ tbody tr:hover{
     background:#fbd0d0;
 }
 
+.celda-acciones{
+    display:flex;
+    gap:6px;
+}
+
+.btn-eliminar-fila{
+    background:#f3f4f6;
+    color:#c0392b;
+    border:none;
+    border-radius:8px;
+    padding:7px 10px;
+    font-size:13px;
+    cursor:pointer;
+}
+
+.btn-eliminar-fila:hover{
+    background:#fde2e2;
+}
+
 .input-pe{
     width:70px;
     padding:6px 8px;

@@ -86,6 +86,7 @@ alter table public.reconocimientos enable row level security;
 drop policy if exists "reconocimientos_select_anon" on public.reconocimientos;
 drop policy if exists "reconocimientos_insert_anon" on public.reconocimientos;
 drop policy if exists "reconocimientos_update_anon" on public.reconocimientos;
+drop policy if exists "reconocimientos_delete_anon" on public.reconocimientos;
 
 create policy "reconocimientos_select_anon"
     on public.reconocimientos for select
@@ -102,6 +103,11 @@ create policy "reconocimientos_update_anon"
     to anon
     using (true)
     with check (true);
+
+create policy "reconocimientos_delete_anon"
+    on public.reconocimientos for delete
+    to anon
+    using (true);
 
 create index if not exists idx_reconocimientos_anio_trimestre
     on public.reconocimientos (anio, trimestre);
