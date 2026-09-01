@@ -1,3 +1,42 @@
+.icono-emoji{
+    font-size:16px;
+    line-height:1;
+}
+
+/* ENCABEZADO OSCURO (igual al mockup de seguimiento) */
+
+header.topbar-oscuro{
+    background:#1e293b;
+}
+
+header.topbar-oscuro .topbar-titulo h2{
+    color:white;
+    letter-spacing:.3px;
+}
+
+header.topbar-oscuro .topbar-titulo p{
+    color:#94a3b8;
+}
+
+header.topbar-oscuro .topbar-rango{
+    color:white;
+    font-size:12.5px;
+    font-weight:700;
+    white-space:nowrap;
+}
+
+header.topbar-oscuro .filtro label{
+    color:#94a3b8;
+}
+
+header.topbar-oscuro .selectorPeriodo{
+    background:rgba(255,255,255,.1);
+}
+
+header.topbar-oscuro .btnPeriodo{
+    color:#cbd5e1;
+}
+
 .selectorPeriodo{
     display:flex;
     gap:4px;
@@ -18,7 +57,7 @@
 }
 
 .btnPeriodo.activo{
-    background:#FC000D;
+    background:#2563eb;
     color:white;
 }
 
@@ -164,14 +203,10 @@
     border-left:2px solid #e5e7eb;
 }
 
-/* TENDENCIA (barras verticales por día) */
+/* TENDENCIA (línea de cumplimiento por día) */
 
 .tendencia{
-    display:flex;
-    align-items:flex-end;
-    gap:6px;
-    min-height:110px;
-    padding-top:10px;
+    min-height:150px;
 }
 
 .tendencia-vacio{
@@ -180,31 +215,46 @@
     padding:20px 0;
 }
 
-.barra-tendencia{
-    flex:1;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:4px;
-    min-width:0;
-}
-
-.barra-tendencia-valor{
-    font-size:9.5px;
-    font-weight:700;
-    color:#374151;
-}
-
-.barra-tendencia-relleno{
+.tendencia-svg{
     width:100%;
-    max-width:26px;
-    border-radius:5px 5px 0 0;
+    height:auto;
+    overflow:visible;
 }
 
-.barra-tendencia-fecha{
-    font-size:9px;
-    color:#9ca3af;
-    white-space:nowrap;
+.tendencia-grilla{
+    stroke:#eef0f3;
+    stroke-width:1;
+}
+
+.tendencia-eje-texto{
+    font-size:7.5px;
+    fill:#9ca3af;
+}
+
+.tendencia-linea{
+    fill:none;
+    stroke:#2563eb;
+    stroke-width:2;
+    stroke-linejoin:round;
+    stroke-linecap:round;
+}
+
+.tendencia-punto{
+    stroke:white;
+    stroke-width:1.5;
+}
+
+.tendencia-valor-texto{
+    font-size:8px;
+    font-weight:700;
+    fill:#374151;
+    text-anchor:middle;
+}
+
+.tendencia-fecha-texto{
+    font-size:7.5px;
+    fill:#9ca3af;
+    text-anchor:middle;
 }
 
 /* ZONAS (lista de barras horizontales) */
@@ -252,4 +302,18 @@
     font-size:11px;
     font-weight:700;
     color:#1f2937;
+}
+
+/* FOOTER MOTIVACIONAL */
+
+.footer-motivacional{
+    text-align:center;
+    font-size:12.5px;
+    font-weight:700;
+    color:#1e40af;
+    background:#eff6ff;
+    border:1px solid #dbeafe;
+    border-radius:12px;
+    padding:12px;
+    margin-top:4px;
 }

@@ -151,7 +151,7 @@ async function cargarDashboard(){
         const [cabecera, detalle, colaboradores] = await Promise.all([
             leerHojaCSV("CABECERA_AUDITORIA"),
             leerHojaCSV("DETALLE_AUDITORIA"),
-            leerHojaCSV("COLABORADORES")
+            obtenerRosterActivo()
         ]);
 
         const fechaSeleccionada = inputFecha.value;

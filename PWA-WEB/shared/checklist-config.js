@@ -36,3 +36,28 @@ async function checklistFetch(ruta, opciones = {}){
     return texto ? JSON.parse(texto) : null;
 
 }
+
+// ========================================
+// ROSTER ACTIVO (reemplaza la hoja "COLABORADORES" del Sheet)
+// ========================================
+// "Carga Mensual → Activar Mes" escribe el roster del mes en esta
+// tabla. Se devuelve con las mismas claves en mayúscula que usaba la
+// hoja de Google (ZONA/TURNO/PASILLO/NOMBRE), para no tener que tocar
+// toda la lógica de zonas/cuadrillas que ya asume ese formato.
+async function obtenerRosterActivo(){
+
+    const filas = await checklistFetch(
+        "/colaboradores_activos?select=nombre,zona,pasillo,turno,supervisor&activo=eq.true"
+    );
+
+    return (filas || []).map(function(r){
+        return {
+            ZONA: r.zona,
+            TURNO: r.turno,
+            PASILLO: r.pasillo,
+            NOMBRE: r.nombre,
+            SUPERVISOR: r.supervisor
+        };
+    });
+
+}

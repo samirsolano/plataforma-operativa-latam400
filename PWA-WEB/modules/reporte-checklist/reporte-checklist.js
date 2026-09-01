@@ -38,10 +38,12 @@ document.getElementById("btnCerrarSesion").addEventListener("click", function(e)
 const ZONAS_5S = ["Zona 1", "Zona 2", "Zona 3", "Zona 4", "Zona 5", "Zona 6"];
 const CUADRILLAS = ["DIA", "NOCHE", "INTERMEDIO"];
 
+// Nombres visibles igual al modelo ("Equipo 1/2/3"); internamente
+// siguen siendo las cuadrillas reales DÍA/NOCHE/INTERMEDIO.
 const NOMBRE_CUADRILLA = {
-    DIA: "Equipo Día",
-    NOCHE: "Equipo Noche",
-    INTERMEDIO: "Equipo Intermedio"
+    DIA: "Equipo 1",
+    NOCHE: "Equipo 2",
+    INTERMEDIO: "Equipo 3"
 };
 
 function normalizarNombre(n){
@@ -183,6 +185,19 @@ function aDDMM(d){
     return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0");
 }
 
+function aDDMMYYYY(d){
+    return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
+}
+
+// Número de semana ISO 8601 (semana que contiene el jueves de esa fecha).
+function numeroSemanaISO(d){
+    const copia = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const diaISO = copia.getUTCDay() || 7;
+    copia.setUTCDate(copia.getUTCDate() + 4 - diaISO);
+    const inicioAno = new Date(Date.UTC(copia.getUTCFullYear(), 0, 1));
+    return Math.ceil((((copia - inicioAno) / 86400000) + 1) / 7);
+}
+
 function calcularRango(){
 
     if(modoPeriodo === "mes"){
@@ -196,7 +211,12 @@ function calcularRango(){
 
         const nombreMes = new Date(y, m - 1, 1).toLocaleDateString("es-PE", { month: "long", year: "numeric" });
 
-        return { desde: desde, hasta: hasta, titulo: "Mes de " + nombreMes };
+        return {
+            desde: desde,
+            hasta: hasta,
+            titulo: "Mes de " + nombreMes,
+            textoHeader: "Mes: " + nombreMes
+        };
 
     }
 
@@ -216,7 +236,9 @@ function calcularRango(){
     return {
         desde: aISO(lunes),
         hasta: aISO(domingo),
-        titulo: "Semana del " + aDDMM(lunes) + " al " + aDDMM(domingo)
+        titulo: "Semana del " + aDDMM(lunes) + " al " + aDDMM(domingo),
+        numeroSemana: numeroSemanaISO(lunes),
+        textoHeader: "Semana: " + numeroSemanaISO(lunes) + " (" + aDDMMYYYY(lunes) + " - " + aDDMMYYYY(domingo) + ")"
     };
 
 }
@@ -249,7 +271,10 @@ async function cargarReporte(){
         const [cabecera, detalle, colaboradores, colaboradoresSupabase] = await Promise.all([
             leerHojaCSV("CABECERA_AUDITORIA"),
             leerHojaCSV("DETALLE_AUDITORIA"),
-            leerHojaCSV("COLABORADORES"),
+            obtenerRosterActivo(),
+            // Sin filtrar por activo=true: el auditor de una fecha pasada
+            // puede ya no estar activo hoy, pero su supervisor histórico
+            // igual debe resolverse en la vista Mes.
             checklistFetch("/colaboradores_activos?select=nombre,supervisor").catch(function(e){
                 console.error(e);
                 return [];
@@ -264,18 +289,26 @@ async function cargarReporte(){
         const idsPeriodo = new Set(cabeceraPeriodo.map(r => r.ID_AUDITORIA));
         const detallePeriodo = detalle.filter(r => idsPeriodo.has(r.ID_AUDITORIA));
 
-        document.getElementById("lblRangoTexto").textContent =
-            rango.titulo + " · " + cabeceraPeriodo.length + " auditoría(s) registradas";
+        document.getElementById("lblRangoTexto").textContent = rango.textoHeader;
+
+        if(modoPeriodo === "semana"){
+            document.getElementById("lblTituloReporte").textContent = "DASHBOARD SEMANAL – SEGUIMIENTO";
+            document.getElementById("lblObjetivoReporte").textContent = "Objetivo: Ver el cumplimiento de auditorías durante la semana";
+        }else{
+            document.getElementById("lblTituloReporte").textContent = "DASHBOARD MENSUAL – SEGUIMIENTO";
+            document.getElementById("lblObjetivoReporte").textContent = "Objetivo: Ver el cumplimiento de auditorías durante el mes";
+        }
 
         mostrarTodasPreguntas = false;
 
         if(modoPeriodo === "semana"){
 
             pintarKPIsSemana(cabeceraPeriodo, colaboradores);
-            pintarEquipos(cabeceraPeriodo, colaboradores, rango);
+            pintarEquipos(cabeceraPeriodo, colaboradores);
             pintarTendencia(cabeceraPeriodo, rango);
             pintarZonasCobertura(cabeceraPeriodo, colaboradores);
             pintarResumenSemanal(cabeceraPeriodo, colaboradores);
+            pintarFooterMotivacional(cabeceraPeriodo, colaboradores);
 
         }else{
 
@@ -328,43 +361,34 @@ function pintarKPIsSemana(cabeceraPeriodo, colaboradores){
 // ========================================
 // VISTA SEMANA — CUMPLIMIENTO POR EQUIPO
 // ========================================
-// Cada cuadrilla (DÍA/NOCHE/INTERMEDIO) tiene su propio roster fijo
-// (colaboradoresTurno) y trabaja varios "turnos" (día-slot / noche-
-// slot) a lo largo de la semana, según el rol de 3 turnos. La meta de
-// cada equipo en la semana es su roster × cuántos turnos trabajó; lo
-// auditado se cuenta por pasillo distinto Y POR DÍA (si el mismo
-// pasillo se audita en 2 turnos distintos de la semana, cuenta 2 veces
-// — cada turno debe dejarlo hecho de nuevo).
+// Cada pasillo físico tiene 3 responsables fijos en el roster —uno
+// por cuadrilla (DÍA/NOCHE/INTERMEDIO)—, así que la meta de un equipo
+// en la semana es simplemente el tamaño de su roster (33 y 33 y 33 =
+// 99 pasillos totales, ver lblPasillosTotales). Lo auditado por
+// equipo se calcula asignando cada auditoría registrada a la
+// cuadrilla que realmente tocaba ese día (calcularCuadrillaReal, con
+// la fecha propia de la fila y si su TURNO literal fue DÍA o NOCHE),
+// y contando pasillos DISTINTOS una sola vez en toda la semana — si
+// el mismo pasillo se vuelve a auditar otro día bajo la misma
+// cuadrilla no debe sumar de nuevo.
 
-function calcularDatosEquipos(cabeceraPeriodo, colaboradores, rango){
+const HORARIO_CUADRILLA = {
+    DIA: "Lunes a Jueves",
+    NOCHE: "Mar-Mié-Jue-Vie (noche)",
+    INTERMEDIO: "Vie-Sáb (día)"
+};
 
-    const rosterPorCuadrilla = {};
+// Colores fijos por identidad de equipo (no por umbral de %), igual
+// que el modelo: Equipo 1 verde, Equipo 2 ámbar, Equipo 3 azul.
+const COLOR_CUADRILLA = {
+    DIA: "#16a34a",
+    NOCHE: "#f59e0b",
+    INTERMEDIO: "#2563eb"
+};
 
-    CUADRILLAS.forEach(function(c){
-        rosterPorCuadrilla[c] = colaboradores.filter(
-            r => normalizarTurno5S(r.TURNO) === c
-        ).length;
-    });
+function calcularDatosEquipos(cabeceraPeriodo, colaboradores){
 
-    const turnosPorCuadrilla = { DIA: 0, NOCHE: 0, INTERMEDIO: 0 };
-
-    let cursor = new Date(rango.desde + "T00:00:00");
-    const fin = new Date(rango.hasta + "T00:00:00");
-
-    while(cursor <= fin){
-
-        const iso = aISO(cursor);
-        const cDia = calcularCuadrillaReal(iso, true);
-        const cNoche = calcularCuadrillaReal(iso, false);
-
-        if(cDia && turnosPorCuadrilla[cDia] !== undefined){ turnosPorCuadrilla[cDia]++; }
-        if(cNoche && turnosPorCuadrilla[cNoche] !== undefined){ turnosPorCuadrilla[cNoche]++; }
-
-        cursor.setDate(cursor.getDate() + 1);
-
-    }
-
-    const auditadoPorCuadrillaFecha = {};
+    const auditadoPorCuadrilla = { DIA: new Set(), NOCHE: new Set(), INTERMEDIO: new Set() };
 
     cabeceraPeriodo.forEach(function(r){
 
@@ -373,40 +397,32 @@ function calcularDatosEquipos(cabeceraPeriodo, colaboradores, rango){
 
         const esDia = normalizarTurno5S(r.TURNO) === "DIA";
         const cuadrilla = calcularCuadrillaReal(fecha, esDia);
-        if(!cuadrilla){ return; }
+        if(!cuadrilla || !auditadoPorCuadrilla[cuadrilla]){ return; }
 
-        const clave = cuadrilla + "|" + fecha;
-
-        if(!auditadoPorCuadrillaFecha[clave]){
-            auditadoPorCuadrillaFecha[clave] = new Set();
-        }
-
-        auditadoPorCuadrillaFecha[clave].add(clavePasillo(r));
+        auditadoPorCuadrilla[cuadrilla].add(clavePasillo(r));
 
     });
 
     return CUADRILLAS.map(function(c){
 
-        const meta = rosterPorCuadrilla[c] * turnosPorCuadrilla[c];
+        const rosterTeam = colaboradores.filter(r => normalizarTurno5S(r.TURNO) === c);
+        const clavesRoster = rosterTeam.map(clavePasillo);
 
-        let auditado = 0;
+        const pendientesClaves = clavesRoster.filter(k => !auditadoPorCuadrilla[c].has(k));
 
-        Object.keys(auditadoPorCuadrillaFecha).forEach(function(clave){
-            if(clave.indexOf(c + "|") === 0){
-                auditado += auditadoPorCuadrillaFecha[clave].size;
-            }
-        });
-
-        auditado = Math.min(auditado, meta);
-
+        const meta = clavesRoster.length;
+        const auditado = meta - pendientesClaves.length;
         const pct = meta > 0 ? Math.round((auditado / meta) * 100) : 0;
 
         return {
             cuadrilla: c,
             nombre: NOMBRE_CUADRILLA[c],
+            horario: HORARIO_CUADRILLA[c],
+            color: COLOR_CUADRILLA[c],
             meta: meta,
             auditado: auditado,
-            pendientes: Math.max(meta - auditado, 0),
+            pendientes: pendientesClaves.length,
+            pendientesLista: pendientesClaves.map(k => k.split("||").join(" - ")).sort(),
             pct: pct
         };
 
@@ -414,9 +430,9 @@ function calcularDatosEquipos(cabeceraPeriodo, colaboradores, rango){
 
 }
 
-function pintarEquipos(cabeceraPeriodo, colaboradores, rango){
+function pintarEquipos(cabeceraPeriodo, colaboradores){
 
-    const datos = calcularDatosEquipos(cabeceraPeriodo, colaboradores, rango);
+    const datos = calcularDatosEquipos(cabeceraPeriodo, colaboradores);
     const cont = document.getElementById("contEquipos");
     cont.innerHTML = "";
 
@@ -429,7 +445,7 @@ function pintarEquipos(cabeceraPeriodo, colaboradores, rango){
 
         div.innerHTML = `
             <div class="tarjeta-equipo-nombre">${eq.nombre}</div>
-            <div class="tarjeta-equipo-horario">${eq.meta ? "" : "Sin turnos esta semana"}</div>
+            <div class="tarjeta-equipo-horario">${eq.horario}</div>
             <div class="donut">
                 <svg class="donut-svg" viewBox="0 0 100 100">
                     <circle class="donut-track" cx="50" cy="50" r="42"></circle>
@@ -444,7 +460,7 @@ function pintarEquipos(cabeceraPeriodo, colaboradores, rango){
 
         cont.appendChild(div);
 
-        pintarAnilloDonut(idDonut, eq.pct, colorPorPorcentaje(eq.pct));
+        pintarAnilloDonut(idDonut, eq.pct, eq.color);
 
     });
 
@@ -498,30 +514,64 @@ function pintarEquipos(cabeceraPeriodo, colaboradores, rango){
     tbody.innerHTML = "";
 
     if(!datos.some(e => e.meta > 0)){
-        tbody.innerHTML = `<tr><td colspan="2" class="sin-datos">Sin datos en el periodo.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" class="sin-datos">Sin datos en el periodo.</td></tr>`;
         return;
     }
 
-    datos.filter(e => e.meta > 0).forEach(function(eq){
+    datos.filter(e => e.meta > 0).forEach(function(eq, indice){
+
+        const idDetalle = "detallePendientes" + indice;
 
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
             <td>${eq.nombre}</td>
             <td>${eq.pendientes}</td>
+            <td>
+                ${eq.pendientes
+                    ? `<button type="button" class="btn-ver-pendientes" data-objetivo="${idDetalle}">Ver</button>`
+                    : `<span class="sin-datos">—</span>`}
+            </td>
         `;
 
         tbody.appendChild(tr);
+
+        if(eq.pendientes){
+
+            const trDetalle = document.createElement("tr");
+            trDetalle.className = "fila-detalle-pendientes oculto";
+            trDetalle.id = idDetalle;
+
+            trDetalle.innerHTML = `
+                <td colspan="3">
+                    <div class="detalle-pendientes">${eq.pendientesLista.join(" · ")}</div>
+                </td>
+            `;
+
+            tbody.appendChild(trDetalle);
+
+        }
 
     });
 
 }
 
+document.getElementById("tblPendientesEquipo").addEventListener("click", function(e){
+
+    const boton = e.target.closest(".btn-ver-pendientes");
+    if(!boton){ return; }
+
+    const detalle = document.getElementById(boton.dataset.objetivo);
+    if(!detalle){ return; }
+
+    const visible = detalle.classList.toggle("oculto") === false;
+    boton.textContent = visible ? "Ocultar" : "Ver";
+
+});
+
 // ========================================
 // VISTA SEMANA — TENDENCIA POR DÍA (cobertura diaria)
 // ========================================
-
-const ALTO_MAX_BARRA = 80;
 
 function pintarTendencia(cabeceraPeriodo, rango){
 
@@ -551,24 +601,61 @@ function pintarTendencia(cabeceraPeriodo, rango){
         porDia[f].push(r);
     });
 
-    dias.forEach(function(iso){
-
+    const puntos = dias.map(function(iso){
         const filas = porDia[iso] || [];
-        const promedio = promedioPorcentaje(filas);
         const partes = iso.split("-");
-
-        const div = document.createElement("div");
-        div.className = "barra-tendencia";
-
-        div.innerHTML = `
-            <div class="barra-tendencia-valor">${filas.length ? promedio + "%" : "-"}</div>
-            <div class="barra-tendencia-relleno" style="height:${filas.length ? Math.max(2, Math.round(promedio / 100 * ALTO_MAX_BARRA)) : 2}px; background:${filas.length ? colorPorPorcentaje(promedio) : "#e5e7eb"};"></div>
-            <div class="barra-tendencia-fecha">${partes[2]}/${partes[1]}</div>
-        `;
-
-        cont.appendChild(div);
-
+        return {
+            promedio: filas.length ? promedioPorcentaje(filas) : null,
+            etiquetaFecha: partes[2] + "/" + partes[1]
+        };
     });
+
+    const ancho = 500;
+    const alto = 150;
+    const margenIzq = 26;
+    const margenDer = 10;
+    const margenSup = 18;
+    const margenInf = 22;
+    const areaAncho = ancho - margenIzq - margenDer;
+    const areaAlto = alto - margenSup - margenInf;
+    const pasoX = puntos.length > 1 ? areaAncho / (puntos.length - 1) : 0;
+
+    function xDe(i){ return margenIzq + pasoX * i; }
+    function yDe(pct){ return margenSup + areaAlto * (1 - pct / 100); }
+
+    let svg = `<svg class="tendencia-svg" viewBox="0 0 ${ancho} ${alto}">`;
+
+    [0, 25, 50, 75, 100].forEach(function(marca){
+        const y = yDe(marca);
+        svg += `<line class="tendencia-grilla" x1="${margenIzq}" y1="${y}" x2="${ancho - margenDer}" y2="${y}"></line>`;
+        svg += `<text class="tendencia-eje-texto" x="${margenIzq - 4}" y="${y + 2}" text-anchor="end">${marca}%</text>`;
+    });
+
+    const conDatos = puntos
+        .map(function(p, i){ return { p: p, i: i }; })
+        .filter(o => o.p.promedio !== null);
+
+    if(conDatos.length){
+
+        const polylinePuntos = conDatos.map(o => xDe(o.i) + "," + yDe(o.p.promedio)).join(" ");
+        svg += `<polyline class="tendencia-linea" points="${polylinePuntos}"></polyline>`;
+
+        conDatos.forEach(function(o){
+            const x = xDe(o.i);
+            const y = yDe(o.p.promedio);
+            svg += `<circle class="tendencia-punto" cx="${x}" cy="${y}" r="3.5" fill="${colorPorPorcentaje(o.p.promedio)}"></circle>`;
+            svg += `<text class="tendencia-valor-texto" x="${x}" y="${y - 8}">${o.p.promedio}%</text>`;
+        });
+
+    }
+
+    puntos.forEach(function(p, i){
+        svg += `<text class="tendencia-fecha-texto" x="${xDe(i)}" y="${alto - 4}">${p.etiquetaFecha}</text>`;
+    });
+
+    svg += `</svg>`;
+
+    cont.innerHTML = svg;
 
 }
 
@@ -606,7 +693,7 @@ function pintarZonasCobertura(cabeceraPeriodo, colaboradores){
         fila.className = "fila-zona";
 
         fila.innerHTML = `
-            <div class="etiqueta-zona">${z.zona}<small>${z.auditadosZona}/${z.totalZona}</small></div>
+            <div class="etiqueta-zona">${z.zona}</div>
             <div class="barra-zona">
                 <div class="relleno-zona" style="width:${z.avanceZona}%; background:${colorPorPorcentaje(z.avanceZona)};"></div>
             </div>
@@ -637,6 +724,22 @@ function pintarResumenSemanal(cabeceraPeriodo, colaboradores){
         <div class="resumen-semanal-item"><span><span class="icono icono-warn-amber"></span> Pendientes</span> <b>${pendientes}</b></div>
         <div class="resumen-semanal-item"><span><span class="icono icono-check-green"></span> Promedio de cumplimiento</span> <b>${promedio}%</b></div>
     `;
+
+}
+
+// ========================================
+// VISTA SEMANA — MENSAJE MOTIVACIONAL
+// ========================================
+
+function pintarFooterMotivacional(cabeceraPeriodo, colaboradores){
+
+    const meta = colaboradores.length;
+    const auditados = pasillosDistintos(cabeceraPeriodo).size;
+    const promedio = meta > 0 ? Math.round((auditados / meta) * 100) : 0;
+    const animo = promedio >= 70 ? "¡Sigamos así!" : "¡Vamos por más!";
+
+    document.getElementById("lblFooterMotivacional").textContent =
+        "ℹ️ Esta semana llevan un avance del " + promedio + "%. " + animo;
 
 }
 

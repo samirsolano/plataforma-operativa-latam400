@@ -67,13 +67,13 @@
 
         <main class="contenido">
 
-            <header class="topbar">
+            <header class="topbar topbar-oscuro">
 
                 <div class="topbar-titulo">
 
-                    <h2>REPORTE SEMANAL / MENSUAL</h2>
+                    <h2 id="lblTituloReporte">DASHBOARD SEMANAL – SEGUIMIENTO</h2>
 
-                    <p id="lblRangoTexto">Cargando...</p>
+                    <p id="lblObjetivoReporte">Objetivo: Ver el cumplimiento de auditorías durante la semana</p>
 
                 </div>
 
@@ -93,6 +93,8 @@
                         <label>Mes</label>
                         <input type="month" id="selectMes">
                     </div>
+
+                    <p id="lblRangoTexto" class="topbar-rango">Cargando...</p>
 
                     <button id="btnActualizar" class="btn-actualizar" title="Actualizar">
                         <span class="icono icono-lg icono-refresh-white"></span>
@@ -155,7 +157,7 @@
                         <div class="kpi-card">
                             <div class="kpi-card-header">
                                 <div class="kpi-titulo">Mejor Equipo</div>
-                                <span class="icono icono-lg icono-star-gold"></span>
+                                <span class="icono-emoji">🏆</span>
                             </div>
                             <div class="kpi-valor azul" id="lblMejorEquipo">-</div>
                             <div class="kpi-nota" id="lblMejorEquipoPct">-</div>
@@ -201,6 +203,7 @@
                                     <tr>
                                         <th>Equipo</th>
                                         <th>Pendientes</th>
+                                        <th>Pasillos</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tblPendientesEquipo"></tbody>
@@ -209,13 +212,15 @@
 
                     </section>
 
+                    <p class="footer-motivacional" id="lblFooterMotivacional"></p>
+
                 </div>
 
                 <!-- ============================================ -->
                 <!-- VISTA MES (promedio de puntaje, por supervisor) -->
                 <!-- ============================================ -->
 
-                <div id="vistaMes">
+                <div id="vistaMes" class="oculto">
 
                     <section class="kpis">
 
