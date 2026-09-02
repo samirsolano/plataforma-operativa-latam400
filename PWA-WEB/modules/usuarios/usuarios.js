@@ -16,6 +16,10 @@ if(sesion && sesion.rol !== "Administrador"){
 const tblUsuarios = document.getElementById("tblUsuarios");
 const mensajeVacio = document.getElementById("mensajeVacio");
 
+// Guarda la última lista cargada para poder rellenar el modal de
+// edición sin tener que volver a pedirla a Supabase.
+let usuariosCache = [];
+
 async function cargarUsuarios(){
 
     tblUsuarios.innerHTML = "";
@@ -26,6 +30,8 @@ async function cargarUsuarios(){
         const usuarios = await supabaseFetch(
             "/usuarios_app?select=id,usuario,password,dni,nombre_completo,rol,activo&order=nombre_completo.asc"
         );
+
+        usuariosCache = usuarios || [];
 
         if(!usuarios || !usuarios.length){
             mensajeVacio.textContent = "No hay usuarios registrados.";
@@ -49,9 +55,14 @@ async function cargarUsuarios(){
                     </span>
                 </td>
                 <td>
-                    <button class="btn-eliminar" data-id="${u.id}" data-usuario="${u.usuario}">
-                        Eliminar
-                    </button>
+                    <div class="acciones">
+                        <button class="btn-editar" data-id="${u.id}">
+                            Editar
+                        </button>
+                        <button class="btn-eliminar" data-id="${u.id}" data-usuario="${u.usuario}">
+                            Eliminar
+                        </button>
+                    </div>
                 </td>
             `;
 
@@ -74,6 +85,16 @@ async function cargarUsuarios(){
 // ========================================
 
 tblUsuarios.addEventListener("click", async function(e){
+
+    const botonEditar = e.target.closest(".btn-editar");
+
+    if(botonEditar){
+        const usuario = usuariosCache.find(u => String(u.id) === botonEditar.dataset.id);
+        if(usuario){
+            abrirModal(usuario);
+        }
+        return;
+    }
 
     const boton = e.target.closest(".btn-eliminar");
 
@@ -120,6 +141,7 @@ tblUsuarios.addEventListener("click", async function(e){
 // ========================================
 
 const modalOverlay = document.getElementById("modalOverlay");
+const tituloModal = document.getElementById("tituloModal");
 const btnAgregar = document.getElementById("btnAgregar");
 const btnCancelar = document.getElementById("btnCancelar");
 const btnGuardar = document.getElementById("btnGuardar");
@@ -132,15 +154,41 @@ const inputNuevoNombre = document.getElementById("nuevoNombre");
 const inputNuevoRol = document.getElementById("nuevoRol");
 const inputNuevoActivo = document.getElementById("nuevoActivo");
 
-function abrirModal(){
+// Id del usuario en edición, o null cuando el modal está en modo
+// "agregar". btnGuardar lo usa para decidir entre POST y PATCH.
+let editandoId = null;
+
+function abrirModal(usuario){
 
     mensajeErrorModal.textContent = "";
-    inputNuevoUsuario.value = "";
-    inputNuevoPassword.value = "";
-    inputNuevoDni.value = "";
-    inputNuevoNombre.value = "";
-    inputNuevoRol.value = "";
-    inputNuevoActivo.checked = true;
+
+    if(usuario){
+
+        editandoId = usuario.id;
+        tituloModal.textContent = "Editar Usuario";
+        btnGuardar.textContent = "Guardar cambios";
+
+        inputNuevoUsuario.value = usuario.usuario;
+        inputNuevoPassword.value = usuario.password;
+        inputNuevoDni.value = usuario.dni || "";
+        inputNuevoNombre.value = usuario.nombre_completo;
+        inputNuevoRol.value = usuario.rol;
+        inputNuevoActivo.checked = !!usuario.activo;
+
+    }else{
+
+        editandoId = null;
+        tituloModal.textContent = "Agregar Usuario";
+        btnGuardar.textContent = "Guardar";
+
+        inputNuevoUsuario.value = "";
+        inputNuevoPassword.value = "";
+        inputNuevoDni.value = "";
+        inputNuevoNombre.value = "";
+        inputNuevoRol.value = "";
+        inputNuevoActivo.checked = true;
+
+    }
 
     modalOverlay.classList.add("visible");
     inputNuevoUsuario.focus();
@@ -151,7 +199,9 @@ function cerrarModal(){
     modalOverlay.classList.remove("visible");
 }
 
-btnAgregar.addEventListener("click", abrirModal);
+btnAgregar.addEventListener("click", function(){
+    abrirModal();
+});
 btnCancelar.addEventListener("click", cerrarModal);
 
 modalOverlay.addEventListener("click", function(e){
@@ -178,25 +228,43 @@ btnGuardar.addEventListener("click", async function(){
         return;
     }
 
+    const editando = editandoId !== null;
+
     btnGuardar.disabled = true;
     btnGuardar.textContent = "GUARDANDO...";
 
     try{
 
-        await supabaseFetch(
-            "/usuarios_app",
-            {
-                method: "POST",
-                body: JSON.stringify({
-                    usuario: usuario,
-                    password: password,
-                    dni: dni,
-                    nombre_completo: nombre,
-                    rol: rol,
-                    activo: activo
-                })
-            }
-        );
+        const datos = {
+            usuario: usuario,
+            password: password,
+            dni: dni,
+            nombre_completo: nombre,
+            rol: rol,
+            activo: activo
+        };
+
+        if(editando){
+
+            await supabaseFetch(
+                "/usuarios_app?id=eq." + encodeURIComponent(editandoId),
+                {
+                    method: "PATCH",
+                    body: JSON.stringify(datos)
+                }
+            );
+
+        }else{
+
+            await supabaseFetch(
+                "/usuarios_app",
+                {
+                    method: "POST",
+                    body: JSON.stringify(datos)
+                }
+            );
+
+        }
 
         cerrarModal();
         cargarUsuarios();
@@ -204,12 +272,14 @@ btnGuardar.addEventListener("click", async function(){
     }catch(e){
 
         console.error(e);
-        mensajeErrorModal.textContent = "No se pudo guardar. Verifique que el usuario no exista.";
+        mensajeErrorModal.textContent = editando
+            ? "No se pudo guardar los cambios. Verifique que el usuario no exista."
+            : "No se pudo guardar. Verifique que el usuario no exista.";
 
     }finally{
 
         btnGuardar.disabled = false;
-        btnGuardar.textContent = "Guardar";
+        btnGuardar.textContent = editando ? "Guardar cambios" : "Guardar";
 
     }
 

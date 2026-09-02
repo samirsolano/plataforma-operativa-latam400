@@ -104,6 +104,27 @@ body{
     background:#fef2f2;
 }
 
+.btn-editar{
+    background:none;
+    border:1px solid #93c5fd;
+    color:#2563eb;
+    padding:8px 14px;
+    border-radius:10px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.3s;
+}
+
+.btn-editar:hover{
+    background:#eff6ff;
+}
+
+.acciones{
+    display:flex;
+    gap:8px;
+}
+
 /* ======================================== */
 /* CARD / TABLA */
 /* ======================================== */
