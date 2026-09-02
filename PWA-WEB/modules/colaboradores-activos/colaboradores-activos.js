@@ -60,7 +60,7 @@ async function cargarActivos(){
     try{
 
         activosCargados = await checklistFetch(
-            "/colaboradores_activos?select=id,dni,nombre,zona,pasillo,turno,supervisor,activo&order=nombre.asc"
+            "/colaboradores_activos?select=id,dni,nombre,zona,pasillo,turno,supervisor,activo&order=turno.asc,zona.asc,pasillo.asc"
         );
 
         llenarFiltroSupervisor(activosCargados);
@@ -134,6 +134,10 @@ function renderizarActivos(lista){
 
 }
 
+// Lo que está filtrado/visible en la tabla ahora mismo — "Exportar a
+// Excel" exporta esto, no siempre la lista completa.
+let filtradosActuales = [];
+
 function aplicarFiltros(){
 
     const termino = buscador.value.trim().toLowerCase();
@@ -153,6 +157,8 @@ function aplicarFiltros(){
 
     });
 
+    filtradosActuales = filtrados;
+
     if(!filtrados.length){
         tblActivos.innerHTML = "";
         mensajeVacio.textContent = "Ningún colaborador coincide con el filtro.";
@@ -167,6 +173,34 @@ function aplicarFiltros(){
 buscador.addEventListener("input", aplicarFiltros);
 filtroTurno.addEventListener("change", aplicarFiltros);
 filtroSupervisor.addEventListener("change", aplicarFiltros);
+
+// ========================================
+// EXPORTAR A EXCEL
+// ========================================
+
+document.getElementById("btnExportar").addEventListener("click", function(){
+
+    if(!filtradosActuales.length){
+        alert("No hay colaboradores para exportar.");
+        return;
+    }
+
+    const encabezados = ["Zona", "Pasillo", "DNI", "Nombre", "Turno", "Supervisor"];
+
+    const filas = filtradosActuales.map(function(c){
+        return [c.zona || "", c.pasillo || "", c.dni, c.nombre, c.turno || "", c.supervisor || ""];
+    });
+
+    const hoja = XLSX.utils.aoa_to_sheet([encabezados].concat(filas));
+    const libro = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(libro, hoja, "Colaboradores Activos");
+
+    const hoy = new Date().toISOString().slice(0, 10);
+
+    XLSX.writeFile(libro, "colaboradores-activos-" + hoy + ".xlsx");
+
+});
 
 // ========================================
 // EDITAR
