@@ -193,6 +193,21 @@
 
                 </div>
 
+                <div class="pd-filtros">
+
+                    <select id="pdFiltroGestion" onchange="aplicarFiltrosPlanificado()">
+                        <option value="">Gestión (todas)</option>
+                    </select>
+
+                    <input
+                        type="text"
+                        id="pdBuscarViaje"
+                        placeholder="Buscar por FO, cliente o transportista..."
+                        oninput="aplicarFiltrosPlanificado()"
+                    >
+
+                </div>
+
                 <div class="pd-tabla">
 
                     <table>

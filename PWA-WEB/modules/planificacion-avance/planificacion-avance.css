@@ -316,6 +316,28 @@ body{
     font-size:26px;
 }
 
+.pd-filtros{
+    display:flex;
+    gap:10px;
+    margin-bottom:14px;
+    flex-shrink:0;
+    flex-wrap:wrap;
+}
+
+.pd-filtros select,
+.pd-filtros input{
+    padding:9px 12px;
+    border:1px solid #e0e0e0;
+    border-radius:8px;
+    font-size:13px;
+    background:white;
+}
+
+.pd-filtros input{
+    flex:1;
+    min-width:220px;
+}
+
 .pd-tabla{
     background:white;
     border-radius:10px;

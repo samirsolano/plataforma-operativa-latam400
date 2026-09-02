@@ -132,7 +132,7 @@ function cargarTabla(datos){
 
         html += `
 
-        <tr class="${checked ? "fila-seleccionada" : ""}">
+        <tr class="${checked ? "fila-seleccionada" : ""}" data-gestion="${item.gestion || ""}">
 
             <td style="text-align:center">
                 <input
@@ -181,6 +181,53 @@ function cargarTabla(datos){
 
     document.getElementById("btnActualizar").disabled = false;
     document.getElementById("btnActualizar").innerHTML = "🔄 Actualizar Drive";
+
+    poblarFiltroGestionPlanificado(datos);
+    aplicarFiltrosPlanificado();
+
+}
+
+// ============================================
+// FILTROS (Gestión + buscador) — solo esconden/muestran filas ya
+// pintadas por cargarTabla, no tocan los KPIs de arriba (que siguen
+// reflejando el día completo) ni el estado de los checkboxes.
+// ============================================
+
+function poblarFiltroGestionPlanificado(datos){
+
+    const select = document.getElementById("pdFiltroGestion");
+    const seleccionActual = select.value;
+
+    const gestiones = Array.from(new Set(
+        (datos || []).map(function(d){ return d.gestion; }).filter(Boolean)
+    )).sort();
+
+    select.innerHTML = '<option value="">Gestión (todas)</option>' +
+        gestiones.map(function(g){ return `<option value="${g}">${g}</option>`; }).join("");
+
+    select.value = gestiones.includes(seleccionActual) ? seleccionActual : "";
+
+}
+
+function aplicarFiltrosPlanificado(){
+
+    const gestion = document.getElementById("pdFiltroGestion").value;
+    const termino = document.getElementById("pdBuscarViaje").value.trim().toLowerCase();
+
+    document.querySelectorAll("#tablaPlanificacion tr").forEach(function(fila){
+
+        if(!fila.dataset || fila.dataset.gestion === undefined){
+            return; // fila de "sin datos" (colspan) — no filtrar
+        }
+
+        const coincideGestion = !gestion || fila.dataset.gestion === gestion;
+
+        const coincideTexto = !termino ||
+            fila.textContent.toLowerCase().includes(termino);
+
+        fila.style.display = (coincideGestion && coincideTexto) ? "" : "none";
+
+    });
 
 }
 
