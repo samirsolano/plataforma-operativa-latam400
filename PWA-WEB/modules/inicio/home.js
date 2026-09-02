@@ -14,6 +14,8 @@ if(sesion){
     // El módulo de Usuarios y Toma de Lote Supermercados solo son
     // visibles para el rol Administrador.
     if(sesion.rol !== "Administrador"){
+        document.getElementById("linkSkillMatrix").style.display = "none";
+        document.getElementById("cardSkillMatrix").style.display = "none";
         document.getElementById("linkUsuarios").style.display = "none";
         document.getElementById("cardUsuarios").style.display = "none";
         document.getElementById("linkUsuariosCentro").style.display = "none";

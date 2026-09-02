@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Skill Matrix - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="skill-matrix.css"
+    >
+
+</head>
+
+<body>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+
+                <h1>SKILL MATRIX</h1>
+
+                <span>LATAM 400 CL</span>
+
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+
+                </div>
+
+            </div>
+
+            <nav class="menu">
+
+                <a href="#" class="activo">🎯 Skill Matrix</a>
+
+            </nav>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="contenido">
+
+            <header class="topbar">
+
+                <div class="topbar-titulo">
+
+                    <h2>SKILL MATRIX</h2>
+
+                    <p>Matriz de habilidades por colaborador — INBOUND, OUTBOUND, FACTURACIÓN, LIQUIDACIÓN, GESTIÓN DE MERMAS, INVENTARIO</p>
+
+                </div>
+
+                <div class="topbar-acciones">
+
+                    <input type="file" id="archivoExcel" accept=".xlsx,.xls" hidden>
+
+                    <button class="btn-secundario" id="btnImportar">
+                        ⬆️ Importar Excel
+                    </button>
+
+                    <button class="btn-secundario" id="btnExportar">
+                        ⬇️ Exportar Excel
+                    </button>
+
+                </div>
+
+            </header>
+
+            <div class="card">
+
+                <div class="leyenda">
+
+                    <span class="leyenda-item"><i class="chip nivel-0"></i> Sin evaluar</span>
+                    <span class="leyenda-item"><i class="chip nivel-1"></i> Necesita entrenamiento</span>
+                    <span class="leyenda-item"><i class="chip nivel-2"></i> Entrenado</span>
+                    <span class="leyenda-item"><i class="chip nivel-3"></i> Multiplicador</span>
+                    <span class="leyenda-item"><i class="chip nivel-4"></i> No aplica</span>
+
+                </div>
+
+                <div class="filtros-recon">
+
+                    <div class="buscador">
+                        <input type="text" id="buscador" placeholder="Buscar por DNI o nombre..." autocomplete="off">
+                    </div>
+
+                    <select id="filtroCategoria">
+                        <option value="">Categoría (todas)</option>
+                    </select>
+
+                    <select id="filtroTurno">
+                        <option value="">Turno (todos)</option>
+                    </select>
+
+                    <button class="btn-secundario" id="btnRecargar">
+                        ↻ Recargar
+                    </button>
+
+                </div>
+
+                <p id="mensajeCarga" class="sin-datos">
+                    Cargando matriz...
+                </p>
+
+                <div class="tabla-scroll" id="contenedorTabla" style="display:none;">
+
+                    <table id="tablaMatriz">
+
+                        <thead id="theadMatriz"></thead>
+
+                        <tbody id="tbodyMatriz"></tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- POPOVER: editar un nivel -->
+
+    <div class="popover-nivel oculto" id="popoverNivel">
+
+        <div class="popover-nivel-titulo" id="popoverTitulo">-</div>
+
+        <div class="popover-nivel-opciones" id="popoverOpciones"></div>
+
+    </div>
+
+    <div class="popover-fondo oculto" id="popoverFondo"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="../../shared/skill-matrix-config.js"></script>
+    <script src="skill-matrix.js"></script>
+
+</body>
+
+</html>
