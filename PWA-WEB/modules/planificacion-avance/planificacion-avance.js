@@ -151,6 +151,7 @@ function abrirModulo(modulo, boton){
     document.getElementById("modDashboard").style.display = "none";
     document.getElementById("modHoraHora").style.display = "none";
     document.getElementById("modDialogoDiario").style.display = "none";
+    document.getElementById("modProductividad").style.display = "none";
 
     document.querySelectorAll(".menu button").forEach(btn => {
         btn.classList.remove("activo");
@@ -189,6 +190,10 @@ function abrirModulo(modulo, boton){
 
         case "dialogodiario":
             abrirDialogoDiario();
+            break;
+
+        case "productividad":
+            abrirResumenProductividad();
             break;
 
     }

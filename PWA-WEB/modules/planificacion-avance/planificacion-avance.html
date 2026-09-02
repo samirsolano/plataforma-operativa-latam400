@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="sap.css">
     <link rel="stylesheet" href="dashboard.css">
     <link rel="stylesheet" href="dialogo-diario.css">
+    <link rel="stylesheet" href="resumen-productividad.css">
 
     <!-- SheetJS: lee archivos Excel (.xlsx/.xls) en el navegador.
          Reemplaza a DriveApp/SpreadsheetApp, que solo existen en Apps Script. -->
@@ -98,6 +99,10 @@
 
             <button id="btnDialogoDiario" onclick="abrirModulo('dialogodiario', this)">
                 📋 Diálogo Diario
+            </button>
+
+            <button id="btnProductividad" onclick="abrirModulo('productividad', this)">
+                🏆 Resumen Productividad
             </button>
 
         </nav>
@@ -1060,6 +1065,66 @@
 
         </div>
 
+        <!-- ===================== RESUMEN DE PRODUCTIVIDAD ===================== -->
+
+        <div id="modProductividad" style="display:none;">
+
+          <div class="dd-topbar">
+            <div>
+              <h2>RESUMEN DE PRODUCTIVIDAD</h2>
+              <p>Top de colaboradores por promedio de TN por día trabajado (tareas_almacen_sap)</p>
+            </div>
+          </div>
+
+          <div class="prod-controles" style="margin-bottom:10px;">
+
+            <label>Desde</label>
+            <input type="date" id="prodDesde" onchange="cargarResumenProductividad()">
+
+            <label>Hasta</label>
+            <input type="date" id="prodHasta" onchange="cargarResumenProductividad()">
+
+            <label>Función</label>
+            <select id="prodFuncion" onchange="renderizarTablaProductividad()">
+              <option value="PICKING">Picking</option>
+              <option value="EXTRACCION">Extracción</option>
+              <option value="ALMACENAMIENTO">Almacenamiento</option>
+              <option value="INGRESO">Ingreso</option>
+              <option value="REPO">Repo</option>
+            </select>
+
+          </div>
+
+          <p class="dd-aviso" id="prodAviso"></p>
+
+          <div class="dd-card-chart">
+
+            <div class="dd-tabla-scroll">
+
+              <table class="prod-tabla">
+
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Colaborador</th>
+                    <th>Días trabajados</th>
+                    <th>TN Total</th>
+                    <th>Promedio TN/día</th>
+                  </tr>
+                </thead>
+
+                <tbody id="prodTabla">
+                  <tr><td colspan="5" class="dd-tabla-vacio">Seleccione un rango de fechas.</td></tr>
+                </tbody>
+
+              </table>
+
+            </div>
+
+          </div>
+
+        </div>
+
     </main>
 
     <!-- ===================== MODAL GLOBAL (alerta / confirmación) ===================== -->
@@ -1094,6 +1159,8 @@
 <script src="dashboard.js"></script>
 <script src="dialogo-diario-logica.js"></script>
 <script src="dialogo-diario.js"></script>
+<script src="resumen-productividad-logica.js"></script>
+<script src="resumen-productividad.js"></script>
 
 </body>
 

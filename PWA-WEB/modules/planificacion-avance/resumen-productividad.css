@@ -1,0 +1,85 @@
+/* =========================================================
+   RESUMEN DE PRODUCTIVIDAD
+   Reutiliza .dd-topbar / .dd-aviso / .dd-card-chart / .dd-tabla-scroll
+   / .dd-tabla-vacio (definidas en dialogo-diario.css, cargado en la
+   misma página) — acá solo lo propio de esta pantalla.
+   ========================================================= */
+
+#modProductividad {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #1c2b3a;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.prod-controles {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.prod-controles label {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #6b7280;
+}
+
+.prod-controles input,
+.prod-controles select {
+    padding: 9px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 13px;
+    background: white;
+}
+
+.prod-controles select {
+    font-weight: 700;
+}
+
+.prod-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.prod-tabla thead th {
+    position: sticky;
+    top: 0;
+    background: #f8fafc;
+    text-align: left;
+    padding: 9px 12px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    border-bottom: 2px solid #e9edf1;
+}
+
+.prod-tabla td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #f1f4f7;
+}
+
+.prod-tabla tbody tr:hover { background: #f9fafb; }
+
+.prod-pos {
+    font-weight: 800;
+    color: #9aa5b1;
+    width: 40px;
+}
+
+.prod-tabla tbody tr:nth-child(1) .prod-pos { color: #d4af37; }
+.prod-tabla tbody tr:nth-child(2) .prod-pos { color: #9aa5b1; }
+.prod-tabla tbody tr:nth-child(3) .prod-pos { color: #b5651d; }
+
+.prod-tn { text-align: right; }
+
+.prod-promedio {
+    font-weight: 800;
+    color: #1e8449;
+}
