@@ -150,6 +150,7 @@ function abrirModulo(modulo, boton){
     document.getElementById("modSAP").style.display = "none";
     document.getElementById("modDashboard").style.display = "none";
     document.getElementById("modHoraHora").style.display = "none";
+    document.getElementById("modDialogoDiario").style.display = "none";
 
     document.querySelectorAll(".menu button").forEach(btn => {
         btn.classList.remove("activo");
@@ -184,6 +185,10 @@ function abrirModulo(modulo, boton){
 
         case "horahora":
             abrirHoraXHora();
+            break;
+
+        case "dialogodiario":
+            abrirDialogoDiario();
             break;
 
     }

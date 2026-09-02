@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="hora-x-hora.css">
     <link rel="stylesheet" href="sap.css">
     <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="dialogo-diario.css">
 
     <!-- SheetJS: lee archivos Excel (.xlsx/.xls) en el navegador.
          Reemplaza a DriveApp/SpreadsheetApp, que solo existen en Apps Script. -->
@@ -93,6 +94,10 @@
 
             <button id="btnHoraHora" onclick="abrirModulo('horahora', this)">
                 🕒 Hora x Hora
+            </button>
+
+            <button id="btnDialogoDiario" onclick="abrirModulo('dialogodiario', this)">
+                📋 Diálogo Diario
             </button>
 
         </nav>
@@ -983,6 +988,97 @@
 
         </div>
 
+        <!-- ===================== DIÁLOGO DIARIO ===================== -->
+
+        <div id="modDialogoDiario" style="display:none;">
+
+          <div class="dd-topbar">
+            <h2>DIÁLOGO DIARIO</h2>
+            <p>Fecha: <b id="ddFechaTitulo">—</b> · Despacho (SAP) y Tiempo de estadía (L400), día + noche</p>
+          </div>
+
+          <p class="dd-aviso" id="ddAviso"></p>
+
+          <div class="dd-seccion-titulo">Despacho</div>
+
+          <div class="dd-grid">
+
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-verde">DESPACHO EXTRACCIÓN (TON)</div>
+              <div class="dash-kpi-valor dash-kpi-verde"><span id="ddDespachoExtraccion">—</span> TN</div>
+            </div>
+
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-azul">DESPACHO PICKING (TON)</div>
+              <div class="dash-kpi-valor dash-kpi-azul2"><span id="ddDespachoPicking">—</span> TN</div>
+            </div>
+
+            <div class="dash-card dash-kpi"></div>
+
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-verde">EXTRACCIÓN TURNO DÍA</div>
+              <div class="dash-kpi-valor dash-kpi-verde"><span id="ddExtraccionDia">—</span> TN</div>
+            </div>
+
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-verde">EXTRACCIÓN TURNO NOCHE</div>
+              <div class="dash-kpi-valor dash-kpi-verde"><span id="ddExtraccionNoche">—</span> TN</div>
+            </div>
+
+            <div class="dash-card dash-kpi"></div>
+
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-azul">PICKING TURNO DÍA</div>
+              <div class="dash-kpi-valor dash-kpi-azul2"><span id="ddPickingDia">—</span> TN</div>
+            </div>
+
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-azul">PICKING TURNO NOCHE</div>
+              <div class="dash-kpi-valor dash-kpi-azul2"><span id="ddPickingNoche">—</span> TN</div>
+            </div>
+
+            <div class="dash-card dash-kpi"></div>
+
+          </div>
+
+          <div class="dd-seccion-titulo">Tiempo de estadía (promedio, en horas)</div>
+
+          <div class="dd-grid">
+
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-naranja">TIEMPO DE ESTADÍA DESPACHO</div>
+              <div class="dash-kpi-valor dash-kpi-naranja"><span id="ddEstadiaDespacho">—</span></div>
+            </div>
+
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-morado">TIEMPO DE ESTADÍA RL</div>
+              <div class="dash-kpi-valor dash-kpi-morado"><span id="ddEstadiaRL">—</span></div>
+            </div>
+
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-morado">TIEMPO DE ESTADÍA CM</div>
+              <div class="dash-kpi-valor dash-kpi-morado"><span id="ddEstadiaCM">—</span></div>
+            </div>
+
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-morado">TIEMPO DE ESTADÍA NS CHICO</div>
+              <div class="dash-kpi-valor dash-kpi-morado"><span id="ddEstadiaNsChico">—</span></div>
+            </div>
+
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-morado">TIEMPO DE ESTADÍA LD</div>
+              <div class="dash-kpi-valor dash-kpi-morado"><span id="ddEstadiaLD">—</span></div>
+            </div>
+
+            <div class="dash-card dash-kpi">
+              <div class="dash-card-titulo dash-titulo-morado">TIEMPO DE ESTADÍA TRASLADO</div>
+              <div class="dash-kpi-valor dash-kpi-morado"><span id="ddEstadiaTraslado">—</span></div>
+            </div>
+
+          </div>
+
+        </div>
+
     </main>
 
     <!-- ===================== MODAL GLOBAL (alerta / confirmación) ===================== -->
@@ -1015,6 +1111,8 @@
 <script src="sap.js"></script>
 <script src="dashboard-logica.js"></script>
 <script src="dashboard.js"></script>
+<script src="dialogo-diario-logica.js"></script>
+<script src="dialogo-diario.js"></script>
 
 </body>
 
