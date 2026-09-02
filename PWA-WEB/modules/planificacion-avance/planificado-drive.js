@@ -82,7 +82,7 @@ function cargarTabla(datos){
 
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" style="padding:30px;text-align:center;color:#666;">
+                <td colspan="11" style="padding:30px;text-align:center;color:#666;">
                     No existe planificación para la fecha y turno seleccionados.
                 </td>
             </tr>
@@ -155,6 +155,14 @@ function cargarTabla(datos){
 
             <td style="text-align:right;">
                 ${Number(item.peso_tn || 0).toFixed(2)}
+            </td>
+
+            <td style="text-align:right;">
+                ${Number(item.ctd_extraccion || 0)}
+            </td>
+
+            <td style="text-align:right;">
+                ${Number(item.tnl_picking || 0).toFixed(2)}
             </td>
 
             <td style="text-align:center;">

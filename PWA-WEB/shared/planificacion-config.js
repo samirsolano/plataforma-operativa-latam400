@@ -465,18 +465,32 @@ async function guardarEstadoPlanificacion(fecha, turno, seleccionados){
 // actualizarEstadosDesdeDrive(), corriendo en el navegador.
 
 // ========================================
-// CALCULAR EXTRACCIÓN / PICKING (placeholder 80/20)
+// CALCULAR EXTRACCIÓN / PICKING
 // ========================================
-// ctd_extraccion: 80% del peso del viaje, convertido a paletas (480 kg c/u)
-// tnl_picking:    20% del peso del viaje, en TN
+// No hay forma de saber el split real de un viaje hasta que se
+// trabaja (eso lo mide después tareas_almacen_sap, vía Diálogo
+// Diario) — esto es una estimación al momento de planificar, usada
+// para las metas de Hora x Hora y la necesidad de personal de
+// Planificación Recursos (ver hora-x-hora-logica.js y
+// recursos-logica.js, función obtenerNecesidadTurno).
+//
+// Calibrado el 2026-09-02 contra los 30 días reales de SAP
+// (2026-08-01 en adelante, mismo dato que Diálogo Diario):
+// Extracción 77.7% / Picking 22.3% — reemplaza el 80/20 original,
+// que no venía de ninguna medición.
+const EXTRACCION_PCT_ESTIMADO = 0.777;
+const PICKING_PCT_ESTIMADO = 0.223;
+
+// ctd_extraccion: % estimado del peso del viaje, convertido a paletas (480 kg c/u)
+// tnl_picking:    % estimado del peso del viaje, en TN
 
 function calcularExtraccionPicking(pesoTN){
 
     const peso = Number(pesoTN) || 0;
 
     return {
-        ctd_extraccion: Math.round((peso * 0.80 * 1000) / 480),
-        tnl_picking: Math.round(peso * 0.20 * 100) / 100
+        ctd_extraccion: Math.round((peso * EXTRACCION_PCT_ESTIMADO * 1000) / 480),
+        tnl_picking: Math.round(peso * PICKING_PCT_ESTIMADO * 100) / 100
     };
 
 }
