@@ -8,7 +8,7 @@ let dashDataActual = null;
 let dashRelojIntervalo = null;
 
 function dashAutor(){
-  const sesion = JSON.parse(localStorage.getItem("latam400_sesion") || "{}");
+  const sesion = JSON.parse(sessionStorage.getItem("latam400_sesion") || "{}");
   return sesion.nombre || sesion.usuario || "Usuario";
 }
 

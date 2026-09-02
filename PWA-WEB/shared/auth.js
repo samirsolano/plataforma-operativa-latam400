@@ -1,15 +1,19 @@
 // ========================================
-// SESIÓN DE USUARIO (localStorage)
+// SESIÓN DE USUARIO (sessionStorage)
 // ========================================
 // Nota: todas las rutas de redirección son relativas a
 // "../login/login.html" porque todos los módulos viven
 // dentro de PWA-WEB/modules/<nombre>/, al mismo nivel.
+//
+// Se usa sessionStorage (no localStorage) a propósito: así la
+// sesión no sobrevive a cerrar la pestaña/navegador, y abrir el
+// link directamente siempre pide usuario y contraseña de nuevo.
 
 const CLAVE_SESION = "latam400_sesion";
 
 function guardarSesion(usuario){
 
-    localStorage.setItem(
+    sessionStorage.setItem(
         CLAVE_SESION,
         JSON.stringify(usuario)
     );
@@ -18,7 +22,7 @@ function guardarSesion(usuario){
 
 function obtenerSesion(){
 
-    const datos = localStorage.getItem(CLAVE_SESION);
+    const datos = sessionStorage.getItem(CLAVE_SESION);
 
     if(!datos){
         return null;
@@ -34,7 +38,7 @@ function obtenerSesion(){
 
 function cerrarSesion(){
 
-    localStorage.removeItem(CLAVE_SESION);
+    sessionStorage.removeItem(CLAVE_SESION);
     window.location.href = "../login/login.html";
 
 }
