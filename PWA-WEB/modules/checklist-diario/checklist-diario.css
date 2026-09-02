@@ -471,6 +471,31 @@ body{
     margin-bottom:6px;
 }
 
+/* Estas dos tarjetas suelen tener menos filas que sus vecinas en la
+   misma fila del grid, y el grid las estira a la misma altura —
+   esto reparte ese espacio extra en el propio contenido en vez de
+   dejarlo en blanco al fondo de la tarjeta. */
+.card-avance-zona,
+.card-resultado-5s{
+    display:flex;
+    flex-direction:column;
+}
+
+.card-avance-zona table{
+    flex:1;
+}
+
+.card-resultado-5s #cont5S{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-evenly;
+}
+
+.card-resultado-5s .fila-5s{
+    margin-bottom:0;
+}
+
 table{
     width:100%;
     border-collapse:collapse;
