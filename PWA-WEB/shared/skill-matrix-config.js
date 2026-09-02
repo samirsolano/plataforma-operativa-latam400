@@ -108,10 +108,15 @@ async function obtenerNivelesSkillMatrix(){
 }
 
 // Upsert de un nivel individual (celda editada desde la grilla).
+// "on_conflict" es obligatorio acá: la tabla ya viene precargada con
+// ~8240 filas (una por dni+habilidad), así que sin indicarle a
+// PostgREST contra qué columnas resolver el choque, intenta resolver
+// solo contra la primary key ("id", que acá no se manda) y termina
+// chocando con la restricción unique(dni, codigo_habilidad).
 async function guardarNivelSkillMatrix(dni, codigoHabilidad, nivel, actualizadoPor){
 
     return skillFetch(
-        "/skill_matrix_niveles",
+        "/skill_matrix_niveles?on_conflict=dni,codigo_habilidad",
         {
             method: "POST",
             headers: {

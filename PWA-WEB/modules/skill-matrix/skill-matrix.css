@@ -398,6 +398,18 @@ thead tr.fila-habilidad th{
     vertical-align:bottom;
 }
 
+thead tr.fila-codigo th{
+    top:219px;
+    z-index:3;
+    height:24px;
+    padding:4px 2px !important;
+    font-size:10px;
+    font-weight:700;
+    color:#6b7280;
+    background:#f8fafc;
+    text-align:center;
+}
+
 .cat-GENERAL{ background:#6b7280; }
 .cat-INBOUND{ background:#2563eb; }
 .cat-OUTBOUND{ background:#7c3aed; }

@@ -228,11 +228,11 @@ function renderizarTabla(){
     let filaCategoria = "<tr class=\"fila-categoria\">";
 
     filaCategoria += `
-        <th class="col-fija col-fija-nombre" rowspan="2">Nombre</th>
-        <th class="col-fija col-fija-dni" rowspan="2">DNI</th>
-        <th class="col-fija col-fija-turno" rowspan="2">Turno</th>
-        <th class="col-fija col-fija-cargo" rowspan="2">Cargo</th>
-        <th class="col-fija col-fija-pct" rowspan="2">% Entren.</th>
+        <th class="col-fija col-fija-nombre" rowspan="3">Nombre</th>
+        <th class="col-fija col-fija-dni" rowspan="3">DNI</th>
+        <th class="col-fija col-fija-turno" rowspan="3">Turno</th>
+        <th class="col-fija col-fija-cargo" rowspan="3">Cargo</th>
+        <th class="col-fija col-fija-pct" rowspan="3">% Entren.</th>
     `;
 
     let i = 0;
@@ -263,7 +263,16 @@ function renderizarTabla(){
 
     filaHabilidad += "</tr>";
 
-    thead.innerHTML = filaCategoria + filaHabilidad;
+    // Fila 3: código (LAT-XXX / GEN-XX), igual que la fila 8 del Excel original
+    let filaCodigo = "<tr class=\"fila-codigo\">";
+
+    habs.forEach(function(h){
+        filaCodigo += `<th title="${escaparHtml(h.nombre)}">${escaparHtml(h.codigo)}</th>`;
+    });
+
+    filaCodigo += "</tr>";
+
+    thead.innerHTML = filaCategoria + filaHabilidad + filaCodigo;
 
     // ---- BODY ----
 
@@ -510,7 +519,7 @@ archivoExcel.addEventListener("change", async function(){
         btnImportar.textContent = "Guardando niveles...";
 
         await subirEnBloques(
-            "/skill_matrix_niveles",
+            "/skill_matrix_niveles?on_conflict=dni,codigo_habilidad",
             resultado.niveles,
             "resolution=merge-duplicates"
         );
