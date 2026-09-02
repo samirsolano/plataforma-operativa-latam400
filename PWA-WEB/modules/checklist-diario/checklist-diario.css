@@ -684,6 +684,14 @@ tfoot .fila-total td{
     box-sizing:border-box;
 }
 
+/* .oculto por sí sola pierde contra .modal-overlay-evidencia (misma
+   especificidad, ella está definida después) — este selector
+   compuesto es más específico y sí gana, así el modal arranca
+   oculto en vez de visible por defecto al cargar la página. */
+.modal-overlay-evidencia.oculto{
+    display:none;
+}
+
 .contenido-evidencia{
     max-width:90vw;
     max-height:90vh;
