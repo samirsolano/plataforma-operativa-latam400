@@ -36,6 +36,11 @@ function mostrarSeccionError(elAviso, mensaje){
 
 }
 
+// Guarda la última tabla armada (fechas ya ordenadas, más reciente
+// primero) para que "Exportar a Excel" no tenga que volver a pedir
+// todo — exporta exactamente lo que se está viendo en pantalla.
+let ddFilasHistoricoActual = [];
+
 async function cargarHistoricoDialogoDiario(){
 
   const aviso = document.getElementById("ddHistoricoAviso");
@@ -69,6 +74,8 @@ async function cargarHistoricoDialogoDiario(){
 
   const fechas = Object.keys(porFecha).sort().reverse(); // más reciente primero
 
+  ddFilasHistoricoActual = fechas.map(function(fecha){ return porFecha[fecha]; });
+
   if(!fechas.length){
     tbody.innerHTML = '<tr><td colspan="13" class="dd-tabla-vacio">Sin datos desde el ' + ddFormatoFechaLarga(DD_HISTORICO_DESDE) + '.</td></tr>';
     return;
@@ -95,5 +102,50 @@ async function cargarHistoricoDialogoDiario(){
       "</tr>";
 
   }).join("");
+
+}
+
+// =========================================================
+// EXPORTAR A EXCEL — mismas columnas que la tabla en pantalla,
+// vía SheetJS (ya cargado en esta página para "Cargar Data SAP").
+// =========================================================
+
+function exportarHistoricoDialogoDiario(){
+
+  if(!ddFilasHistoricoActual.length){
+    mostrarAlertaModal("Todavía no hay datos cargados para exportar.", "warning");
+    return;
+  }
+
+  const encabezados = [
+    "Fecha",
+    "Despacho Extracción (TON)", "Despacho Picking (TON)",
+    "Extracción turno día", "Extracción turno noche",
+    "Picking turno día", "Picking turno noche",
+    "Tiempo de estadía despacho (h)", "Tiempo de estadía RL (h)",
+    "Tiempo de estadía CM (h)", "Tiempo de estadía NS Chico (h)",
+    "Tiempo de estadía LD (h)", "Tiempo de estadía Traslado (h)"
+  ];
+
+  const filas = ddFilasHistoricoActual.map(function(d){
+    return [
+      ddFormatoFechaLarga(d.fecha),
+      d.extraccionTotal ?? "", d.pickingTotal ?? "",
+      d.extraccionDia ?? "", d.extraccionNoche ?? "",
+      d.pickingDia ?? "", d.pickingNoche ?? "",
+      d.despacho ?? "", d.RL ?? "",
+      d.CM ?? "", d.nsChico ?? "",
+      d.LD ?? "", d.traslado ?? ""
+    ];
+  });
+
+  const hoja = XLSX.utils.aoa_to_sheet([encabezados].concat(filas));
+  const libro = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(libro, hoja, "Dialogo Diario");
+
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  XLSX.writeFile(libro, "dialogo-diario-" + hoy + ".xlsx");
 
 }

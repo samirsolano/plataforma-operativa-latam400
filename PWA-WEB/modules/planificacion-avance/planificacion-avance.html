@@ -993,8 +993,11 @@
         <div id="modDialogoDiario" style="display:none;">
 
           <div class="dd-topbar">
-            <h2>DIÁLOGO DIARIO</h2>
-            <p>Despacho (SAP) y Tiempo de estadía (L400) — un renglón por día, desde agosto 2026</p>
+            <div>
+              <h2>DIÁLOGO DIARIO</h2>
+              <p>Despacho (SAP) y Tiempo de estadía (L400) — un renglón por día, desde agosto 2026</p>
+            </div>
+            <button class="dd-btn-exportar" id="ddBtnExportar" onclick="exportarHistoricoDialogoDiario()">⬇️ Exportar a Excel</button>
           </div>
 
           <p class="dd-aviso" id="ddHistoricoAviso"></p>
