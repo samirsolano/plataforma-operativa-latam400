@@ -430,6 +430,7 @@ function pintarPendientes(cabeceraDia, colaboradoresTurno){
     cont.innerHTML = "";
 
     let totalPendientes = 0;
+    const supervisoresPendientes = new Set();
 
     ZONAS_5S.forEach(function(zona){
 
@@ -456,6 +457,12 @@ function pintarPendientes(cabeceraDia, colaboradoresTurno){
         }
 
         totalPendientes += pendientesZona.length;
+
+        pendientesZona.forEach(function(p){
+            if(p.SUPERVISOR){
+                supervisoresPendientes.add(p.SUPERVISOR);
+            }
+        });
 
         const bloque = document.createElement("div");
         bloque.className = "zona-pendiente";
@@ -485,6 +492,24 @@ function pintarPendientes(cabeceraDia, colaboradoresTurno){
     }
 
     document.getElementById("lblTotalPendientes").textContent = totalPendientes;
+
+    const lblSupervisor = document.getElementById("lblSupervisorPendientes");
+
+    if(supervisoresPendientes.size){
+
+        document.getElementById("lblEtiquetaSupervisorPendientes").textContent =
+            supervisoresPendientes.size > 1 ? "Supervisores:" : "Supervisor:";
+
+        document.getElementById("lblNombreSupervisorPendientes").textContent =
+            Array.from(supervisoresPendientes).sort().join(", ");
+
+        lblSupervisor.style.display = "block";
+
+    }else{
+
+        lblSupervisor.style.display = "none";
+
+    }
 
 }
 
