@@ -660,6 +660,7 @@ tfoot .fila-total td{
     overflow:hidden;
     height:64px;
     background:#f3f4f6;
+    cursor:pointer;
 }
 
 .evidencia img{
@@ -667,6 +668,63 @@ tfoot .fila-total td{
     height:100%;
     object-fit:cover;
     display:block;
+}
+
+/* LIGHTBOX: evidencia en grande */
+
+.modal-overlay-evidencia{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.85);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+    padding:30px;
+    box-sizing:border-box;
+}
+
+.contenido-evidencia{
+    max-width:90vw;
+    max-height:90vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+}
+
+.contenido-evidencia img{
+    max-width:90vw;
+    max-height:80vh;
+    border-radius:10px;
+    box-shadow:0 10px 40px rgba(0,0,0,.4);
+    object-fit:contain;
+}
+
+.contenido-evidencia p{
+    color:white;
+    font-size:13px;
+    text-align:center;
+    margin:0;
+}
+
+.btn-cerrar-evidencia{
+    position:fixed;
+    top:20px;
+    right:24px;
+    background:rgba(255,255,255,.15);
+    color:white;
+    border:none;
+    width:38px;
+    height:38px;
+    border-radius:50%;
+    font-size:18px;
+    cursor:pointer;
+    z-index:1001;
+}
+
+.btn-cerrar-evidencia:hover{
+    background:rgba(255,255,255,.3);
 }
 
 .evidencia-etiqueta{

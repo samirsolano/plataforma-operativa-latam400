@@ -652,6 +652,8 @@ function pintarEvidencias(detalleDia, cabeceraDia){
 
         const cab = cabeceraPorId[r.ID_AUDITORIA] || {};
         const url = "https://drive.google.com/thumbnail?id=" + idDrive + "&sz=w400";
+        const urlGrande = "https://drive.google.com/thumbnail?id=" + idDrive + "&sz=w1600";
+        const etiqueta = normalizarZona5S(cab.ZONA) + " · " + (cab.PASILLO || "") + " · " + (r.S || "");
 
         const div = document.createElement("div");
         div.className = "evidencia";
@@ -659,9 +661,13 @@ function pintarEvidencias(detalleDia, cabeceraDia){
         div.innerHTML = `
             <img src="${url}" alt="Evidencia ${r.S || ""}" loading="lazy">
             <div class="evidencia-etiqueta">
-                ${normalizarZona5S(cab.ZONA)} · ${cab.PASILLO || ""} · ${r.S || ""}
+                ${etiqueta}
             </div>
         `;
+
+        div.addEventListener("click", function(){
+            abrirEvidencia(urlGrande, etiqueta);
+        });
 
         cont.appendChild(div);
 
@@ -669,6 +675,29 @@ function pintarEvidencias(detalleDia, cabeceraDia){
 
     if(!cont.children.length){
         cont.innerHTML = `<p class="sin-datos">Sin evidencias fotográficas registradas.</p>`;
+    }
+
+}
+
+// ========================================
+// LIGHTBOX: evidencia en grande
+// ========================================
+
+function abrirEvidencia(url, etiqueta){
+
+    document.getElementById("imgEvidenciaGrande").src = url;
+    document.getElementById("lblEvidenciaGrandeEtiqueta").textContent = etiqueta;
+    document.getElementById("modalEvidencia").classList.remove("oculto");
+
+}
+
+function cerrarEvidencia(event){
+
+    if(
+        event.target.id === "modalEvidencia" ||
+        event.target.classList.contains("btn-cerrar-evidencia")
+    ){
+        document.getElementById("modalEvidencia").classList.add("oculto");
     }
 
 }
