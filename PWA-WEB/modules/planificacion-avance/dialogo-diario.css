@@ -10,8 +10,9 @@
   font-family: 'Segoe UI', Arial, sans-serif;
   color: #1c2b3a;
   height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .dd-topbar {
@@ -93,15 +94,18 @@
   border: 1px solid #e9edf1;
   border-radius: 12px;
   padding: 6px 16px;
-  margin-bottom: 12px;
   box-shadow: 0 2px 8px rgba(20,30,50,.05);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .dd-tabla-scroll {
   width: 100%;
-  overflow-x: auto;
-  max-height: 420px;
-  overflow-y: auto;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .dd-tabla-historico {

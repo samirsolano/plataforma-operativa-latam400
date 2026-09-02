@@ -8,7 +8,11 @@
 
 function abrirDialogoDiario(){
 
-  document.getElementById("modDialogoDiario").style.display = "block";
+  // "flex", no "block": #modDialogoDiario es un contenedor flex-column
+  // (ver dialogo-diario.css) para que la tabla ocupe el alto
+  // disponible en vez de quedar con un espacio vacío abajo. Un
+  // style.display inline en "block" pisaría ese layout.
+  document.getElementById("modDialogoDiario").style.display = "flex";
 
   cargarHistoricoDialogoDiario();
 
