@@ -362,6 +362,13 @@ body{
 th.col-fija{
     background:#f8fafc;
     z-index:4;
+    /* Más específico que ".fila-categoria th" (que pinta el texto de
+       blanco para las categorías de colores) — estas 5 son las
+       columnas fijas del colaborador, con fondo claro, así que su
+       texto tiene que quedar oscuro sí o sí. */
+    color:#374151 !important;
+    text-transform:none !important;
+    letter-spacing:normal !important;
 }
 
 .col-fija-nombre{ left:0; min-width:190px; max-width:230px; white-space:normal; }
