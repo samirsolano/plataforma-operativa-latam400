@@ -204,6 +204,126 @@ async function obtenerResumenEstadiaDialogo(fecha){
 }
 
 // ---------------------------------------------------------
+// HISTÓRICO (gráfico lineal) — Extracción/Picking por día y Tiempo
+// de estadía despacho por día, desde DD_HISTORICO_DESDE hasta hoy.
+// ---------------------------------------------------------
+
+// Pedido explícito: arranca en agosto (la data SAP en sí empieza el
+// 27/07/2026, pero julio queda fuera a propósito).
+const DD_HISTORICO_DESDE = "2026-08-01";
+
+// Usa la función resumen_diario_sap (ver resumen-diario-sap.sql) en
+// vez de traer las filas crudas: un mes de tareas_almacen_sap son
+// ~120,000 filas, inviable para el navegador. La función ya suma
+// del lado del servidor y devuelve una fila por día+turno+proceso.
+async function ddObtenerHistoricoSap(desde){
+
+  const filas = await planifFetch(
+    "/rpc/resumen_diario_sap?p_desde=" + encodeURIComponent(desde)
+  ) || [];
+
+  const porDia = {}; // fecha -> { extraccion, picking }
+
+  filas.forEach(function(f){
+
+    const fecha = f.fecha;
+    const proceso = (f.proceso || "").toUpperCase();
+    const tn = Number(f.tn) || 0;
+
+    if(proceso !== "EXTRACCION" && proceso !== "PICKING"){
+      return;
+    }
+
+    if(!porDia[fecha]){
+      porDia[fecha] = { extraccion: 0, picking: 0 };
+    }
+
+    porDia[fecha][proceso === "EXTRACCION" ? "extraccion" : "picking"] += tn;
+
+  });
+
+  return Object.keys(porDia).sort().map(function(fecha){
+    return {
+      fecha: fecha,
+      extraccion: ddRedondear(porDia[fecha].extraccion),
+      picking: ddRedondear(porDia[fecha].picking)
+    };
+  });
+
+}
+
+// Rango completo en una sola consulta (gviz permite filtrar por
+// rango de fecha del lado de Google, no hace falta pedir día por día).
+async function ddObtenerHistoricoEstadiaL400(desde){
+
+  const consulta = "select D, AM, AO where AM >= date '" + desde + "'";
+
+  const url =
+    "https://docs.google.com/spreadsheets/d/" + SHEET_ID_PLANIF +
+    "/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent(SHEET_NOMBRE_L400) +
+    "&tq=" + encodeURIComponent(consulta);
+
+  const respuesta = await fetch(url);
+
+  if(!respuesta.ok){
+    throw new Error("No se pudo leer el histórico de Tiempo de estadía (Sheet L400)");
+  }
+
+  const texto = await respuesta.text();
+  const filas = parsearCSVFilas(texto);
+
+  const porDia = {}; // "YYYY-MM-DD" -> [estadias]
+
+  filas.forEach(function(fila){
+
+    const gestion = fila[0];
+
+    // gviz devuelve la fecha como texto "DD/MM/YYYY" (verificado con
+    // una consulta real) — se convierte a "YYYY-MM-DD" con el mismo
+    // helper que ya usa el resto de Planificación y Avance, para que
+    // ordene bien y calce con las fechas que vienen de Supabase (SAP).
+    const fechaISO = convertirFechaPlanif(fila[1]);
+    const estadia = Number(String(fila[2] || "").replace(/,/g, ""));
+
+    if(!gestion || !fechaISO || isNaN(estadia)){
+      return;
+    }
+
+    if(!porDia[fechaISO]){
+      porDia[fechaISO] = [];
+    }
+
+    porDia[fechaISO].push(estadia);
+
+  });
+
+  return Object.keys(porDia).sort().map(function(fecha){
+    return {
+      fecha: fecha,
+      promedio: ddPromedio(porDia[fecha])
+    };
+  });
+
+}
+
+async function obtenerHistoricoDialogoDiario(){
+
+  const [sap, estadia] = await Promise.allSettled([
+    ddObtenerHistoricoSap(DD_HISTORICO_DESDE),
+    ddObtenerHistoricoEstadiaL400(DD_HISTORICO_DESDE)
+  ]);
+
+  return {
+    desde: DD_HISTORICO_DESDE,
+    sap: sap.status === "fulfilled" ? sap.value : null,
+    sapError: sap.status === "rejected" ? sap.reason : null,
+    estadia: estadia.status === "fulfilled" ? estadia.value : null,
+    estadiaError: estadia.status === "rejected" ? estadia.reason : null
+  };
+
+}
+
+// ---------------------------------------------------------
 // FUNCIÓN PRINCIPAL: junta ambas fuentes para una fecha
 // ---------------------------------------------------------
 async function obtenerDialogoDiario(fecha){

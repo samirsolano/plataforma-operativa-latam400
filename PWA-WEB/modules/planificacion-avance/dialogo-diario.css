@@ -68,3 +68,53 @@
 @media (max-width: 900px) {
   .dd-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+.dd-card-chart {
+  background: #fff;
+  border: 1px solid #e9edf1;
+  border-radius: 12px;
+  padding: 6px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(20,30,50,.05);
+}
+
+.dd-tabla-scroll {
+  width: 100%;
+  overflow-x: auto;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.dd-tabla-historico {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.dd-tabla-historico thead th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  border-bottom: 2px solid #e9edf1;
+}
+
+.dd-tabla-historico td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #f1f4f7;
+  color: #1c2b3a;
+}
+
+.dd-tabla-historico tbody tr:hover { background: #f9fafb; }
+
+.dd-tabla-vacio {
+  text-align: center;
+  color: #9aa5b1;
+  padding: 24px !important;
+}
