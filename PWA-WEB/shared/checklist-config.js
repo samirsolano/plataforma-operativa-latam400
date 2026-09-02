@@ -22,9 +22,12 @@ async function checklistFetch(ruta, opciones = {}){
         opciones.headers || {}
     );
 
+    // Sin esto, algunos navegadores sirven una respuesta vieja desde
+    // su caché HTTP en vez de pedirla de nuevo — por eso a veces se
+    // ve el roster desactualizado aunque ya se haya activado el mes.
     const respuesta = await fetch(
         SUPABASE_URL_CHECKLIST + ruta,
-        Object.assign({}, opciones, { headers })
+        Object.assign({ cache: "no-store" }, opciones, { headers })
     );
 
     if(!respuesta.ok){
