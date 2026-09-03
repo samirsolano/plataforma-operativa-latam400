@@ -741,6 +741,12 @@ tfoot .fila-total td{
     margin:0;
 }
 
+.pregunta-evidencia{
+    max-width:500px;
+    line-height:1.5;
+    color:#e5e7eb !important;
+}
+
 .btn-cerrar-evidencia{
     position:fixed;
     top:20px;

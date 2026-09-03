@@ -666,7 +666,7 @@ function pintarEvidencias(detalleDia, cabeceraDia){
         `;
 
         div.addEventListener("click", function(){
-            abrirEvidencia(urlGrande, etiqueta);
+            abrirEvidencia(urlGrande, etiqueta, r.PREGUNTA, r.RESPUESTA);
         });
 
         cont.appendChild(div);
@@ -683,10 +683,26 @@ function pintarEvidencias(detalleDia, cabeceraDia){
 // LIGHTBOX: evidencia en grande
 // ========================================
 
-function abrirEvidencia(url, etiqueta){
+function abrirEvidencia(url, etiqueta, pregunta, respuesta){
 
     document.getElementById("imgEvidenciaGrande").src = url;
     document.getElementById("lblEvidenciaGrandeEtiqueta").textContent = etiqueta;
+
+    const lblPregunta = document.getElementById("lblEvidenciaGrandePregunta");
+
+    if(pregunta){
+
+        lblPregunta.innerHTML =
+            "<b>" + pregunta + "</b><br>Respuesta: " + (respuesta || "-");
+
+        lblPregunta.style.display = "block";
+
+    }else{
+
+        lblPregunta.style.display = "none";
+
+    }
+
     document.getElementById("modalEvidencia").classList.remove("oculto");
 
 }
