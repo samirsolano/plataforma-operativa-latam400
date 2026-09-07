@@ -56,6 +56,21 @@ const MARCAS_HIGIENE = [
     { valor: "NA", etiqueta: "N.A." }
 ];
 
+// El equipo carga con todo en Conforme por defecto — el supervisor
+// solo entra a corregir (y a poner observación) a quien tenga algo
+// distinto, en vez de marcar los 6 criterios de cada persona a mano.
+function marcasTodoConforme(){
+
+    const marcas = {};
+
+    CRITERIOS_HIGIENE.forEach(function(c){
+        marcas[c.clave] = "C";
+    });
+
+    return marcas;
+
+}
+
 // ========================================
 // SUPERVISOR + EQUIPO (desde colaboradores_activos)
 // ========================================
@@ -79,9 +94,32 @@ async function obtenerSupervisoresHigiene(){
 async function obtenerEquipoPorSupervisor(supervisor){
 
     const filas = await checklistFetch(
-        "/colaboradores_activos?select=dni,nombre&activo=eq.true&supervisor=eq." +
+        "/colaboradores_activos?select=dni,nombre,turno&activo=eq.true&supervisor=eq." +
         encodeURIComponent(supervisor) +
         "&order=nombre.asc"
+    );
+
+    return filas || [];
+
+}
+
+// Busca por DNI o nombre en TODOS los colaboradores activos (de
+// cualquier supervisor/turno) — para el caso de alguien de apoyo que
+// no pertenece al equipo del supervisor seleccionado.
+async function buscarColaboradorPorTexto(texto){
+
+    const termino = String(texto || "").trim();
+
+    if(termino.length < 2){
+        return [];
+    }
+
+    const filtro = encodeURIComponent(termino);
+
+    const filas = await checklistFetch(
+        "/colaboradores_activos?select=dni,nombre,supervisor,turno&activo=eq.true" +
+        "&or=(dni.ilike.*" + filtro + "*,nombre.ilike.*" + filtro + "*)" +
+        "&order=nombre.asc&limit=8"
     );
 
     return filas || [];

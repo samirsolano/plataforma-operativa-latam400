@@ -117,6 +117,7 @@ document.getElementById("campoSupervisor").addEventListener("change", async func
     const mensaje = document.getElementById("mensajeEquipo");
     const contenedorTabla = document.getElementById("contenedorTablaEquipo");
     const btnAgregar = document.getElementById("btnAgregarPersona");
+    const barraAcciones = document.getElementById("barraAccionesEquipo");
 
     if(!supervisor){
         equipoActual = [];
@@ -125,6 +126,7 @@ document.getElementById("campoSupervisor").addEventListener("change", async func
         mensaje.classList.remove("oculto");
         contenedorTabla.classList.add("oculto");
         btnAgregar.classList.add("oculto");
+        barraAcciones.classList.add("oculto");
         return;
     }
 
@@ -140,9 +142,10 @@ document.getElementById("campoSupervisor").addEventListener("change", async func
             return {
                 dni: c.dni,
                 nombre: c.nombre,
+                turno: c.turno || "",
                 agregadoManual: false,
                 observaciones: "",
-                marcas: {}
+                marcas: marcasTodoConforme()
             };
         });
 
@@ -151,6 +154,7 @@ document.getElementById("campoSupervisor").addEventListener("change", async func
         if(equipoActual.length){
             mensaje.classList.add("oculto");
             contenedorTabla.classList.remove("oculto");
+            barraAcciones.classList.remove("oculto");
         }else{
             mensaje.textContent = "Este supervisor no tiene colaboradores activos registrados. Puedes agregar personas manualmente.";
         }
@@ -193,9 +197,22 @@ function renderizarEquipo(){
             ? `<input type="text" class="inputNombre" data-indice="${indice}" value="${persona.nombre || ""}" placeholder="Nombre completo">`
             : (persona.nombre || "-");
 
+        const turnoCabecera = document.getElementById("campoTurno").value;
+
+        const badgeTurno = (persona.turno && persona.turno !== turnoCabecera)
+            ? `<span class="badgeTurnoDistinto">Apoyo — Turno ${persona.turno}</span>`
+            : (persona.agregadoManual
+                ? `<select class="selectTurnoManual" data-indice="${indice}">
+                        <option value="" ${!persona.turno ? "selected" : ""}>Turno...</option>
+                        <option value="DIA" ${persona.turno === "DIA" ? "selected" : ""}>DIA</option>
+                        <option value="NOCHE" ${persona.turno === "NOCHE" ? "selected" : ""}>NOCHE</option>
+                        <option value="INTERMEDIO" ${persona.turno === "INTERMEDIO" ? "selected" : ""}>INTERMEDIO</option>
+                   </select>`
+                : "");
+
         let html = `
             <td class="colCodigo">${celdaCodigo}</td>
-            <td class="colNombre">${celdaNombre}</td>
+            <td class="colNombre">${celdaNombre}${badgeTurno}</td>
         `;
 
         CRITERIOS_HIGIENE.forEach(function(criterio){
@@ -279,18 +296,152 @@ document.getElementById("cuerpoTablaEquipo").addEventListener("input", function(
 
 });
 
+document.getElementById("cuerpoTablaEquipo").addEventListener("change", function(e){
+
+    if(!e.target.classList.contains("selectTurnoManual")){
+        return;
+    }
+
+    const indice = parseInt(e.target.dataset.indice, 10);
+    equipoActual[indice].turno = e.target.value;
+
+});
+
 // ========================================
-// AGREGAR PERSONA MANUAL
+// AGREGAR PERSONA (buscando en colaboradores_activos, de
+// cualquier supervisor/turno — para el caso de alguien de apoyo)
 // ========================================
 
-document.getElementById("btnAgregarPersona").addEventListener("click", function(){
+const panelAgregar = document.getElementById("panelAgregar");
+const buscadorAgregar = document.getElementById("buscadorAgregar");
+const resultadosAgregar = document.getElementById("resultadosAgregar");
+
+function agregarPersonaAlEquipo(datos){
+
+    const yaEsta = equipoActual.some(function(p){ return p.dni === datos.dni; });
+
+    if(yaEsta){
+        alert("Esa persona ya está en la lista de hoy.");
+        return;
+    }
 
     equipoActual.push({
-        dni: "",
-        nombre: "",
+        dni: datos.dni || "",
+        nombre: datos.nombre || "",
+        turno: datos.turno || "",
         agregadoManual: true,
         observaciones: "",
-        marcas: {}
+        marcas: marcasTodoConforme()
+    });
+
+    renderizarEquipo();
+
+    document.getElementById("contenedorTablaEquipo").classList.remove("oculto");
+    document.getElementById("barraAccionesEquipo").classList.remove("oculto");
+
+    cerrarPanelAgregar();
+
+}
+
+function cerrarPanelAgregar(){
+    panelAgregar.classList.add("oculto");
+    buscadorAgregar.value = "";
+    resultadosAgregar.innerHTML = "";
+}
+
+document.getElementById("btnAgregarPersona").addEventListener("click", function(){
+    panelAgregar.classList.remove("oculto");
+    buscadorAgregar.focus();
+});
+
+document.getElementById("btnCerrarPanelAgregar").addEventListener("click", cerrarPanelAgregar);
+
+document.getElementById("btnAgregarSinBuscar").addEventListener("click", function(){
+    agregarPersonaAlEquipo({ dni: "", nombre: "", turno: "" });
+});
+
+let temporizadorBusqueda = null;
+
+buscadorAgregar.addEventListener("input", function(){
+
+    const texto = this.value;
+
+    clearTimeout(temporizadorBusqueda);
+
+    if(texto.trim().length < 2){
+        resultadosAgregar.innerHTML = "";
+        return;
+    }
+
+    temporizadorBusqueda = setTimeout(async function(){
+
+        try{
+
+            const encontrados = await buscarColaboradorPorTexto(texto);
+
+            if(!encontrados.length){
+                resultadosAgregar.innerHTML = `<p class="resultadoAgregarVacio">Sin coincidencias.</p>`;
+                return;
+            }
+
+            resultadosAgregar.innerHTML = encontrados.map(function(c){
+                return `
+                    <div class="resultadoAgregarItem" data-dni="${c.dni}" data-nombre="${c.nombre}" data-turno="${c.turno || ""}">
+                        <div>
+                            <div class="resultadoAgregarNombre">${c.nombre}</div>
+                            <div class="resultadoAgregarDetalle">DNI ${c.dni} · Turno ${c.turno || "-"} · Supervisor ${c.supervisor || "-"}</div>
+                        </div>
+                        <div>+ Agregar</div>
+                    </div>
+                `;
+            }).join("");
+
+        }catch(error){
+
+            console.error(error);
+            resultadosAgregar.innerHTML = `<p class="resultadoAgregarVacio">No se pudo buscar. Intenta de nuevo.</p>`;
+
+        }
+
+    }, 300);
+
+});
+
+resultadosAgregar.addEventListener("click", function(e){
+
+    const item = e.target.closest(".resultadoAgregarItem");
+
+    if(!item){
+        return;
+    }
+
+    agregarPersonaAlEquipo({
+        dni: item.dataset.dni,
+        nombre: item.dataset.nombre,
+        turno: item.dataset.turno
+    });
+
+});
+
+// ========================================
+// MARCAR TODOS CONFORME
+// ========================================
+// Pone las 6 columnas en "C" para todo el equipo cargado, para que
+// el supervisor solo tenga que entrar a corregir a quien tenga algo
+// distinto — en vez de marcar los 6 criterios persona por persona.
+
+document.getElementById("btnMarcarTodoConforme").addEventListener("click", function(){
+
+    if(!equipoActual.length){
+        return;
+    }
+
+    equipoActual.forEach(function(persona){
+
+        CRITERIOS_HIGIENE.forEach(function(criterio){
+            persona.marcas[criterio.clave] = "C";
+        });
+
     });
 
     renderizarEquipo();
@@ -322,6 +473,7 @@ function armarDetalle(){
         return {
             dni: p.dni,
             nombre: p.nombre,
+            turno: p.turno || null,
             uniforme_epp: p.marcas.uniforme_epp || null,
             manos_unas: p.marcas.manos_unas || null,
             cabello: p.marcas.cabello || null,

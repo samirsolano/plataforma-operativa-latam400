@@ -126,6 +126,16 @@
                         Selecciona un supervisor para cargar a su equipo.
                     </p>
 
+                    <div class="barraAccionesEquipo oculto" id="barraAccionesEquipo">
+
+                        <button type="button" class="btn-secundario btn-marcar-todo" id="btnMarcarTodoConforme">
+                            ✓ Marcar todos Conforme
+                        </button>
+
+                        <span class="notaMarcarTodo">Luego corrige solo a quien tenga algo distinto.</span>
+
+                    </div>
+
                     <div class="tabla-scroll oculto" id="contenedorTablaEquipo">
 
                         <table id="tablaEquipo">
@@ -152,8 +162,35 @@
                     </div>
 
                     <button type="button" class="btn-secundario oculto" id="btnAgregarPersona">
-                        + Agregar persona
+                        + Agregar persona (ej. apoyo de otro turno)
                     </button>
+
+                    <div class="panelAgregar oculto" id="panelAgregar">
+
+                        <label>Buscar por DNI o nombre (de cualquier turno/supervisor)</label>
+
+                        <input
+                            type="text"
+                            id="buscadorAgregar"
+                            placeholder="Escribe al menos 2 letras..."
+                            autocomplete="off"
+                        >
+
+                        <div id="resultadosAgregar" class="resultadosAgregar"></div>
+
+                        <div class="panelAgregarAcciones">
+
+                            <button type="button" class="btn-texto" id="btnAgregarSinBuscar">
+                                No lo encuentro, agregar a mano
+                            </button>
+
+                            <button type="button" class="btn-texto" id="btnCerrarPanelAgregar">
+                                Cancelar
+                            </button>
+
+                        </div>
+
+                    </div>
 
                     <details class="leyenda" id="bloqueLeyenda">
                         <summary>Ver criterios de evaluación</summary>
