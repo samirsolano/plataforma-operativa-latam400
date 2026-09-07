@@ -1,0 +1,571 @@
+// ========================================
+// SESIÓN Y PERMISOS
+// ========================================
+
+const sesion = requerirSesion();
+
+if(sesion && sesion.rol !== "Administrador" && sesion.rol !== "Supervisor"){
+    window.location.href = "../inicio/home.html";
+}
+
+if(sesion){
+    document.getElementById("nombreUsuario").textContent = sesion.nombre_completo;
+    document.getElementById("rolUsuario").textContent = sesion.rol;
+    document.getElementById("campoResponsableVerificacion").value = sesion.nombre_completo || "";
+}
+
+const btnPerfil = document.getElementById("btnPerfil");
+const menuUsuario = document.getElementById("menuUsuario");
+
+btnPerfil.addEventListener("click", function(e){
+    e.stopPropagation();
+    menuUsuario.style.display = menuUsuario.style.display === "block" ? "none" : "block";
+});
+
+document.addEventListener("click", function(){
+    menuUsuario.style.display = "none";
+});
+
+document.getElementById("btnCerrarSesion").addEventListener("click", function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    cerrarSesion();
+});
+
+// ========================================
+// ESTADO
+// ========================================
+
+// Cada persona: { dni, nombre, agregadoManual, observaciones,
+// marcas: { uniforme_epp, manos_unas, cabello, rostro,
+// objetos_no_autorizados, sintomas_enfermedad } }
+let equipoActual = [];
+
+// ========================================
+// LEYENDA
+// ========================================
+
+function pintarLeyenda(){
+
+    const cont = document.getElementById("contenidoLeyenda");
+
+    cont.innerHTML = CRITERIOS_HIGIENE.map(function(c){
+        return `<div class="itemLeyenda"><b>(${c.numero}) ${c.titulo}:</b> ${c.detalle}</div>`;
+    }).join("");
+
+}
+
+pintarLeyenda();
+
+// ========================================
+// FECHA POR DEFECTO
+// ========================================
+
+function fechaHoyISO(){
+    const ahora = new Date();
+    const offset = ahora.getTimezoneOffset() * 60000;
+    return new Date(ahora.getTime() - offset).toISOString().slice(0, 10);
+}
+
+document.getElementById("campoFecha").value = fechaHoyISO();
+
+// ========================================
+// SUPERVISORES
+// ========================================
+
+async function cargarSupervisores(){
+
+    try{
+
+        const supervisores = await obtenerSupervisoresHigiene();
+
+        const selectFormulario = document.getElementById("campoSupervisor");
+        const selectHistorial = document.getElementById("filtroHistorialSupervisor");
+
+        supervisores.forEach(function(nombre){
+
+            const opcion1 = document.createElement("option");
+            opcion1.value = nombre;
+            opcion1.textContent = nombre;
+            selectFormulario.appendChild(opcion1);
+
+            const opcion2 = document.createElement("option");
+            opcion2.value = nombre;
+            opcion2.textContent = nombre;
+            selectHistorial.appendChild(opcion2);
+
+        });
+
+    }catch(error){
+
+        console.error(error);
+        alert("No se pudo cargar la lista de supervisores.");
+
+    }
+
+}
+
+cargarSupervisores();
+
+// ========================================
+// CARGAR EQUIPO AL ELEGIR SUPERVISOR
+// ========================================
+
+document.getElementById("campoSupervisor").addEventListener("change", async function(){
+
+    const supervisor = this.value;
+    const mensaje = document.getElementById("mensajeEquipo");
+    const contenedorTabla = document.getElementById("contenedorTablaEquipo");
+    const btnAgregar = document.getElementById("btnAgregarPersona");
+
+    if(!supervisor){
+        equipoActual = [];
+        renderizarEquipo();
+        mensaje.textContent = "Selecciona un supervisor para cargar a su equipo.";
+        mensaje.classList.remove("oculto");
+        contenedorTabla.classList.add("oculto");
+        btnAgregar.classList.add("oculto");
+        return;
+    }
+
+    mensaje.textContent = "Cargando equipo...";
+    mensaje.classList.remove("oculto");
+    contenedorTabla.classList.add("oculto");
+
+    try{
+
+        const equipo = await obtenerEquipoPorSupervisor(supervisor);
+
+        equipoActual = equipo.map(function(c){
+            return {
+                dni: c.dni,
+                nombre: c.nombre,
+                agregadoManual: false,
+                observaciones: "",
+                marcas: {}
+            };
+        });
+
+        renderizarEquipo();
+
+        if(equipoActual.length){
+            mensaje.classList.add("oculto");
+            contenedorTabla.classList.remove("oculto");
+        }else{
+            mensaje.textContent = "Este supervisor no tiene colaboradores activos registrados. Puedes agregar personas manualmente.";
+        }
+
+        btnAgregar.classList.remove("oculto");
+
+    }catch(error){
+
+        console.error(error);
+        mensaje.textContent = "No se pudo cargar el equipo de este supervisor.";
+
+    }
+
+});
+
+// ========================================
+// RENDER TABLA
+// ========================================
+
+const CLAVES_MARCA = ["C", "NC", "NA"];
+
+function renderizarEquipo(){
+
+    const cuerpo = document.getElementById("cuerpoTablaEquipo");
+    cuerpo.innerHTML = "";
+
+    equipoActual.forEach(function(persona, indice){
+
+        const tr = document.createElement("tr");
+
+        if(persona.agregadoManual){
+            tr.classList.add("filaManual");
+        }
+
+        const celdaCodigo = persona.agregadoManual
+            ? `<input type="text" class="inputDni" data-indice="${indice}" value="${persona.dni || ""}" placeholder="DNI">`
+            : (persona.dni || "-");
+
+        const celdaNombre = persona.agregadoManual
+            ? `<input type="text" class="inputNombre" data-indice="${indice}" value="${persona.nombre || ""}" placeholder="Nombre completo">`
+            : (persona.nombre || "-");
+
+        let html = `
+            <td class="colCodigo">${celdaCodigo}</td>
+            <td class="colNombre">${celdaNombre}</td>
+        `;
+
+        CRITERIOS_HIGIENE.forEach(function(criterio){
+
+            html += `<td><div class="grupoMarcas" data-indice="${indice}" data-criterio="${criterio.clave}">`;
+
+            CLAVES_MARCA.forEach(function(valor){
+
+                const activo = persona.marcas[criterio.clave] === valor ? " activo" : "";
+                const clase = valor === "C" ? "marcaC" : (valor === "NC" ? "marcaNC" : "marcaNA");
+
+                html += `<button type="button" class="btnMarca ${clase}${activo}" data-valor="${valor}">${valor}</button>`;
+
+            });
+
+            html += `</div></td>`;
+
+        });
+
+        html += `
+            <td><input type="text" class="inputObservaciones" data-indice="${indice}" value="${persona.observaciones || ""}" placeholder="Observaciones"></td>
+            <td><button type="button" class="btnQuitarFila" data-indice="${indice}" title="Quitar de este día">✕</button></td>
+        `;
+
+        tr.innerHTML = html;
+        cuerpo.appendChild(tr);
+
+    });
+
+}
+
+// Clicks dentro de la tabla (delegado, porque las filas se re-crean).
+document.getElementById("cuerpoTablaEquipo").addEventListener("click", function(e){
+
+    const botonMarca = e.target.closest(".btnMarca");
+
+    if(botonMarca){
+
+        const grupo = botonMarca.closest(".grupoMarcas");
+        const indice = parseInt(grupo.dataset.indice, 10);
+        const criterio = grupo.dataset.criterio;
+        const valor = botonMarca.dataset.valor;
+
+        equipoActual[indice].marcas[criterio] = valor;
+        renderizarEquipo();
+
+        return;
+
+    }
+
+    const botonQuitar = e.target.closest(".btnQuitarFila");
+
+    if(botonQuitar){
+
+        const indice = parseInt(botonQuitar.dataset.indice, 10);
+        equipoActual.splice(indice, 1);
+        renderizarEquipo();
+
+        return;
+
+    }
+
+});
+
+// Inputs de texto dentro de la tabla (delegado también).
+document.getElementById("cuerpoTablaEquipo").addEventListener("input", function(e){
+
+    const indice = parseInt(e.target.dataset.indice, 10);
+
+    if(isNaN(indice)){
+        return;
+    }
+
+    if(e.target.classList.contains("inputDni")){
+        equipoActual[indice].dni = e.target.value.trim();
+    }else if(e.target.classList.contains("inputNombre")){
+        equipoActual[indice].nombre = e.target.value;
+    }else if(e.target.classList.contains("inputObservaciones")){
+        equipoActual[indice].observaciones = e.target.value;
+    }
+
+});
+
+// ========================================
+// AGREGAR PERSONA MANUAL
+// ========================================
+
+document.getElementById("btnAgregarPersona").addEventListener("click", function(){
+
+    equipoActual.push({
+        dni: "",
+        nombre: "",
+        agregadoManual: true,
+        observaciones: "",
+        marcas: {}
+    });
+
+    renderizarEquipo();
+
+});
+
+// ========================================
+// ARMAR CABECERA / DETALLE
+// ========================================
+
+function armarCabecera(){
+
+    return {
+        fecha: document.getElementById("campoFecha").value,
+        turno: document.getElementById("campoTurno").value,
+        area: document.getElementById("campoArea").value.trim() || "Almacén",
+        supervisor: document.getElementById("campoSupervisor").value,
+        responsable_verificacion: document.getElementById("campoResponsableVerificacion").value.trim(),
+        responsable_operacion_nombre: document.getElementById("campoResponsableOperacion").value.trim(),
+        creado_por_dni: sesion ? sesion.usuario || "" : "",
+        creado_por_nombre: sesion ? sesion.nombre_completo || "" : ""
+    };
+
+}
+
+function armarDetalle(){
+
+    return equipoActual.map(function(p){
+        return {
+            dni: p.dni,
+            nombre: p.nombre,
+            uniforme_epp: p.marcas.uniforme_epp || null,
+            manos_unas: p.marcas.manos_unas || null,
+            cabello: p.marcas.cabello || null,
+            rostro: p.marcas.rostro || null,
+            objetos_no_autorizados: p.marcas.objetos_no_autorizados || null,
+            sintomas_enfermedad: p.marcas.sintomas_enfermedad || null,
+            observaciones: p.observaciones || "",
+            agregado_manual: !!p.agregadoManual
+        };
+    });
+
+}
+
+function validarFormulario(){
+
+    const mensaje = document.getElementById("mensajeErrorFormulario");
+    mensaje.textContent = "";
+
+    const cabecera = armarCabecera();
+
+    if(!cabecera.fecha || !cabecera.turno || !cabecera.supervisor){
+        mensaje.textContent = "Completa fecha, turno y supervisor.";
+        return false;
+    }
+
+    if(!equipoActual.length){
+        mensaje.textContent = "Agrega al menos una persona antes de guardar.";
+        return false;
+    }
+
+    for(let i = 0; i < equipoActual.length; i++){
+
+        const p = equipoActual[i];
+
+        if(!p.dni || !p.nombre){
+            mensaje.textContent = "Hay una fila sin DNI o nombre completo.";
+            return false;
+        }
+
+        const criteriosFaltantes = CRITERIOS_HIGIENE.some(function(c){
+            return !p.marcas[c.clave];
+        });
+
+        if(criteriosFaltantes){
+            mensaje.textContent = `Falta marcar algún criterio para ${p.nombre}.`;
+            return false;
+        }
+
+    }
+
+    return true;
+
+}
+
+// ========================================
+// GUARDAR
+// ========================================
+
+document.getElementById("btnGuardar").addEventListener("click", async function(){
+
+    if(!validarFormulario()){
+        return;
+    }
+
+    const btn = this;
+    btn.disabled = true;
+    btn.textContent = "Guardando...";
+
+    try{
+
+        await guardarChecklistHigiene(armarCabecera(), armarDetalle());
+
+        alert("Checklist de higiene guardado correctamente.");
+
+        equipoActual = [];
+        document.getElementById("campoSupervisor").value = "";
+        document.getElementById("campoResponsableOperacion").value = "";
+        renderizarEquipo();
+        document.getElementById("contenedorTablaEquipo").classList.add("oculto");
+        document.getElementById("btnAgregarPersona").classList.add("oculto");
+        document.getElementById("mensajeEquipo").textContent = "Selecciona un supervisor para cargar a su equipo.";
+        document.getElementById("mensajeEquipo").classList.remove("oculto");
+
+    }catch(error){
+
+        console.error(error);
+        document.getElementById("mensajeErrorFormulario").textContent =
+            "No se pudo guardar el checklist. Intenta de nuevo.";
+
+    }finally{
+
+        btn.disabled = false;
+        btn.textContent = "Guardar Checklist";
+
+    }
+
+});
+
+// ========================================
+// DESCARGAR EXCEL (formulario actual)
+// ========================================
+
+document.getElementById("btnDescargarExcel").addEventListener("click", async function(){
+
+    const cabecera = armarCabecera();
+
+    if(!cabecera.fecha || !cabecera.turno || !cabecera.supervisor){
+        document.getElementById("mensajeErrorFormulario").textContent =
+            "Completa fecha, turno y supervisor antes de descargar la plantilla.";
+        return;
+    }
+
+    const btn = this;
+    btn.disabled = true;
+
+    try{
+
+        await exportarPlantillaHigieneExcel(cabecera, armarDetalle());
+
+    }catch(error){
+
+        console.error(error);
+        alert("No se pudo generar el Excel. Revisa la consola para más detalle.");
+
+    }finally{
+
+        btn.disabled = false;
+
+    }
+
+});
+
+// ========================================
+// HISTORIAL
+// ========================================
+
+document.getElementById("btnVerHistorial").addEventListener("click", function(){
+
+    const vistaFormulario = document.getElementById("vistaFormulario");
+    const vistaHistorial = document.getElementById("vistaHistorial");
+
+    const mostrandoHistorial = !vistaHistorial.classList.contains("oculto");
+
+    if(mostrandoHistorial){
+
+        vistaHistorial.classList.add("oculto");
+        vistaFormulario.classList.remove("oculto");
+        this.textContent = "📋 Ver Historial";
+
+    }else{
+
+        vistaFormulario.classList.add("oculto");
+        vistaHistorial.classList.remove("oculto");
+        this.textContent = "✏️ Volver al Formulario";
+        cargarHistorial();
+
+    }
+
+});
+
+async function cargarHistorial(){
+
+    const tbody = document.getElementById("tblHistorial");
+    const mensajeVacio = document.getElementById("mensajeVacioHistorial");
+
+    tbody.innerHTML = "";
+    mensajeVacio.classList.add("oculto");
+
+    const filtros = {
+        fecha: document.getElementById("filtroHistorialFecha").value || undefined,
+        supervisor: document.getElementById("filtroHistorialSupervisor").value || undefined
+    };
+
+    try{
+
+        const registros = await listarChecklistsHigiene(filtros);
+
+        if(!registros || !registros.length){
+            mensajeVacio.classList.remove("oculto");
+            return;
+        }
+
+        registros.forEach(function(r){
+
+            const tr = document.createElement("tr");
+
+            const claseBadge = r.turno === "DIA" ? "badge-dia" : (r.turno === "NOCHE" ? "badge-noche" : "badge-intermedio");
+
+            tr.innerHTML = `
+                <td>${r.fecha}</td>
+                <td><span class="badge ${claseBadge}">${r.turno}</span></td>
+                <td>${r.area || "-"}</td>
+                <td>${r.supervisor}</td>
+                <td>${r.responsable_verificacion || "-"}</td>
+                <td><button type="button" class="btn-secundario btnDescargarHistorial" data-id="${r.id}">⬇️ Excel</button></td>
+            `;
+
+            tbody.appendChild(tr);
+
+        });
+
+    }catch(error){
+
+        console.error(error);
+        mensajeVacio.textContent = "No se pudo cargar el historial.";
+        mensajeVacio.classList.remove("oculto");
+
+    }
+
+}
+
+document.getElementById("btnFiltrarHistorial").addEventListener("click", cargarHistorial);
+
+document.getElementById("tblHistorial").addEventListener("click", async function(e){
+
+    const boton = e.target.closest(".btnDescargarHistorial");
+
+    if(!boton){
+        return;
+    }
+
+    const id = boton.dataset.id;
+
+    boton.disabled = true;
+    boton.textContent = "Generando...";
+
+    try{
+
+        const registros = await listarChecklistsHigiene({});
+        const cabecera = (registros || []).find(r => String(r.id) === String(id));
+        const detalle = await obtenerDetalleChecklist(id);
+
+        await exportarPlantillaHigieneExcel(cabecera, detalle || []);
+
+    }catch(error){
+
+        console.error(error);
+        alert("No se pudo generar el Excel de este registro.");
+
+    }finally{
+
+        boton.disabled = false;
+        boton.textContent = "⬇️ Excel";
+
+    }
+
+});

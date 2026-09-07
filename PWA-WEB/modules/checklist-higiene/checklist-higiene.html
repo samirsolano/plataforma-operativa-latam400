@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Checklist de Higiene - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="../../shared/checklist-sidebar.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="checklist-higiene.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+                <h1>CHECK LIST</h1>
+                <h1>5S</h1>
+                <span>LATAM 400 CL</span>
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+                </div>
+
+            </div>
+
+            <nav class="menu">
+                <a href="../checklist-diario/checklist-diario.html">Check List Diario</a>
+                <a href="checklist-higiene.html" class="activo">Checklist Higiene</a>
+                <a href="../carga-mensual/carga-mensual.html" id="linkCargaMensual">Carga Mensual</a>
+                <a href="../colaboradores-activos/colaboradores-activos.html" id="linkColaboradoresActivos">Colaboradores Activos</a>
+                <a href="../fotos-colaboradores/fotos-colaboradores.html" id="linkFotosColaboradores">Fotos de Colaboradores</a>
+                <a href="../preguntas-checklist/preguntas-checklist.html" id="linkPreguntasChecklist">Preguntas Checklist</a>
+                <a href="../reporte-checklist/reporte-checklist.html" id="linkReporteChecklist">Reporte Semanal/Mensual</a>
+            </nav>
+
+        </aside>
+
+        <main class="contenido">
+
+            <div class="contenedor">
+
+                <header class="header">
+
+                    <div>
+                        <h1>Checklist de Higiene</h1>
+                        <p class="subtitulo">Verificación de Higiene y Estado de Salud del Personal (ALI-R-GC-00-013)</p>
+                    </div>
+
+                    <button type="button" class="btn-secundario" id="btnVerHistorial">
+                        📋 Ver Historial
+                    </button>
+
+                </header>
+
+                <!-- ============ FORMULARIO ============ -->
+
+                <div class="card" id="vistaFormulario">
+
+                    <div class="filaCabecera">
+
+                        <div class="grupo">
+                            <label>Fecha</label>
+                            <input type="date" id="campoFecha">
+                        </div>
+
+                        <div class="grupo">
+                            <label>Turno</label>
+                            <select id="campoTurno">
+                                <option value="DIA">DIA</option>
+                                <option value="NOCHE">NOCHE</option>
+                                <option value="INTERMEDIO">INTERMEDIO</option>
+                            </select>
+                        </div>
+
+                        <div class="grupo">
+                            <label>Área</label>
+                            <input type="text" id="campoArea" value="Almacén">
+                        </div>
+
+                        <div class="grupo grupo-ancho">
+                            <label>Supervisor</label>
+                            <select id="campoSupervisor">
+                                <option value="">Seleccione un supervisor...</option>
+                            </select>
+                        </div>
+
+                        <div class="grupo grupo-ancho">
+                            <label>Responsable de verificación</label>
+                            <input type="text" id="campoResponsableVerificacion">
+                        </div>
+
+                    </div>
+
+                    <p id="mensajeEquipo" class="mensaje-vacio">
+                        Selecciona un supervisor para cargar a su equipo.
+                    </p>
+
+                    <div class="tabla-scroll oculto" id="contenedorTablaEquipo">
+
+                        <table id="tablaEquipo">
+
+                            <thead>
+                                <tr>
+                                    <th class="colCodigo">Código</th>
+                                    <th class="colNombre">Apellidos y Nombres</th>
+                                    <th>Uniforme y EPPs (1)</th>
+                                    <th>Manos y uñas (2)</th>
+                                    <th>Cabello (3)</th>
+                                    <th>Rostro (4)</th>
+                                    <th>Sin objetos no autorizados (5)</th>
+                                    <th>Sin síntomas de enfermedad (6)</th>
+                                    <th>Observaciones</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="cuerpoTablaEquipo"></tbody>
+
+                        </table>
+
+                    </div>
+
+                    <button type="button" class="btn-secundario oculto" id="btnAgregarPersona">
+                        + Agregar persona
+                    </button>
+
+                    <details class="leyenda" id="bloqueLeyenda">
+                        <summary>Ver criterios de evaluación</summary>
+                        <div id="contenidoLeyenda"></div>
+                    </details>
+
+                    <div class="filaResponsable">
+
+                        <div class="grupo grupo-ancho">
+                            <label>Nombre del Responsable de la Operación</label>
+                            <input type="text" id="campoResponsableOperacion">
+                        </div>
+
+                    </div>
+
+                    <p id="mensajeErrorFormulario" class="mensaje-error"></p>
+
+                    <div class="botonesFormulario">
+
+                        <button type="button" class="btn-secundario" id="btnDescargarExcel">
+                            ⬇️ Descargar plantilla Excel
+                        </button>
+
+                        <button type="button" class="btn-primario" id="btnGuardar">
+                            Guardar Checklist
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <!-- ============ HISTORIAL ============ -->
+
+                <div class="card oculto" id="vistaHistorial">
+
+                    <div class="filtros">
+
+                        <div class="grupo">
+                            <label>Fecha</label>
+                            <input type="date" id="filtroHistorialFecha">
+                        </div>
+
+                        <div class="grupo grupo-ancho">
+                            <label>Supervisor</label>
+                            <select id="filtroHistorialSupervisor">
+                                <option value="">Supervisor (todos)</option>
+                            </select>
+                        </div>
+
+                        <button type="button" class="btn-secundario" id="btnFiltrarHistorial">
+                            Filtrar
+                        </button>
+
+                    </div>
+
+                    <div class="tabla-scroll">
+
+                        <table>
+
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Turno</th>
+                                    <th>Área</th>
+                                    <th>Supervisor</th>
+                                    <th>Responsable de verificación</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="tblHistorial"></tbody>
+
+                        </table>
+
+                    </div>
+
+                    <p id="mensajeVacioHistorial" class="mensaje-vacio oculto">
+                        No hay checklists registrados con ese filtro.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="../../shared/checklist-config.js"></script>
+    <script src="../../shared/higiene-checklist-config.js"></script>
+    <script src="checklist-higiene.js"></script>
+
+</body>
+
+</html>
