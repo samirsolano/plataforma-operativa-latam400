@@ -72,13 +72,20 @@ function marcasTodoConforme(){
 }
 
 // ========================================
-// SUPERVISOR + EQUIPO (desde colaboradores_activos)
+// SUPERVISOR + EQUIPO
 // ========================================
+// Lee de "colaboradores" — la tabla maestra que alimenta a
+// Planificación de Recursos (ver obtenerSupervisoresRecursos /
+// obtenerRecursosTurno en recursos-logica.js: mismo proyecto
+// Supabase, misma tabla, filtrando solo por supervisor). A propósito
+// NO se cruza con "turno_colaboradores" — esa es la salida propia de
+// Recursos (quién quedó confirmado para una fecha+turno puntual), no
+// la fuente; el checklist de higiene solo necesita el roster base.
 
 async function obtenerSupervisoresHigiene(){
 
     const filas = await checklistFetch(
-        "/colaboradores_activos?select=supervisor&activo=eq.true"
+        "/colaboradores?select=supervisor"
     );
 
     const unicos = Array.from(new Set(
@@ -91,21 +98,46 @@ async function obtenerSupervisoresHigiene(){
 
 }
 
-async function obtenerEquipoPorSupervisor(supervisor){
+// Por si "colaboradores" trae más de una fila para el mismo DNI —
+// sin esto, esa misma persona aparecería dos veces en el checklist.
+function deduplicarPorDni(filas){
 
-    const filas = await checklistFetch(
-        "/colaboradores_activos?select=dni,nombre,turno&activo=eq.true&supervisor=eq." +
-        encodeURIComponent(supervisor) +
-        "&order=nombre.asc"
-    );
+    const vistos = new Set();
 
-    return filas || [];
+    return (filas || []).filter(function(f){
+
+        const dni = String(f.dni || "").trim();
+
+        if(!dni || vistos.has(dni)){
+            return false;
+        }
+
+        vistos.add(dni);
+        return true;
+
+    });
 
 }
 
-// Busca por DNI o nombre en TODOS los colaboradores activos (de
-// cualquier supervisor/turno) — para el caso de alguien de apoyo que
-// no pertenece al equipo del supervisor seleccionado.
+async function obtenerEquipoPorSupervisor(supervisor){
+
+    const filas = await checklistFetch(
+        "/colaboradores?select=dni,nombre_completo&supervisor=eq." +
+        encodeURIComponent(supervisor) +
+        "&order=nombre_completo.asc"
+    );
+
+    return deduplicarPorDni((filas || []).map(function(c){
+        return { dni: c.dni, nombre: c.nombre_completo };
+    }));
+
+}
+
+// Busca por DNI o nombre en TODA la tabla maestra (de cualquier
+// supervisor) — para el caso de alguien de apoyo que no pertenece al
+// equipo del supervisor seleccionado. Como "colaboradores" no guarda
+// turno (eso es dato del día, no del maestro), quien se agregue así
+// puede marcar su turno a mano si hace falta (ver selectTurnoManual).
 async function buscarColaboradorPorTexto(texto){
 
     const termino = String(texto || "").trim();
@@ -117,12 +149,14 @@ async function buscarColaboradorPorTexto(texto){
     const filtro = encodeURIComponent(termino);
 
     const filas = await checklistFetch(
-        "/colaboradores_activos?select=dni,nombre,supervisor,turno&activo=eq.true" +
-        "&or=(dni.ilike.*" + filtro + "*,nombre.ilike.*" + filtro + "*)" +
-        "&order=nombre.asc&limit=8"
+        "/colaboradores?select=dni,nombre_completo,supervisor" +
+        "&or=(dni.ilike.*" + filtro + "*,nombre_completo.ilike.*" + filtro + "*)" +
+        "&order=nombre_completo.asc&limit=8"
     );
 
-    return filas || [];
+    return deduplicarPorDni((filas || []).map(function(c){
+        return { dni: c.dni, nombre: c.nombre_completo, supervisor: c.supervisor };
+    }));
 
 }
 
@@ -137,12 +171,12 @@ async function detectarNombreSupervisorPorDni(dni){
     }
 
     const filas = await checklistFetch(
-        "/colaboradores_activos?select=nombre&dni=eq." +
+        "/colaboradores?select=nombre_completo&dni=eq." +
         encodeURIComponent(dni) +
         "&limit=1"
     );
 
-    return (filas && filas[0] && filas[0].nombre) || null;
+    return (filas && filas[0] && filas[0].nombre_completo) || null;
 
 }
 

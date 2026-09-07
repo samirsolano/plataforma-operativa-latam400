@@ -197,22 +197,9 @@ function renderizarEquipo(){
             ? `<input type="text" class="inputNombre" data-indice="${indice}" value="${persona.nombre || ""}" placeholder="Nombre completo">`
             : (persona.nombre || "-");
 
-        const turnoCabecera = document.getElementById("campoTurno").value;
-
-        const badgeTurno = (persona.turno && persona.turno !== turnoCabecera)
-            ? `<span class="badgeTurnoDistinto">Apoyo — Turno ${persona.turno}</span>`
-            : (persona.agregadoManual
-                ? `<select class="selectTurnoManual" data-indice="${indice}">
-                        <option value="" ${!persona.turno ? "selected" : ""}>Turno...</option>
-                        <option value="DIA" ${persona.turno === "DIA" ? "selected" : ""}>DIA</option>
-                        <option value="NOCHE" ${persona.turno === "NOCHE" ? "selected" : ""}>NOCHE</option>
-                        <option value="INTERMEDIO" ${persona.turno === "INTERMEDIO" ? "selected" : ""}>INTERMEDIO</option>
-                   </select>`
-                : "");
-
         let html = `
             <td class="colCodigo">${celdaCodigo}</td>
-            <td class="colNombre">${celdaNombre}${badgeTurno}</td>
+            <td class="colNombre">${celdaNombre}</td>
         `;
 
         CRITERIOS_HIGIENE.forEach(function(criterio){
@@ -293,17 +280,6 @@ document.getElementById("cuerpoTablaEquipo").addEventListener("input", function(
     }else if(e.target.classList.contains("inputObservaciones")){
         equipoActual[indice].observaciones = e.target.value;
     }
-
-});
-
-document.getElementById("cuerpoTablaEquipo").addEventListener("change", function(e){
-
-    if(!e.target.classList.contains("selectTurnoManual")){
-        return;
-    }
-
-    const indice = parseInt(e.target.dataset.indice, 10);
-    equipoActual[indice].turno = e.target.value;
 
 });
 
