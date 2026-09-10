@@ -130,6 +130,7 @@ async function cargarDashboard(){
         ) || [];
 
         pintarKPIs(equiposCargados, pendientes.length);
+        pintarPorTipo(equiposCargados);
         pintarInoperativos(equiposCargados);
 
     }catch(e){
@@ -147,6 +148,40 @@ function pintarKPIs(equipos, totalPendientes){
     document.getElementById("kpiOperativos").textContent = total - inoperativos;
     document.getElementById("kpiInoperativos").textContent = inoperativos;
     document.getElementById("kpiPendientes").textContent = totalPendientes;
+
+}
+
+const TIPOS_EQUIPO_MHE = ["Montacarga", "Apilador Eléctrico", "Transpaleta Eléctrica"];
+
+function pintarPorTipo(equipos){
+
+    const cont = document.getElementById("listaPorTipo");
+
+    cont.innerHTML = TIPOS_EQUIPO_MHE.map(function(tipo){
+
+        const delTipo = equipos.filter(function(e){ return e.tipo_equipo === tipo; });
+        const total = delTipo.length;
+        const inoperativos = delTipo.filter(function(e){ return e.bloqueado; }).length;
+        const operativos = total - inoperativos;
+        const porcentajeOperativo = total ? Math.round((operativos / total) * 100) : 0;
+
+        return `
+            <div class="filaTipoEquipo">
+                <div class="filaTipoEquipoTop">
+                    <div class="filaTipoEquipoNombre">${tipo}</div>
+                    <div class="filaTipoEquipoStats">
+                        <span>Total <b>${total}</b></span>
+                        <span class="verde">Operativos <b>${operativos}</b></span>
+                        <span class="rojo">Inoperativos <b>${inoperativos}</b></span>
+                    </div>
+                </div>
+                <div class="barraTipoEquipo">
+                    <div class="barraTipoEquipoOperativo" style="width:${porcentajeOperativo}%"></div>
+                </div>
+            </div>
+        `;
+
+    }).join("");
 
 }
 

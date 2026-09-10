@@ -164,6 +164,59 @@ body{
     padding:20px 0;
 }
 
+/* EQUIPOS POR TIPO */
+
+.filaTipoEquipo{
+    padding:14px 6px;
+    border-bottom:1px solid #f3f4f6;
+}
+
+.filaTipoEquipo:last-child{
+    border-bottom:none;
+}
+
+.filaTipoEquipoTop{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:8px;
+}
+
+.filaTipoEquipoNombre{
+    font-size:15px;
+    font-weight:700;
+    color:#1f2937;
+}
+
+.filaTipoEquipoStats{
+    display:flex;
+    gap:16px;
+    font-size:13px;
+    color:#6b7280;
+}
+
+.filaTipoEquipoStats b{
+    color:#1f2937;
+    font-weight:700;
+}
+
+.filaTipoEquipoStats .verde b{ color:#15803d; }
+.filaTipoEquipoStats .rojo b{ color:#b91c1c; }
+
+.barraTipoEquipo{
+    height:8px;
+    border-radius:999px;
+    background:#fee2e2;
+    overflow:hidden;
+}
+
+.barraTipoEquipoOperativo{
+    height:100%;
+    background:#16a34a;
+}
+
 /* MODAL DETALLE (mismo patrón que Lista de Equipos / Resumen) */
 
 .modal-overlay{
