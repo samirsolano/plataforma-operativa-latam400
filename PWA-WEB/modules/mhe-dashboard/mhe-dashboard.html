@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Dashboard - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="../../shared/checklist-sidebar.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="mhe-dashboard.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+                <h1>CHECK LIST</h1>
+                <h1>DE EQUIPOS</h1>
+                <span>LATAM 400 CL</span>
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+                </div>
+
+            </div>
+
+            <nav class="menu">
+                <a href="mhe-dashboard.html" class="activo">Dashboard</a>
+                <a href="../checklist-equipos/checklist-equipos.html">Lista de Equipos</a>
+                <a href="../mhe-preguntas/mhe-preguntas.html">Preguntas</a>
+                <a href="../mhe-resumen/mhe-resumen.html">Resumen</a>
+            </nav>
+
+        </aside>
+
+    <main class="contenido">
+
+    <div class="contenedor">
+
+        <header class="header">
+
+            <div>
+
+                <h1>
+                    Dashboard
+                </h1>
+
+            </div>
+
+        </header>
+
+        <div class="kpiGrid">
+
+            <div class="kpiCard">
+                <div class="kpiLabel">Total Equipos</div>
+                <div class="kpiValor" id="kpiTotal">-</div>
+            </div>
+
+            <div class="kpiCard">
+                <div class="kpiLabel">Operativos</div>
+                <div class="kpiValor kpiVerde" id="kpiOperativos">-</div>
+            </div>
+
+            <div class="kpiCard">
+                <div class="kpiLabel">Inoperativos</div>
+                <div class="kpiValor kpiRojo" id="kpiInoperativos">-</div>
+            </div>
+
+            <div class="kpiCard">
+                <div class="kpiLabel">Pendientes de Aprobar</div>
+                <div class="kpiValor kpiAmbar" id="kpiPendientes">-</div>
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <div class="tituloSeccionCard">
+                Equipos Inoperativos — motivo y tiempo bloqueado
+            </div>
+
+            <div id="listaInoperativos"></div>
+
+            <p id="mensajeSinInoperativos" class="mensaje-vacio oculto">
+                No hay equipos inoperativos — todo el catálogo está operativo.
+            </p>
+
+        </div>
+
+    </div>
+
+    </main>
+
+    </div>
+
+    <!-- MODAL DETALLE INOPERATIVIDAD (mismo patrón que Lista de Equipos) -->
+
+    <div class="modal-overlay" id="modalOverlayBloqueo">
+
+        <div class="modal modalDetalle">
+
+            <h3>Detalle de Inoperatividad</h3>
+
+            <div id="contenidoDetalleBloqueo"></div>
+
+            <div class="modal-botones">
+                <button type="button" id="btnCerrarDetalleBloqueo" class="btn-secundario">Cerrar</button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="../../shared/checklist-config.js"></script>
+    <script src="mhe-dashboard.js"></script>
+
+</body>
+
+</html>

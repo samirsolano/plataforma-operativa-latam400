@@ -1,0 +1,329 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+
+body{
+    background:#eef2f7;
+}
+
+.oculto{
+    display:none !important;
+}
+
+.contenedor{
+    width:100%;
+}
+
+.header{
+    background:white;
+    border-radius:20px;
+    padding:25px 30px;
+    margin-bottom:25px;
+    box-shadow:0 5px 15px rgba(0,0,0,.05);
+}
+
+.header h1{
+    font-size:32px;
+    color:#1f2937;
+}
+
+.btn-secundario{
+    background:#f3f4f6;
+    color:#1f2937;
+    border:none;
+    padding:12px 22px;
+    border-radius:12px;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.3s;
+}
+
+.btn-secundario:hover{
+    background:#e5e7eb;
+}
+
+/* KPIs */
+
+.kpiGrid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+    gap:16px;
+    margin-bottom:25px;
+}
+
+.kpiCard{
+    background:white;
+    border-radius:20px;
+    padding:22px 24px;
+    box-shadow:0 5px 15px rgba(0,0,0,.05);
+}
+
+.kpiLabel{
+    font-size:13px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    color:#6b7280;
+    margin-bottom:10px;
+}
+
+.kpiValor{
+    font-size:34px;
+    font-weight:800;
+    color:#1f2937;
+}
+
+.kpiValor.kpiVerde{ color:#15803d; }
+.kpiValor.kpiRojo{ color:#b91c1c; }
+.kpiValor.kpiAmbar{ color:#92400e; }
+
+/* CARD + LISTA DE INOPERATIVOS */
+
+.card{
+    background:white;
+    border-radius:20px;
+    padding:30px;
+    box-shadow:0 5px 20px rgba(0,0,0,.05);
+}
+
+.tituloSeccionCard{
+    font-size:13px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    color:#6b7280;
+    margin-bottom:16px;
+    padding-bottom:12px;
+    border-bottom:2px solid #f3f4f6;
+}
+
+.filaInoperativo{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:14px 6px;
+    border-bottom:1px solid #f3f4f6;
+    cursor:pointer;
+    transition:.2s;
+}
+
+.filaInoperativo:hover{
+    background:#fef2f2;
+}
+
+.filaInoperativo:last-child{
+    border-bottom:none;
+}
+
+.filaInoperativoInfo{
+    min-width:0;
+}
+
+.filaInoperativoTitulo{
+    font-size:15px;
+    font-weight:700;
+    color:#1f2937;
+}
+
+.filaInoperativoMotivo{
+    font-size:13px;
+    color:#6b7280;
+    margin-top:4px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.badgeTiempoBloqueado{
+    flex-shrink:0;
+    padding:6px 14px;
+    border-radius:999px;
+    font-size:13px;
+    font-weight:700;
+    white-space:nowrap;
+}
+
+.badgeTiempoBloqueado.reciente{
+    background:#fef3c7;
+    color:#92400e;
+}
+
+.badgeTiempoBloqueado.critico{
+    background:#fee2e2;
+    color:#b91c1c;
+}
+
+.mensaje-vacio{
+    text-align:center;
+    color:#6b7280;
+    padding:20px 0;
+}
+
+/* MODAL DETALLE (mismo patrón que Lista de Equipos / Resumen) */
+
+.modal-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.4);
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    padding:20px;
+}
+
+.modal-overlay.visible{
+    display:flex;
+}
+
+.modal{
+    background:white;
+    border-radius:20px;
+    padding:30px;
+    width:100%;
+    max-width:420px;
+    max-height:90vh;
+    overflow-y:auto;
+    box-shadow:0 15px 40px rgba(0,0,0,.2);
+}
+
+.modalDetalle{
+    max-width:560px;
+}
+
+.modal h3{
+    color:#1f2937;
+    font-size:22px;
+    margin-bottom:20px;
+}
+
+.modal-botones{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:16px;
+}
+
+.detalleSeccion{
+    margin-bottom:18px;
+}
+
+.detalleTitulo{
+    font-size:13px;
+    font-weight:700;
+    text-transform:uppercase;
+    color:#6b7280;
+    letter-spacing:.5px;
+    margin-bottom:10px;
+    padding-bottom:6px;
+    border-bottom:2px solid #f3f4f6;
+}
+
+.detalleGrid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px 16px;
+}
+
+.detalleCampo{
+    font-size:14px;
+}
+
+.detalleCampo b{
+    display:block;
+    font-size:11px;
+    color:#9ca3af;
+    text-transform:uppercase;
+    font-weight:700;
+}
+
+.detalleItem{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:8px 0;
+    border-bottom:1px solid #f9fafb;
+    font-size:14px;
+    gap:10px;
+}
+
+.detalleItem .valorItem{
+    font-weight:700;
+    white-space:nowrap;
+}
+
+.valorItem.operativo{ color:#15803d; }
+.valorItem.inoperativo{ color:#b91c1c; }
+.valorItem.observado{ color:#b45309; }
+.valorItem.no_aplica{ color:#6b7280; }
+
+.avisoPendiente{
+    background:#fef3c7;
+    color:#92400e;
+    border-radius:12px;
+    padding:12px 14px;
+    font-size:13px;
+    margin-bottom:14px;
+    font-weight:600;
+}
+
+.grupo{
+    margin-bottom:12px;
+}
+
+.grupo label{
+    display:block;
+    font-size:13px;
+    font-weight:700;
+    color:#374151;
+    margin-bottom:6px;
+}
+
+.grupo textarea{
+    width:100%;
+    padding:12px 14px;
+    border:1px solid #e5e7eb;
+    border-radius:10px;
+    font-size:14px;
+    font-family:inherit;
+    resize:vertical;
+}
+
+.grupo textarea:focus{
+    outline:none;
+    border-color:#FC000D;
+}
+
+.mensaje-error{
+    color:#dc2626;
+    font-size:13px;
+    margin:6px 0;
+    min-height:16px;
+}
+
+.btnAprobar{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    background:#16a34a;
+    color:white;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    margin-top:6px;
+}
+
+.btnAprobar:hover{
+    background:#15803d;
+}
+
+.btnAprobar:disabled{
+    opacity:.6;
+    cursor:not-allowed;
+}
