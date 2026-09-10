@@ -242,6 +242,74 @@ th:nth-child(9), td:nth-child(9){ width:8%; }
     background:#15803d;
 }
 
+.pill-aprobacion.inoperativa{
+    background:#fee2e2;
+    color:#b91c1c;
+    cursor:pointer;
+}
+
+.botonesResolucion{
+    display:flex;
+    gap:10px;
+    margin-top:10px;
+}
+
+.botonesResolucion .btnAprobar,
+.botonesResolucion .btnInoperativo{
+    flex:1;
+    margin-top:0;
+}
+
+.btnInoperativo{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    background:#dc2626;
+    color:white;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+}
+
+.btnInoperativo:hover{
+    background:#b91c1c;
+}
+
+.grupo{
+    margin-bottom:12px;
+}
+
+.grupo label{
+    display:block;
+    font-size:13px;
+    font-weight:700;
+    color:#374151;
+    margin-bottom:6px;
+}
+
+.grupo textarea{
+    width:100%;
+    padding:12px 14px;
+    border:1px solid #e5e7eb;
+    border-radius:10px;
+    font-size:14px;
+    font-family:inherit;
+    resize:vertical;
+}
+
+.grupo textarea:focus{
+    outline:none;
+    border-color:#FC000D;
+}
+
+.mensaje-error{
+    color:#dc2626;
+    font-size:13px;
+    margin:6px 0;
+    min-height:16px;
+}
+
 .avisoPendiente{
     background:#fef3c7;
     color:#92400e;

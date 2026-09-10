@@ -125,6 +125,10 @@ const APROBADOR_AUTOMATICO = "Sistema (automático)"; // legado: checklists apro
 
 function pillAprobacionHTML(c){
 
+    if(c.aprobacion_estado === "INOPERATIVO"){
+        return `<span class="pill-aprobacion inoperativa btn-ver" data-id="${c.id}" title="Confirmado Inoperativo por ${c.aprobado_por || "-"}">🚫 Inoperativo</span>`;
+    }
+
     if(c.aprobacion_estado === "APROBADO"){
 
         if(c.aprobado_por === APROBADOR_AUTOMATICO){
@@ -352,11 +356,17 @@ function pintarDetalle(c, detalle){
         `;
     }
 
-    const bannerAprobacion = c.aprobacion_estado === "PENDIENTE"
-        ? `<div class="avisoPendiente">⚠️ Tiene ítems Observados o Inoperativos — revisa el detalle y aprueba abajo.</div>`
-        : (c.aprobado_por === APROBADOR_AUTOMATICO
-            ? `<div class="avisoPendiente" style="background:#dbeafe;color:#1d4ed8;">✅ Aprobado automáticamente (salió todo Operativo) el ${formatearFechaHora(c.aprobado_el)}</div>`
-            : `<div class="avisoPendiente" style="background:#dcfce7;color:#15803d;">✅ Aprobado por ${c.aprobado_por || "-"} el ${formatearFechaHora(c.aprobado_el)}</div>`);
+    let bannerAprobacion;
+
+    if(c.aprobacion_estado === "PENDIENTE"){
+        bannerAprobacion = `<div class="avisoPendiente">⚠️ Tiene ítems Observados o Inoperativos — revisa el detalle y resuelve abajo.</div>`;
+    }else if(c.aprobacion_estado === "INOPERATIVO"){
+        bannerAprobacion = `<div class="avisoPendiente" style="background:#fee2e2;color:#b91c1c;">🚫 Marcado Inoperativo por ${c.aprobado_por || "-"} el ${formatearFechaHora(c.aprobado_el)}</div>`;
+    }else if(c.aprobado_por === APROBADOR_AUTOMATICO){
+        bannerAprobacion = `<div class="avisoPendiente" style="background:#dbeafe;color:#1d4ed8;">✅ Aprobado automáticamente (regla anterior) el ${formatearFechaHora(c.aprobado_el)}</div>`;
+    }else{
+        bannerAprobacion = `<div class="avisoPendiente" style="background:#dcfce7;color:#15803d;">✅ Aprobado por ${c.aprobado_por || "-"} el ${formatearFechaHora(c.aprobado_el)}</div>`;
+    }
 
     contenidoDetalle.innerHTML = `
 
@@ -412,17 +422,45 @@ function pintarDetalle(c, detalle){
             </div>
         </div>
 
-        ${c.aprobacion_estado === "PENDIENTE" ? `<button type="button" id="btnAprobar" class="btnAprobar">✅ Aprobar checklist</button>` : ""}
+        ${c.aprobacion_estado !== "PENDIENTE" && c.comentario_supervisor ? `
+            <div class="detalleSeccion">
+                <div class="detalleTitulo">Comentario del supervisor</div>
+                <div class="detalleCampo">${c.comentario_supervisor}</div>
+            </div>
+        ` : ""}
+
+        ${c.aprobacion_estado === "PENDIENTE" ? `
+            <div class="detalleSeccion">
+                <div class="detalleTitulo">Resolver revisión</div>
+                <div class="grupo">
+                    <label>Comentario del supervisor (obligatorio)</label>
+                    <textarea id="campoComentarioSupervisor" rows="3" placeholder="Explica tu decisión..."></textarea>
+                </div>
+                <p id="mensajeErrorResolucion" class="mensaje-error"></p>
+                <div class="botonesResolucion">
+                    <button type="button" id="btnMarcarInoperativo" class="btnInoperativo">🚫 Marcar Inoperativo</button>
+                    <button type="button" id="btnAprobar" class="btnAprobar">✅ Aprobar</button>
+                </div>
+            </div>
+        ` : ""}
 
     `;
 
     if(c.aprobacion_estado === "PENDIENTE"){
 
-        document.getElementById("btnAprobar").addEventListener("click", async function(){
+        async function resolver(decision, boton, textoOriginal){
 
-            const boton = this;
+            const comentario = document.getElementById("campoComentarioSupervisor").value.trim();
+            const mensajeError = document.getElementById("mensajeErrorResolucion");
+
+            if(!comentario){
+                mensajeError.textContent = "Escribe un comentario antes de continuar.";
+                return;
+            }
+
+            mensajeError.textContent = "";
             boton.disabled = true;
-            boton.textContent = "Aprobando...";
+            boton.textContent = "Guardando...";
 
             try{
 
@@ -431,7 +469,8 @@ function pintarDetalle(c, detalle){
                     {
                         method: "PATCH",
                         body: JSON.stringify({
-                            aprobacion_estado: "APROBADO",
+                            aprobacion_estado: decision,
+                            comentario_supervisor: comentario,
                             aprobado_por: sesion ? sesion.nombre_completo : null,
                             aprobado_el: new Date().toISOString()
                         })
@@ -445,11 +484,19 @@ function pintarDetalle(c, detalle){
 
                 console.error(error);
                 boton.disabled = false;
-                boton.textContent = "✅ Aprobar checklist";
-                alert("No se pudo aprobar el checklist. Intenta de nuevo.");
+                boton.textContent = textoOriginal;
+                mensajeError.textContent = "No se pudo guardar. Intenta de nuevo.";
 
             }
 
+        }
+
+        document.getElementById("btnAprobar").addEventListener("click", function(){
+            resolver("APROBADO", this, "✅ Aprobar");
+        });
+
+        document.getElementById("btnMarcarInoperativo").addEventListener("click", function(){
+            resolver("INOPERATIVO", this, "🚫 Marcar Inoperativo");
         });
 
     }
