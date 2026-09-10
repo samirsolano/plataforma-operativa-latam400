@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Preguntas - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="../../shared/checklist-sidebar.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="mhe-preguntas.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+                <h1>CHECK LIST</h1>
+                <h1>DE EQUIPOS</h1>
+                <span>LATAM 400 CL</span>
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+                </div>
+
+            </div>
+
+            <nav class="menu">
+                <a href="../checklist-equipos/checklist-equipos.html">Lista de Equipos</a>
+                <a href="mhe-preguntas.html" class="activo">Preguntas</a>
+            </nav>
+
+        </aside>
+
+    <main class="contenido">
+
+    <div class="contenedor">
+
+        <header class="header">
+
+            <div>
+
+                <h1>
+                    Preguntas del Checklist
+                </h1>
+
+            </div>
+
+            <button id="btnAgregar" class="btn-primario">
+                + Agregar Pregunta
+            </button>
+
+        </header>
+
+        <div class="card">
+
+            <div class="filtros">
+
+                <div class="buscador">
+
+                    <input
+                        type="text"
+                        id="buscador"
+                        placeholder="Buscar por título..."
+                        autocomplete="off"
+                    >
+
+                </div>
+
+                <select id="filtroSeccion">
+                    <option value="">Sección (todas)</option>
+                    <option value="FUNCIONES">Funciones</option>
+                    <option value="VISUAL">Visual</option>
+                </select>
+
+                <select id="filtroEquipo">
+                    <option value="">Equipo (todos)</option>
+                    <option value="transpaleta">Transpaleta Eléctrica</option>
+                    <option value="montacarga">Montacarga</option>
+                    <option value="apilador">Apilador Eléctrico</option>
+                </select>
+
+                <select id="filtroEstado">
+                    <option value="">Estado (todos)</option>
+                    <option value="Activo">Activo</option>
+                    <option value="Inactivo">Inactivo</option>
+                </select>
+
+            </div>
+
+            <div class="tabla-scroll">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Orden</th>
+                            <th>Título</th>
+                            <th>Sección</th>
+                            <th>Equipos</th>
+                            <th>Criterio</th>
+                            <th>No aplica</th>
+                            <th>Estado</th>
+                            <th>Editar</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="tblPreguntas">
+                    </tbody>
+
+                </table>
+
+            </div>
+
+            <p id="mensajeVacio" class="mensaje-vacio">
+                Cargando preguntas...
+            </p>
+
+        </div>
+
+    </div>
+
+    </main>
+
+    </div>
+
+    <!-- MODAL AGREGAR / EDITAR -->
+
+    <div class="modal-overlay" id="modalOverlay">
+
+        <div class="modal">
+
+            <h3 id="tituloModal">
+                Agregar Pregunta
+            </h3>
+
+            <form autocomplete="off" onsubmit="return false;">
+
+                <div class="grupo">
+                    <label>Título</label>
+                    <textarea id="nuevoTitulo" rows="2"></textarea>
+                </div>
+
+                <div class="grupo">
+                    <label>Clave (identificador único, no se puede editar después)</label>
+                    <input type="text" id="nuevaClave" placeholder="ej: alarma_retroceso">
+                </div>
+
+                <div class="grupo">
+                    <label>Sección</label>
+                    <select id="nuevaSeccion">
+                        <option value="FUNCIONES">Funciones</option>
+                        <option value="VISUAL">Visual</option>
+                    </select>
+                </div>
+
+                <div class="grupo">
+
+                    <label>Aplica a</label>
+
+                    <div class="checks-equipo">
+
+                        <label class="check-equipo">
+                            <input type="checkbox" id="nuevaAplicaTranspaleta">
+                            Transpaleta Eléctrica
+                        </label>
+
+                        <label class="check-equipo">
+                            <input type="checkbox" id="nuevaAplicaMontacarga">
+                            Montacarga
+                        </label>
+
+                        <label class="check-equipo">
+                            <input type="checkbox" id="nuevaAplicaApilador">
+                            Apilador Eléctrico
+                        </label>
+
+                    </div>
+
+                </div>
+
+                <div class="grupo">
+                    <label>Criterio</label>
+                    <select id="nuevoCriterio">
+                        <option value="INOPERATIVO">Operativo / Inoperativo</option>
+                        <option value="OBSERVADO">Operativo / Inoperativo / Observado</option>
+                    </select>
+                </div>
+
+                <div class="grupo">
+                    <label class="check-equipo">
+                        <input type="checkbox" id="nuevoNoAplica">
+                        Admite "No aplica" como respuesta
+                    </label>
+                </div>
+
+                <div class="grupo">
+                    <label>Orden</label>
+                    <input type="number" id="nuevoOrden" min="0">
+                </div>
+
+                <div class="grupo">
+                    <label>Estado</label>
+                    <select id="nuevoEstado">
+                        <option value="Activo">Activo</option>
+                        <option value="Inactivo">Inactivo</option>
+                    </select>
+                </div>
+
+                <p id="mensajeErrorModal" class="mensaje-error"></p>
+
+                <div class="modal-botones">
+
+                    <button type="button" id="btnCancelar" class="btn-secundario">
+                        Cancelar
+                    </button>
+
+                    <button type="button" id="btnGuardar" class="btn-primario">
+                        Guardar
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="../../shared/checklist-config.js"></script>
+    <script src="mhe-preguntas.js"></script>
+
+</body>
+
+</html>
