@@ -477,6 +477,31 @@ function pintarDetalle(c, detalle){
                     }
                 );
 
+                // Al confirmar Inoperativo, además del checklist puntual
+                // se bloquea el EQUIPO: nadie puede iniciar un checklist
+                // nuevo de ese equipo/serie desde el celular hasta que un
+                // supervisor lo levante a mano (módulo Lista de Equipos).
+                if(decision === "INOPERATIVO" && c.equipo_id){
+
+                    await checklistFetch(
+                        "/mhe_equipos?id=eq." + encodeURIComponent(c.equipo_id),
+                        {
+                            method: "PATCH",
+                            body: JSON.stringify({
+                                bloqueado: true,
+                                motivo_bloqueo: comentario,
+                                bloqueado_checklist_id: idDetalleAbierto,
+                                bloqueado_por: sesion ? sesion.nombre_completo : null,
+                                bloqueado_el: new Date().toISOString(),
+                                levantado_por: null,
+                                levantado_el: null,
+                                comentario_levantamiento: null
+                            })
+                        }
+                    );
+
+                }
+
                 modalOverlay.classList.remove("visible");
                 cargarChecklists();
 

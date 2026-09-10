@@ -163,22 +163,148 @@ td{
 }
 
 /* ID */
-th:nth-child(1), td:nth-child(1){ width:5%; }
+th:nth-child(1), td:nth-child(1){ width:4%; }
 /* Estado */
-th:nth-child(2), td:nth-child(2){ width:10%; }
+th:nth-child(2), td:nth-child(2){ width:8%; }
+/* Operatividad */
+th:nth-child(3), td:nth-child(3){ width:12%; }
 /* Local */
-th:nth-child(3), td:nth-child(3){ width:10%; }
+th:nth-child(4), td:nth-child(4){ width:8%; }
 /* Nombre */
-th:nth-child(4), td:nth-child(4){ width:18%; }
+th:nth-child(5), td:nth-child(5){ width:15%; }
 /* Serie */
-th:nth-child(5), td:nth-child(5){ width:10%; }
-/* Foto */
 th:nth-child(6), td:nth-child(6){ width:8%; }
+/* Foto */
+th:nth-child(7), td:nth-child(7){ width:7%; }
 /* Actualizado el / por */
-th:nth-child(7), td:nth-child(7){ width:15%; }
-th:nth-child(8), td:nth-child(8){ width:15%; }
+th:nth-child(8), td:nth-child(8){ width:13%; }
+th:nth-child(9), td:nth-child(9){ width:13%; }
 /* Editar */
-th:nth-child(9), td:nth-child(9){ width:9%; }
+th:nth-child(10), td:nth-child(10){ width:12%; }
+
+.pill-operatividad{
+    display:inline-block;
+    padding:4px 12px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:700;
+    white-space:nowrap;
+}
+
+.pill-operatividad.operativo{
+    background:#dcfce7;
+    color:#15803d;
+}
+
+.pill-operatividad.bloqueado{
+    background:#fee2e2;
+    color:#b91c1c;
+    cursor:pointer;
+}
+
+.modalDetalle{
+    max-width:560px;
+}
+
+.detalleSeccion{
+    margin-bottom:18px;
+}
+
+.detalleTitulo{
+    font-size:13px;
+    font-weight:700;
+    text-transform:uppercase;
+    color:#6b7280;
+    letter-spacing:.5px;
+    margin-bottom:10px;
+    padding-bottom:6px;
+    border-bottom:2px solid #f3f4f6;
+}
+
+.detalleGrid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px 16px;
+}
+
+.detalleCampo{
+    font-size:14px;
+}
+
+.detalleCampo b{
+    display:block;
+    font-size:11px;
+    color:#9ca3af;
+    text-transform:uppercase;
+    font-weight:700;
+}
+
+.detalleItem{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:8px 0;
+    border-bottom:1px solid #f9fafb;
+    font-size:14px;
+    gap:10px;
+}
+
+.detalleItem .valorItem{
+    font-weight:700;
+    white-space:nowrap;
+}
+
+.valorItem.operativo{ color:#15803d; }
+.valorItem.inoperativo{ color:#b91c1c; }
+.valorItem.observado{ color:#b45309; }
+.valorItem.no_aplica{ color:#6b7280; }
+
+.avisoPendiente{
+    background:#fef3c7;
+    color:#92400e;
+    border-radius:12px;
+    padding:12px 14px;
+    font-size:13px;
+    margin-bottom:14px;
+    font-weight:600;
+}
+
+.grupo textarea{
+    width:100%;
+    padding:12px 14px;
+    border:1px solid #e5e7eb;
+    border-radius:10px;
+    font-size:14px;
+    font-family:inherit;
+    resize:vertical;
+}
+
+.grupo textarea:focus{
+    outline:none;
+    border-color:#FC000D;
+}
+
+.btnAprobar{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    background:#16a34a;
+    color:white;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    margin-top:6px;
+}
+
+.btnAprobar:hover{
+    background:#15803d;
+}
+
+.btnAprobar:disabled{
+    opacity:.6;
+    cursor:not-allowed;
+}
 
 .estado-pill{
     display:inline-block;

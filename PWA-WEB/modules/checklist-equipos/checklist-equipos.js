@@ -108,6 +108,42 @@ async function subirFotoEquipoMHE(tipoEquipo, serie, archivo){
 }
 
 // ========================================
+// CATÁLOGO DE PREGUNTAS (clave → título/sección, para el detalle de
+// inoperatividad — mismo criterio que mhe-resumen.js)
+// ========================================
+
+let preguntasPorClave = {};
+
+async function cargarCatalogoPreguntas(){
+
+    try{
+
+        const filas = await checklistFetch(
+            "/mhe_preguntas?select=clave,titulo,seccion"
+        );
+
+        preguntasPorClave = {};
+
+        (filas || []).forEach(function(p){
+            preguntasPorClave[p.clave] = p;
+        });
+
+    }catch(e){
+        console.error(e);
+    }
+
+}
+
+const ETIQUETA_TURNO = { DIA: "Día", NOCHE: "Noche", INTERMEDIO: "Intermedio" };
+
+const ICONO_VALOR = {
+    OPERATIVO: "👍 Operativo",
+    INOPERATIVO: "👎 Inoperativo",
+    OBSERVADO: "👁 Observado",
+    NO_APLICA: "🚫 No aplica"
+};
+
+// ========================================
 // LISTAR
 // ========================================
 
@@ -127,7 +163,8 @@ async function cargarEquipos(){
     try{
 
         equiposCargados = await checklistFetch(
-            "/mhe_equipos?select=id,tipo_equipo,serie,local,foto_url,activo,updated_at,updated_by&order=id.asc"
+            "/mhe_equipos?select=id,tipo_equipo,serie,local,foto_url,activo,updated_at,updated_by," +
+            "bloqueado,motivo_bloqueo,bloqueado_checklist_id,bloqueado_por,bloqueado_el&order=id.asc"
         );
 
         llenarFiltroNombre(equiposCargados);
@@ -180,6 +217,16 @@ function formatearFechaHora(iso){
 
 }
 
+function pillOperatividadHTML(eq){
+
+    if(eq.bloqueado){
+        return `<span class="pill-operatividad bloqueado pill-bloqueado" data-id="${eq.id}" title="Click para ver el detalle">🚫 Inoperativo</span>`;
+    }
+
+    return `<span class="pill-operatividad operativo">✅ Operativo</span>`;
+
+}
+
 function renderizarEquipos(lista){
 
     tblEquipos.innerHTML = "";
@@ -202,6 +249,7 @@ function renderizarEquipos(lista){
         tr.innerHTML = `
             <td>${eq.id}</td>
             <td><span class="estado-pill ${eq.activo ? "activo" : "inactivo"}">${eq.activo ? "Activo" : "Inactivo"}</span></td>
+            <td>${pillOperatividadHTML(eq)}</td>
             <td>${eq.local || "-"}</td>
             <td>${eq.tipo_equipo}</td>
             <td>${eq.serie}</td>
@@ -274,6 +322,188 @@ tblEquipos.addEventListener("click", function(e){
 
     if(equipo){
         abrirModalEditar(equipo);
+    }
+
+});
+
+// ========================================
+// DETALLE DE INOPERATIVIDAD + LEVANTAR OBSERVACIÓN
+// ========================================
+
+const modalOverlayBloqueo = document.getElementById("modalOverlayBloqueo");
+const contenidoDetalleBloqueo = document.getElementById("contenidoDetalleBloqueo");
+
+tblEquipos.addEventListener("click", async function(e){
+
+    const pill = e.target.closest(".pill-bloqueado");
+
+    if(!pill){
+        return;
+    }
+
+    const id = pill.dataset.id;
+    const equipo = equiposCargados.find(eq => String(eq.id) === String(id));
+
+    if(!equipo){
+        return;
+    }
+
+    contenidoDetalleBloqueo.innerHTML = "<p>Cargando...</p>";
+    modalOverlayBloqueo.classList.add("visible");
+
+    try{
+
+        let cabecera = null;
+        let detalle = [];
+
+        if(equipo.bloqueado_checklist_id){
+
+            const filasCabecera = await checklistFetch(
+                "/mhe_checklist_cabecera?select=*&id=eq." + encodeURIComponent(equipo.bloqueado_checklist_id)
+            );
+
+            cabecera = (filasCabecera && filasCabecera[0]) || null;
+
+            detalle = await checklistFetch(
+                "/mhe_checklist_detalle?select=seccion,clave,valor&cabecera_id=eq." + encodeURIComponent(equipo.bloqueado_checklist_id)
+            ) || [];
+
+        }
+
+        pintarDetalleBloqueo(equipo, cabecera, detalle);
+
+    }catch(error){
+
+        console.error(error);
+        contenidoDetalleBloqueo.innerHTML = "<p>No se pudo cargar el detalle.</p>";
+
+    }
+
+});
+
+function tituloDeClave(clave){
+    return (preguntasPorClave[clave] && preguntasPorClave[clave].titulo) || clave;
+}
+
+function pintarDetalleBloqueo(equipo, cabecera, detalle){
+
+    function filaItem(d){
+        const claseValor = String(d.valor || "").toLowerCase();
+        return `
+            <div class="detalleItem">
+                <span>${tituloDeClave(d.clave)}</span>
+                <span class="valorItem ${claseValor}">${ICONO_VALOR[d.valor] || d.valor}</span>
+            </div>
+        `;
+    }
+
+    const funciones = detalle.filter(function(d){
+        return (preguntasPorClave[d.clave] && preguntasPorClave[d.clave].seccion === "FUNCIONES") || d.seccion === "FUNCIONES";
+    });
+
+    const visual = detalle.filter(function(d){
+        return (preguntasPorClave[d.clave] && preguntasPorClave[d.clave].seccion === "VISUAL") || d.seccion === "VISUAL";
+    });
+
+    contenidoDetalleBloqueo.innerHTML = `
+
+        <div class="avisoPendiente" style="background:#fee2e2;color:#b91c1c;">
+            🚫 Bloqueado por ${equipo.bloqueado_por || "-"} el ${formatearFechaHora(equipo.bloqueado_el)}
+        </div>
+
+        <div class="detalleSeccion">
+            <div class="detalleTitulo">Motivo</div>
+            <div class="detalleCampo">${equipo.motivo_bloqueo || "-"}</div>
+        </div>
+
+        ${cabecera ? `
+            <div class="detalleSeccion">
+                <div class="detalleTitulo">Datos generales del checklist</div>
+                <div class="detalleGrid">
+                    <div class="detalleCampo"><b>Fecha</b>${cabecera.fecha}</div>
+                    <div class="detalleCampo"><b>Turno</b>${ETIQUETA_TURNO[cabecera.turno] || cabecera.turno}</div>
+                    <div class="detalleCampo"><b>Equipo</b>${cabecera.tipo_equipo}</div>
+                    <div class="detalleCampo"><b>Serie</b>${cabecera.serie}</div>
+                </div>
+            </div>
+
+            <div class="detalleSeccion">
+                <div class="detalleTitulo">Inspección de Funciones</div>
+                ${funciones.map(filaItem).join("") || "<p>Sin datos.</p>"}
+            </div>
+
+            <div class="detalleSeccion">
+                <div class="detalleTitulo">Inspección Visual</div>
+                ${visual.map(filaItem).join("") || "<p>Sin datos.</p>"}
+            </div>
+        ` : ""}
+
+        <div class="detalleSeccion">
+            <div class="detalleTitulo">Levantar Observación</div>
+            <div class="grupo">
+                <label>Comentario (obligatorio)</label>
+                <textarea id="campoComentarioLevantamiento" rows="3" placeholder="Explica por qué se levanta la observación..."></textarea>
+            </div>
+            <p id="mensajeErrorLevantamiento" class="mensaje-error"></p>
+            <button type="button" id="btnLevantarObservacion" class="btnAprobar">✅ Levantar Observación</button>
+        </div>
+
+    `;
+
+    document.getElementById("btnLevantarObservacion").addEventListener("click", async function(){
+
+        const boton = this;
+        const comentario = document.getElementById("campoComentarioLevantamiento").value.trim();
+        const mensajeError = document.getElementById("mensajeErrorLevantamiento");
+
+        if(!comentario){
+            mensajeError.textContent = "Escribe un comentario antes de continuar.";
+            return;
+        }
+
+        mensajeError.textContent = "";
+        boton.disabled = true;
+        boton.textContent = "Guardando...";
+
+        try{
+
+            await checklistFetch(
+                "/mhe_equipos?id=eq." + encodeURIComponent(equipo.id),
+                {
+                    method: "PATCH",
+                    body: JSON.stringify({
+                        bloqueado: false,
+                        levantado_por: sesion ? sesion.nombre_completo : null,
+                        levantado_el: new Date().toISOString(),
+                        comentario_levantamiento: comentario
+                    })
+                }
+            );
+
+            modalOverlayBloqueo.classList.remove("visible");
+            cargarEquipos();
+
+        }catch(error){
+
+            console.error(error);
+            boton.disabled = false;
+            boton.textContent = "✅ Levantar Observación";
+            mensajeError.textContent = "No se pudo guardar. Intenta de nuevo.";
+
+        }
+
+    });
+
+}
+
+document.getElementById("btnCerrarDetalleBloqueo").addEventListener("click", function(){
+    modalOverlayBloqueo.classList.remove("visible");
+});
+
+modalOverlayBloqueo.addEventListener("click", function(e){
+
+    if(e.target === modalOverlayBloqueo){
+        modalOverlayBloqueo.classList.remove("visible");
     }
 
 });
@@ -462,5 +692,5 @@ btnGuardar.addEventListener("click", async function(){
 // ========================================
 
 if(sesion && (sesion.rol === "Administrador" || sesion.rol === "Supervisor")){
-    cargarEquipos();
+    cargarCatalogoPreguntas().then(cargarEquipos);
 }
