@@ -72,10 +72,32 @@ body{
     font-weight:600;
     cursor:pointer;
     transition:.3s;
+    margin-right:6px;
 }
 
 .btn-editar:hover{
     background:#eff6ff;
+}
+
+.btn-eliminar{
+    background:none;
+    border:1px solid #fca5a5;
+    color:#dc2626;
+    padding:8px 14px;
+    border-radius:10px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.3s;
+}
+
+.btn-eliminar:hover{
+    background:#fef2f2;
+}
+
+.btn-eliminar:disabled{
+    opacity:.6;
+    cursor:not-allowed;
 }
 
 .filtros{
@@ -165,8 +187,11 @@ th:nth-child(3), td:nth-child(3){ width:10%; }
 th:nth-child(5), td:nth-child(5){ width:12%; }
 th:nth-child(6), td:nth-child(6){ width:9%; }
 th:nth-child(7), td:nth-child(7){ width:9%; }
-/* Editar */
-th:nth-child(8), td:nth-child(8){ width:8%; }
+/* Editar/Eliminar: dos botones, puede pasar a 2 líneas */
+th:nth-child(8), td:nth-child(8){
+    width:16%;
+    white-space:normal;
+}
 
 /* Título: la única con texto largo */
 th:nth-child(2), td:nth-child(2){

@@ -123,6 +123,9 @@ function renderizarPreguntas(lista){
                 <button class="btn-editar" data-id="${p.id}">
                     Editar
                 </button>
+                <button class="btn-eliminar" data-id="${p.id}">
+                    Eliminar
+                </button>
             </td>
         `;
 
@@ -176,19 +179,59 @@ filtroEstado.addEventListener("change", aplicarFiltros);
 // EDITAR (delegado)
 // ========================================
 
-tblPreguntas.addEventListener("click", function(e){
+tblPreguntas.addEventListener("click", async function(e){
 
     const botonEditar = e.target.closest(".btn-editar");
+    const botonEliminar = e.target.closest(".btn-eliminar");
 
-    if(!botonEditar){
+    if(botonEditar){
+
+        const id = botonEditar.dataset.id;
+        const pregunta = preguntasCargadas.find(p => String(p.id) === String(id));
+
+        if(pregunta){
+            abrirModalEditar(pregunta);
+        }
+
         return;
+
     }
 
-    const id = botonEditar.dataset.id;
-    const pregunta = preguntasCargadas.find(p => String(p.id) === String(id));
+    if(botonEliminar){
 
-    if(pregunta){
-        abrirModalEditar(pregunta);
+        const id = botonEliminar.dataset.id;
+        const pregunta = preguntasCargadas.find(p => String(p.id) === String(id));
+
+        const confirmado = confirm(
+            "¿Eliminar la pregunta \"" + (pregunta ? pregunta.titulo : id) + "\"? " +
+            "Los checklists ya guardados con esta pregunta no se ven afectados, solo dejan de mostrar el título bonito en el detalle. Esta acción no se puede deshacer."
+        );
+
+        if(!confirmado){
+            return;
+        }
+
+        botonEliminar.disabled = true;
+        botonEliminar.textContent = "Eliminando...";
+
+        try{
+
+            await checklistFetch(
+                "/mhe_preguntas?id=eq." + encodeURIComponent(id),
+                { method: "DELETE" }
+            );
+
+            cargarPreguntas();
+
+        }catch(error){
+
+            console.error(error);
+            alert("No se pudo eliminar la pregunta.");
+            botonEliminar.disabled = false;
+            botonEliminar.textContent = "Eliminar";
+
+        }
+
     }
 
 });
