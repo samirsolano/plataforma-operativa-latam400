@@ -121,14 +121,18 @@ function formatearFechaHora(iso){
 
 }
 
+const APROBADOR_AUTOMATICO = "Sistema (automático)";
+
 function pillAprobacionHTML(c){
 
-    if(c.aprobacion_estado === "AUTOMATICA"){
-        return `<span class="pill-aprobacion automatica" title="Salió todo Operativo, se aprueba solo">✅ Automática</span>`;
-    }
-
     if(c.aprobacion_estado === "APROBADO"){
+
+        if(c.aprobado_por === APROBADOR_AUTOMATICO){
+            return `<span class="pill-aprobacion automatica" title="Salió todo Operativo — se aprobó solo el ${formatearFechaHora(c.aprobado_el)}">✅ Automático</span>`;
+        }
+
         return `<span class="pill-aprobacion aprobado" title="Aprobado por ${c.aprobado_por || "-"} el ${formatearFechaHora(c.aprobado_el)}">✅ Aprobado</span>`;
+
     }
 
     return `<span class="pill-aprobacion pendiente btn-ver" data-id="${c.id}" title="Tiene un ítem Observado o Inoperativo — entra a revisar">👁 Pendiente</span>`;
@@ -302,9 +306,9 @@ function pintarDetalle(c, detalle){
 
     const bannerAprobacion = c.aprobacion_estado === "PENDIENTE"
         ? `<div class="avisoPendiente">⚠️ Tiene ítems Observados o Inoperativos — revisa el detalle y aprueba abajo.</div>`
-        : (c.aprobacion_estado === "APROBADO"
-            ? `<div class="avisoPendiente" style="background:#dcfce7;color:#15803d;">✅ Aprobado por ${c.aprobado_por || "-"} el ${formatearFechaHora(c.aprobado_el)}</div>`
-            : `<div class="avisoPendiente" style="background:#dbeafe;color:#1d4ed8;">✅ Aprobación automática — salió todo Operativo.</div>`);
+        : (c.aprobado_por === APROBADOR_AUTOMATICO
+            ? `<div class="avisoPendiente" style="background:#dbeafe;color:#1d4ed8;">✅ Aprobado automáticamente (salió todo Operativo) el ${formatearFechaHora(c.aprobado_el)}</div>`
+            : `<div class="avisoPendiente" style="background:#dcfce7;color:#15803d;">✅ Aprobado por ${c.aprobado_por || "-"} el ${formatearFechaHora(c.aprobado_el)}</div>`);
 
     contenidoDetalle.innerHTML = `
 
