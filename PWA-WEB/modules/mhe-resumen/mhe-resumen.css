@@ -204,6 +204,27 @@ th:nth-child(9), td:nth-child(9){ width:8%; }
     50%{ opacity:.55; }
 }
 
+.btnAprobarRapido{
+    padding:6px 14px;
+    border:1px solid #86efac;
+    border-radius:999px;
+    background:#f0fdf4;
+    color:#15803d;
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+    white-space:nowrap;
+}
+
+.btnAprobarRapido:hover{
+    background:#dcfce7;
+}
+
+.btnAprobarRapido:disabled{
+    opacity:.6;
+    cursor:not-allowed;
+}
+
 .btnAprobar{
     width:100%;
     padding:14px;

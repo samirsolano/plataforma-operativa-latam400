@@ -121,18 +121,26 @@ function formatearFechaHora(iso){
 
 }
 
-const APROBADOR_AUTOMATICO = "Sistema (automático)";
+const APROBADOR_AUTOMATICO = "Sistema (automático)"; // legado: checklists aprobados bajo la regla vieja
 
 function pillAprobacionHTML(c){
 
     if(c.aprobacion_estado === "APROBADO"){
 
         if(c.aprobado_por === APROBADOR_AUTOMATICO){
-            return `<span class="pill-aprobacion automatica" title="Salió todo Operativo — se aprobó solo el ${formatearFechaHora(c.aprobado_el)}">✅ Automático</span>`;
+            return `<span class="pill-aprobacion automatica" title="Aprobado automáticamente (regla anterior) el ${formatearFechaHora(c.aprobado_el)}">✅ Automático</span>`;
         }
 
         return `<span class="pill-aprobacion aprobado" title="Aprobado por ${c.aprobado_por || "-"} el ${formatearFechaHora(c.aprobado_el)}">✅ Aprobado</span>`;
 
+    }
+
+    // Pendiente: si salió todo Operativo, se aprueba con un solo clic
+    // acá mismo (no hay nada que revisar). Si tiene algún Observado o
+    // Inoperativo, obliga a entrar al detalle (botón "Ver") para
+    // entender qué pasó antes de poder aprobar.
+    if(c.estado_general === "OPERATIVO"){
+        return `<button type="button" class="btnAprobarRapido" data-id="${c.id}" title="Salió todo Operativo — aprobar directo">✓ Aprobar</button>`;
     }
 
     return `<span class="pill-aprobacion pendiente btn-ver" data-id="${c.id}" title="Tiene un ítem Observado o Inoperativo — entra a revisar">👁 Pendiente</span>`;
@@ -239,6 +247,46 @@ const ICONO_VALOR = {
 };
 
 let idDetalleAbierto = null;
+
+// Aprobación rápida (un clic, sin abrir el detalle) — solo existe
+// para los checklists que salieron 100% Operativo.
+tblResumen.addEventListener("click", async function(e){
+
+    const botonRapido = e.target.closest(".btnAprobarRapido");
+
+    if(!botonRapido){
+        return;
+    }
+
+    botonRapido.disabled = true;
+    botonRapido.textContent = "...";
+
+    try{
+
+        await checklistFetch(
+            "/mhe_checklist_cabecera?id=eq." + encodeURIComponent(botonRapido.dataset.id),
+            {
+                method: "PATCH",
+                body: JSON.stringify({
+                    aprobacion_estado: "APROBADO",
+                    aprobado_por: sesion ? sesion.nombre_completo : null,
+                    aprobado_el: new Date().toISOString()
+                })
+            }
+        );
+
+        cargarChecklists();
+
+    }catch(error){
+
+        console.error(error);
+        botonRapido.disabled = false;
+        botonRapido.textContent = "✓ Aprobar";
+        alert("No se pudo aprobar el checklist. Intenta de nuevo.");
+
+    }
+
+});
 
 tblResumen.addEventListener("click", async function(e){
 
