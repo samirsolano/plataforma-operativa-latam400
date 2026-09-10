@@ -127,7 +127,7 @@ async function cargarEquipos(){
     try{
 
         equiposCargados = await checklistFetch(
-            "/mhe_equipos?select=id,tipo_equipo,serie,local,foto_url,activo,updated_at,updated_by&order=tipo_equipo.asc,serie.asc"
+            "/mhe_equipos?select=id,tipo_equipo,serie,local,foto_url,activo,updated_at,updated_by&order=id.asc"
         );
 
         llenarFiltroNombre(equiposCargados);

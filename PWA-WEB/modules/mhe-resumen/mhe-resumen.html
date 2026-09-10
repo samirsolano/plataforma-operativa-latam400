@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Resumen - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="../../shared/checklist-sidebar.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="mhe-resumen.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="layout">
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+                <h1>CHECK LIST</h1>
+                <h1>DE EQUIPOS</h1>
+                <span>LATAM 400 CL</span>
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+                </div>
+
+            </div>
+
+            <nav class="menu">
+                <a href="../checklist-equipos/checklist-equipos.html">Lista de Equipos</a>
+                <a href="../mhe-preguntas/mhe-preguntas.html">Preguntas</a>
+                <a href="mhe-resumen.html" class="activo">Resumen</a>
+            </nav>
+
+        </aside>
+
+    <main class="contenido">
+
+    <div class="contenedor">
+
+        <header class="header">
+
+            <div>
+
+                <h1>
+                    Resumen de Checklists
+                </h1>
+
+            </div>
+
+        </header>
+
+        <div class="card">
+
+            <div class="filtros">
+
+                <div class="grupoFiltro">
+                    <label>Fecha</label>
+                    <input type="date" id="filtroFecha">
+                </div>
+
+                <div class="grupoFiltro">
+                    <label>Turno</label>
+                    <select id="filtroTurno">
+                        <option value="">Todos</option>
+                        <option value="DIA">Día</option>
+                        <option value="NOCHE">Noche</option>
+                        <option value="INTERMEDIO">Intermedio</option>
+                    </select>
+                </div>
+
+                <div class="grupoFiltro">
+                    <label>Equipo</label>
+                    <select id="filtroTipoEquipo">
+                        <option value="">Todos</option>
+                        <option value="Transpaleta Eléctrica">Transpaleta Eléctrica</option>
+                        <option value="Montacarga">Montacarga</option>
+                        <option value="Apilador Eléctrico">Apilador Eléctrico</option>
+                    </select>
+                </div>
+
+                <div class="grupoFiltro">
+                    <label>Estado</label>
+                    <select id="filtroEstadoGeneral">
+                        <option value="">Todos</option>
+                        <option value="OPERATIVO">Operativo</option>
+                        <option value="OBSERVADO">Observado</option>
+                        <option value="INOPERATIVO">Inoperativo</option>
+                    </select>
+                </div>
+
+                <div class="grupoFiltro">
+                    <label>Aprobación</label>
+                    <select id="filtroAprobacion">
+                        <option value="">Todos</option>
+                        <option value="PENDIENTE">Pendiente</option>
+                        <option value="APROBADO">Aprobado</option>
+                        <option value="AUTOMATICA">Automática</option>
+                    </select>
+                </div>
+
+                <div class="grupoFiltro buscadorFiltro">
+                    <label>Buscar por serie</label>
+                    <input type="text" id="buscador" placeholder="Ej: 1259" autocomplete="off">
+                </div>
+
+                <div class="grupoFiltro">
+                    <label>&nbsp;</label>
+                    <button type="button" id="btnLimpiarFiltros" class="btn-secundario">Limpiar filtros</button>
+                </div>
+
+            </div>
+
+            <div class="tabla-scroll">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Fecha</th>
+                            <th>Turno</th>
+                            <th>Equipo</th>
+                            <th>Serie</th>
+                            <th>Estado</th>
+                            <th>Aprobación</th>
+                            <th>Batería</th>
+                            <th>Registrado por</th>
+                            <th>Ver</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="tblResumen">
+                    </tbody>
+
+                </table>
+
+            </div>
+
+            <p id="mensajeVacio" class="mensaje-vacio">
+                Cargando checklists...
+            </p>
+
+        </div>
+
+    </div>
+
+    </main>
+
+    </div>
+
+    <!-- MODAL DETALLE -->
+
+    <div class="modal-overlay" id="modalOverlay">
+
+        <div class="modal modalDetalle">
+
+            <h3>Detalle del Checklist</h3>
+
+            <div id="contenidoDetalle"></div>
+
+            <div class="modal-botones">
+                <button type="button" id="btnCerrarDetalle" class="btn-secundario">Cerrar</button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="../../shared/checklist-config.js"></script>
+    <script src="mhe-resumen.js"></script>
+
+</body>
+
+</html>
