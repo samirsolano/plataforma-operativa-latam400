@@ -189,13 +189,19 @@ function renderizarEquipo(){
             tr.classList.add("filaManual");
         }
 
-        const celdaCodigo = persona.agregadoManual
-            ? `<input type="text" class="inputDni" data-indice="${indice}" value="${persona.dni || ""}" placeholder="DNI">`
-            : (persona.dni || "-");
+        // Solo se editan a mano el nombre/DNI cuando la persona se
+        // agregó en blanco (sin buscar) — si vino de la búsqueda ya
+        // sabemos quién es (dni y nombre reales), así que se muestra
+        // como texto fijo igual que el resto del equipo.
+        const datosCompletos = !!(persona.dni && persona.nombre);
 
-        const celdaNombre = persona.agregadoManual
-            ? `<input type="text" class="inputNombre" data-indice="${indice}" value="${persona.nombre || ""}" placeholder="Nombre completo">`
-            : (persona.nombre || "-");
+        const celdaCodigo = datosCompletos
+            ? (persona.dni || "-")
+            : `<input type="text" class="inputDni" data-indice="${indice}" value="${persona.dni || ""}" placeholder="DNI">`;
+
+        const celdaNombre = datosCompletos
+            ? (persona.nombre || "-")
+            : `<input type="text" class="inputNombre" data-indice="${indice}" value="${persona.nombre || ""}" placeholder="Nombre completo">`;
 
         let html = `
             <td class="colCodigo">${celdaCodigo}</td>
