@@ -179,6 +179,25 @@ body{
     color:#166534;
 }
 
+.buscadorEquipoWeb{
+    margin-left:auto;
+    min-width:220px;
+}
+
+.buscadorEquipoWeb input{
+    width:100%;
+    padding:10px 14px;
+    border:1px solid #bbf7d0;
+    border-radius:10px;
+    font-size:14px;
+    background:white;
+}
+
+.buscadorEquipoWeb input:focus{
+    outline:none;
+    border-color:#16a34a;
+}
+
 .tabla-scroll{
     width:100%;
     overflow-x:auto;

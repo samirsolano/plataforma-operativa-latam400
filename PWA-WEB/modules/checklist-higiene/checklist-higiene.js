@@ -149,6 +149,8 @@ document.getElementById("campoSupervisor").addEventListener("change", async func
             };
         });
 
+        terminoBusquedaEquipo = "";
+        document.getElementById("buscadorEquipo").value = "";
         renderizarEquipo();
 
         if(equipoActual.length){
@@ -176,12 +178,49 @@ document.getElementById("campoSupervisor").addEventListener("change", async func
 
 const CLAVES_MARCA = ["C", "NC", "NA"];
 
+let terminoBusquedaEquipo = "";
+
+// Filtra por nombre o DNI sin perder el índice real en equipoActual
+// (los data-indice de cada fila/botón siguen apuntando al array
+// completo, aunque se muestren menos filas).
+function personasFiltradas(){
+
+    const termino = terminoBusquedaEquipo.trim().toLowerCase();
+
+    const conIndice = equipoActual.map(function(persona, indice){
+        return { persona: persona, indice: indice };
+    });
+
+    if(!termino){
+        return conIndice;
+    }
+
+    return conIndice.filter(function(item){
+        return String(item.persona.nombre || "").toLowerCase().includes(termino) ||
+            String(item.persona.dni || "").includes(termino);
+    });
+
+}
+
+document.getElementById("buscadorEquipo").addEventListener("input", function(){
+    terminoBusquedaEquipo = this.value;
+    renderizarEquipo();
+});
+
 function renderizarEquipo(){
 
     const cuerpo = document.getElementById("cuerpoTablaEquipo");
+    const mensajeSinResultados = document.getElementById("mensajeSinResultadosEquipo");
     cuerpo.innerHTML = "";
 
-    equipoActual.forEach(function(persona, indice){
+    const filtradas = personasFiltradas();
+
+    mensajeSinResultados.classList.toggle("oculto", !(equipoActual.length && !filtradas.length));
+
+    filtradas.forEach(function(item){
+
+        const persona = item.persona;
+        const indice = item.indice;
 
         const tr = document.createElement("tr");
 
