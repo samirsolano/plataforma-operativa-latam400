@@ -147,6 +147,10 @@
 
                     <div style="display:flex;gap:10px;">
 
+                        <button id="btnResumenPlanificado" class="pd-btn-resumen" onclick="abrirResumenPlanificado()">
+                            📊 Resumen
+                        </button>
+
                         <button id="btnActualizar" onclick="actualizarDrive()">
                             🔄 Actualizar Drive
                         </button>
@@ -1126,6 +1130,29 @@
         </div>
 
     </main>
+
+    <!-- ===================== MODAL RESUMEN PLANIFICADO ===================== -->
+
+    <div class="pd-resumen-overlay" id="pdModalResumen" style="display:none;" onclick="if(event.target===this) cerrarResumenPlanificado()">
+
+        <div class="pd-resumen-caja">
+
+            <div class="pd-resumen-header">
+
+                <div>
+                    <h3>📊 Resumen de planificación</h3>
+                    <p id="pdResumenSubtitulo">—</p>
+                </div>
+
+                <button class="pd-resumen-cerrar" onclick="cerrarResumenPlanificado()">✕</button>
+
+            </div>
+
+            <div id="pdResumenContenido"></div>
+
+        </div>
+
+    </div>
 
     <!-- ===================== MODAL GLOBAL (alerta / confirmación) ===================== -->
 
