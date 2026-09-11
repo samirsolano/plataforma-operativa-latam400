@@ -81,6 +81,19 @@ function marcasTodoConforme(){
 // alimentando Reconocimiento y Planificación de Recursos) para no
 // afectar esos otros módulos.
 
+// De las 9 personas que aparecen como "Jefe Directo" en el roster,
+// solo estas 3 son supervisores de turno reales (el resto son roles
+// administrativos/gerenciales que no llenan un checklist de higiene
+// por turno) — el selector de supervisor (y la auto-detección) se
+// restringen a esta lista. Buscar a alguien de OTRO jefe directo
+// (ej. el equipo de Eduardo Pasache) sigue funcionando sin
+// restricción vía "+ Agregar persona" (buscarColaboradorPorTexto).
+const SUPERVISORES_HIGIENE_PERMITIDOS = [
+    "ALONSO LARICO",
+    "JONATHAN QUINTANILLA",
+    "MELQUIADES PANGALIMA"
+];
+
 async function obtenerSupervisoresHigiene(){
 
     const filas = await checklistFetch(
@@ -91,9 +104,74 @@ async function obtenerSupervisoresHigiene(){
         (filas || [])
             .map(function(f){ return String(f.supervisor || "").trim(); })
             .filter(Boolean)
-    )).sort();
+    ));
 
-    return unicos;
+    return unicos
+        .filter(function(s){ return SUPERVISORES_HIGIENE_PERMITIDOS.includes(s); })
+        .sort();
+
+}
+
+// Misma técnica que obtenerFechaHoyServidorMHE (shared/mhe-checklist-config.js):
+// aprovecha el header "Date" que ya trae cualquier respuesta HTTP de
+// Supabase, para que la fecha del checklist no dependa de la hora del
+// celular (que se puede adelantar/atrasar a mano).
+async function obtenerFechaHoyServidorHigiene(){
+
+    try{
+
+        const respuesta = await fetch(
+            SUPABASE_URL_CHECKLIST + "/matrix_colaboradores?select=id&limit=1",
+            {
+                headers: {
+                    apikey: SUPABASE_KEY_CHECKLIST,
+                    Authorization: "Bearer " + SUPABASE_KEY_CHECKLIST
+                },
+                cache: "no-store"
+            }
+        );
+
+        const fechaServidor = respuesta.headers.get("date");
+
+        if(fechaServidor){
+
+            const instanteServidor = new Date(fechaServidor);
+            const offset = new Date().getTimezoneOffset() * 60000;
+
+            return new Date(instanteServidor.getTime() - offset).toISOString().slice(0, 10);
+
+        }
+
+    }catch(error){
+        console.error("No se pudo obtener la fecha del servidor, se usa la del dispositivo.", error);
+    }
+
+    const ahora = new Date();
+    const offset = ahora.getTimezoneOffset() * 60000;
+    return new Date(ahora.getTime() - offset).toISOString().slice(0, 10);
+
+}
+
+// Mismo cálculo que calcularTurnoActualMHE (shared/mhe-checklist-config.js)
+// y calcularTurnoActual (checklist5s-dinamico/auditoria.js): el turno no
+// depende solo de la hora, sino de la combinación día de la semana +
+// si es horario "día" (07:00-18:59) o "noche" (19:00-06:59).
+function calcularTurnoActualHigiene(){
+
+    const ahora = new Date();
+    const dia = ahora.getDay();
+    const hora = ahora.getHours();
+    const esDia = hora >= 7 && hora < 19;
+
+    if(dia === 0) return esDia ? "" : "INTERMEDIO";     // Domingo
+    if(dia === 1) return esDia ? "DIA" : "INTERMEDIO";  // Lunes
+    if(dia === 2) return esDia ? "DIA" : "NOCHE";        // Martes
+    if(dia === 3) return esDia ? "DIA" : "NOCHE";        // Miércoles
+    if(dia === 4) return esDia ? "DIA" : "NOCHE";        // Jueves
+    if(dia === 5) return esDia ? "INTERMEDIO" : "NOCHE"; // Viernes
+    if(dia === 6) return esDia ? "INTERMEDIO" : "";      // Sábado
+
+    return "";
 
 }
 
