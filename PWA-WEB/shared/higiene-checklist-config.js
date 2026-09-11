@@ -74,18 +74,17 @@ function marcasTodoConforme(){
 // ========================================
 // SUPERVISOR + EQUIPO
 // ========================================
-// Lee de "colaboradores" — la tabla maestra que alimenta a
-// Planificación de Recursos (ver obtenerSupervisoresRecursos /
-// obtenerRecursosTurno en recursos-logica.js: mismo proyecto
-// Supabase, misma tabla, filtrando solo por supervisor). A propósito
-// NO se cruza con "turno_colaboradores" — esa es la salida propia de
-// Recursos (quién quedó confirmado para una fecha+turno puntual), no
-// la fuente; el checklist de higiene solo necesita el roster base.
+// Lee de "matrix_colaboradores" — el roster general de personal
+// (DNI, nombre, grupo Blue/White, puesto, jefe directo) cargado desde
+// el Excel "matrix.xlsx" (ver sql/matrix_colaboradores.sql). Tabla
+// propia de este módulo, separada de "colaboradores" (que sigue
+// alimentando Reconocimiento y Planificación de Recursos) para no
+// afectar esos otros módulos.
 
 async function obtenerSupervisoresHigiene(){
 
     const filas = await checklistFetch(
-        "/colaboradores?select=supervisor"
+        "/matrix_colaboradores?select=supervisor"
     );
 
     const unicos = Array.from(new Set(
@@ -122,7 +121,7 @@ function deduplicarPorDni(filas){
 async function obtenerEquipoPorSupervisor(supervisor){
 
     const filas = await checklistFetch(
-        "/colaboradores?select=dni,nombre_completo&supervisor=eq." +
+        "/matrix_colaboradores?select=dni,nombre_completo&supervisor=eq." +
         encodeURIComponent(supervisor) +
         "&order=nombre_completo.asc"
     );
@@ -149,7 +148,7 @@ async function buscarColaboradorPorTexto(texto){
     const filtro = encodeURIComponent(termino);
 
     const filas = await checklistFetch(
-        "/colaboradores?select=dni,nombre_completo,supervisor" +
+        "/matrix_colaboradores?select=dni,nombre_completo,supervisor" +
         "&or=(dni.ilike.*" + filtro + "*,nombre_completo.ilike.*" + filtro + "*)" +
         "&order=nombre_completo.asc&limit=8"
     );
@@ -171,7 +170,7 @@ async function detectarNombreSupervisorPorDni(dni){
     }
 
     const filas = await checklistFetch(
-        "/colaboradores?select=nombre_completo&dni=eq." +
+        "/matrix_colaboradores?select=nombre_completo&dni=eq." +
         encodeURIComponent(dni) +
         "&limit=1"
     );

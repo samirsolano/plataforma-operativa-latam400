@@ -444,6 +444,15 @@ function mostrarToast(mensaje, esError){
 const PD_RESUMEN_COLORES = ["#FC000D", "#1f6feb", "#1e8449", "#e67e22", "#6c3483", "#17a2b8", "#d4af37", "#c0392b"];
 const PD_RESUMEN_CAPACIDAD_TURNO = 350;
 
+function obtenerDatosPlanificadosSeleccionados(){
+
+    return (ultimoPlanificadoDatos || []).filter(function(item, index){
+        const chk = document.getElementById("chk_" + index);
+        return chk ? chk.checked : false;
+    });
+
+}
+
 function abrirResumenPlanificado(){
 
     if(!ultimoPlanificadoDatos || ultimoPlanificadoDatos.length === 0){
@@ -451,14 +460,21 @@ function abrirResumenPlanificado(){
         return;
     }
 
+    const datosPlanificados = obtenerDatosPlanificadosSeleccionados();
+
+    if(datosPlanificados.length === 0){
+        mostrarAlertaModal("No hay viajes seleccionados como planificados. Marca al menos uno en la tabla.", "warning");
+        return;
+    }
+
     const fecha = document.getElementById("fecha").value;
     const turno = document.getElementById("turno").value;
 
     document.getElementById("pdResumenSubtitulo").textContent =
-        (fecha || "—") + " · Turno " + (turno || "—");
+        (fecha || "—") + " · Turno " + (turno || "—") + " · " + datosPlanificados.length + " de " + ultimoPlanificadoDatos.length + " viajes planificados";
 
     document.getElementById("pdResumenContenido").innerHTML =
-        construirResumenPlanificado(ultimoPlanificadoDatos);
+        construirResumenPlanificado(datosPlanificados);
 
     document.getElementById("pdModalResumen").style.display = "flex";
 
