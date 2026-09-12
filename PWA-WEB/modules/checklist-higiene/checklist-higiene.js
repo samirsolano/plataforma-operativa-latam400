@@ -41,6 +41,11 @@ document.getElementById("btnCerrarSesion").addEventListener("click", function(e)
 // objetos_no_autorizados, sintomas_enfermedad } }
 let equipoActual = [];
 
+// Si ya existe un checklist guardado para la fecha+turno+supervisor
+// actuales, se sigue editando ese mismo registro (PATCH) en vez de
+// crear uno nuevo — ver buscarChecklistHigieneExistente.
+let cabeceraExistenteId = null;
+
 // ========================================
 // LEYENDA
 // ========================================
@@ -77,23 +82,32 @@ async function cargarSupervisores(){
 
     try{
 
-        const supervisores = await obtenerSupervisoresHigiene();
+        // El selector del formulario (para llenar un checklist nuevo)
+        // y el filtro del historial (para ver los ya guardados) son
+        // listas aparte: el formulario solo ofrece a los 3
+        // supervisores de turno reales, pero el historial debe poder
+        // filtrarse por cualquier supervisor que aparezca en los
+        // registros guardados.
+        const [supervisoresFormulario, supervisoresHistorial] = await Promise.all([
+            obtenerSupervisoresHigiene(),
+            obtenerTodosLosSupervisoresHigiene()
+        ]);
 
         const selectFormulario = document.getElementById("campoSupervisor");
         const selectHistorial = document.getElementById("filtroHistorialSupervisor");
 
-        supervisores.forEach(function(nombre){
+        supervisoresFormulario.forEach(function(nombre){
+            const opcion = document.createElement("option");
+            opcion.value = nombre;
+            opcion.textContent = nombre;
+            selectFormulario.appendChild(opcion);
+        });
 
-            const opcion1 = document.createElement("option");
-            opcion1.value = nombre;
-            opcion1.textContent = nombre;
-            selectFormulario.appendChild(opcion1);
-
-            const opcion2 = document.createElement("option");
-            opcion2.value = nombre;
-            opcion2.textContent = nombre;
-            selectHistorial.appendChild(opcion2);
-
+        supervisoresHistorial.forEach(function(nombre){
+            const opcion = document.createElement("option");
+            opcion.value = nombre;
+            opcion.textContent = nombre;
+            selectHistorial.appendChild(opcion);
         });
 
     }catch(error){
@@ -111,24 +125,16 @@ cargarSupervisores();
 // CARGAR EQUIPO AL ELEGIR SUPERVISOR
 // ========================================
 
-document.getElementById("campoSupervisor").addEventListener("change", async function(){
+async function cargarEquipoParaSupervisor(supervisorElegido){
 
-    const supervisor = this.value;
     const mensaje = document.getElementById("mensajeEquipo");
     const contenedorTabla = document.getElementById("contenedorTablaEquipo");
     const btnAgregar = document.getElementById("btnAgregarPersona");
     const barraAcciones = document.getElementById("barraAccionesEquipo");
+    const selectSupervisor = document.getElementById("campoSupervisor");
 
-    if(!supervisor){
-        equipoActual = [];
-        renderizarEquipo();
-        mensaje.textContent = "Selecciona un supervisor para cargar a su equipo.";
-        mensaje.classList.remove("oculto");
-        contenedorTabla.classList.add("oculto");
-        btnAgregar.classList.add("oculto");
-        barraAcciones.classList.add("oculto");
-        return;
-    }
+    const fecha = document.getElementById("campoFecha").value;
+    const turno = document.getElementById("campoTurno").value;
 
     mensaje.textContent = "Cargando equipo...";
     mensaje.classList.remove("oculto");
@@ -136,27 +142,87 @@ document.getElementById("campoSupervisor").addEventListener("change", async func
 
     try{
 
-        const equipo = await obtenerEquipoPorSupervisor(supervisor);
+        // Solo hay UN checklist por fecha+turno (sin importar cuál
+        // supervisor lo creó) — si ya existe, se carga con el
+        // supervisor real, aunque sea distinto al que estaba elegido.
+        const existente = (fecha && turno) ? await buscarChecklistHigieneExistente(fecha, turno) : null;
 
-        equipoActual = equipo.map(function(c){
-            return {
-                dni: c.dni,
-                nombre: c.nombre,
-                turno: c.turno || "",
-                agregadoManual: false,
-                observaciones: "",
-                marcas: marcasTodoConforme()
-            };
-        });
+        cabeceraExistenteId = existente ? existente.id : null;
+
+        const supervisor = existente ? existente.supervisor : supervisorElegido;
+
+        if(existente && selectSupervisor.value !== existente.supervisor){
+            selectSupervisor.value = existente.supervisor;
+        }
+
+        if(!supervisor){
+            equipoActual = [];
+            renderizarEquipo();
+            mensaje.textContent = "Selecciona un supervisor para cargar a su equipo.";
+            mensaje.classList.remove("oculto");
+            contenedorTabla.classList.add("oculto");
+            btnAgregar.classList.add("oculto");
+            barraAcciones.classList.add("oculto");
+            return;
+        }
+
+        if(existente){
+
+            const detalle = await obtenerDetalleChecklist(existente.id);
+
+            equipoActual = (detalle || []).map(function(d){
+                return {
+                    dni: d.dni,
+                    nombre: d.nombre,
+                    turno: d.turno || "",
+                    agregadoManual: !!d.agregado_manual,
+                    observaciones: d.observaciones || "",
+                    marcas: {
+                        uniforme_epp: d.uniforme_epp,
+                        manos_unas: d.manos_unas,
+                        cabello: d.cabello,
+                        rostro: d.rostro,
+                        objetos_no_autorizados: d.objetos_no_autorizados,
+                        sintomas_enfermedad: d.sintomas_enfermedad
+                    }
+                };
+            });
+
+            document.getElementById("campoResponsableOperacion").value = existente.responsable_operacion_nombre || "";
+
+        }else{
+
+            const equipo = await obtenerEquipoPorSupervisor(supervisor);
+
+            equipoActual = equipo.map(function(c){
+                return {
+                    dni: c.dni,
+                    nombre: c.nombre,
+                    turno: c.turno || "",
+                    agregadoManual: false,
+                    observaciones: "",
+                    marcas: marcasTodoConforme()
+                };
+            });
+
+        }
 
         terminoBusquedaEquipo = "";
         document.getElementById("buscadorEquipo").value = "";
         renderizarEquipo();
 
         if(equipoActual.length){
-            mensaje.classList.add("oculto");
+
+            if(existente){
+                mensaje.textContent = "Ya existe un checklist guardado para esa fecha y turno — estás corrigiendo ese mismo.";
+                mensaje.classList.remove("oculto");
+            }else{
+                mensaje.classList.add("oculto");
+            }
+
             contenedorTabla.classList.remove("oculto");
             barraAcciones.classList.remove("oculto");
+
         }else{
             mensaje.textContent = "Este supervisor no tiene colaboradores activos registrados. Puedes agregar personas manualmente.";
         }
@@ -170,6 +236,22 @@ document.getElementById("campoSupervisor").addEventListener("change", async func
 
     }
 
+}
+
+document.getElementById("campoSupervisor").addEventListener("change", function(){
+    cargarEquipoParaSupervisor(this.value);
+});
+
+// Fecha y turno también forman parte de la clave que identifica un
+// checklist único (fecha+turno, sin supervisor) — se revisa apenas
+// cambian, incluso sin un supervisor elegido todavía: si ya existe
+// uno para esa combinación hay que mostrarlo con su supervisor real.
+document.getElementById("campoFecha").addEventListener("change", function(){
+    cargarEquipoParaSupervisor(document.getElementById("campoSupervisor").value);
+});
+
+document.getElementById("campoTurno").addEventListener("change", function(){
+    cargarEquipoParaSupervisor(document.getElementById("campoSupervisor").value);
 });
 
 // ========================================
@@ -565,10 +647,18 @@ document.getElementById("btnGuardar").addEventListener("click", async function()
 
     try{
 
-        await guardarChecklistHigiene(armarCabecera(), armarDetalle());
+        const cabecera = armarCabecera();
+        const detalle = armarDetalle();
+
+        if(cabeceraExistenteId){
+            await actualizarChecklistHigiene(cabeceraExistenteId, cabecera, detalle);
+        }else{
+            cabeceraExistenteId = await guardarChecklistHigiene(cabecera, detalle);
+        }
 
         alert("Checklist de higiene guardado correctamente.");
 
+        cabeceraExistenteId = null;
         equipoActual = [];
         document.getElementById("campoSupervisor").value = "";
         document.getElementById("campoResponsableOperacion").value = "";

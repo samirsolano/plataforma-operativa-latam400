@@ -112,6 +112,26 @@ async function obtenerSupervisoresHigiene(){
 
 }
 
+// Para el filtro de historial (ver checklists ya guardados) — a
+// diferencia de obtenerSupervisoresHigiene, aquí NO se restringe a
+// los 3 supervisores de turno: el historial es una lista aparte, y
+// debe poder filtrarse por cualquier supervisor que haya quedado
+// guardado en algún checklist (pasado o presente), sin importar si
+// hoy sigue siendo válido para crear uno nuevo.
+async function obtenerTodosLosSupervisoresHigiene(){
+
+    const filas = await checklistFetch(
+        "/matrix_colaboradores?select=supervisor"
+    );
+
+    return Array.from(new Set(
+        (filas || [])
+            .map(function(f){ return String(f.supervisor || "").trim(); })
+            .filter(Boolean)
+    )).sort();
+
+}
+
 // Misma técnica que obtenerFechaHoyServidorMHE (shared/mhe-checklist-config.js):
 // aprovecha el header "Date" que ya trae cualquier respuesta HTTP de
 // Supabase, para que la fecha del checklist no dependa de la hora del
@@ -260,6 +280,63 @@ async function detectarNombreSupervisorPorDni(dni){
 // ========================================
 // GUARDAR / LISTAR
 // ========================================
+
+// Solo puede haber un checklist por fecha+turno (sin importar cuál
+// supervisor lo creó — ver constraint única en
+// sql/higiene_checklist.sql). Si ya existe uno para esa fecha+turno
+// se sigue corrigiendo ese mismo (editable durante el turno, con el
+// supervisor real que lo creó); al día siguiente la fecha ya es
+// distinta, así que no hay coincidencia y se crea uno nuevo.
+async function buscarChecklistHigieneExistente(fecha, turno){
+
+    const filas = await checklistFetch(
+        "/higiene_checklist_cabecera?select=*&fecha=eq." + encodeURIComponent(fecha) +
+        "&turno=eq." + encodeURIComponent(turno) +
+        "&limit=1"
+    );
+
+    return (filas && filas[0]) || null;
+
+}
+
+// Actualiza un checklist ya existente: la cabecera se actualiza campo
+// a campo y el detalle se reemplaza completo (borra + vuelve a
+// insertar) — más simple que calcular altas/bajas/cambios persona por
+// persona cuando se agregó o quitó gente entre una edición y otra.
+async function actualizarChecklistHigiene(cabeceraId, cabecera, detalleArray){
+
+    await checklistFetch(
+        "/higiene_checklist_cabecera?id=eq." + encodeURIComponent(cabeceraId),
+        {
+            method: "PATCH",
+            body: JSON.stringify(cabecera)
+        }
+    );
+
+    await checklistFetch(
+        "/higiene_checklist_detalle?cabecera_id=eq." + encodeURIComponent(cabeceraId),
+        { method: "DELETE" }
+    );
+
+    if(detalleArray && detalleArray.length){
+
+        const detalleConCabecera = detalleArray.map(function(d){
+            return Object.assign({}, d, { cabecera_id: cabeceraId });
+        });
+
+        await checklistFetch(
+            "/higiene_checklist_detalle",
+            {
+                method: "POST",
+                body: JSON.stringify(detalleConCabecera)
+            }
+        );
+
+    }
+
+    return cabeceraId;
+
+}
 
 async function guardarChecklistHigiene(cabecera, detalleArray){
 
