@@ -62,6 +62,7 @@
 
                 <a href="#" class="tab-link activo" data-tab="tabCarga">1. Carga y Viajes</a>
                 <a href="#" class="tab-link" data-tab="tabLecturas">2. Lecturas y Evidencias</a>
+                <a href="#" class="tab-link" data-tab="tabMara">3. Maestro MARA</a>
 
             </nav>
 
@@ -285,6 +286,136 @@
                             <tr>
                                 <td colspan="10" class="sin-datos">
                                     Usa los filtros de arriba para buscar lecturas.
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 3: MAESTRO MARA -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabMara">
+
+                <div class="card">
+
+                    <div class="card-header-flex">
+
+                        <h2>
+                            3. CARGAR MAESTRO MARA
+                        </h2>
+
+                        <button id="btnDescargarPlantillaMara" class="btn-secundario">
+                            ⬇ Descargar Plantilla
+                        </button>
+
+                    </div>
+
+                    <p class="nota-modulo">
+                        Sube el Excel del maestro MARA con las columnas: COD. LAB., LABORATORIO,
+                        COD. SAP, COD. PROVEEDOR, EAN PRINCIPAL, DESCRIPCION, CODIGO INKAVENTA,
+                        ESTADO, UM BASE, UM PEDIDO, MASTER PACK. El Cód. Proveedor es el que
+                        coincide con el CODIGO/SKU de esta plantilla. Al subir un archivo nuevo
+                        se reemplaza por completo el maestro actual.
+                    </p>
+
+                    <div class="data-modulado">
+
+                        <div class="upload-box">
+
+                            <input
+                                type="file"
+                                id="archivoMara"
+                            >
+
+                        </div>
+
+                        <div class="detalle-archivo">
+
+                            <p>
+                                Archivo:
+                                <span id="nombreArchivoMara">-</span>
+                            </p>
+
+                            <p>
+                                Fecha:
+                                <span id="fechaArchivoMara">-</span>
+                            </p>
+
+                            <p>
+                                Registros:
+                                <span id="totalRegistrosMara">-</span>
+                            </p>
+
+                        </div>
+
+                        <div class="estado-ok">
+
+                            <h3>✓ Procesado correctamente</h3>
+
+                            <p>El maestro quedó disponible para consulta.</p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <h2>
+                        CONSULTAR MAESTRO
+                    </h2>
+
+                    <div class="filtros-mara">
+
+                        <div>
+                            <label>Código (SAP o Proveedor)</label>
+                            <input type="text" id="filtroCodigoMara" placeholder="Ej: 8321151">
+                        </div>
+
+                        <div>
+                            <label>Descripción</label>
+                            <input type="text" id="filtroDescripcionMara" placeholder="Ej: DENTO">
+                        </div>
+
+                        <div>
+                            <button id="btnBuscarMara">Buscar</button>
+                        </div>
+
+                    </div>
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Cód. SAP</th>
+                                <th>Cód. Proveedor</th>
+                                <th>EAN Principal</th>
+                                <th>Descripción</th>
+                                <th>Laboratorio</th>
+                                <th>UM Base</th>
+                                <th>UM Pedido</th>
+                                <th>Master Pack</th>
+                                <th>Estado</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblMara">
+
+                            <tr>
+                                <td colspan="9" class="sin-datos">
+                                    Usa los filtros de arriba para buscar en el maestro.
                                 </td>
                             </tr>
 
