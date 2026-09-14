@@ -114,6 +114,10 @@ document.querySelectorAll(".tab-link").forEach(function(link){
             buscarStock();
         }
 
+        if(link.dataset.tab === "tabCruce"){
+            cargarViajesParaCruce();
+        }
+
     });
 
 });
@@ -2135,3 +2139,223 @@ async function buscarStock(){
 }
 
 document.getElementById("btnBuscarStock").addEventListener("click", buscarStock);
+
+// ========================================
+// CRUCE DE INFORMACIÓN
+// ========================================
+// OC Portal Cliente (EAN) -> MARA Alicorp (código real + factor de
+// conversión) -> comparar contra lo escaneado en Lecturas. Reusa
+// mostrarToast, supabaseFetchTodo y formatearNumeroFarmacia
+// (definidos arriba).
+
+const cmbViajeCruce = document.getElementById("cmbViajeCruce");
+const cmbOcCruce = document.getElementById("cmbOcCruce");
+
+let _viajesCruceCargados = false;
+
+async function cargarViajesParaCruce(){
+
+    if(_viajesCruceCargados){
+        return;
+    }
+
+    try{
+
+        const filas = await supabaseFetchTodo("/farmacia_data?select=viaje");
+
+        const viajes = [...new Set((filas || []).map(f => f.viaje))]
+            .filter(v => v !== null && v !== undefined)
+            .sort((a, b) => a - b);
+
+        viajes.forEach(function(v){
+            const option = document.createElement("option");
+            option.value = String(v);
+            option.textContent = String(v);
+            cmbViajeCruce.appendChild(option);
+        });
+
+        _viajesCruceCargados = true;
+
+    }catch(e){
+        console.error(e);
+    }
+
+}
+
+cmbViajeCruce.addEventListener("change", async function(){
+
+    cmbOcCruce.innerHTML = `<option value="">Selecciona primero el viaje...</option>`;
+    cmbOcCruce.disabled = true;
+
+    document.getElementById("tblCruce").innerHTML =
+        `<tr><td colspan="6" class="sin-datos">Selecciona el Viaje y la OC, y presiona "Calcular Cruce".</td></tr>`;
+
+    if(!cmbViajeCruce.value){
+        return;
+    }
+
+    try{
+
+        const filas = await supabaseFetchTodo(
+            "/farmacia_data?select=orden_compra&viaje=eq." + cmbViajeCruce.value
+        );
+
+        const ocs = [...new Set((filas || []).map(f => f.orden_compra))]
+            .filter(v => v !== null && v !== undefined)
+            .sort((a, b) => a - b);
+
+        cmbOcCruce.innerHTML = `<option value="">Selecciona la OC...</option>`;
+
+        ocs.forEach(function(oc){
+            const option = document.createElement("option");
+            option.value = String(oc);
+            option.textContent = String(oc);
+            cmbOcCruce.appendChild(option);
+        });
+
+        cmbOcCruce.disabled = false;
+
+    }catch(e){
+        console.error(e);
+        mostrarToast("No se pudieron cargar las OC de ese viaje.", "error");
+    }
+
+});
+
+async function calcularCruce(){
+
+    const viaje = Number(cmbViajeCruce.value);
+    const oc = Number(cmbOcCruce.value);
+
+    const tbody = document.getElementById("tblCruce");
+
+    if(!cmbViajeCruce.value || !cmbOcCruce.value){
+        mostrarToast("Primero selecciona el Viaje y la OC.", "error");
+        return;
+    }
+
+    tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">Calculando cruce...</td></tr>`;
+
+    try{
+
+        const [ocPortalFilas, maraAlicorpFilas, farmaciaDataFilas, lecturasFilas] = await Promise.all([
+            supabaseFetchTodo(
+                "/oc_portal_cliente?select=ean,codigo_proveedor,descripcion_producto,posicion&oc=eq." + oc
+            ),
+            supabaseFetchTodo("/mara_alicorp?select=ean,codigo,descripcion"),
+            supabaseFetchTodo(
+                "/farmacia_data?select=codigo,cantidad&viaje=eq." + viaje + "&orden_compra=eq." + oc
+            ),
+            supabaseFetchTodo(
+                "/farmacia_lecturas?select=codigo,cantidad_cajas&viaje=eq." + viaje + "&oc=eq." + oc
+            )
+        ]);
+
+        if(!ocPortalFilas || !ocPortalFilas.length){
+            tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">Esa OC todavía no tiene datos cargados en "4. OC Portal Cliente".</td></tr>`;
+            return;
+        }
+
+        const maraPorEan = {};
+
+        (maraAlicorpFilas || []).forEach(function(m){
+            if(m.ean){
+                maraPorEan[String(m.ean).trim()] = m;
+            }
+        });
+
+        // "Solicitado" = lo que TÚ cargaste en "1. Carga y Viajes" para
+        // ese código, no la cantidad que trae la OC del portal (que
+        // puede traer de más, o códigos que ni son parte de tu carga).
+        const solicitadoPorCodigo = {};
+
+        (farmaciaDataFilas || []).forEach(function(f){
+            if(!f.codigo){
+                return;
+            }
+            solicitadoPorCodigo[f.codigo] = (solicitadoPorCodigo[f.codigo] || 0) + Number(f.cantidad || 0);
+        });
+
+        const escaneadoPorCodigo = {};
+
+        (lecturasFilas || []).forEach(function(l){
+            if(!l.codigo){
+                return;
+            }
+            escaneadoPorCodigo[l.codigo] = (escaneadoPorCodigo[l.codigo] || 0) + Number(l.cantidad_cajas || 0);
+        });
+
+        const filas = ocPortalFilas.map(function(row){
+
+            const ean = String(row.ean || "").trim();
+            const mara = maraPorEan[ean] || null;
+            const codigo = mara ? mara.codigo : null;
+
+            const solicitado = codigo ? solicitadoPorCodigo[codigo] : undefined;
+            const escaneado = codigo ? (escaneadoPorCodigo[codigo] || 0) : 0;
+
+            let estadoTexto;
+            let estadoClase;
+
+            if(!codigo){
+                estadoTexto = "Sin MARA Alicorp";
+                estadoClase = "advertencia";
+            }else if(solicitado === undefined){
+                // Está en la OC del portal pero no en lo que tú
+                // cargaste — no es un pendiente tuyo, solo referencia.
+                estadoTexto = "Fuera de tu carga";
+                estadoClase = "disponible";
+            }else if(escaneado >= solicitado){
+                estadoTexto = "Completo";
+                estadoClase = "activado";
+            }else{
+                estadoTexto = "Pendiente";
+                estadoClase = "pendiente";
+            }
+
+            return {
+                ean: ean || "-",
+                codigo: codigo || "-",
+                descripcion: (mara && mara.descripcion) || row.descripcion_producto || "-",
+                solicitado: solicitado,
+                escaneado: escaneado,
+                estadoTexto: estadoTexto,
+                estadoClase: estadoClase
+            };
+
+        }).sort(function(a, b){
+
+            const prioridad = { "pendiente": 0, "advertencia": 1, "disponible": 2, "activado": 3 };
+            return prioridad[a.estadoClase] - prioridad[b.estadoClase];
+
+        });
+
+        tbody.innerHTML = "";
+
+        filas.forEach(function(f){
+
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${f.ean}</td>
+                <td>${f.codigo}</td>
+                <td>${f.descripcion}</td>
+                <td>${f.solicitado === undefined ? "-" : formatearNumeroFarmacia(f.solicitado)}</td>
+                <td>${formatearNumeroFarmacia(f.escaneado)}</td>
+                <td><span class="estado ${f.estadoClase}">${f.estadoTexto}</span></td>
+            `;
+
+            tbody.appendChild(tr);
+
+        });
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se pudo calcular el cruce.</td></tr>`;
+
+    }
+
+}
+
+document.getElementById("btnCalcularCruce").addEventListener("click", calcularCruce);

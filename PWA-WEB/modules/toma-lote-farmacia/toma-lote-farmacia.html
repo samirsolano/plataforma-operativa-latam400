@@ -66,6 +66,7 @@
                 <a href="#" class="tab-link" data-tab="tabOcPortal">4. OC Portal Cliente</a>
                 <a href="#" class="tab-link" data-tab="tabMaraAlicorp">5. MARA Alicorp</a>
                 <a href="#" class="tab-link" data-tab="tabStockFisico">6. Stock Físico SAP</a>
+                <a href="#" class="tab-link" data-tab="tabCruce">7. Cruce de Información</a>
 
             </nav>
 
@@ -854,6 +855,82 @@
                             <tr>
                                 <td colspan="9" class="sin-datos">
                                     Cargando stock físico...
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 7: CRUCE DE INFORMACIÓN -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabCruce">
+
+                <div class="card">
+
+                    <h2>
+                        7. CRUCE DE INFORMACIÓN
+                    </h2>
+
+                    <p class="nota-modulo">
+                        Selecciona el Viaje y la OC. Se toma cada línea de "4. OC Portal Cliente"
+                        de esa OC y se busca su EAN en "5. MARA Alicorp" para obtener el código
+                        real. Lo "Solicitado" es la cantidad que TÚ cargaste en "1. Carga y
+                        Viajes" para ese código (no la cantidad que trae la OC del portal, que
+                        puede traer de más o códigos que no son parte de tu carga), y se compara
+                        contra lo realmente escaneado en "2. Lecturas y Evidencias".
+                    </p>
+
+                    <div class="filtros-mara">
+
+                        <div>
+                            <label>Viaje</label>
+                            <select id="cmbViajeCruce">
+                                <option value="">Selecciona el viaje...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label>OC</label>
+                            <select id="cmbOcCruce" disabled>
+                                <option value="">Selecciona primero el viaje...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <button id="btnCalcularCruce">Calcular Cruce</button>
+                        </div>
+
+                    </div>
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>EAN</th>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Solicitado (tu carga)</th>
+                                <th>Escaneado (Cajas)</th>
+                                <th>Estado</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblCruce">
+
+                            <tr>
+                                <td colspan="6" class="sin-datos">
+                                    Selecciona el Viaje y la OC, y presiona "Calcular Cruce".
                                 </td>
                             </tr>
 
