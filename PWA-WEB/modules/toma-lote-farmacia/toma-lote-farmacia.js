@@ -103,6 +103,11 @@ document.querySelectorAll(".tab-link").forEach(function(link){
             buscarOcPortal();
         }
 
+        if(link.dataset.tab === "tabMaraAlicorp"){
+            cargarResumenExistenteAlicorp();
+            buscarAlicorp();
+        }
+
     });
 
 });
@@ -1361,3 +1366,273 @@ async function buscarOcPortal(){
 }
 
 document.getElementById("btnBuscarOcPortal").addEventListener("click", buscarOcPortal);
+
+// ========================================
+// MARA ALICORP
+// ========================================
+// Maestro más simple que "3. MARA InRetail Pharma": acá "codigo" SÍ
+// coincide directo con el CODIGO/SKU que se usa en el resto del
+// módulo. Reusa mostrarToast, sesion, guardarEnBloques, sinTildes y
+// supabaseFetchTodo (definidos arriba).
+
+document.getElementById("btnDescargarPlantillaAlicorp").addEventListener("click", function(){
+
+    const encabezados = [
+        "codigo", "Decripción de material", "Código EAN/UPC", "Factor Unid. de Alm.", "Und. de almacenamiento"
+    ];
+
+    const filasEjemplo = [
+        [8321091, "SHAMPOO REPARADOR AMARAS 12FCO 400ML", "7750243073837", 12, "CJA"],
+        [8301104, "CEP DENTO GALAXY NIÑOS 14UND 6DSP", "7751851007931", 84, "CJA"]
+    ];
+
+    const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filasEjemplo]);
+    const libro = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(libro, hoja, "MARA ALICORP");
+
+    XLSX.writeFile(libro, "PLANTILLA_MARA_ALICORP.xlsx");
+
+});
+
+const archivoAlicorp = document.getElementById("archivoAlicorp");
+const nombreArchivoAlicorp = document.getElementById("nombreArchivoAlicorp");
+const fechaArchivoAlicorp = document.getElementById("fechaArchivoAlicorp");
+
+async function leerFilasAlicorpExcel(archivo){
+
+    const buffer = await archivo.arrayBuffer();
+    const libro = XLSX.read(buffer, { type: "array" });
+
+    const hoja = libro.Sheets[libro.SheetNames[0]];
+
+    return XLSX.utils.sheet_to_json(hoja, { defval: "" });
+
+}
+
+// El nombre exacto de las columnas de descripción/EAN/factor/unidad
+// varía según cómo lo exporten (p.ej. "Decripción" sin la "s"), así
+// que se aceptan varios nombres candidatos por campo. Solo "codigo"
+// es realmente obligatorio.
+function valorPorCandidatos(mapaFila, candidatos){
+
+    for(let i = 0; i < candidatos.length; i++){
+        if(mapaFila[candidatos[i]] !== undefined){
+            return mapaFila[candidatos[i]];
+        }
+    }
+
+    return "";
+
+}
+
+function validarFormatoAlicorp(filasCrudas){
+
+    if(!filasCrudas.length){
+        return "El archivo está vacío.";
+    }
+
+    const columnasArchivo = Object.keys(filasCrudas[0]).map(c => sinTildes(c).trim().toLowerCase());
+
+    if(!columnasArchivo.includes("codigo")){
+        return "Este archivo no tiene el formato del maestro Alicorp. Falta la columna: CODIGO.";
+    }
+
+    const candidatosDescripcion = ["descripcion de material", "decripcion de material", "descripcion"];
+
+    if(!candidatosDescripcion.some(c => columnasArchivo.includes(c))){
+        return "Este archivo no tiene el formato del maestro Alicorp. Falta la columna de descripción del material.";
+    }
+
+    return null;
+
+}
+
+function normalizarFilaAlicorp(filaOriginal, archivo, cargadoPor){
+
+    const mapaFila = {};
+
+    Object.keys(filaOriginal).forEach(function(clave){
+        mapaFila[sinTildes(clave).trim().toLowerCase()] = filaOriginal[clave];
+    });
+
+    function texto(candidatos){
+        const v = valorPorCandidatos(mapaFila, candidatos);
+        return (v === undefined || v === null) ? "" : String(v).trim();
+    }
+
+    function num(candidatos){
+        const v = valorPorCandidatos(mapaFila, candidatos);
+        const n = Number(v);
+        return (v === "" || v === undefined || isNaN(n)) ? null : n;
+    }
+
+    return {
+        codigo: texto(["codigo"]),
+        descripcion: texto(["descripcion de material", "decripcion de material", "descripcion"]),
+        ean: texto(["codigo ean/upc", "ean/upc", "ean"]),
+        factor_unidad_alm: num(["factor unid. de alm.", "factor unid de alm", "factor unidad de almacenamiento"]),
+        unidad_almacenamiento: texto(["und. de almacenamiento", "und de almacenamiento", "unidad de almacenamiento"]),
+        archivo_origen: archivo,
+        cargado_por: cargadoPor
+    };
+
+}
+
+archivoAlicorp.addEventListener("change", async function(e){
+
+    const archivo = e.target.files[0];
+
+    if(!archivo){
+        return;
+    }
+
+    nombreArchivoAlicorp.textContent = "Leyendo " + archivo.name + "...";
+
+    try{
+
+        const filasCrudas = await leerFilasAlicorpExcel(archivo);
+
+        const errorFormato = validarFormatoAlicorp(filasCrudas);
+
+        if(errorFormato){
+            mostrarToast(errorFormato, "error");
+            nombreArchivoAlicorp.textContent = "-";
+            archivoAlicorp.value = "";
+            return;
+        }
+
+        const cargadoPor = (sesion && (sesion.nombre_completo || sesion.usuario)) || "";
+
+        const filasNormalizadas = filasCrudas
+            .map(f => normalizarFilaAlicorp(f, archivo.name, cargadoPor))
+            .filter(f => f.codigo && f.descripcion);
+
+        if(!filasNormalizadas.length){
+            mostrarToast("No se encontraron filas válidas en el archivo (revisa las columnas CODIGO y DESCRIPCION).", "error");
+            nombreArchivoAlicorp.textContent = "-";
+            archivoAlicorp.value = "";
+            return;
+        }
+
+        const existentes = await supabaseFetch("/mara_alicorp?select=id&limit=1");
+
+        if(existentes && existentes.length){
+
+            const confirmado = confirm(
+                "Ya hay un maestro Alicorp cargado. ¿Deseas reemplazarlo con este archivo (" +
+                filasNormalizadas.length + " filas)?"
+            );
+
+            if(!confirmado){
+                nombreArchivoAlicorp.textContent = "-";
+                archivoAlicorp.value = "";
+                return;
+            }
+
+            await supabaseFetch("/mara_alicorp?id=gt.0", { method: "DELETE" });
+
+        }
+
+        nombreArchivoAlicorp.textContent = "Guardando " + archivo.name + "...";
+
+        await guardarEnBloques("mara_alicorp", filasNormalizadas);
+
+        nombreArchivoAlicorp.textContent = archivo.name;
+        fechaArchivoAlicorp.textContent = new Date().toLocaleDateString("es-PE");
+
+        document.getElementById("totalRegistrosAlicorp").textContent =
+            filasNormalizadas.length.toLocaleString("es-PE");
+
+        mostrarToast("Maestro Alicorp cargado: " + filasNormalizadas.length + " filas.", "exito");
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo cargar el archivo: " + err.message, "error");
+        nombreArchivoAlicorp.textContent = "-";
+        archivoAlicorp.value = "";
+
+    }
+
+});
+
+async function cargarResumenExistenteAlicorp(){
+
+    try{
+
+        const filas = await supabaseFetchTodo(
+            "/mara_alicorp?select=id,archivo_origen,created_at&order=created_at.desc"
+        );
+
+        if(!filas || !filas.length){
+            return;
+        }
+
+        document.getElementById("totalRegistrosAlicorp").textContent =
+            filas.length.toLocaleString("es-PE");
+
+        nombreArchivoAlicorp.textContent = filas[0].archivo_origen || "-";
+        fechaArchivoAlicorp.textContent = new Date(filas[0].created_at).toLocaleDateString("es-PE");
+
+    }catch(e){
+        console.error(e);
+    }
+
+}
+
+async function buscarAlicorp(){
+
+    const codigo = document.getElementById("filtroCodigoAlicorp").value.trim();
+    const descripcion = document.getElementById("filtroDescripcionAlicorp").value.trim();
+
+    const tbody = document.getElementById("tblAlicorp");
+    tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">Cargando...</td></tr>`;
+
+    try{
+
+        let ruta = "/mara_alicorp?select=codigo,descripcion,ean,factor_unidad_alm,unidad_almacenamiento&order=descripcion.asc";
+
+        if(codigo){
+            ruta += "&codigo=ilike.*" + encodeURIComponent(codigo) + "*";
+        }
+
+        if(descripcion){
+            ruta += "&descripcion=ilike.*" + encodeURIComponent(descripcion) + "*";
+        }
+
+        const filas = await supabaseFetchTodo(ruta);
+
+        tbody.innerHTML = "";
+
+        if(!filas || !filas.length){
+            tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">No se encontraron materiales con esos filtros.</td></tr>`;
+            return;
+        }
+
+        filas.forEach(function(f){
+
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${f.codigo || "-"}</td>
+                <td>${f.descripcion || "-"}</td>
+                <td>${f.ean || "-"}</td>
+                <td>${f.factor_unidad_alm || "-"}</td>
+                <td>${f.unidad_almacenamiento || "-"}</td>
+            `;
+
+            tbody.appendChild(tr);
+
+        });
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">No se pudo cargar el maestro Alicorp.</td></tr>`;
+
+    }
+
+}
+
+document.getElementById("btnBuscarAlicorp").addEventListener("click", buscarAlicorp);

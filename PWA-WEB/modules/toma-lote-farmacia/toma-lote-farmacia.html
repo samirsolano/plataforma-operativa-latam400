@@ -62,8 +62,9 @@
 
                 <a href="#" class="tab-link activo" data-tab="tabCarga">1. Carga y Viajes</a>
                 <a href="#" class="tab-link" data-tab="tabLecturas">2. Lecturas y Evidencias</a>
-                <a href="#" class="tab-link" data-tab="tabMara">3. Maestro MARA</a>
+                <a href="#" class="tab-link" data-tab="tabMara">3. MARA InRetail Pharma</a>
                 <a href="#" class="tab-link" data-tab="tabOcPortal">4. OC Portal Cliente</a>
+                <a href="#" class="tab-link" data-tab="tabMaraAlicorp">5. MARA Alicorp</a>
 
             </nav>
 
@@ -309,7 +310,7 @@
                     <div class="card-header-flex">
 
                         <h2>
-                            3. CARGAR MAESTRO MARA
+                            3. CARGAR MARA INRETAIL PHARMA
                         </h2>
 
                         <button id="btnDescargarPlantillaMara" class="btn-secundario">
@@ -564,6 +565,132 @@
                             <tr>
                                 <td colspan="9" class="sin-datos">
                                     Cargando OC del portal...
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 5: MARA ALICORP -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabMaraAlicorp">
+
+                <div class="card">
+
+                    <div class="card-header-flex">
+
+                        <h2>
+                            5. CARGAR MARA ALICORP
+                        </h2>
+
+                        <button id="btnDescargarPlantillaAlicorp" class="btn-secundario">
+                            ⬇ Descargar Plantilla
+                        </button>
+
+                    </div>
+
+                    <p class="nota-modulo">
+                        Sube el Excel del maestro Alicorp con las columnas: CODIGO, DECRIPCION DE
+                        MATERIAL, CODIGO EAN/UPC, FACTOR UNID. DE ALM., UND. DE ALMACENAMIENTO.
+                        A diferencia de "3. MARA InRetail Pharma", aquí el CODIGO coincide directo
+                        con el CODIGO/SKU que se usa en el resto del módulo. Al subir un archivo
+                        nuevo se reemplaza por completo el maestro actual.
+                    </p>
+
+                    <div class="data-modulado">
+
+                        <div class="upload-box">
+
+                            <input
+                                type="file"
+                                id="archivoAlicorp"
+                            >
+
+                        </div>
+
+                        <div class="detalle-archivo">
+
+                            <p>
+                                Archivo:
+                                <span id="nombreArchivoAlicorp">-</span>
+                            </p>
+
+                            <p>
+                                Fecha:
+                                <span id="fechaArchivoAlicorp">-</span>
+                            </p>
+
+                            <p>
+                                Registros:
+                                <span id="totalRegistrosAlicorp">-</span>
+                            </p>
+
+                        </div>
+
+                        <div class="estado-ok">
+
+                            <h3>✓ Procesado correctamente</h3>
+
+                            <p>El maestro Alicorp quedó disponible para consulta.</p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <h2>
+                        CONSULTAR MARA ALICORP
+                    </h2>
+
+                    <div class="filtros-mara">
+
+                        <div>
+                            <label>Código</label>
+                            <input type="text" id="filtroCodigoAlicorp" placeholder="Ej: 8321091">
+                        </div>
+
+                        <div>
+                            <label>Descripción</label>
+                            <input type="text" id="filtroDescripcionAlicorp" placeholder="Ej: SHAMPOO">
+                        </div>
+
+                        <div>
+                            <button id="btnBuscarAlicorp">Buscar</button>
+                        </div>
+
+                    </div>
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>EAN/UPC</th>
+                                <th>Factor Unid. Alm.</th>
+                                <th>Und. Almacenamiento</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblAlicorp">
+
+                            <tr>
+                                <td colspan="5" class="sin-datos">
+                                    Cargando maestro Alicorp...
                                 </td>
                             </tr>
 
