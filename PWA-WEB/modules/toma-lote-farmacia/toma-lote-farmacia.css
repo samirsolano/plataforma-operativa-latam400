@@ -354,6 +354,16 @@ body{
     color:#15803d;
 }
 
+.estado.pendiente{
+    background:#fdecea;
+    color:#c0392b;
+}
+
+.estado.advertencia{
+    background:#fef3e2;
+    color:#b7791f;
+}
+
 .btn-activar{
     background:#16a34a;
     color:white;
