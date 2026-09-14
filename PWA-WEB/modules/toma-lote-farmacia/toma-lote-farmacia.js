@@ -94,6 +94,7 @@ document.querySelectorAll(".tab-link").forEach(function(link){
 
         if(link.dataset.tab === "tabMara"){
             cargarResumenExistenteMara();
+            buscarMara();
         }
 
     });
@@ -919,17 +920,12 @@ async function buscarMara(){
     const codigo = document.getElementById("filtroCodigoMara").value.trim();
     const descripcion = document.getElementById("filtroDescripcionMara").value.trim();
 
-    if(!codigo && !descripcion){
-        mostrarToast("Escribe un código o una descripción para buscar.", "error");
-        return;
-    }
-
     const tbody = document.getElementById("tblMara");
-    tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Buscando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando...</td></tr>`;
 
     try{
 
-        let ruta = "/mara_farmacia?select=cod_sap,cod_proveedor,ean_principal,descripcion,laboratorio,um_base,um_pedido,master_pack,estado&order=descripcion.asc&limit=200";
+        let ruta = "/mara_farmacia?select=cod_sap,cod_proveedor,ean_principal,descripcion,laboratorio,um_base,um_pedido,master_pack,estado&order=descripcion.asc";
 
         if(codigo){
             ruta += "&or=(cod_sap.ilike.*" + encodeURIComponent(codigo) + "*,cod_proveedor.ilike.*" + encodeURIComponent(codigo) + "*)";
@@ -939,7 +935,9 @@ async function buscarMara(){
             ruta += "&descripcion=ilike.*" + encodeURIComponent(descripcion) + "*";
         }
 
-        const filas = await supabaseFetch(ruta);
+        // Sin filtros trae el maestro completo (paginado); con
+        // filtros, la misma paginación cubre resultados grandes.
+        const filas = await supabaseFetchTodo(ruta);
 
         tbody.innerHTML = "";
 
