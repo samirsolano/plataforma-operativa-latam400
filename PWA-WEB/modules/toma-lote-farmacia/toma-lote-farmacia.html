@@ -63,6 +63,7 @@
                 <a href="#" class="tab-link activo" data-tab="tabCarga">1. Carga y Viajes</a>
                 <a href="#" class="tab-link" data-tab="tabLecturas">2. Lecturas y Evidencias</a>
                 <a href="#" class="tab-link" data-tab="tabMara">3. Maestro MARA</a>
+                <a href="#" class="tab-link" data-tab="tabOcPortal">4. OC Portal Cliente</a>
 
             </nav>
 
@@ -415,7 +416,154 @@
 
                             <tr>
                                 <td colspan="9" class="sin-datos">
-                                    Usa los filtros de arriba para buscar en el maestro.
+                                    Cargando maestro...
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 4: OC PORTAL CLIENTE -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabOcPortal">
+
+                <div class="card">
+
+                    <div class="card-header-flex">
+
+                        <h2>
+                            4. CARGAR OC DEL PORTAL DEL CLIENTE
+                        </h2>
+
+                        <button id="btnDescargarPlantillaOc" class="btn-secundario">
+                            ⬇ Descargar Plantilla
+                        </button>
+
+                    </div>
+
+                    <p class="nota-modulo">
+                        Primero selecciona la OC que vas a subir (solo aparecen las OC que ya
+                        están en la plantilla de "1. Carga y Viajes"), y luego sube el Excel de
+                        esa OC tal como lo exporta el portal del cliente (una fila por posición):
+                        OC, Tipo O/C, Clase de Documento, Codigo/Nombre lugar de Entrega,
+                        Dirección de entrega, Fecha Emisión, Fecha Vencimiento, Posición,
+                        Inretail/QS, EAN, Codigo Proveedor, Descripción Producto, Empaque,
+                        SKU/Empaque, precios y descuentos, Codigo/Nombre local destino y Ctdad.
+                        SKU solicitadas. El archivo debe traer únicamente la OC seleccionada; si
+                        trae otra OC, se rechaza. Por ahora solo se carga y guarda — el cruce
+                        contra Toma de Lote Farmacia se agregará después. Al volver a subir un
+                        archivo de la misma OC, se reemplazan solo sus filas.
+                    </p>
+
+                    <div class="grupo-oc-portal">
+
+                        <label>OC a subir</label>
+
+                        <select id="cmbOcASubir">
+                            <option value="">Selecciona la OC...</option>
+                        </select>
+
+                    </div>
+
+                    <div class="data-modulado">
+
+                        <div class="upload-box">
+
+                            <input
+                                type="file"
+                                id="archivoOcPortal"
+                                disabled
+                            >
+
+                        </div>
+
+                        <div class="detalle-archivo">
+
+                            <p>
+                                Archivo:
+                                <span id="nombreArchivoOc">-</span>
+                            </p>
+
+                            <p>
+                                Fecha:
+                                <span id="fechaArchivoOc">-</span>
+                            </p>
+
+                            <p>
+                                Registros:
+                                <span id="totalRegistrosOc">-</span>
+                            </p>
+
+                        </div>
+
+                        <div class="estado-ok">
+
+                            <h3>✓ Procesado correctamente</h3>
+
+                            <p>Las OC del portal quedaron disponibles para consulta.</p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <h2>
+                        CONSULTAR OC DEL PORTAL
+                    </h2>
+
+                    <div class="filtros-mara">
+
+                        <div>
+                            <label>OC</label>
+                            <input type="text" id="filtroOcPortal" placeholder="Ej: 1000429027">
+                        </div>
+
+                        <div>
+                            <label>Código Proveedor</label>
+                            <input type="text" id="filtroCodigoOcPortal" placeholder="Ej: 8301101">
+                        </div>
+
+                        <div>
+                            <button id="btnBuscarOcPortal">Buscar</button>
+                        </div>
+
+                    </div>
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>OC</th>
+                                <th>Posición</th>
+                                <th>Cód. Proveedor</th>
+                                <th>Descripción</th>
+                                <th>Empaque</th>
+                                <th>Ctdad. Solicitada</th>
+                                <th>F. Emisión</th>
+                                <th>F. Vencimiento</th>
+                                <th>Destino</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblOcPortal">
+
+                            <tr>
+                                <td colspan="9" class="sin-datos">
+                                    Cargando OC del portal...
                                 </td>
                             </tr>
 

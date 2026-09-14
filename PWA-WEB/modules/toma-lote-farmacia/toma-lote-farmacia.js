@@ -94,6 +94,13 @@ document.querySelectorAll(".tab-link").forEach(function(link){
 
         if(link.dataset.tab === "tabMara"){
             cargarResumenExistenteMara();
+            buscarMara();
+        }
+
+        if(link.dataset.tab === "tabOcPortal"){
+            cargarOcsParaSubir();
+            cargarResumenExistenteOcPortal();
+            buscarOcPortal();
         }
 
     });
@@ -919,17 +926,12 @@ async function buscarMara(){
     const codigo = document.getElementById("filtroCodigoMara").value.trim();
     const descripcion = document.getElementById("filtroDescripcionMara").value.trim();
 
-    if(!codigo && !descripcion){
-        mostrarToast("Escribe un código o una descripción para buscar.", "error");
-        return;
-    }
-
     const tbody = document.getElementById("tblMara");
-    tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Buscando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando...</td></tr>`;
 
     try{
 
-        let ruta = "/mara_farmacia?select=cod_sap,cod_proveedor,ean_principal,descripcion,laboratorio,um_base,um_pedido,master_pack,estado&order=descripcion.asc&limit=200";
+        let ruta = "/mara_farmacia?select=cod_sap,cod_proveedor,ean_principal,descripcion,laboratorio,um_base,um_pedido,master_pack,estado&order=descripcion.asc";
 
         if(codigo){
             ruta += "&or=(cod_sap.ilike.*" + encodeURIComponent(codigo) + "*,cod_proveedor.ilike.*" + encodeURIComponent(codigo) + "*)";
@@ -939,7 +941,9 @@ async function buscarMara(){
             ruta += "&descripcion=ilike.*" + encodeURIComponent(descripcion) + "*";
         }
 
-        const filas = await supabaseFetch(ruta);
+        // Sin filtros trae el maestro completo (paginado); con
+        // filtros, la misma paginación cubre resultados grandes.
+        const filas = await supabaseFetchTodo(ruta);
 
         tbody.innerHTML = "";
 
@@ -978,3 +982,382 @@ async function buscarMara(){
 }
 
 document.getElementById("btnBuscarMara").addEventListener("click", buscarMara);
+
+// ========================================
+// OC PORTAL CLIENTE
+// ========================================
+// La OC a subir se elige de un combo poblado con las OC que ya
+// existen en farmacia_data (la plantilla de "1. Carga y Viajes") —
+// no se puede subir un archivo con una OC distinta a la seleccionada.
+// Reusa mostrarToast, sesion, guardarEnBloques, sinTildes y
+// supabaseFetchTodo (definidos arriba).
+
+document.getElementById("btnDescargarPlantillaOc").addEventListener("click", function(){
+
+    const encabezados = [
+        "OC", "Tipo O/C", "Clase de Documento", "Codigo lugar de Entrega", "Nombre lugar de entrega",
+        "Dirección de entrega", "Fecha Emisión", "Fecha Vencimiento", "Posición", "Inretail / QS",
+        "EAN", "Codigo Proveedor", "Descripción Producto", "Empaque", "SKU/Empaque", "P. Lista",
+        "Desc. 1", "Desc. 2", "Desc. 3", "Desc. 4", "Desc. 5", "Desc. 6", "P. Final Neto",
+        "P. Final(con imp)", "Codigo local destino", "Nombre local destino", "Ctdad. SKU solicitadas"
+    ];
+
+    const filasEjemplo = [
+        [
+            1000429027, "STOCK", "PCN", "CD11", "CENTRO DE DISTRIBUCION STA. ANITA",
+            "AV. CARRETERA CENTRAL 1115", "2026-08-17", "2026-08-22", 3409666, "118969002",
+            "7751851007863", "8301101", "DENTO CEP PREM GRAB RECT MED BLSTX1UN", "EA", 84, 2.34,
+            0, 0, 0, 0, 0, 0, 2.34, 18323.323, "CD11", "CENTRO DE DISTRIBUCION STA. ANITA", 6636
+        ]
+    ];
+
+    const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filasEjemplo]);
+    const libro = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(libro, hoja, "OC PORTAL CLIENTE");
+
+    XLSX.writeFile(libro, "PLANTILLA_OC_PORTAL_CLIENTE.xlsx");
+
+});
+
+const cmbOcASubir = document.getElementById("cmbOcASubir");
+const archivoOcPortal = document.getElementById("archivoOcPortal");
+const nombreArchivoOc = document.getElementById("nombreArchivoOc");
+const fechaArchivoOc = document.getElementById("fechaArchivoOc");
+
+let _ocsParaSubirCargadas = false;
+
+async function cargarOcsParaSubir(){
+
+    if(_ocsParaSubirCargadas){
+        return;
+    }
+
+    try{
+
+        const filas = await supabaseFetchTodo("/farmacia_data?select=orden_compra");
+
+        const ocs = [...new Set((filas || []).map(f => f.orden_compra))]
+            .filter(v => v !== null && v !== undefined)
+            .sort((a, b) => a - b);
+
+        ocs.forEach(function(oc){
+            const option = document.createElement("option");
+            option.value = String(oc);
+            option.textContent = String(oc);
+            cmbOcASubir.appendChild(option);
+        });
+
+        _ocsParaSubirCargadas = true;
+
+    }catch(e){
+        console.error(e);
+    }
+
+}
+
+cmbOcASubir.addEventListener("change", function(){
+
+    archivoOcPortal.value = "";
+    archivoOcPortal.disabled = !cmbOcASubir.value;
+
+});
+
+const COLUMNAS_ESPERADAS_OC = [
+    "oc", "tipo o/c", "clase de documento", "codigo lugar de entrega", "nombre lugar de entrega",
+    "direccion de entrega", "fecha emision", "fecha vencimiento", "posicion", "inretail / qs",
+    "ean", "codigo proveedor", "descripcion producto", "empaque", "sku/empaque", "p. lista",
+    "desc. 1", "desc. 2", "desc. 3", "desc. 4", "desc. 5", "desc. 6", "p. final neto",
+    "p. final(con imp)", "codigo local destino", "nombre local destino", "ctdad. sku solicitadas"
+];
+
+async function leerFilasOcExcel(archivo){
+
+    const buffer = await archivo.arrayBuffer();
+    const libro = XLSX.read(buffer, { type: "array", cellDates: true });
+
+    const hoja = libro.Sheets[libro.SheetNames[0]];
+
+    return XLSX.utils.sheet_to_json(hoja, { defval: "" });
+
+}
+
+function validarFormatoOc(filasCrudas){
+
+    if(!filasCrudas.length){
+        return "El archivo está vacío.";
+    }
+
+    const columnasArchivo = Object.keys(filasCrudas[0]).map(c => sinTildes(c).trim().toLowerCase());
+
+    const faltantes = COLUMNAS_ESPERADAS_OC.filter(
+        esperada => !columnasArchivo.includes(sinTildes(esperada))
+    );
+
+    if(faltantes.length){
+        return "Este archivo no tiene el formato de OC del portal del cliente. Faltan las columnas: " +
+            faltantes.join(", ") + ".";
+    }
+
+    return null;
+
+}
+
+function normalizarFilaOc(filaOriginal, archivo, cargadoPor){
+
+    const mapaFila = {};
+
+    Object.keys(filaOriginal).forEach(function(clave){
+        mapaFila[sinTildes(clave).trim().toLowerCase()] = filaOriginal[clave];
+    });
+
+    function valor(clave){
+        const v = mapaFila[clave];
+        return (v === undefined || v === null) ? "" : v;
+    }
+
+    function num(clave){
+        const n = Number(valor(clave));
+        return isNaN(n) || valor(clave) === "" ? null : n;
+    }
+
+    function texto(clave){
+        return String(valor(clave)).trim();
+    }
+
+    function fecha(clave){
+
+        const v = valor(clave);
+
+        if(v === ""){
+            return null;
+        }
+
+        const d = (v instanceof Date) ? v : new Date(v);
+
+        return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+
+    }
+
+    return {
+        oc: num("oc"),
+        tipo_oc: texto("tipo o/c"),
+        clase_documento: texto("clase de documento"),
+        cod_lugar_entrega: texto("codigo lugar de entrega"),
+        nombre_lugar_entrega: texto("nombre lugar de entrega"),
+        direccion_entrega: texto("direccion de entrega"),
+        fecha_emision: fecha("fecha emision"),
+        fecha_vencimiento: fecha("fecha vencimiento"),
+        posicion: num("posicion"),
+        inretail_qs: texto("inretail / qs"),
+        ean: texto("ean"),
+        codigo_proveedor: texto("codigo proveedor"),
+        descripcion_producto: texto("descripcion producto"),
+        empaque: texto("empaque"),
+        sku_empaque: num("sku/empaque"),
+        precio_lista: num("p. lista"),
+        desc_1: num("desc. 1"),
+        desc_2: num("desc. 2"),
+        desc_3: num("desc. 3"),
+        desc_4: num("desc. 4"),
+        desc_5: num("desc. 5"),
+        desc_6: num("desc. 6"),
+        precio_final_neto: num("p. final neto"),
+        precio_final_con_imp: num("p. final(con imp)"),
+        codigo_local_destino: texto("codigo local destino"),
+        nombre_local_destino: texto("nombre local destino"),
+        cantidad_sku_solicitada: num("ctdad. sku solicitadas"),
+        archivo_origen: archivo,
+        cargado_por: cargadoPor
+    };
+
+}
+
+archivoOcPortal.addEventListener("change", async function(e){
+
+    const archivo = e.target.files[0];
+
+    if(!archivo){
+        return;
+    }
+
+    const ocSeleccionada = Number(cmbOcASubir.value);
+
+    if(!cmbOcASubir.value){
+        mostrarToast("Primero selecciona la OC que vas a subir.", "error");
+        archivoOcPortal.value = "";
+        return;
+    }
+
+    nombreArchivoOc.textContent = "Leyendo " + archivo.name + "...";
+
+    try{
+
+        const filasCrudas = await leerFilasOcExcel(archivo);
+
+        const errorFormato = validarFormatoOc(filasCrudas);
+
+        if(errorFormato){
+            mostrarToast(errorFormato, "error");
+            nombreArchivoOc.textContent = "-";
+            archivoOcPortal.value = "";
+            return;
+        }
+
+        const cargadoPor = (sesion && (sesion.nombre_completo || sesion.usuario)) || "";
+
+        const filasNormalizadas = filasCrudas
+            .map(f => normalizarFilaOc(f, archivo.name, cargadoPor))
+            .filter(f => f.oc !== null && f.codigo_proveedor);
+
+        if(!filasNormalizadas.length){
+            mostrarToast("No se encontraron filas válidas en el archivo (revisa las columnas OC y CODIGO PROVEEDOR).", "error");
+            nombreArchivoOc.textContent = "-";
+            archivoOcPortal.value = "";
+            return;
+        }
+
+        const ocsDelArchivo = [...new Set(filasNormalizadas.map(f => f.oc))];
+
+        if(ocsDelArchivo.length > 1 || ocsDelArchivo[0] !== ocSeleccionada){
+
+            mostrarToast(
+                "El archivo trae la OC " + ocsDelArchivo.join(", ") +
+                ", pero seleccionaste la OC " + ocSeleccionada +
+                ". Solo puedes subir el archivo de la OC seleccionada.",
+                "error"
+            );
+
+            nombreArchivoOc.textContent = "-";
+            archivoOcPortal.value = "";
+            return;
+
+        }
+
+        const existentes = await supabaseFetch("/oc_portal_cliente?oc=eq." + ocSeleccionada + "&select=id&limit=1");
+
+        if(existentes && existentes.length){
+
+            const confirmado = confirm(
+                "Ya hay datos cargados para la OC " + ocSeleccionada +
+                ". ¿Deseas reemplazarlos con este archivo (" + filasNormalizadas.length + " filas)?"
+            );
+
+            if(!confirmado){
+                nombreArchivoOc.textContent = "-";
+                archivoOcPortal.value = "";
+                return;
+            }
+
+            await supabaseFetch("/oc_portal_cliente?oc=eq." + ocSeleccionada, { method: "DELETE" });
+
+        }
+
+        nombreArchivoOc.textContent = "Guardando " + archivo.name + "...";
+
+        await guardarEnBloques("oc_portal_cliente", filasNormalizadas);
+
+        nombreArchivoOc.textContent = archivo.name;
+        fechaArchivoOc.textContent = new Date().toLocaleDateString("es-PE");
+
+        mostrarToast(
+            "OC " + ocSeleccionada + " cargada: " + filasNormalizadas.length + " filas.",
+            "exito"
+        );
+
+        cargarResumenExistenteOcPortal();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo cargar el archivo: " + err.message, "error");
+        nombreArchivoOc.textContent = "-";
+        archivoOcPortal.value = "";
+
+    }
+
+});
+
+async function cargarResumenExistenteOcPortal(){
+
+    try{
+
+        const filas = await supabaseFetchTodo(
+            "/oc_portal_cliente?select=id,archivo_origen,created_at&order=created_at.desc"
+        );
+
+        if(!filas || !filas.length){
+            return;
+        }
+
+        document.getElementById("totalRegistrosOc").textContent =
+            filas.length.toLocaleString("es-PE");
+
+        nombreArchivoOc.textContent = filas[0].archivo_origen || "-";
+        fechaArchivoOc.textContent = new Date(filas[0].created_at).toLocaleDateString("es-PE");
+
+    }catch(e){
+        console.error(e);
+    }
+
+}
+
+async function buscarOcPortal(){
+
+    const oc = document.getElementById("filtroOcPortal").value.trim();
+    const codigo = document.getElementById("filtroCodigoOcPortal").value.trim();
+
+    const tbody = document.getElementById("tblOcPortal");
+    tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando...</td></tr>`;
+
+    try{
+
+        let ruta = "/oc_portal_cliente?select=oc,posicion,codigo_proveedor,descripcion_producto,empaque,cantidad_sku_solicitada,fecha_emision,fecha_vencimiento,nombre_local_destino&order=oc.asc,posicion.asc";
+
+        if(oc){
+            ruta += "&oc=eq." + encodeURIComponent(oc);
+        }
+
+        if(codigo){
+            ruta += "&codigo_proveedor=ilike.*" + encodeURIComponent(codigo) + "*";
+        }
+
+        const filas = await supabaseFetchTodo(ruta);
+
+        tbody.innerHTML = "";
+
+        if(!filas || !filas.length){
+            tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se encontraron OC con esos filtros.</td></tr>`;
+            return;
+        }
+
+        filas.forEach(function(f){
+
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${f.oc}</td>
+                <td>${f.posicion || "-"}</td>
+                <td>${f.codigo_proveedor || "-"}</td>
+                <td>${f.descripcion_producto || "-"}</td>
+                <td>${f.empaque || "-"}</td>
+                <td>${formatearNumeroFarmacia(f.cantidad_sku_solicitada)}</td>
+                <td>${f.fecha_emision || "-"}</td>
+                <td>${f.fecha_vencimiento || "-"}</td>
+                <td>${f.nombre_local_destino || "-"}</td>
+            `;
+
+            tbody.appendChild(tr);
+
+        });
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar las OC del portal.</td></tr>`;
+
+    }
+
+}
+
+document.getElementById("btnBuscarOcPortal").addEventListener("click", buscarOcPortal);
