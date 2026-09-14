@@ -758,6 +758,78 @@ function sinTildes(texto){
     return String(texto).normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
+// Convierte una celda de fecha (Date real, texto o serial de Excel)
+// a "YYYY-MM-DD". OJO: si viene como texto en formato DD.MM.YYYY o
+// DD/MM/YYYY (como lo exporta SAP/el portal en español), NO se debe
+// usar `new Date(texto)` — el motor de JS lo interpreta como
+// MM.DD.YYYY (formato US) y además revienta con días > 12 (ej:
+// "27.06.2028" queda inválido, y "06.07.2028" sale como 6 de junio
+// en vez de 6 de julio). Por eso se parsea el texto a mano.
+function parsearFechaExcel(v){
+
+    if(v === "" || v === undefined || v === null){
+        return null;
+    }
+
+    if(v instanceof Date){
+
+        if(isNaN(v.getTime())){
+            return null;
+        }
+
+        // SheetJS arma las fechas en UTC (Date.UTC(y,m,d)), así que
+        // hay que leer los componentes en UTC y no en hora local.
+        const y = v.getUTCFullYear();
+        const m = String(v.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(v.getUTCDate()).padStart(2, "0");
+        return y + "-" + m + "-" + d;
+
+    }
+
+    const texto = String(v).trim();
+
+    if(!texto){
+        return null;
+    }
+
+    // DD.MM.YYYY o DD/MM/YYYY o DD-MM-YYYY (formato peruano/español).
+    let m = texto.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+
+    if(m){
+        const dia = m[1].padStart(2, "0");
+        const mes = m[2].padStart(2, "0");
+        return m[3] + "-" + mes + "-" + dia;
+    }
+
+    // YYYY-MM-DD (ISO), con o sin hora.
+    m = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+    if(m){
+        return m[0];
+    }
+
+    // Serial de fecha de Excel (días desde 1899-12-30), por si
+    // cellDates no llegó a convertir la celda.
+    const serial = Number(texto);
+
+    if(!isNaN(serial) && serial > 0){
+
+        const ms = Math.round((serial - 25569) * 86400 * 1000);
+        const fecha = new Date(ms);
+
+        if(!isNaN(fecha.getTime())){
+            const y = fecha.getUTCFullYear();
+            const mo = String(fecha.getUTCMonth() + 1).padStart(2, "0");
+            const d = String(fecha.getUTCDate()).padStart(2, "0");
+            return y + "-" + mo + "-" + d;
+        }
+
+    }
+
+    return null;
+
+}
+
 async function leerFilasMaraExcel(archivo){
 
     const buffer = await archivo.arrayBuffer();
@@ -1137,17 +1209,7 @@ function normalizarFilaOc(filaOriginal, archivo, cargadoPor){
     }
 
     function fecha(clave){
-
-        const v = valor(clave);
-
-        if(v === ""){
-            return null;
-        }
-
-        const d = (v instanceof Date) ? v : new Date(v);
-
-        return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
-
+        return parsearFechaExcel(valor(clave));
     }
 
     return {
@@ -1857,17 +1919,7 @@ function normalizarFilaStock(filaOriginal, archivo, cargadoPor, viaje, oc){
     }
 
     function fecha(clave){
-
-        const v = valor(clave);
-
-        if(v === ""){
-            return null;
-        }
-
-        const d = (v instanceof Date) ? v : new Date(v);
-
-        return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
-
+        return parsearFechaExcel(valor(clave));
     }
 
     return {
