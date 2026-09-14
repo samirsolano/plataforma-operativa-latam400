@@ -108,6 +108,12 @@ document.querySelectorAll(".tab-link").forEach(function(link){
             buscarAlicorp();
         }
 
+        if(link.dataset.tab === "tabStockFisico"){
+            cargarViajesParaStock();
+            cargarViajesFiltroStock();
+            buscarStock();
+        }
+
     });
 
 });
@@ -1636,3 +1642,444 @@ async function buscarAlicorp(){
 }
 
 document.getElementById("btnBuscarAlicorp").addEventListener("click", buscarAlicorp);
+
+// ========================================
+// STOCK FÍSICO SAP
+// ========================================
+// El export de SAP no trae Viaje ni OC — por eso primero se elige
+// el Viaje (de farmacia_data) y luego la OC de ese viaje, y recién
+// ahí se habilita subir el archivo. Reusa mostrarToast, sesion,
+// guardarEnBloques, sinTildes, supabaseFetchTodo y
+// formatearNumeroFarmacia (definidos arriba).
+
+document.getElementById("btnDescargarPlantillaStock").addEventListener("click", function(){
+
+    const encabezados = [
+        "Tipo almacén", "Ubicación", "Producto", "Descripción producto", "Lote",
+        "FeCaduc/FePreferCons", "Tipo de stock", "Ctd.embalada (UMA)", "Un.medida alternat.",
+        "Ctd.", "Fecha EM"
+    ];
+
+    const filasEjemplo = [
+        ["9025", "CNL-OUT-92", "8300117", "LEJIA SAPOLIO CLORO B 4.8 KG 4UND", "2609055060", "2027-09-05", "1F", 27, "CJA", 108, "2026-09-07"]
+    ];
+
+    const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filasEjemplo]);
+    const libro = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(libro, hoja, "STOCK FISICO SAP");
+
+    XLSX.writeFile(libro, "PLANTILLA_STOCK_FISICO_SAP.xlsx");
+
+});
+
+const cmbViajeStock = document.getElementById("cmbViajeStock");
+const cmbOcStock = document.getElementById("cmbOcStock");
+const archivoStock = document.getElementById("archivoStock");
+const nombreArchivoStock = document.getElementById("nombreArchivoStock");
+const fechaArchivoStock = document.getElementById("fechaArchivoStock");
+
+let _viajesStockCargados = false;
+
+async function cargarViajesParaStock(){
+
+    if(_viajesStockCargados){
+        return;
+    }
+
+    try{
+
+        const filas = await supabaseFetchTodo("/farmacia_data?select=viaje");
+
+        const viajes = [...new Set((filas || []).map(f => f.viaje))]
+            .filter(v => v !== null && v !== undefined)
+            .sort((a, b) => a - b);
+
+        viajes.forEach(function(v){
+            const option = document.createElement("option");
+            option.value = String(v);
+            option.textContent = String(v);
+            cmbViajeStock.appendChild(option);
+        });
+
+        _viajesStockCargados = true;
+
+    }catch(e){
+        console.error(e);
+    }
+
+}
+
+function resetearSeleccionStock(){
+
+    cmbOcStock.innerHTML = `<option value="">Selecciona primero el viaje...</option>`;
+    cmbOcStock.disabled = true;
+
+    archivoStock.value = "";
+    archivoStock.disabled = true;
+
+    nombreArchivoStock.textContent = "-";
+    fechaArchivoStock.textContent = "-";
+    document.getElementById("totalRegistrosStock").textContent = "-";
+
+}
+
+cmbViajeStock.addEventListener("change", async function(){
+
+    resetearSeleccionStock();
+
+    if(!cmbViajeStock.value){
+        return;
+    }
+
+    try{
+
+        const filas = await supabaseFetchTodo(
+            "/farmacia_data?select=orden_compra&viaje=eq." + cmbViajeStock.value
+        );
+
+        const ocs = [...new Set((filas || []).map(f => f.orden_compra))]
+            .filter(v => v !== null && v !== undefined)
+            .sort((a, b) => a - b);
+
+        cmbOcStock.innerHTML = `<option value="">Selecciona la OC...</option>`;
+
+        ocs.forEach(function(oc){
+            const option = document.createElement("option");
+            option.value = String(oc);
+            option.textContent = String(oc);
+            cmbOcStock.appendChild(option);
+        });
+
+        cmbOcStock.disabled = false;
+
+    }catch(e){
+        console.error(e);
+        mostrarToast("No se pudieron cargar las OC de ese viaje.", "error");
+    }
+
+});
+
+cmbOcStock.addEventListener("change", async function(){
+
+    archivoStock.value = "";
+    archivoStock.disabled = !cmbOcStock.value;
+
+    if(!cmbOcStock.value){
+        nombreArchivoStock.textContent = "-";
+        fechaArchivoStock.textContent = "-";
+        document.getElementById("totalRegistrosStock").textContent = "-";
+        return;
+    }
+
+    try{
+
+        const filas = await supabaseFetchTodo(
+            "/stock_fisico_sap?select=id,archivo_origen,created_at&viaje=eq." + cmbViajeStock.value +
+            "&oc=eq." + cmbOcStock.value + "&order=created_at.desc"
+        );
+
+        if(!filas || !filas.length){
+            nombreArchivoStock.textContent = "-";
+            fechaArchivoStock.textContent = "-";
+            document.getElementById("totalRegistrosStock").textContent = "0";
+            return;
+        }
+
+        nombreArchivoStock.textContent = filas[0].archivo_origen || "-";
+        fechaArchivoStock.textContent = new Date(filas[0].created_at).toLocaleDateString("es-PE");
+        document.getElementById("totalRegistrosStock").textContent = filas.length.toLocaleString("es-PE");
+
+    }catch(e){
+        console.error(e);
+    }
+
+});
+
+const COLUMNAS_ESPERADAS_STOCK = [
+    "tipo almacen", "ubicacion", "producto", "descripcion producto", "lote",
+    "fecaduc/feprefercons", "tipo de stock", "ctd.embalada (uma)", "un.medida alternat.",
+    "ctd.", "fecha em"
+];
+
+async function leerFilasStockExcel(archivo){
+
+    const buffer = await archivo.arrayBuffer();
+    const libro = XLSX.read(buffer, { type: "array", cellDates: true });
+
+    const hoja = libro.Sheets[libro.SheetNames[0]];
+
+    return XLSX.utils.sheet_to_json(hoja, { defval: "" });
+
+}
+
+function validarFormatoStock(filasCrudas){
+
+    if(!filasCrudas.length){
+        return "El archivo está vacío.";
+    }
+
+    const columnasArchivo = Object.keys(filasCrudas[0]).map(c => sinTildes(c).trim().toLowerCase());
+
+    const faltantes = COLUMNAS_ESPERADAS_STOCK.filter(
+        esperada => !columnasArchivo.includes(sinTildes(esperada))
+    );
+
+    if(faltantes.length){
+        return "Este archivo no tiene el formato de Stock Físico SAP. Faltan las columnas: " +
+            faltantes.join(", ") + ".";
+    }
+
+    return null;
+
+}
+
+function normalizarFilaStock(filaOriginal, archivo, cargadoPor, viaje, oc){
+
+    const mapaFila = {};
+
+    Object.keys(filaOriginal).forEach(function(clave){
+        mapaFila[sinTildes(clave).trim().toLowerCase()] = filaOriginal[clave];
+    });
+
+    function valor(clave){
+        const v = mapaFila[clave];
+        return (v === undefined || v === null) ? "" : v;
+    }
+
+    function num(clave){
+        const n = Number(valor(clave));
+        return isNaN(n) || valor(clave) === "" ? null : n;
+    }
+
+    function texto(clave){
+        return String(valor(clave)).trim();
+    }
+
+    function fecha(clave){
+
+        const v = valor(clave);
+
+        if(v === ""){
+            return null;
+        }
+
+        const d = (v instanceof Date) ? v : new Date(v);
+
+        return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+
+    }
+
+    return {
+        viaje: viaje,
+        oc: oc,
+        tipo_almacen: texto("tipo almacen"),
+        ubicacion: texto("ubicacion"),
+        producto: texto("producto"),
+        descripcion_producto: texto("descripcion producto"),
+        lote: texto("lote"),
+        fecha_caducidad: fecha("fecaduc/feprefercons"),
+        tipo_stock: texto("tipo de stock"),
+        cantidad_embalada: num("ctd.embalada (uma)"),
+        unidad_medida_alt: texto("un.medida alternat."),
+        cantidad: num("ctd."),
+        fecha_em: fecha("fecha em"),
+        archivo_origen: archivo,
+        cargado_por: cargadoPor
+    };
+
+}
+
+archivoStock.addEventListener("change", async function(e){
+
+    const archivo = e.target.files[0];
+
+    if(!archivo){
+        return;
+    }
+
+    const viajeSeleccionado = Number(cmbViajeStock.value);
+    const ocSeleccionada = Number(cmbOcStock.value);
+
+    if(!cmbViajeStock.value || !cmbOcStock.value){
+        mostrarToast("Primero selecciona el Viaje y la OC.", "error");
+        archivoStock.value = "";
+        return;
+    }
+
+    nombreArchivoStock.textContent = "Leyendo " + archivo.name + "...";
+
+    try{
+
+        const filasCrudas = await leerFilasStockExcel(archivo);
+
+        const errorFormato = validarFormatoStock(filasCrudas);
+
+        if(errorFormato){
+            mostrarToast(errorFormato, "error");
+            nombreArchivoStock.textContent = "-";
+            archivoStock.value = "";
+            return;
+        }
+
+        const cargadoPor = (sesion && (sesion.nombre_completo || sesion.usuario)) || "";
+
+        const filasNormalizadas = filasCrudas
+            .map(f => normalizarFilaStock(f, archivo.name, cargadoPor, viajeSeleccionado, ocSeleccionada))
+            .filter(f => f.producto && f.lote);
+
+        if(!filasNormalizadas.length){
+            mostrarToast("No se encontraron filas válidas en el archivo (revisa las columnas PRODUCTO y LOTE).", "error");
+            nombreArchivoStock.textContent = "-";
+            archivoStock.value = "";
+            return;
+        }
+
+        const existentes = await supabaseFetch(
+            "/stock_fisico_sap?viaje=eq." + viajeSeleccionado + "&oc=eq." + ocSeleccionada + "&select=id&limit=1"
+        );
+
+        if(existentes && existentes.length){
+
+            const confirmado = confirm(
+                "Ya hay stock físico cargado para el Viaje " + viajeSeleccionado + " / OC " + ocSeleccionada +
+                ". ¿Deseas reemplazarlo con este archivo (" + filasNormalizadas.length + " filas)?"
+            );
+
+            if(!confirmado){
+                nombreArchivoStock.textContent = "-";
+                archivoStock.value = "";
+                return;
+            }
+
+            await supabaseFetch(
+                "/stock_fisico_sap?viaje=eq." + viajeSeleccionado + "&oc=eq." + ocSeleccionada,
+                { method: "DELETE" }
+            );
+
+        }
+
+        nombreArchivoStock.textContent = "Guardando " + archivo.name + "...";
+
+        await guardarEnBloques("stock_fisico_sap", filasNormalizadas);
+
+        nombreArchivoStock.textContent = archivo.name;
+        fechaArchivoStock.textContent = new Date().toLocaleDateString("es-PE");
+
+        document.getElementById("totalRegistrosStock").textContent =
+            filasNormalizadas.length.toLocaleString("es-PE");
+
+        mostrarToast(
+            "Stock físico cargado para Viaje " + viajeSeleccionado + " / OC " + ocSeleccionada +
+            ": " + filasNormalizadas.length + " filas.",
+            "exito"
+        );
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo cargar el archivo: " + err.message, "error");
+        nombreArchivoStock.textContent = "-";
+        archivoStock.value = "";
+
+    }
+
+});
+
+const cmbViajeFiltroStock = document.getElementById("cmbViajeFiltroStock");
+
+let _viajesFiltroStockCargados = false;
+
+async function cargarViajesFiltroStock(){
+
+    if(_viajesFiltroStockCargados){
+        return;
+    }
+
+    try{
+
+        const filas = await supabaseFetchTodo("/stock_fisico_sap?select=viaje");
+
+        const viajes = [...new Set((filas || []).map(f => f.viaje))]
+            .filter(v => v !== null && v !== undefined)
+            .sort((a, b) => a - b);
+
+        viajes.forEach(function(v){
+            const option = document.createElement("option");
+            option.value = String(v);
+            option.textContent = String(v);
+            cmbViajeFiltroStock.appendChild(option);
+        });
+
+        _viajesFiltroStockCargados = true;
+
+    }catch(e){
+        console.error(e);
+    }
+
+}
+
+async function buscarStock(){
+
+    const viaje = cmbViajeFiltroStock.value;
+    const oc = document.getElementById("filtroOcStock").value.trim();
+    const producto = document.getElementById("filtroProductoStock").value.trim();
+
+    const tbody = document.getElementById("tblStock");
+    tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando...</td></tr>`;
+
+    try{
+
+        let ruta = "/stock_fisico_sap?select=viaje,oc,producto,descripcion_producto,lote,fecha_caducidad,cantidad,unidad_medida_alt,ubicacion&order=viaje.asc,oc.asc";
+
+        if(viaje){
+            ruta += "&viaje=eq." + viaje;
+        }
+
+        if(oc){
+            ruta += "&oc=eq." + encodeURIComponent(oc);
+        }
+
+        if(producto){
+            ruta += "&producto=ilike.*" + encodeURIComponent(producto) + "*";
+        }
+
+        const filas = await supabaseFetchTodo(ruta);
+
+        tbody.innerHTML = "";
+
+        if(!filas || !filas.length){
+            tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se encontró stock físico con esos filtros.</td></tr>`;
+            return;
+        }
+
+        filas.forEach(function(f){
+
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${f.viaje}</td>
+                <td>${f.oc}</td>
+                <td>${f.producto || "-"}</td>
+                <td>${f.descripcion_producto || "-"}</td>
+                <td>${f.lote || "-"}</td>
+                <td>${f.fecha_caducidad || "-"}</td>
+                <td>${formatearNumeroFarmacia(f.cantidad)}</td>
+                <td>${f.unidad_medida_alt || "-"}</td>
+                <td>${f.ubicacion || "-"}</td>
+            `;
+
+            tbody.appendChild(tr);
+
+        });
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar el stock físico.</td></tr>`;
+
+    }
+
+}
+
+document.getElementById("btnBuscarStock").addEventListener("click", buscarStock);

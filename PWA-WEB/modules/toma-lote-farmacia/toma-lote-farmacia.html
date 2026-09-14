@@ -65,6 +65,7 @@
                 <a href="#" class="tab-link" data-tab="tabMara">3. MARA InRetail Pharma</a>
                 <a href="#" class="tab-link" data-tab="tabOcPortal">4. OC Portal Cliente</a>
                 <a href="#" class="tab-link" data-tab="tabMaraAlicorp">5. MARA Alicorp</a>
+                <a href="#" class="tab-link" data-tab="tabStockFisico">6. Stock Físico SAP</a>
 
             </nav>
 
@@ -691,6 +692,168 @@
                             <tr>
                                 <td colspan="5" class="sin-datos">
                                     Cargando maestro Alicorp...
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 6: STOCK FÍSICO SAP -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabStockFisico">
+
+                <div class="card">
+
+                    <div class="card-header-flex">
+
+                        <h2>
+                            6. CARGAR STOCK FÍSICO SAP
+                        </h2>
+
+                        <button id="btnDescargarPlantillaStock" class="btn-secundario">
+                            ⬇ Descargar Plantilla
+                        </button>
+
+                    </div>
+
+                    <p class="nota-modulo">
+                        Primero selecciona el Viaje y luego la OC de ese viaje (solo aparecen los
+                        que ya están en la plantilla de "1. Carga y Viajes"), y recién ahí sube el
+                        Excel de stock físico tal como lo exporta SAP: Tipo almacén, Ubicación,
+                        Producto, Descripción producto, Lote, FeCaduc/FePreferCons, Tipo de stock,
+                        Ctd.embalada (UMA), Un.medida alternat., Ctd. y Fecha EM. El export de SAP
+                        no trae Viaje ni OC — por eso se etiqueta con lo que selecciones. Por ahora
+                        solo se carga y guarda; el cruce contra lo escaneado se agregará después.
+                        Al volver a subir un archivo del mismo Viaje/OC, se reemplazan solo esas
+                        filas.
+                    </p>
+
+                    <div class="grupo-oc-portal">
+
+                        <label>Viaje</label>
+
+                        <select id="cmbViajeStock">
+                            <option value="">Selecciona el viaje...</option>
+                        </select>
+
+                    </div>
+
+                    <div class="grupo-oc-portal">
+
+                        <label>OC</label>
+
+                        <select id="cmbOcStock" disabled>
+                            <option value="">Selecciona primero el viaje...</option>
+                        </select>
+
+                    </div>
+
+                    <div class="data-modulado">
+
+                        <div class="upload-box">
+
+                            <input
+                                type="file"
+                                id="archivoStock"
+                                disabled
+                            >
+
+                        </div>
+
+                        <div class="detalle-archivo">
+
+                            <p>
+                                Archivo:
+                                <span id="nombreArchivoStock">-</span>
+                            </p>
+
+                            <p>
+                                Fecha:
+                                <span id="fechaArchivoStock">-</span>
+                            </p>
+
+                            <p>
+                                Registros:
+                                <span id="totalRegistrosStock">-</span>
+                            </p>
+
+                        </div>
+
+                        <div class="estado-ok">
+
+                            <h3>✓ Procesado correctamente</h3>
+
+                            <p>El stock físico quedó disponible para consulta.</p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <h2>
+                        CONSULTAR STOCK FÍSICO
+                    </h2>
+
+                    <div class="filtros-lecturas">
+
+                        <div>
+                            <label>Viaje</label>
+                            <select id="cmbViajeFiltroStock">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label>OC</label>
+                            <input type="text" id="filtroOcStock" placeholder="Ej: 1000427525">
+                        </div>
+
+                        <div>
+                            <label>Producto</label>
+                            <input type="text" id="filtroProductoStock" placeholder="Ej: 8300117">
+                        </div>
+
+                        <div>
+                            <button id="btnBuscarStock">Buscar</button>
+                        </div>
+
+                    </div>
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Viaje</th>
+                                <th>OC</th>
+                                <th>Producto</th>
+                                <th>Descripción</th>
+                                <th>Lote</th>
+                                <th>F. Caducidad</th>
+                                <th>Cantidad</th>
+                                <th>UM</th>
+                                <th>Ubicación</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblStock">
+
+                            <tr>
+                                <td colspan="9" class="sin-datos">
+                                    Cargando stock físico...
                                 </td>
                             </tr>
 
