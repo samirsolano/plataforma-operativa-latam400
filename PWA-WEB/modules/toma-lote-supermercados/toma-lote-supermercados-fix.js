@@ -35,16 +35,20 @@ function validarFormatoModulacion(filas){
 }
 
 // ========================================
-// PARCHE: Fecha de Fase (FeCaduc/FePreferCons) llegaba vacía
+// PARCHE: Fase — Fecha de vencimiento y Descripción de producto
+// llegaban vacías para TODAS las filas
 // ========================================
-// En Centro de Proyectos, el pistoleo mostraba "Fecha Vencimiento
-// (SAP)" vacía aunque el Lote (SAP) sí salía bien — ambos vienen de
-// la misma fila de Fase. Ya se probó (1) aceptar texto/objeto Date
-// además del serial numérico, y (2) tolerar espacios distintos
-// alrededor de la barra en el encabezado, y sigue saliendo vacía
-// incluso volviendo a subir el archivo. Se agrega un log temporal
-// para ver el valor y encabezado EXACTOS que llegan al procesar
-// Fase, en vez de seguir adivinando la causa.
+// En la tabla fase de Supabase, fecaduc_fepreferecons salía NULL y
+// descripcion_producto salía vacío para todas las filas de un
+// archivo, mientras que lote (y las columnas obligatorias) sí se
+// guardaban bien. Como es sistemático (no una celda puntual), la
+// causa es que normalizarFilaFase() busca esas dos columnas por un
+// nombre exacto que no calza con el encabezado real del Excel de SAP
+// ("descripción DE producto" en el código vs "Descripción producto"
+// en el archivo real, por ejemplo). Se agrega una búsqueda de
+// respaldo por palabras clave (sin tildes/mayúsculas) para esas dos
+// columnas, que se activa solo si la búsqueda exacta no encuentra
+// nada — el resto de columnas sigue igual que en el archivo original.
 
 function excelSerialADate(valor){
 
@@ -82,30 +86,7 @@ function excelSerialADate(valor){
 
 }
 
-// Solo se loguea la primera fila que se procesa, para no llenar la
-// consola — basta una para ver el problema.
-let _debugFaseLogueado = false;
-
 function normalizarFilaFase(filaOriginal, viaje, archivo, cargadoPor){
-
-    if(!_debugFaseLogueado){
-
-        _debugFaseLogueado = true;
-
-        console.log("=== DEBUG FASE: encabezados crudos del Excel ===", Object.keys(filaOriginal));
-
-        Object.keys(filaOriginal).forEach(function(clave){
-            if(clave.toLowerCase().indexOf("caduc") !== -1 || clave.toLowerCase().indexOf("prefer") !== -1){
-                console.log(
-                    "=== DEBUG FASE: columna de fecha ===",
-                    "clave=[" + clave + "]",
-                    "valor=", filaOriginal[clave],
-                    "tipo=", typeof filaOriginal[clave]
-                );
-            }
-        });
-
-    }
 
     const mapaFila = {};
 
@@ -123,17 +104,41 @@ function normalizarFilaFase(filaOriginal, viaje, archivo, cargadoPor){
         return (v === undefined || v === null) ? "" : v;
     }
 
+    // Respaldo: si la clave exacta no calza con ningún encabezado,
+    // busca cualquier columna cuyo nombre (normalizado) contenga
+    // TODAS las palabras dadas — cubre variantes de redacción del
+    // mismo campo entre distintos exports de SAP.
+    function valorPorPalabras(){
+
+        const palabras = Array.prototype.slice.call(arguments);
+
+        const claveEncontrada = Object.keys(mapaFila).find(function(k){
+            return palabras.every(function(p){ return k.indexOf(p) !== -1; });
+        });
+
+        return claveEncontrada ? mapaFila[claveEncontrada] : "";
+
+    }
+
     function num(clave){
         const n = Number(valor(clave));
         return isNaN(n) || valor(clave) === "" ? null : n;
     }
 
-    function texto(clave){
-        return String(valor(clave)).trim();
+    function texto(clave, palabrasRespaldo){
+        let v = valor(clave);
+        if(v === "" && palabrasRespaldo){
+            v = valorPorPalabras.apply(null, palabrasRespaldo);
+        }
+        return String(v).trim();
     }
 
-    function fecha(clave){
-        return excelSerialADate(valor(clave));
+    function fecha(clave, palabrasRespaldo){
+        let v = valor(clave);
+        if(v === "" && palabrasRespaldo){
+            v = valorPorPalabras.apply(null, palabrasRespaldo);
+        }
+        return excelSerialADate(v);
     }
 
     return {
@@ -142,8 +147,8 @@ function normalizarFilaFase(filaOriginal, viaje, archivo, cargadoPor){
         orden_almacen: num("orden de almacén"),
         status_tarea: texto("status de tarea de almacén"),
         producto: texto("producto"),
-        descripcion_producto: texto("descripción de producto"),
-        fecaduc_fepreferecons: fecha("fecaduc/fepreferecons"),
+        descripcion_producto: texto("descripción de producto", ["descripcion", "producto"]),
+        fecaduc_fepreferecons: fecha("fecaduc/fepreferecons", ["caduc"]),
         lote: texto("lote"),
         tipo_stocks: texto("tipo de stocks"),
         ctd_prev_proced_uma: num("ctd.prev.proced.uma"),
@@ -168,8 +173,8 @@ function normalizarFilaFase(filaOriginal, viaje, archivo, cargadoPor){
         unidad_peso: texto("unidad de peso"),
         cola: texto("cola"),
         tipo_proceso_almacen: texto("tipo proceso almacén"),
-        denominacion_tipo_proceso: texto("denomin.tipo proceso almacén"),
-        denominacion_tipo_stocks: texto("denominación de tipo de stocks"),
+        denominacion_tipo_proceso: texto("denomin.tipo proceso almacén", ["proceso", "almac"]),
+        denominacion_tipo_stocks: texto("denominación de tipo de stocks", ["stocks"]),
         ctd_prev_proced_umb: num("ctd.prev.proced.umb"),
         ctd_real_dest_umb: num("ctd.real dest.umb"),
         ctd_dif_dest_umb: num("ctd.dif.dest.en umb"),
