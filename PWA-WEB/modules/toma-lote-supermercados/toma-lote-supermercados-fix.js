@@ -184,3 +184,97 @@ function normalizarFilaFase(filaOriginal, viaje, archivo, cargadoPor){
     };
 
 }
+
+// ========================================
+// PARCHE: "FV Nueva" en Cambio de Lote era un date picker
+// ========================================
+// fv_observado es texto libre a propósito (el operario puede escribir
+// "05/28" si la paleta solo trae mes/año, o "25/08/29" con año de 2
+// dígitos) — pero el campo "FV Nueva" para revisar/aplicar la
+// corrección era <input type="date">, que solo acepta el formato
+// calendario completo. Como el valor real casi nunca calzaba con ese
+// formato exacto, el campo quedaba en blanco aunque sí había un dato
+// escrito por el operario (se veía abajo en "Escrito por el
+// operario"), y al aplicar terminaba mandándose una fecha vacía o
+// incorrecta a Modulación — por eso el Packing List seguía marcando
+// REVISAR. Se cambia a texto libre, precargado con lo que escribió el
+// operario, editable antes de aplicar.
+
+async function cargarCambioLote(viaje){
+
+    const tbody = document.getElementById("tblCambioLote");
+
+    if(!viaje){
+        _ultimoCambioLotePendienteCount = null;
+        tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Selecciona un viaje arriba para ver las correcciones de lote.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando...</td></tr>`;
+
+    try{
+
+        const [correcciones, modulacionFilas] = await Promise.all([
+            supabaseFetch(
+                "/pistoleo?select=id,viaje,lpn,hu,lote_sap,fv_sap,lote_observado,fv_observado,escaneado_por,aplicado" +
+                "&coincide=eq.false&viaje=eq." + viaje + "&order=viaje.asc"
+            ),
+            supabaseFetch("/modulacion?select=lpn,denominacion_producto&viaje=eq." + viaje)
+        ]);
+
+        if(!correcciones || !correcciones.length){
+            _ultimoCambioLotePendienteCount = 0;
+            tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Sin correcciones de lote registradas para este viaje.</td></tr>`;
+            return;
+        }
+
+        _ultimoCambioLotePendienteCount = correcciones.filter(f => !f.aplicado).length;
+
+        const productoPorLpn = {};
+
+        (modulacionFilas || []).forEach(function(f){
+            productoPorLpn[f.lpn] = f.denominacion_producto;
+        });
+
+        tbody.innerHTML = "";
+
+        correcciones.forEach(function(f){
+
+            const tr = document.createElement("tr");
+            tr.dataset.pistoleoId = f.id;
+            tr.dataset.viaje = f.viaje;
+            tr.dataset.lpn = f.lpn;
+
+            const accion = f.aplicado
+                ? '<span class="estado activado">✓ Aplicado</span>'
+                : '<button class="btn-activar btn-aplicar-lote">Aplicar a SAP</button>';
+
+            tr.innerHTML = `
+                <td>${f.viaje}</td>
+                <td>${f.lpn}</td>
+                <td>${productoPorLpn[f.lpn] || "-"}</td>
+                <td>${f.lote_sap || "-"}</td>
+                <td>
+                    <input type="text" class="inputLoteNuevo" value="${(f.lote_observado || "").replace(/"/g, "&quot;")}" ${f.aplicado ? "disabled" : ""}>
+                </td>
+                <td>${formatearFechaToma(f.fv_sap)}</td>
+                <td>
+                    <input type="text" class="inputFvNueva" placeholder="Ej: 25/08/2029, 05/28..." value="${(f.fv_observado || "").replace(/"/g, "&quot;")}" ${f.aplicado ? "disabled" : ""}>
+                </td>
+                <td>${f.escaneado_por || "-"}</td>
+                <td>${accion}</td>
+            `;
+
+            tbody.appendChild(tr);
+
+        });
+
+    }catch(e){
+
+        console.error(e);
+        _ultimoCambioLotePendienteCount = null;
+        tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar Cambio de Lote.</td></tr>`;
+
+    }
+
+}
