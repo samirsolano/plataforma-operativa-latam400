@@ -2188,7 +2188,7 @@ cmbViajeCruce.addEventListener("change", async function(){
     cmbOcCruce.disabled = true;
 
     document.getElementById("tblCruce").innerHTML =
-        `<tr><td colspan="6" class="sin-datos">Selecciona el Viaje y la OC, y presiona "Calcular Cruce".</td></tr>`;
+        `<tr><td colspan="8" class="sin-datos">Selecciona el Viaje y la OC, y presiona "Calcular Cruce".</td></tr>`;
 
     if(!cmbViajeCruce.value){
         return;
@@ -2234,25 +2234,22 @@ async function calcularCruce(){
         return;
     }
 
-    tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">Calculando cruce...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Calculando cruce...</td></tr>`;
 
     try{
 
-        const [ocPortalFilas, maraAlicorpFilas, farmaciaDataFilas, lecturasFilas] = await Promise.all([
+        const [ocPortalFilas, maraAlicorpFilas, lecturasFilas] = await Promise.all([
             supabaseFetchTodo(
-                "/oc_portal_cliente?select=ean,codigo_proveedor,descripcion_producto,posicion&oc=eq." + oc
+                "/oc_portal_cliente?select=ean,codigo_proveedor,descripcion_producto,posicion,cantidad_sku_solicitada&oc=eq." + oc
             ),
-            supabaseFetchTodo("/mara_alicorp?select=ean,codigo,descripcion"),
-            supabaseFetchTodo(
-                "/farmacia_data?select=codigo,cantidad&viaje=eq." + viaje + "&orden_compra=eq." + oc
-            ),
+            supabaseFetchTodo("/mara_alicorp?select=ean,codigo,descripcion,factor_unidad_alm"),
             supabaseFetchTodo(
                 "/farmacia_lecturas?select=codigo,cantidad_cajas&viaje=eq." + viaje + "&oc=eq." + oc
             )
         ]);
 
         if(!ocPortalFilas || !ocPortalFilas.length){
-            tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">Esa OC todavía no tiene datos cargados en "4. OC Portal Cliente".</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Esa OC todavía no tiene datos cargados en "4. OC Portal Cliente".</td></tr>`;
             return;
         }
 
@@ -2264,35 +2261,30 @@ async function calcularCruce(){
             }
         });
 
-        // "Solicitado" = lo que TÚ cargaste en "1. Carga y Viajes" para
-        // ese código, no la cantidad que trae la OC del portal (que
-        // puede traer de más, o códigos que ni son parte de tu carga).
-        const solicitadoPorCodigo = {};
-
-        (farmaciaDataFilas || []).forEach(function(f){
-            if(!f.codigo){
-                return;
-            }
-            solicitadoPorCodigo[f.codigo] = (solicitadoPorCodigo[f.codigo] || 0) + Number(f.cantidad || 0);
-        });
-
-        const escaneadoPorCodigo = {};
+        const escaneadoCajasPorCodigo = {};
 
         (lecturasFilas || []).forEach(function(l){
             if(!l.codigo){
                 return;
             }
-            escaneadoPorCodigo[l.codigo] = (escaneadoPorCodigo[l.codigo] || 0) + Number(l.cantidad_cajas || 0);
+            escaneadoCajasPorCodigo[l.codigo] = (escaneadoCajasPorCodigo[l.codigo] || 0) + Number(l.cantidad_cajas || 0);
         });
 
+        // La OC pide en UNIDADES; lo escaneado se registra en CAJAS.
+        // Se convierte lo escaneado a unidades (cajas × factor) para
+        // compararlo directo contra lo que pide la OC. El problema es
+        // escanear MÁS unidades de las que pide la OC — si todavía
+        // falta, solo está pendiente (no es un error).
         const filas = ocPortalFilas.map(function(row){
 
             const ean = String(row.ean || "").trim();
             const mara = maraPorEan[ean] || null;
             const codigo = mara ? mara.codigo : null;
+            const factor = mara ? Number(mara.factor_unidad_alm) : null;
 
-            const solicitado = codigo ? solicitadoPorCodigo[codigo] : undefined;
-            const escaneado = codigo ? (escaneadoPorCodigo[codigo] || 0) : 0;
+            const solicitado = Number(row.cantidad_sku_solicitada || 0);
+            const escaneadoCajas = codigo ? (escaneadoCajasPorCodigo[codigo] || 0) : 0;
+            const escaneadoUnidades = (factor && factor > 0) ? Math.round(escaneadoCajas * factor) : null;
 
             let estadoTexto;
             let estadoClase;
@@ -2300,17 +2292,18 @@ async function calcularCruce(){
             if(!codigo){
                 estadoTexto = "Sin MARA Alicorp";
                 estadoClase = "advertencia";
-            }else if(solicitado === undefined){
-                // Está en la OC del portal pero no en lo que tú
-                // cargaste — no es un pendiente tuyo, solo referencia.
-                estadoTexto = "Fuera de tu carga";
-                estadoClase = "disponible";
-            }else if(escaneado >= solicitado){
+            }else if(escaneadoUnidades === null){
+                estadoTexto = "Sin factor";
+                estadoClase = "advertencia";
+            }else if(escaneadoUnidades > solicitado){
+                estadoTexto = "Excede lo solicitado";
+                estadoClase = "pendiente";
+            }else if(escaneadoUnidades === solicitado){
                 estadoTexto = "Completo";
                 estadoClase = "activado";
             }else{
                 estadoTexto = "Pendiente";
-                estadoClase = "pendiente";
+                estadoClase = "disponible";
             }
 
             return {
@@ -2318,7 +2311,9 @@ async function calcularCruce(){
                 codigo: codigo || "-",
                 descripcion: (mara && mara.descripcion) || row.descripcion_producto || "-",
                 solicitado: solicitado,
-                escaneado: escaneado,
+                factor: factor,
+                escaneadoCajas: escaneadoCajas,
+                escaneadoUnidades: escaneadoUnidades,
                 estadoTexto: estadoTexto,
                 estadoClase: estadoClase
             };
@@ -2340,8 +2335,10 @@ async function calcularCruce(){
                 <td>${f.ean}</td>
                 <td>${f.codigo}</td>
                 <td>${f.descripcion}</td>
-                <td>${f.solicitado === undefined ? "-" : formatearNumeroFarmacia(f.solicitado)}</td>
-                <td>${formatearNumeroFarmacia(f.escaneado)}</td>
+                <td>${formatearNumeroFarmacia(f.solicitado)}</td>
+                <td>${f.factor || "-"}</td>
+                <td>${formatearNumeroFarmacia(f.escaneadoCajas)}</td>
+                <td>${f.escaneadoUnidades === null ? "-" : formatearNumeroFarmacia(f.escaneadoUnidades)}</td>
                 <td><span class="estado ${f.estadoClase}">${f.estadoTexto}</span></td>
             `;
 
@@ -2352,7 +2349,7 @@ async function calcularCruce(){
     }catch(e){
 
         console.error(e);
-        tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se pudo calcular el cruce.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">No se pudo calcular el cruce.</td></tr>`;
 
     }
 

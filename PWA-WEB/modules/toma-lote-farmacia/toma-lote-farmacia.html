@@ -880,11 +880,11 @@
 
                     <p class="nota-modulo">
                         Selecciona el Viaje y la OC. Se toma cada línea de "4. OC Portal Cliente"
-                        de esa OC y se busca su EAN en "5. MARA Alicorp" para obtener el código
-                        real. Lo "Solicitado" es la cantidad que TÚ cargaste en "1. Carga y
-                        Viajes" para ese código (no la cantidad que trae la OC del portal, que
-                        puede traer de más o códigos que no son parte de tu carga), y se compara
-                        contra lo realmente escaneado en "2. Lecturas y Evidencias".
+                        de esa OC, se busca su EAN en "5. MARA Alicorp" para obtener el código real
+                        y el factor (unidades por caja), y se convierte lo escaneado en
+                        "2. Lecturas y Evidencias" (que está en cajas) a unidades para compararlo
+                        contra lo que pide la OC (que está en unidades). El problema es cuando se
+                        escanea MÁS de lo que pide la OC; si aún falta, solo está pendiente.
                     </p>
 
                     <div class="filtros-mara">
@@ -918,8 +918,10 @@
                                 <th>EAN</th>
                                 <th>Código</th>
                                 <th>Descripción</th>
-                                <th>Solicitado (tu carga)</th>
+                                <th>Solicitado (OC, Unidades)</th>
+                                <th>Factor</th>
                                 <th>Escaneado (Cajas)</th>
+                                <th>Escaneado (Unidades)</th>
                                 <th>Estado</th>
 
                             </tr>
@@ -929,7 +931,7 @@
                         <tbody id="tblCruce">
 
                             <tr>
-                                <td colspan="6" class="sin-datos">
+                                <td colspan="8" class="sin-datos">
                                     Selecciona el Viaje y la OC, y presiona "Calcular Cruce".
                                 </td>
                             </tr>
