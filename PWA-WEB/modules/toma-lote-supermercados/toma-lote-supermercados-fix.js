@@ -186,7 +186,9 @@ function normalizarFilaFase(filaOriginal, viaje, archivo, cargadoPor){
 }
 
 // ========================================
-// PARCHE: "FV Nueva" en Cambio de Lote era un date picker
+// PARCHE: "FV Nueva" en Cambio de Lote era un date picker, y el texto
+// libre que se manda a Modulación puede chocar con el datestyle de
+// Postgres
 // ========================================
 // fv_observado es texto libre a propósito (el operario puede escribir
 // "05/28" si la paleta solo trae mes/año, o "25/08/29" con año de 2
@@ -196,9 +198,62 @@ function normalizarFilaFase(filaOriginal, viaje, archivo, cargadoPor){
 // formato exacto, el campo quedaba en blanco aunque sí había un dato
 // escrito por el operario (se veía abajo en "Escrito por el
 // operario"), y al aplicar terminaba mandándose una fecha vacía o
-// incorrecta a Modulación — por eso el Packing List seguía marcando
-// REVISAR. Se cambia a texto libre, precargado con lo que escribió el
-// operario, editable antes de aplicar.
+// incorrecta a Modulación. Se cambia a texto libre.
+//
+// Además, aunque el campo ya muestre una fecha completa tipo
+// "28/08/2028", mandarla tal cual a fecha_expiracion (columna date
+// estricta en Modulación) puede fallar con "date/time field value out
+// of range" según el datestyle configurado en Postgres (día/mes se
+// pueden interpretar al revés). Se normaliza a ISO (AAAA-MM-DD) tanto
+// al precargar el campo como cuando el admin termina de editarlo, para
+// que "Aplicar a SAP" siempre mande un formato que Postgres entiende
+// sin ambigüedad. Fechas incompletas (ej. "05/28", sin día) no se
+// pueden convertir a una fecha real — esas quedan tal cual para que el
+// admin las complete a mano antes de aplicar.
+
+function normalizarFechaVisibleAISO(valor){
+
+    const texto = String(valor || "").trim();
+
+    if(texto === "" || /^\d{4}-\d{2}-\d{2}$/.test(texto)){
+        return texto;
+    }
+
+    let m = texto.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
+    if(m){
+        return m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0");
+    }
+
+    // Año de 2 dígitos (ej. "25/08/29"): siglo pivote estándar — 00-68
+    // se asume 20XX, 69-99 se asume 19XX.
+    m = texto.match(/^(\d{1,2})[./](\d{1,2})[./](\d{2})$/);
+    if(m){
+        const anio2 = Number(m[3]);
+        const anioCompleto = anio2 <= 68 ? 2000 + anio2 : 1900 + anio2;
+        return anioCompleto + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0");
+    }
+
+    // No se reconoce como fecha completa (ej. "05/28") — se deja tal
+    // cual para que el admin la complete a mano.
+    return texto;
+
+}
+
+// Si el admin edita el campo a mano, se normaliza al salir de él (no
+// en cada tecla, para no pelearse con lo que está escribiendo).
+document.getElementById("tblCambioLote").addEventListener("focusout", function(e){
+
+    if(!e.target.classList || !e.target.classList.contains("inputFvNueva")){
+        return;
+    }
+
+    const normalizada = normalizarFechaVisibleAISO(e.target.value);
+
+    if(normalizada !== e.target.value){
+        e.target.value = normalizada;
+    }
+
+});
 
 async function cargarCambioLote(viaje){
 
@@ -259,7 +314,7 @@ async function cargarCambioLote(viaje){
                 </td>
                 <td>${formatearFechaToma(f.fv_sap)}</td>
                 <td>
-                    <input type="text" class="inputFvNueva" placeholder="Ej: 25/08/2029, 05/28..." value="${(f.fv_observado || "").replace(/"/g, "&quot;")}" ${f.aplicado ? "disabled" : ""}>
+                    <input type="text" class="inputFvNueva" placeholder="Ej: 25/08/2029, 05/28..." value="${normalizarFechaVisibleAISO(f.fv_observado).replace(/"/g, "&quot;")}" ${f.aplicado ? "disabled" : ""}>
                 </td>
                 <td>${f.escaneado_por || "-"}</td>
                 <td>${accion}</td>
