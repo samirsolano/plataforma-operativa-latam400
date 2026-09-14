@@ -391,6 +391,45 @@ body{
     cursor:pointer;
 }
 
+/* FILTROS MAESTRO MARA */
+
+.filtros-mara{
+    display:grid;
+    grid-template-columns:
+        1fr
+        1fr
+        140px;
+    gap:15px;
+    align-items:end;
+    margin-bottom:20px;
+}
+
+.filtros-mara label{
+    display:block;
+    margin-bottom:8px;
+    font-weight:600;
+    font-size:12.5px;
+    color:#374151;
+}
+
+.filtros-mara input{
+    width:100%;
+    padding:12px;
+    border:1px solid #d5dbe5;
+    border-radius:10px;
+}
+
+.filtros-mara button{
+    width:100%;
+    height:46px;
+    border:none;
+    border-radius:10px;
+    background:#FC000D;
+    color:white;
+    font-weight:700;
+    cursor:pointer;
+}
+
 .btn-ver-foto{
     background:#fde8e8;
     color:#FC000D;
