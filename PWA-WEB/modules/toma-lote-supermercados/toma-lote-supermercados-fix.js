@@ -33,3 +33,128 @@ function validarFormatoModulacion(filas){
     return null;
 
 }
+
+// ========================================
+// PARCHE: Fecha de Fase (FeCaduc/FePreferCons) llegaba vacía
+// ========================================
+// En Centro de Proyectos, el pistoleo mostraba "Fecha Vencimiento
+// (SAP)" vacía aunque el Lote (SAP) sí salía bien — ambos vienen de
+// la misma fila de Fase, así que si uno sale y el otro no, la causa
+// más probable es que la celda de fecha no llegó como el serial
+// numérico de Excel que espera excelSerialADate (por ejemplo, si
+// SheetJS la entrega como texto u objeto Date según cómo esté
+// tipeada en el Excel de SAP), o que el encabezado "FeCaduc/FePreferCons"
+// vino con espacios distintos alrededor de la barra. Se redefinen
+// excelSerialADate y normalizarFilaFase para cubrir ambos casos, sin
+// tocar el archivo original.
+
+function excelSerialADate(valor){
+
+    if(valor === "" || valor === null || valor === undefined){
+        return null;
+    }
+
+    // SheetJS a veces entrega un objeto Date en vez de un serial,
+    // según cómo esté tipeada la celda en el Excel de SAP.
+    if(valor instanceof Date){
+        return isNaN(valor.getTime()) ? null : valor.toISOString().split("T")[0];
+    }
+
+    // Caso normal: serial de Excel (días desde 1899-12-30).
+    if(!isNaN(Number(valor)) && String(valor).trim() !== ""){
+        const epochMs = Date.UTC(1899, 11, 30);
+        return new Date(epochMs + Number(valor) * 86400000).toISOString().split("T")[0];
+    }
+
+    // Texto con la fecha ya formateada (otro caso visto en exports de
+    // SAP): "2029-08-06", "06/08/2029", "06.08.2029".
+    const texto = String(valor).trim();
+
+    let m = texto.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if(m){
+        return m[1] + "-" + m[2].padStart(2, "0") + "-" + m[3].padStart(2, "0");
+    }
+
+    m = texto.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
+    if(m){
+        return m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0");
+    }
+
+    return null;
+
+}
+
+function normalizarFilaFase(filaOriginal, viaje, archivo, cargadoPor){
+
+    const mapaFila = {};
+
+    Object.keys(filaOriginal).forEach(function(clave){
+        // Solo se le quitan los espacios pegados a la barra ("FeCaduc
+        // / FePreferCons" -> "fecaduc/fepreferecons"); el resto de
+        // encabezados con espacios entre palabras ("orden de
+        // almacén") se dejan intactos.
+        const normalizada = clave.trim().toLowerCase().replace(/\s*\/\s*/g, "/");
+        mapaFila[normalizada] = filaOriginal[clave];
+    });
+
+    function valor(clave){
+        const v = mapaFila[clave];
+        return (v === undefined || v === null) ? "" : v;
+    }
+
+    function num(clave){
+        const n = Number(valor(clave));
+        return isNaN(n) || valor(clave) === "" ? null : n;
+    }
+
+    function texto(clave){
+        return String(valor(clave)).trim();
+    }
+
+    function fecha(clave){
+        return excelSerialADate(valor(clave));
+    }
+
+    return {
+        viaje: viaje,
+        tarea_almacen: num("tarea de almacén"),
+        orden_almacen: num("orden de almacén"),
+        status_tarea: texto("status de tarea de almacén"),
+        producto: texto("producto"),
+        descripcion_producto: texto("descripción de producto"),
+        fecaduc_fepreferecons: fecha("fecaduc/fepreferecons"),
+        lote: texto("lote"),
+        tipo_stocks: texto("tipo de stocks"),
+        ctd_prev_proced_uma: num("ctd.prev.proced.uma"),
+        ctd_real_dest_uma: num("ctd.real dest.uma"),
+        ctd_dif_dest_uma: num("ctd.dif.dest.en uma"),
+        ubic_procedencia: texto("ubic.procedencia"),
+        ubicacion_destino: texto("ubicación de destino"),
+        un_medida_alternat: texto("un.medida alternat."),
+        cl_proceso_almacen: texto("cl.proceso almacén"),
+        ubic_dest_original: texto("ubic.dest.original"),
+        un_manipulac_origen: texto("un.manipulac.origen"),
+        ump_destino: texto("ump destino"),
+        confirmado_por: texto("confirmado por"),
+        fecha_confirmacion: fecha("fecha confirmación"),
+        hora_confirmacion: texto("hora de confirmación"),
+        autor: texto("autor"),
+        fecha_creacion: fecha("fecha de creación"),
+        hora_creacion: texto("hora de creación"),
+        grupo_consolidacion: num("grupo consolidación"),
+        fase: num("fase"),
+        peso_carga: num("peso de carga"),
+        unidad_peso: texto("unidad de peso"),
+        cola: texto("cola"),
+        tipo_proceso_almacen: texto("tipo proceso almacén"),
+        denominacion_tipo_proceso: texto("denomin.tipo proceso almacén"),
+        denominacion_tipo_stocks: texto("denominación de tipo de stocks"),
+        ctd_prev_proced_umb: num("ctd.prev.proced.umb"),
+        ctd_real_dest_umb: num("ctd.real dest.umb"),
+        ctd_dif_dest_umb: num("ctd.dif.dest.en umb"),
+        unidad_medida_base: texto("unidad medida base"),
+        archivo_origen: archivo,
+        cargado_por: cargadoPor
+    };
+
+}
