@@ -39,14 +39,12 @@ function validarFormatoModulacion(filas){
 // ========================================
 // En Centro de Proyectos, el pistoleo mostraba "Fecha Vencimiento
 // (SAP)" vacía aunque el Lote (SAP) sí salía bien — ambos vienen de
-// la misma fila de Fase, así que si uno sale y el otro no, la causa
-// más probable es que la celda de fecha no llegó como el serial
-// numérico de Excel que espera excelSerialADate (por ejemplo, si
-// SheetJS la entrega como texto u objeto Date según cómo esté
-// tipeada en el Excel de SAP), o que el encabezado "FeCaduc/FePreferCons"
-// vino con espacios distintos alrededor de la barra. Se redefinen
-// excelSerialADate y normalizarFilaFase para cubrir ambos casos, sin
-// tocar el archivo original.
+// la misma fila de Fase. Ya se probó (1) aceptar texto/objeto Date
+// además del serial numérico, y (2) tolerar espacios distintos
+// alrededor de la barra en el encabezado, y sigue saliendo vacía
+// incluso volviendo a subir el archivo. Se agrega un log temporal
+// para ver el valor y encabezado EXACTOS que llegan al procesar
+// Fase, en vez de seguir adivinando la causa.
 
 function excelSerialADate(valor){
 
@@ -84,7 +82,30 @@ function excelSerialADate(valor){
 
 }
 
+// Solo se loguea la primera fila que se procesa, para no llenar la
+// consola — basta una para ver el problema.
+let _debugFaseLogueado = false;
+
 function normalizarFilaFase(filaOriginal, viaje, archivo, cargadoPor){
+
+    if(!_debugFaseLogueado){
+
+        _debugFaseLogueado = true;
+
+        console.log("=== DEBUG FASE: encabezados crudos del Excel ===", Object.keys(filaOriginal));
+
+        Object.keys(filaOriginal).forEach(function(clave){
+            if(clave.toLowerCase().indexOf("caduc") !== -1 || clave.toLowerCase().indexOf("prefer") !== -1){
+                console.log(
+                    "=== DEBUG FASE: columna de fecha ===",
+                    "clave=[" + clave + "]",
+                    "valor=", filaOriginal[clave],
+                    "tipo=", typeof filaOriginal[clave]
+                );
+            }
+        });
+
+    }
 
     const mapaFila = {};
 
