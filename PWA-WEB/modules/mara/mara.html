@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Maestro MARA Farmacia - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="mara.css"
+    >
+
+</head>
+
+<body>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+
+                <h1>MAESTRO</h1>
+                <h1>MARA FARMACIA</h1>
+
+                <span>LATAM 400 CL</span>
+
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="contenido">
+
+            <header class="topbar">
+
+                <div class="topbar-titulo">
+
+                    <h2>MAESTRO MARA FARMACIA</h2>
+
+                    <p>Carga y mantenimiento del maestro de materiales (droguería)</p>
+
+                </div>
+
+            </header>
+
+            <div class="card">
+
+                <div class="card-header-flex">
+
+                    <h2>
+                        CARGAR MAESTRO MARA
+                    </h2>
+
+                    <button id="btnDescargarPlantilla" class="btn-secundario">
+                        ⬇ Descargar Plantilla
+                    </button>
+
+                </div>
+
+                <p class="nota-modulo">
+                    Sube el Excel del maestro MARA con las columnas: CÓD. LAB., LABORATORIO,
+                    CÓD. SAP, CÓD. PROVEEDOR, EAN PRINCIPAL, DESCRIPCIÓN, CÓDIGO INKAVENTA,
+                    ESTADO, UM BASE, UM PEDIDO, MASTER PACK. Al subir un archivo nuevo se
+                    reemplaza por completo el maestro actual.
+                </p>
+
+                <div class="data-modulado">
+
+                    <div class="upload-box">
+
+                        <input
+                            type="file"
+                            id="archivoMara"
+                        >
+
+                    </div>
+
+                    <div class="detalle-archivo">
+
+                        <p>
+                            Archivo:
+                            <span id="nombreArchivo">-</span>
+                        </p>
+
+                        <p>
+                            Fecha:
+                            <span id="fechaArchivo">-</span>
+                        </p>
+
+                        <p>
+                            Registros:
+                            <span id="totalRegistros">-</span>
+                        </p>
+
+                    </div>
+
+                    <div class="estado-ok">
+
+                        <h3>✓ Procesado correctamente</h3>
+
+                        <p>El maestro quedó disponible para consulta.</p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="card">
+
+                <div class="card-header-flex">
+
+                    <h2>
+                        CONSULTAR MAESTRO
+                    </h2>
+
+                </div>
+
+                <div class="filtros-lecturas">
+
+                    <div>
+                        <label>Código (SAP o Proveedor)</label>
+                        <input type="text" id="filtroCodigo" placeholder="Ej: 8321151">
+                    </div>
+
+                    <div>
+                        <label>Descripción</label>
+                        <input type="text" id="filtroDescripcion" placeholder="Ej: DENTO">
+                    </div>
+
+                    <div>
+                        <button id="btnBuscarMara">Buscar</button>
+                    </div>
+
+                </div>
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Cód. SAP</th>
+                            <th>Cód. Proveedor</th>
+                            <th>Descripción</th>
+                            <th>Laboratorio</th>
+                            <th>UM Base</th>
+                            <th>UM Pedido</th>
+                            <th>Master Pack</th>
+                            <th>Estado</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="tblMara">
+
+                        <tr>
+                            <td colspan="8" class="sin-datos">
+                                Usa los filtros de arriba para buscar en el maestro.
+                            </td>
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="mara.js"></script>
+
+</body>
+
+</html>
