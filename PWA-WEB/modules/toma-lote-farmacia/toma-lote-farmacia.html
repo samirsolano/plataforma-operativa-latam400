@@ -880,10 +880,11 @@
 
                     <p class="nota-modulo">
                         Selecciona el Viaje y la OC. Se toma cada línea de "4. OC Portal Cliente"
-                        de esa OC, se busca su EAN en "5. MARA Alicorp" para obtener el código real
-                        y el factor de conversión, y se compara la cantidad solicitada (convertida a
-                        cajas con ese factor) contra lo realmente escaneado en "2. Lecturas y
-                        Evidencias" para ese código.
+                        de esa OC y se busca su EAN en "5. MARA Alicorp" para obtener el código
+                        real. Lo "Solicitado" es la cantidad que TÚ cargaste en "1. Carga y
+                        Viajes" para ese código (no la cantidad que trae la OC del portal, que
+                        puede traer de más o códigos que no son parte de tu carga), y se compara
+                        contra lo realmente escaneado en "2. Lecturas y Evidencias".
                     </p>
 
                     <div class="filtros-mara">
@@ -917,9 +918,7 @@
                                 <th>EAN</th>
                                 <th>Código</th>
                                 <th>Descripción</th>
-                                <th>Solicitado</th>
-                                <th>Factor</th>
-                                <th>Solicitado (Cajas)</th>
+                                <th>Solicitado (tu carga)</th>
                                 <th>Escaneado (Cajas)</th>
                                 <th>Estado</th>
 
@@ -930,7 +929,7 @@
                         <tbody id="tblCruce">
 
                             <tr>
-                                <td colspan="8" class="sin-datos">
+                                <td colspan="6" class="sin-datos">
                                     Selecciona el Viaje y la OC, y presiona "Calcular Cruce".
                                 </td>
                             </tr>
