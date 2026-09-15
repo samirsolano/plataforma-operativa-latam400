@@ -693,6 +693,6 @@ btnGuardar.addEventListener("click", async function(){
 // INICIO
 // ========================================
 
-if(sesion && (sesion.rol === "Administrador" || sesion.rol === "Supervisor")){
+if(sesion && (sesion.rol === "Administrador" || sesion.rol === "Supervisor" || sesion.rol === "Coordinador QHSE")){
     cargarCatalogoPreguntas().then(cargarEquipos);
 }

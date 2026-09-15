@@ -4,7 +4,9 @@
 
 const sesion = requerirSesion();
 
-if(sesion && sesion.rol !== "Administrador" && sesion.rol !== "Supervisor"){
+// Coordinador QHSE tiene el mismo acceso que Supervisor en toda la
+// sección de Check List de Equipos (ver checklist-equipos.js).
+if(sesion && sesion.rol !== "Administrador" && sesion.rol !== "Supervisor" && sesion.rol !== "Coordinador QHSE"){
     window.location.href = "../inicio/home.html";
 }
 
@@ -413,6 +415,6 @@ modalOverlayBloqueo.addEventListener("click", function(e){
 // INICIO
 // ========================================
 
-if(sesion && (sesion.rol === "Administrador" || sesion.rol === "Supervisor")){
+if(sesion && (sesion.rol === "Administrador" || sesion.rol === "Supervisor" || sesion.rol === "Coordinador QHSE")){
     cargarCatalogoPreguntas().then(cargarDashboard);
 }
