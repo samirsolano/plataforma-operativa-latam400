@@ -630,9 +630,9 @@
                     <h2>Diferencias</h2>
 
                     <p class="nota-modulo">
-                        Ubicaciones con diferencia contra el saldo SAP (código o cantidad). No incluye
-                        la columna "Observación" del reporte de correo — esa la escribe quien arma el
-                        correo cruzando viajes y HU de planta, datos que no están en esta plataforma.
+                        Ubicaciones con diferencia contra el saldo SAP (código o cantidad). La columna
+                        "Observación" es manual — la plataforma no tiene los datos de viajes/HU de
+                        planta para calcularla sola, así que se escribe a mano con el botón Editar.
                     </p>
 
                     <input
@@ -653,11 +653,12 @@
                                 <th>Cant. Contado</th>
                                 <th>Diferencia</th>
                                 <th>Status</th>
+                                <th>Observación</th>
                             </tr>
                         </thead>
                         <tbody id="tblReporteDiferencias">
                             <tr>
-                                <td colspan="8" class="sin-datos">Cargando...</td>
+                                <td colspan="9" class="sin-datos">Cargando...</td>
                             </tr>
                         </tbody>
                     </table>

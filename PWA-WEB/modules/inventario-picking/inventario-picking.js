@@ -1645,6 +1645,7 @@ document.getElementById("btnActualizarRech").addEventListener("click", cargarRec
 let _catalogoReporteDiferencias = [];
 let _paginaActualReporte = 1;
 const FILAS_POR_PAGINA_REPORTE = 50;
+let _observacionesReporte = {};
 
 async function cargarReporte(){
 
@@ -1652,18 +1653,29 @@ async function cargarReporte(){
     const tblDiferencias = document.getElementById("tblReporteDiferencias");
 
     tblInicio.innerHTML = `<tr><td colspan="5" class="sin-datos">Cargando...</td></tr>`;
-    tblDiferencias.innerHTML = `<tr><td colspan="8" class="sin-datos">Cargando...</td></tr>`;
+    tblDiferencias.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando...</td></tr>`;
 
     try{
 
-        const [{ auditadas, sapFilas }, maraFilas, pasillosFilas] = await Promise.all([
+        const [{ auditadas, sapFilas }, maraFilas, pasillosFilas, observacionesFilas] = await Promise.all([
             obtenerDatosAuditoria(),
             supabaseFetchTodo("/picking_mara?select=sku,unidad_base"),
             supabaseFetch("/picking_pasillos?select=pasillo,colaborador,hora_inicio,hora_fin,estado&semana=eq." + SEMANA).catch(function(e){
                 console.error(e);
                 return [];
+            }),
+            supabaseFetchTodo("/picking_reporte_observaciones?select=ubicacion,sku,observacion&semana=eq." + SEMANA).catch(function(e){
+                console.error(e);
+                return [];
             })
         ]);
+
+        _observacionesReporte = {};
+
+        (observacionesFilas || []).forEach(function(o){
+            const clave = normalizarTextoAuditoria(o.ubicacion) + "||" + String(o.sku || "").trim();
+            _observacionesReporte[clave] = o.observacion || "";
+        });
 
         // ERU: por ubicación (código Y cantidad correctos).
         const contadas = auditadas.filter(f => !f.vacia);
@@ -1716,17 +1728,22 @@ async function cargarReporte(){
                 const cantidadSap = f.tieneStockSap ? f.cantidadSap : 0;
                 const cantidadContada = f.conteo_total ?? 0;
                 const diferencia = cantidadSap - cantidadContada;
+                const ubicacion = f.ubicacion_escaneada || "-";
+                const codigo = f.vacia ? "-" : (f.sku || "-");
+                const claveObs = normalizarTextoAuditoria(ubicacion) + "||" + String(codigo === "-" ? "" : codigo).trim();
 
                 return {
                     pasillo: f.pasillo,
-                    ubicacion: f.ubicacion_escaneada || "-",
-                    codigo: f.vacia ? "-" : (f.sku || "-"),
+                    ubicacion: ubicacion,
+                    codigo: codigo,
                     descripcion: f.descripcion || "-",
                     uma: f.sku ? (umaPorSku[String(f.sku).trim()] || "-") : "-",
                     cantidadSap: cantidadSap,
                     cantidadContada: cantidadContada,
                     diferencia: diferencia,
-                    status: diferencia > 0 ? "Faltante" : (diferencia < 0 ? "Sobrante" : "-")
+                    status: diferencia > 0 ? "Faltante" : (diferencia < 0 ? "Sobrante" : "-"),
+                    claveObs: claveObs,
+                    observacion: _observacionesReporte[claveObs] || ""
                 };
 
             })
@@ -1761,7 +1778,7 @@ async function cargarReporte(){
 
         console.error(e);
         tblInicio.innerHTML = `<tr><td colspan="5" class="sin-datos">No se pudo cargar.</td></tr>`;
-        tblDiferencias.innerHTML = `<tr><td colspan="8" class="sin-datos">No se pudo cargar.</td></tr>`;
+        tblDiferencias.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar.</td></tr>`;
 
     }
 
@@ -1792,7 +1809,7 @@ function pintarReporteDiferencias(){
     const filas = filasFiltradasReporte();
 
     if(!filas.length){
-        tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Sin diferencias — todo cuadra.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Sin diferencias — todo cuadra.</td></tr>`;
         paginacion.innerHTML = "";
         return;
     }
@@ -1817,6 +1834,12 @@ function pintarReporteDiferencias(){
                 <td>${f.cantidadContada}</td>
                 <td>${f.diferencia > 0 ? "+" : ""}${f.diferencia}</td>
                 <td class="${claseStatus}">${f.status}</td>
+                <td>
+                    <div class="celda-observacion">
+                        <span>${f.observacion || "-"}</span>
+                        <button class="btn-secundario" onclick="editarObservacionReporte('${f.claveObs}')">✎ Editar</button>
+                    </div>
+                </td>
             </tr>
         `;
 
@@ -1841,3 +1864,55 @@ document.getElementById("buscadorReporte").addEventListener("input", function(){
 });
 
 document.getElementById("btnActualizarReporte").addEventListener("click", cargarReporte);
+
+// Observación es manual — la plataforma no tiene los datos de viajes/
+// HU de planta para calcularla sola. Se guarda por (semana, ubicación,
+// código) en picking_reporte_observaciones.
+async function editarObservacionReporte(clave){
+
+    const fila = _catalogoReporteDiferencias.find(function(f){ return f.claveObs === clave; });
+
+    if(!fila){
+        return;
+    }
+
+    const texto = prompt("Observación para " + fila.ubicacion + " · " + fila.codigo + ":", fila.observacion || "");
+
+    if(texto === null){
+        return;
+    }
+
+    const partes = clave.split("||");
+
+    try{
+
+        await supabaseFetch("/picking_reporte_observaciones?on_conflict=semana,ubicacion,sku", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates" },
+            body: JSON.stringify({
+                semana: SEMANA,
+                ubicacion: partes[0],
+                sku: partes[1],
+                observacion: texto,
+                actualizado_por: (sesion && sesion.nombre_completo) || null,
+                actualizado_en: new Date().toISOString()
+            })
+        });
+
+        _observacionesReporte[clave] = texto;
+
+        _catalogoReporteDiferencias.forEach(function(f){
+            if(f.claveObs === clave){ f.observacion = texto; }
+        });
+
+        pintarReporteDiferencias();
+        mostrarToast("Observación guardada.", "exito");
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo guardar la observación: " + err.message, "error");
+
+    }
+
+}

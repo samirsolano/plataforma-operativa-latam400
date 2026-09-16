@@ -370,6 +370,24 @@ body{
     font-size:13px;
 }
 
+.celda-observacion{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    min-width:220px;
+}
+
+.celda-observacion span{
+    flex:1;
+    color:#444;
+}
+
+.celda-observacion .btn-secundario{
+    flex-shrink:0;
+    padding:6px 10px;
+    font-size:12px;
+}
+
 .btn-fila-mara{
     background:none;
     border:none;
