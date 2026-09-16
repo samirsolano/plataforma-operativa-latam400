@@ -459,6 +459,7 @@ tbody tr:hover{
 .badge-estado-asig.sin-asignar{ background:#f3f4f6; color:#6b7280; }
 .badge-estado-asig.en-proceso{ background:#fef3c7; color:#b45309; }
 .badge-estado-asig.completado{ background:#dcfce7; color:#15803d; }
+.badge-estado-asig.cerrado{ background:#dbeafe; color:#1d4ed8; }
 
 /* DISCREPANCIAS */
 
