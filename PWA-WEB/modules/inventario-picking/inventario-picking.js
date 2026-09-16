@@ -118,6 +118,10 @@ document.querySelectorAll(".tab-link").forEach(function(link){
             cargarDiscrepancias();
         }
 
+        if(link.dataset.tab === "tabReconteo"){
+            cargarEstadoReconteo();
+        }
+
     });
 
 });
@@ -1069,6 +1073,79 @@ document.getElementById("buscadorReconteo").addEventListener("input", function()
 });
 
 document.getElementById("btnActualizarReconteo").addEventListener("click", cargarDiscrepancias);
+
+// ========================================
+// ACTIVAR/DESACTIVAR RECONTEO: prende o apaga la tarjeta "Reconteo"
+// en Centro de Proyectos (tabla aparte, picking_reconteo_activo — no
+// existe en las demás pestañas porque es un simple flag por semana).
+// ========================================
+
+let _reconteoActivo = false;
+
+async function cargarEstadoReconteo(){
+
+    const btn = document.getElementById("btnToggleReconteo");
+    const estadoEl = document.getElementById("estadoReconteoActivo");
+
+    try{
+
+        const filas = await supabaseFetch(
+            "/picking_reconteo_activo?select=activo,activado_por,activado_en&semana=eq." + SEMANA
+        );
+
+        const fila = filas && filas[0];
+        _reconteoActivo = !!(fila && fila.activo);
+
+        btn.textContent = _reconteoActivo ? "Desactivar Reconteo" : "Activar Reconteo";
+        btn.classList.toggle("btn-peligro", _reconteoActivo);
+
+        estadoEl.textContent = _reconteoActivo
+            ? "🔁 Tarjeta \"Reconteo\" visible en Centro de Proyectos" +
+                (fila.activado_por ? " — activada por " + fila.activado_por : "") + "."
+            : "";
+
+    }catch(e){
+
+        console.error(e);
+        estadoEl.textContent = "No se pudo consultar el estado de Reconteo — ¿ya creaste la tabla picking_reconteo_activo?";
+
+    }
+
+}
+
+document.getElementById("btnToggleReconteo").addEventListener("click", async function(){
+
+    const btn = this;
+    btn.disabled = true;
+
+    try{
+
+        await supabaseFetch("/picking_reconteo_activo?on_conflict=semana", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates" },
+            body: JSON.stringify({
+                semana: SEMANA,
+                activo: !_reconteoActivo,
+                activado_por: (sesion && sesion.nombre_completo) || null,
+                activado_en: new Date().toISOString()
+            })
+        });
+
+        await cargarEstadoReconteo();
+        mostrarToast(_reconteoActivo ? "Reconteo activado." : "Reconteo desactivado.", "exito");
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo actualizar: " + err.message, "error");
+
+    }finally{
+
+        btn.disabled = false;
+
+    }
+
+});
 
 document.getElementById("buscadorAuditoria").addEventListener("input", function(){
     _paginaActualAuditoria = 1;
