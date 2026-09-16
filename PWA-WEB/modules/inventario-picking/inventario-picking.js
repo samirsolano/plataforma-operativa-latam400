@@ -1301,7 +1301,9 @@ async function obtenerDatosAuditoria(){
         const tieneStockSap = claveUbicacion in stockPorUbicacion;
         const cantidadSap = tieneStockSap ? stockPorUbicacion[claveUbicacion] : null;
         const cantidadRegistrada = f.conteo_total ?? 0;
-        const tieneDiferencia = f.cruce === "ERROR" || !tieneStockSap || Number(cantidadSap) !== Number(cantidadRegistrada);
+        const tieneDiferencia = f.vacia
+            ? tieneStockSap
+            : (f.cruce === "ERROR" || !tieneStockSap || Number(cantidadSap) !== Number(cantidadRegistrada));
 
         return Object.assign({ claveUbicacion, tieneStockSap, cantidadSap, tieneDiferencia }, f);
 
