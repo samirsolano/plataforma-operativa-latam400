@@ -66,6 +66,7 @@
                 <a href="#" class="tab-link" data-tab="tabDiscrepancias">4. Registro</a>
                 <a href="#" class="tab-link" data-tab="tabReconteo">5. Reconteo</a>
                 <a href="#" class="tab-link" data-tab="tabRech">6. RECH</a>
+                <a href="#" class="tab-link" data-tab="tabReporte">7. Reporte</a>
 
             </nav>
 
@@ -552,6 +553,117 @@
                     </table>
 
                     <div class="paginacion" id="paginacionRech"></div>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 7: REPORTE -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabReporte">
+
+                <header class="topbar">
+
+                    <div class="topbar-titulo">
+
+                        <h2>REPORTE</h2>
+
+                        <p>Semana <span id="semanaTextoReporte">-</span> — ERI, ERU y diferencias, mismo formato del reporte que se manda por correo</p>
+
+                    </div>
+
+                    <button id="btnActualizarReporte" class="btn-secundario">
+                        ⟳ Actualizar
+                    </button>
+
+                </header>
+
+                <div class="card reporte-eri-eru">
+
+                    <table class="tabla-eri-eru">
+                        <thead><tr><th colspan="2">Códigos</th></tr></thead>
+                        <tbody>
+                            <tr><td>Códigos Contados</td><td id="repCodigosContados">-</td></tr>
+                            <tr><td>Códigos Cuadrados</td><td id="repCodigosCuadrados">-</td></tr>
+                        </tbody>
+                        <tfoot><tr class="fila-eri-eru"><td>ERI</td><td id="repEri">-</td></tr></tfoot>
+                    </table>
+
+                    <table class="tabla-eri-eru">
+                        <thead><tr><th colspan="2">Ubicaciones</th></tr></thead>
+                        <tbody>
+                            <tr><td>Ubicaciones Contadas</td><td id="repUbicacionesContadas">-</td></tr>
+                            <tr><td>Ubicaciones Cuadradas</td><td id="repUbicacionesCuadradas">-</td></tr>
+                        </tbody>
+                        <tfoot><tr class="fila-eri-eru"><td>ERU</td><td id="repEru">-</td></tr></tfoot>
+                    </table>
+
+                </div>
+
+                <div class="card">
+
+                    <h2>Inicio de cada inventario</h2>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pasillo</th>
+                                <th>Colaborador</th>
+                                <th>Hora Inicio</th>
+                                <th>Hora Fin</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblReporteInicio">
+                            <tr>
+                                <td colspan="5" class="sin-datos">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                </div>
+
+                <div class="card">
+
+                    <h2>Diferencias</h2>
+
+                    <p class="nota-modulo">
+                        Ubicaciones con diferencia contra el saldo SAP (código o cantidad). La columna
+                        "Observación" es manual — la plataforma no tiene los datos de viajes/HU de
+                        planta para calcularla sola, así que se escribe a mano con el botón Editar.
+                    </p>
+
+                    <input
+                        type="text"
+                        id="buscadorReporte"
+                        placeholder="Buscar por ubicación, código o descripción..."
+                        class="input-buscador"
+                    >
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ubicación</th>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>UMA</th>
+                                <th>Cant. SAP</th>
+                                <th>Cant. Contado</th>
+                                <th>Diferencia</th>
+                                <th>Status</th>
+                                <th>Observación</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblReporteDiferencias">
+                            <tr>
+                                <td colspan="9" class="sin-datos">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="paginacion" id="paginacionReporteDiferencias"></div>
 
                 </div>
 

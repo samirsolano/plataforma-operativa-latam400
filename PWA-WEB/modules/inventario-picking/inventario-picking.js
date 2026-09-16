@@ -126,6 +126,10 @@ document.querySelectorAll(".tab-link").forEach(function(link){
             cargarRech();
         }
 
+        if(link.dataset.tab === "tabReporte"){
+            cargarReporte();
+        }
+
     });
 
 });
@@ -157,6 +161,7 @@ document.getElementById("semanaTextoAsignacion").textContent = SEMANA.split("-W"
 document.getElementById("semanaTextoDiscrepancias").textContent = SEMANA.split("-W")[1];
 document.getElementById("semanaTextoReconteo").textContent = SEMANA.split("-W")[1];
 document.getElementById("semanaTextoRech").textContent = SEMANA.split("-W")[1];
+document.getElementById("semanaTextoReporte").textContent = SEMANA.split("-W")[1];
 
 
 // ========================================
@@ -1230,6 +1235,82 @@ document.getElementById("buscadorAuditoria").addEventListener("input", function(
     pintarAuditoria();
 });
 
+// Fetch + cálculo compartido entre Discrepancias y Reporte: el último
+// registro vigente de cada ubicación, cruzado contra el saldo SAP.
+// "Cuadrada" exige DOS cosas: que el código coincida (cruce OK) Y que
+// la cantidad contada coincida con la del saldo SAP — un código
+// correcto con cantidad distinta también es una diferencia que hay
+// que reverificar.
+async function obtenerDatosAuditoria(){
+
+    const [conteoFilas, sapFilas] = await Promise.all([
+        supabaseFetchTodo(
+            "/picking_conteos?select=pasillo,sku,descripcion,ubicacion_escaneada,ubicacion_esperada,colaborador,cruce,conteo_total,vacia,es_reconteo,creado_en" +
+            "&semana=eq." + SEMANA + "&order=creado_en.desc"
+        ),
+        supabaseFetchTodo("/picking_sap_stock?select=sku,descripcion,stock,ubicacion")
+    ]);
+
+    // El % de avance/exactitud y la tabla de auditoría deben mirar el
+    // ÚLTIMO registro de cada ubicación, no solo el conteo original —
+    // si hubo una corrección desde Revalidar (reconteo), esa es la
+    // verdad vigente y debe reemplazar al número viejo.
+    const ultimoPorUbicacion = {};
+
+    (conteoFilas || []).forEach(function(f){
+
+        const u = normalizarTextoAuditoria(f.ubicacion_escaneada);
+
+        if(!ultimoPorUbicacion[u]){
+            ultimoPorUbicacion[u] = f;
+        }
+
+    });
+
+    const vigentes = Object.values(ultimoPorUbicacion);
+
+    // Código SAP esperado por ubicación (puede haber más de un código
+    // registrado en la misma ubicación).
+    const sapPorUbicacion = {};
+    const stockPorUbicacion = {};
+
+    (sapFilas || []).forEach(function(f){
+
+        if(!f.sku){
+            return;
+        }
+
+        const u = normalizarTextoAuditoria(f.ubicacion);
+
+        if(!sapPorUbicacion[u]){
+            sapPorUbicacion[u] = [];
+        }
+
+        if(sapPorUbicacion[u].indexOf(f.sku) === -1){
+            sapPorUbicacion[u].push(f.sku);
+        }
+
+        stockPorUbicacion[u] = (stockPorUbicacion[u] || 0) + Number(f.stock || 0);
+
+    });
+
+    const auditadas = vigentes.map(function(f){
+
+        const ubicacion = f.ubicacion_escaneada || "-";
+        const claveUbicacion = normalizarTextoAuditoria(ubicacion);
+        const tieneStockSap = claveUbicacion in stockPorUbicacion;
+        const cantidadSap = tieneStockSap ? stockPorUbicacion[claveUbicacion] : null;
+        const cantidadRegistrada = f.conteo_total ?? 0;
+        const tieneDiferencia = f.cruce === "ERROR" || !tieneStockSap || Number(cantidadSap) !== Number(cantidadRegistrada);
+
+        return Object.assign({ claveUbicacion, tieneStockSap, cantidadSap, tieneDiferencia }, f);
+
+    });
+
+    return { vigentes, auditadas, sapFilas, sapPorUbicacion, stockPorUbicacion };
+
+}
+
 async function cargarDiscrepancias(){
 
     const tblAuditoria = document.getElementById("tblAuditoria");
@@ -1240,76 +1321,7 @@ async function cargarDiscrepancias(){
 
     try{
 
-        const [conteoFilas, sapFilas] = await Promise.all([
-            supabaseFetchTodo(
-                "/picking_conteos?select=pasillo,sku,descripcion,ubicacion_escaneada,ubicacion_esperada,colaborador,cruce,conteo_total,vacia,es_reconteo,creado_en" +
-                "&semana=eq." + SEMANA + "&order=creado_en.desc"
-            ),
-            supabaseFetchTodo("/picking_sap_stock?select=sku,descripcion,stock,ubicacion")
-        ]);
-
-        // El % de avance/exactitud y la tabla de auditoría deben mirar
-        // el ÚLTIMO registro de cada ubicación, no solo el conteo
-        // original — si hubo una corrección desde Revalidar (reconteo),
-        // esa es la verdad vigente y debe reemplazar al número viejo.
-        const ultimoPorUbicacion = {};
-
-        (conteoFilas || []).forEach(function(f){
-
-            const u = normalizarTextoAuditoria(f.ubicacion_escaneada);
-
-            if(!ultimoPorUbicacion[u]){
-                ultimoPorUbicacion[u] = f;
-            }
-
-        });
-
-        const vigentes = Object.values(ultimoPorUbicacion);
-
-        // Código SAP esperado por ubicación (puede haber más de un
-        // código registrado en la misma ubicación).
-        const sapPorUbicacion = {};
-        const stockPorUbicacion = {};
-
-        (sapFilas || []).forEach(function(f){
-
-            if(!f.sku){
-                return;
-            }
-
-            const u = normalizarTextoAuditoria(f.ubicacion);
-
-            if(!sapPorUbicacion[u]){
-                sapPorUbicacion[u] = [];
-            }
-
-            if(sapPorUbicacion[u].indexOf(f.sku) === -1){
-                sapPorUbicacion[u].push(f.sku);
-            }
-
-            stockPorUbicacion[u] = (stockPorUbicacion[u] || 0) + Number(f.stock || 0);
-
-        });
-
-        // "Cuadrada" exige DOS cosas: que el código coincida (cruce OK)
-        // Y que la cantidad contada coincida con la del saldo SAP — un
-        // código correcto con cantidad distinta también es una
-        // diferencia que hay que reverificar. Se calcula UNA vez por
-        // ubicación acá mismo, y de ahí salen tanto los KPIs como la
-        // tabla — antes los KPIs solo miraban el código (cruce) y por
-        // eso una diferencia de cantidad no bajaba el % de exactitud.
-        const auditadas = vigentes.map(function(f){
-
-            const ubicacion = f.ubicacion_escaneada || "-";
-            const claveUbicacion = normalizarTextoAuditoria(ubicacion);
-            const tieneStockSap = claveUbicacion in stockPorUbicacion;
-            const cantidadSap = tieneStockSap ? stockPorUbicacion[claveUbicacion] : null;
-            const cantidadRegistrada = f.conteo_total ?? 0;
-            const tieneDiferencia = f.cruce === "ERROR" || !tieneStockSap || Number(cantidadSap) !== Number(cantidadRegistrada);
-
-            return Object.assign({ claveUbicacion, tieneStockSap, cantidadSap, tieneDiferencia }, f);
-
-        });
+        const { vigentes, auditadas, sapFilas, sapPorUbicacion } = await obtenerDatosAuditoria();
 
         // KPIs generales: ubicaciones contadas (sin las vacías), cuántas
         // cuadraron de verdad (código Y cantidad), y % de exactitud.
@@ -1621,3 +1633,286 @@ document.getElementById("buscadorRech").addEventListener("input", function(){
 });
 
 document.getElementById("btnActualizarRech").addEventListener("click", cargarRech);
+
+// ========================================
+// TAB 7: REPORTE — mismo formato del reporte que se manda por correo:
+// Códigos/ERI, Ubicaciones/ERU, inicio de cada pasillo, y diferencias
+// contra SAP. No incluye la columna "Observación" del correo (esa se
+// escribe a mano cruzando viajes y HU de planta, datos que no existen
+// en esta plataforma).
+// ========================================
+
+let _catalogoReporteDiferencias = [];
+let _paginaActualReporte = 1;
+const FILAS_POR_PAGINA_REPORTE = 50;
+let _observacionesReporte = {};
+
+async function cargarReporte(){
+
+    const tblInicio = document.getElementById("tblReporteInicio");
+    const tblDiferencias = document.getElementById("tblReporteDiferencias");
+
+    tblInicio.innerHTML = `<tr><td colspan="5" class="sin-datos">Cargando...</td></tr>`;
+    tblDiferencias.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando...</td></tr>`;
+
+    try{
+
+        const [{ auditadas, sapFilas }, maraFilas, pasillosFilas, observacionesFilas] = await Promise.all([
+            obtenerDatosAuditoria(),
+            supabaseFetchTodo("/picking_mara?select=sku,unidad_base"),
+            supabaseFetch("/picking_pasillos?select=pasillo,colaborador,hora_inicio,hora_fin,estado&semana=eq." + SEMANA).catch(function(e){
+                console.error(e);
+                return [];
+            }),
+            supabaseFetchTodo("/picking_reporte_observaciones?select=ubicacion,sku,observacion&semana=eq." + SEMANA).catch(function(e){
+                console.error(e);
+                return [];
+            })
+        ]);
+
+        _observacionesReporte = {};
+
+        (observacionesFilas || []).forEach(function(o){
+            const clave = normalizarTextoAuditoria(o.ubicacion) + "||" + String(o.sku || "").trim();
+            _observacionesReporte[clave] = o.observacion || "";
+        });
+
+        // ERU: por ubicación (código Y cantidad correctos).
+        const contadas = auditadas.filter(f => !f.vacia);
+        const cuadradasUbicacion = contadas.filter(f => !f.tieneDiferencia);
+
+        document.getElementById("repUbicacionesContadas").textContent = contadas.length;
+        document.getElementById("repUbicacionesCuadradas").textContent = cuadradasUbicacion.length;
+        document.getElementById("repEru").textContent = contadas.length > 0
+            ? (Math.round((cuadradasUbicacion.length / contadas.length) * 10000) / 100).toFixed(2) + "%"
+            : "-";
+
+        // ERI: por código (SKU) — total contado vs total SAP, sumando
+        // en toda la semana (un mismo código puede estar en varias
+        // ubicaciones).
+        const contadoPorSku = {};
+
+        auditadas.forEach(function(f){
+            if(!f.sku){ return; }
+            contadoPorSku[f.sku] = (contadoPorSku[f.sku] || 0) + Number(f.conteo_total || 0);
+        });
+
+        const sapPorSku = {};
+
+        (sapFilas || []).forEach(function(f){
+            if(!f.sku){ return; }
+            sapPorSku[f.sku] = (sapPorSku[f.sku] || 0) + Number(f.stock || 0);
+        });
+
+        const skusContados = Object.keys(contadoPorSku);
+        const skusCuadrados = skusContados.filter(function(sku){ return contadoPorSku[sku] === (sapPorSku[sku] || 0); });
+
+        document.getElementById("repCodigosContados").textContent = skusContados.length;
+        document.getElementById("repCodigosCuadrados").textContent = skusCuadrados.length;
+        document.getElementById("repEri").textContent = skusContados.length > 0
+            ? (Math.round((skusCuadrados.length / skusContados.length) * 10000) / 100).toFixed(2) + "%"
+            : "-";
+
+        const umaPorSku = {};
+
+        (maraFilas || []).forEach(function(m){
+            if(m.sku){ umaPorSku[String(m.sku).trim()] = m.unidad_base || "-"; }
+        });
+
+        // Diferencias, una fila por ubicación con problema — mismo
+        // criterio que Discrepancias/Reconteo (código y/o cantidad).
+        _catalogoReporteDiferencias = auditadas
+            .filter(function(f){ return f.tieneDiferencia; })
+            .map(function(f){
+
+                const cantidadSap = f.tieneStockSap ? f.cantidadSap : 0;
+                const cantidadContada = f.conteo_total ?? 0;
+                const diferencia = cantidadSap - cantidadContada;
+                const ubicacion = f.ubicacion_escaneada || "-";
+                const codigo = f.vacia ? "-" : (f.sku || "-");
+                const claveObs = normalizarTextoAuditoria(ubicacion) + "||" + String(codigo === "-" ? "" : codigo).trim();
+
+                return {
+                    pasillo: f.pasillo,
+                    ubicacion: ubicacion,
+                    codigo: codigo,
+                    descripcion: f.descripcion || "-",
+                    uma: f.sku ? (umaPorSku[String(f.sku).trim()] || "-") : "-",
+                    cantidadSap: cantidadSap,
+                    cantidadContada: cantidadContada,
+                    diferencia: diferencia,
+                    status: diferencia > 0 ? "Faltante" : (diferencia < 0 ? "Sobrante" : "-"),
+                    claveObs: claveObs,
+                    observacion: _observacionesReporte[claveObs] || ""
+                };
+
+            })
+            .sort(function(a, b){
+                return a.pasillo - b.pasillo || a.ubicacion.localeCompare(b.ubicacion);
+            });
+
+        _paginaActualReporte = 1;
+        pintarReporteDiferencias();
+
+        const pasillosOrdenados = (pasillosFilas || []).slice().sort(function(a, b){ return a.pasillo - b.pasillo; });
+
+        if(!pasillosOrdenados.length){
+            tblInicio.innerHTML = `<tr><td colspan="5" class="sin-datos">Sin pasillos iniciados esta semana.</td></tr>`;
+        }else{
+
+            tblInicio.innerHTML = pasillosOrdenados.map(function(p){
+                return `
+                    <tr>
+                        <td>${String(p.pasillo).padStart(2, "0")}</td>
+                        <td>${p.colaborador || "-"}</td>
+                        <td>${p.hora_inicio ? new Date(p.hora_inicio).toLocaleString("es-PE") : "-"}</td>
+                        <td>${p.hora_fin ? new Date(p.hora_fin).toLocaleString("es-PE") : "-"}</td>
+                        <td>${p.estado || "-"}</td>
+                    </tr>
+                `;
+            }).join("");
+
+        }
+
+    }catch(e){
+
+        console.error(e);
+        tblInicio.innerHTML = `<tr><td colspan="5" class="sin-datos">No se pudo cargar.</td></tr>`;
+        tblDiferencias.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar.</td></tr>`;
+
+    }
+
+}
+
+function filasFiltradasReporte(){
+
+    const texto = document.getElementById("buscadorReporte").value.trim().toLowerCase();
+
+    if(!texto){
+        return _catalogoReporteDiferencias;
+    }
+
+    return _catalogoReporteDiferencias.filter(function(f){
+        return (
+            f.ubicacion.toLowerCase().includes(texto) ||
+            String(f.codigo).toLowerCase().includes(texto) ||
+            f.descripcion.toLowerCase().includes(texto)
+        );
+    });
+
+}
+
+function pintarReporteDiferencias(){
+
+    const tbody = document.getElementById("tblReporteDiferencias");
+    const paginacion = document.getElementById("paginacionReporteDiferencias");
+    const filas = filasFiltradasReporte();
+
+    if(!filas.length){
+        tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Sin diferencias — todo cuadra.</td></tr>`;
+        paginacion.innerHTML = "";
+        return;
+    }
+
+    const totalPaginas = Math.max(1, Math.ceil(filas.length / FILAS_POR_PAGINA_REPORTE));
+    _paginaActualReporte = Math.min(_paginaActualReporte, totalPaginas);
+
+    const desde = (_paginaActualReporte - 1) * FILAS_POR_PAGINA_REPORTE;
+    const visibles = filas.slice(desde, desde + FILAS_POR_PAGINA_REPORTE);
+
+    tbody.innerHTML = visibles.map(function(f){
+
+        const claseStatus = f.status === "Faltante" ? "status-faltante" : (f.status === "Sobrante" ? "status-sobrante" : "");
+
+        return `
+            <tr>
+                <td>${f.ubicacion}</td>
+                <td>${f.codigo}</td>
+                <td>${f.descripcion}</td>
+                <td>${f.uma}</td>
+                <td>${f.cantidadSap}</td>
+                <td>${f.cantidadContada}</td>
+                <td>${f.diferencia > 0 ? "+" : ""}${f.diferencia}</td>
+                <td class="${claseStatus}">${f.status}</td>
+                <td>
+                    <div class="celda-observacion">
+                        <span>${f.observacion || "-"}</span>
+                        <button class="btn-secundario" onclick="editarObservacionReporte('${f.claveObs}')">✎ Editar</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+
+    }).join("");
+
+    paginacion.innerHTML = `
+        <button ${_paginaActualReporte <= 1 ? "disabled" : ""} onclick="cambiarPaginaReporte(-1)">‹ Anterior</button>
+        <span>Página ${_paginaActualReporte} de ${totalPaginas} · ${filas.length} fila(s)</span>
+        <button ${_paginaActualReporte >= totalPaginas ? "disabled" : ""} onclick="cambiarPaginaReporte(1)">Siguiente ›</button>
+    `;
+
+}
+
+function cambiarPaginaReporte(delta){
+    _paginaActualReporte += delta;
+    pintarReporteDiferencias();
+}
+
+document.getElementById("buscadorReporte").addEventListener("input", function(){
+    _paginaActualReporte = 1;
+    pintarReporteDiferencias();
+});
+
+document.getElementById("btnActualizarReporte").addEventListener("click", cargarReporte);
+
+// Observación es manual — la plataforma no tiene los datos de viajes/
+// HU de planta para calcularla sola. Se guarda por (semana, ubicación,
+// código) en picking_reporte_observaciones.
+async function editarObservacionReporte(clave){
+
+    const fila = _catalogoReporteDiferencias.find(function(f){ return f.claveObs === clave; });
+
+    if(!fila){
+        return;
+    }
+
+    const texto = prompt("Observación para " + fila.ubicacion + " · " + fila.codigo + ":", fila.observacion || "");
+
+    if(texto === null){
+        return;
+    }
+
+    const partes = clave.split("||");
+
+    try{
+
+        await supabaseFetch("/picking_reporte_observaciones?on_conflict=semana,ubicacion,sku", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates" },
+            body: JSON.stringify({
+                semana: SEMANA,
+                ubicacion: partes[0],
+                sku: partes[1],
+                observacion: texto,
+                actualizado_por: (sesion && sesion.nombre_completo) || null,
+                actualizado_en: new Date().toISOString()
+            })
+        });
+
+        _observacionesReporte[clave] = texto;
+
+        _catalogoReporteDiferencias.forEach(function(f){
+            if(f.claveObs === clave){ f.observacion = texto; }
+        });
+
+        pintarReporteDiferencias();
+        mostrarToast("Observación guardada.", "exito");
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo guardar la observación: " + err.message, "error");
+
+    }
+
+}
