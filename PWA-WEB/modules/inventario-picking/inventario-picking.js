@@ -1083,13 +1083,21 @@ async function cargarDiscrepancias(){
             // OK) Y que la cantidad contada coincida con la del saldo
             // SAP — un código correcto con cantidad distinta también es
             // una diferencia que hay que reverificar.
+            const tieneDiferencia = f.cruce === "ERROR" || !tieneStockSap || Number(cantidadSap) !== Number(cantidadRegistrada);
+
             let estado = "Cuadrada";
             let claseEstado = "cuadrada";
 
             if(f.vacia){
                 estado = "Ubicación Vacía";
                 claseEstado = "vacia";
-            }else if(f.cruce === "ERROR" || !tieneStockSap || Number(cantidadSap) !== Number(cantidadRegistrada)){
+            }else if(tieneDiferencia && f.es_reconteo){
+                // Ya pasó por Revalidar (Correcto o Corregir) y la
+                // diferencia contra SAP sigue existiendo — es una
+                // diferencia confirmada, no una pendiente por revisar.
+                estado = "Revisado (con diferencia)";
+                claseEstado = "revisado";
+            }else if(tieneDiferencia){
                 estado = "Segundo Conteo";
                 claseEstado = "segundo-conteo";
             }

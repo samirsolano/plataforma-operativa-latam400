@@ -477,6 +477,7 @@ tbody tr:hover{
 .badge-auditoria.cuadrada{ background:#dcfce7; color:#15803d; }
 .badge-auditoria.vacia{ background:#f3f4f6; color:#6b7280; }
 .badge-auditoria.segundo-conteo{ background:#fdecea; color:#c0392b; }
+.badge-auditoria.revisado{ background:#dbeafe; color:#1d4ed8; }
 
 /* MODAL MARA PICKING (mismo patrón usado en Toma de Lote Supermercados) */
 
