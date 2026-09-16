@@ -122,6 +122,10 @@ document.querySelectorAll(".tab-link").forEach(function(link){
             cargarEstadoReconteo();
         }
 
+        if(link.dataset.tab === "tabRech"){
+            cargarRech();
+        }
+
     });
 
 });
@@ -152,6 +156,7 @@ const SEMANA = semanaActual();
 document.getElementById("semanaTextoAsignacion").textContent = SEMANA.split("-W")[1];
 document.getElementById("semanaTextoDiscrepancias").textContent = SEMANA.split("-W")[1];
 document.getElementById("semanaTextoReconteo").textContent = SEMANA.split("-W")[1];
+document.getElementById("semanaTextoRech").textContent = SEMANA.split("-W")[1];
 
 
 // ========================================
@@ -691,6 +696,13 @@ async function generarUbicacionesDesdeSap(registrosSap){
     const muestraPorPasillo = new Map();
 
     registrosSap.forEach(function(r){
+
+        // RECH es un tipo de almacén aparte (rechazos) — sus
+        // ubicaciones no se agrupan en pasillos de picking, tienen su
+        // propia pestaña.
+        if(String(r.tipo_almacen || "").trim().toUpperCase() === "RECH"){
+            return;
+        }
 
         const info = derivarPasilloDeUbicacion(r.ubicacion);
 
@@ -1426,3 +1438,186 @@ async function cargarDiscrepancias(){
 }
 
 document.getElementById("btnActualizarDiscrepancias").addEventListener("click", cargarDiscrepancias);
+
+// ========================================
+// TAB 6: RECH — ubicaciones de tipo de almacén RECH (rechazos), fuera
+// del sistema de pasillos de picking. Una ubicación puede tener varios
+// productos, así que se compara por (ubicación, sku), no por
+// ubicación sola.
+// ========================================
+
+let _catalogoRech = [];
+let _paginaActualRech = 1;
+const FILAS_POR_PAGINA_RECH = 50;
+
+async function cargarRech(){
+
+    const tbody = document.getElementById("tblRech");
+    tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Cargando...</td></tr>`;
+
+    try{
+
+        const [sapFilas, contadoFilas] = await Promise.all([
+            supabaseFetchTodo("/picking_sap_stock?select=ubicacion,sku,stock,descripcion&tipo_almacen=eq.RECH"),
+            supabaseFetchTodo("/picking_rech_conteos?select=*&semana=eq." + SEMANA + "&order=creado_en.desc")
+        ]);
+
+        const sapPorClave = {};
+        const ubicacionesSap = new Set();
+
+        (sapFilas || []).forEach(function(f){
+
+            if(!f.sku){
+                return;
+            }
+
+            const u = normalizarTextoAuditoria(f.ubicacion);
+            const skuTexto = String(f.sku).trim();
+            const clave = u + "||" + skuTexto;
+
+            ubicacionesSap.add(u);
+
+            if(!sapPorClave[clave]){
+                sapPorClave[clave] = { ubicacion: u, sku: skuTexto, stock: 0, descripcion: f.descripcion || null };
+            }
+
+            sapPorClave[clave].stock += Number(f.stock || 0);
+
+            if(f.descripcion && !sapPorClave[clave].descripcion){
+                sapPorClave[clave].descripcion = f.descripcion;
+            }
+
+        });
+
+        // El registro más reciente por (ubicación, sku) es el conteo
+        // vigente — conteoFilas ya viene ordenado por creado_en desc.
+        const ultimoPorClave = {};
+
+        (contadoFilas || []).forEach(function(f){
+
+            if(!f.sku){
+                return;
+            }
+
+            const u = normalizarTextoAuditoria(f.ubicacion_escaneada);
+            const clave = u + "||" + String(f.sku).trim();
+
+            if(!ultimoPorClave[clave]){
+                ultimoPorClave[clave] = f;
+            }
+
+        });
+
+        const clavesTodas = new Set([...Object.keys(sapPorClave), ...Object.keys(ultimoPorClave)]);
+
+        _catalogoRech = [...clavesTodas].map(function(clave){
+
+            const sap = sapPorClave[clave];
+            const contado = ultimoPorClave[clave];
+            const cantidadSap = sap ? sap.stock : 0;
+            const cantidadContada = contado ? Number(contado.conteo_total || 0) : 0;
+
+            return {
+                ubicacion: sap ? sap.ubicacion : normalizarTextoAuditoria(contado.ubicacion_escaneada),
+                sku: sap ? sap.sku : String(contado.sku || "-").trim(),
+                descripcion: (sap && sap.descripcion) || (contado && contado.descripcion) || "-",
+                cantidadSap: sap ? cantidadSap : "-",
+                cantidadContada: contado ? cantidadContada : "-",
+                diferencia: cantidadContada - cantidadSap,
+                tieneDiferencia: !sap || !contado || cantidadContada !== cantidadSap,
+                colaborador: (contado && contado.colaborador) || "-"
+            };
+
+        }).sort(function(a, b){
+            return a.ubicacion.localeCompare(b.ubicacion) || a.sku.localeCompare(b.sku);
+        });
+
+        document.getElementById("kpiUbicacionesRech").textContent = ubicacionesSap.size;
+        document.getElementById("kpiProductosContadosRech").textContent = Object.keys(ultimoPorClave).length;
+        document.getElementById("kpiDiferenciasRech").textContent = _catalogoRech.filter(f => f.tieneDiferencia).length;
+
+        _paginaActualRech = 1;
+        pintarRech();
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">No se pudo cargar RECH — ¿ya creaste la tabla picking_rech_conteos?</td></tr>`;
+
+    }
+
+}
+
+function filasFiltradasRech(){
+
+    const texto = document.getElementById("buscadorRech").value.trim().toLowerCase();
+
+    if(!texto){
+        return _catalogoRech;
+    }
+
+    return _catalogoRech.filter(function(f){
+        return (
+            f.ubicacion.toLowerCase().includes(texto) ||
+            String(f.sku).toLowerCase().includes(texto) ||
+            f.colaborador.toLowerCase().includes(texto)
+        );
+    });
+
+}
+
+function pintarRech(){
+
+    const tbody = document.getElementById("tblRech");
+    const paginacion = document.getElementById("paginacionRech");
+    const filas = filasFiltradasRech();
+
+    if(!filas.length){
+        tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Sin datos de RECH todavía.</td></tr>`;
+        paginacion.innerHTML = "";
+        return;
+    }
+
+    const totalPaginas = Math.max(1, Math.ceil(filas.length / FILAS_POR_PAGINA_RECH));
+    _paginaActualRech = Math.min(_paginaActualRech, totalPaginas);
+
+    const desde = (_paginaActualRech - 1) * FILAS_POR_PAGINA_RECH;
+    const visibles = filas.slice(desde, desde + FILAS_POR_PAGINA_RECH);
+
+    tbody.innerHTML = visibles.map(function(f){
+
+        const claseDif = f.tieneDiferencia ? "diferencia-positiva" : "diferencia-cero";
+
+        return `
+            <tr>
+                <td>${f.ubicacion}</td>
+                <td>${f.sku}</td>
+                <td>${f.descripcion}</td>
+                <td>${f.cantidadSap}</td>
+                <td>${f.cantidadContada}</td>
+                <td class="${claseDif}">${f.tieneDiferencia ? f.diferencia : 0}</td>
+                <td>${f.colaborador}</td>
+            </tr>
+        `;
+
+    }).join("");
+
+    paginacion.innerHTML = `
+        <button ${_paginaActualRech <= 1 ? "disabled" : ""} onclick="cambiarPaginaRech(-1)">‹ Anterior</button>
+        <span>Página ${_paginaActualRech} de ${totalPaginas} · ${filas.length} fila(s)</span>
+        <button ${_paginaActualRech >= totalPaginas ? "disabled" : ""} onclick="cambiarPaginaRech(1)">Siguiente ›</button>
+    `;
+
+}
+
+function cambiarPaginaRech(delta){
+    _paginaActualRech += delta;
+    pintarRech();
+}
+
+document.getElementById("buscadorRech").addEventListener("input", function(){
+    _paginaActualRech = 1;
+    pintarRech();
+});
+
+document.getElementById("btnActualizarRech").addEventListener("click", cargarRech);
