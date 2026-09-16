@@ -1030,21 +1030,6 @@ async function cargarDiscrepancias(){
 
         const vigentes = Object.values(ultimoPorUbicacion);
 
-        // KPIs generales (equivalente a "Eri Eru"/Dashboard de la
-        // plantilla original): códigos únicos contados, cuántos
-        // cuadraron (Cruce = OK), y % de exactitud.
-        const skusContados = new Set(vigentes.map(f => f.sku).filter(Boolean));
-        const errores = vigentes.filter(f => f.cruce === "ERROR");
-        const skusConError = new Set(errores.map(f => f.sku).filter(Boolean));
-        const skusCuadrados = [...skusContados].filter(sku => !skusConError.has(sku));
-
-        document.getElementById("kpiCodigosContados").textContent = skusContados.size;
-        document.getElementById("kpiCodigosCuadrados").textContent = skusCuadrados.length;
-        document.getElementById("kpiErroresUbicacion").textContent = errores.length;
-        document.getElementById("kpiExactitud").textContent = skusContados.size > 0
-            ? Math.round((skusCuadrados.length / skusContados.size) * 100) + "%"
-            : "-";
-
         // Código SAP esperado por ubicación (puede haber más de un
         // código registrado en la misma ubicación).
         const sapPorUbicacion = {};
@@ -1070,20 +1055,43 @@ async function cargarDiscrepancias(){
 
         });
 
-        _catalogoAuditoria = vigentes.map(function(f){
+        // "Cuadrada" exige DOS cosas: que el código coincida (cruce OK)
+        // Y que la cantidad contada coincida con la del saldo SAP — un
+        // código correcto con cantidad distinta también es una
+        // diferencia que hay que reverificar. Se calcula UNA vez por
+        // ubicación acá mismo, y de ahí salen tanto los KPIs como la
+        // tabla — antes los KPIs solo miraban el código (cruce) y por
+        // eso una diferencia de cantidad no bajaba el % de exactitud.
+        const auditadas = vigentes.map(function(f){
 
             const ubicacion = f.ubicacion_escaneada || "-";
             const claveUbicacion = normalizarTextoAuditoria(ubicacion);
-            const codigoSap = sapPorUbicacion[claveUbicacion] || [];
             const tieneStockSap = claveUbicacion in stockPorUbicacion;
             const cantidadSap = tieneStockSap ? stockPorUbicacion[claveUbicacion] : null;
             const cantidadRegistrada = f.conteo_total ?? 0;
-
-            // "Cuadrada" exige DOS cosas: que el código coincida (cruce
-            // OK) Y que la cantidad contada coincida con la del saldo
-            // SAP — un código correcto con cantidad distinta también es
-            // una diferencia que hay que reverificar.
             const tieneDiferencia = f.cruce === "ERROR" || !tieneStockSap || Number(cantidadSap) !== Number(cantidadRegistrada);
+
+            return Object.assign({ claveUbicacion, tieneStockSap, cantidadSap, tieneDiferencia }, f);
+
+        });
+
+        // KPIs generales: ubicaciones contadas (sin las vacías), cuántas
+        // cuadraron de verdad (código Y cantidad), y % de exactitud.
+        const contadas = auditadas.filter(f => !f.vacia);
+        const conDiferencia = contadas.filter(f => f.tieneDiferencia);
+        const cuadradas = contadas.length - conDiferencia.length;
+
+        document.getElementById("kpiCodigosContados").textContent = contadas.length;
+        document.getElementById("kpiCodigosCuadrados").textContent = cuadradas;
+        document.getElementById("kpiErroresUbicacion").textContent = conDiferencia.length;
+        document.getElementById("kpiExactitud").textContent = contadas.length > 0
+            ? Math.round((cuadradas / contadas.length) * 100) + "%"
+            : "-";
+
+        _catalogoAuditoria = auditadas.map(function(f){
+
+            const ubicacion = f.ubicacion_escaneada || "-";
+            const codigoSap = sapPorUbicacion[f.claveUbicacion] || [];
 
             let estado = "Cuadrada";
             let claseEstado = "cuadrada";
@@ -1091,13 +1099,13 @@ async function cargarDiscrepancias(){
             if(f.vacia){
                 estado = "Ubicación Vacía";
                 claseEstado = "vacia";
-            }else if(tieneDiferencia && f.es_reconteo){
+            }else if(f.tieneDiferencia && f.es_reconteo){
                 // Ya pasó por Revalidar (Correcto o Corregir) y la
                 // diferencia contra SAP sigue existiendo — es una
                 // diferencia confirmada, no una pendiente por revisar.
                 estado = "Reconteo";
                 claseEstado = "revisado";
-            }else if(tieneDiferencia){
+            }else if(f.tieneDiferencia){
                 estado = "Segundo Conteo";
                 claseEstado = "segundo-conteo";
             }
@@ -1106,9 +1114,9 @@ async function cargarDiscrepancias(){
                 pasillo: f.pasillo,
                 ubicacion: ubicacion,
                 codigoSap: codigoSap.join(" / ") || "-",
-                cantidadSap: tieneStockSap ? cantidadSap : "-",
+                cantidadSap: f.tieneStockSap ? f.cantidadSap : "-",
                 codigoContado: f.vacia ? "-" : (f.sku || "-"),
-                cantidad: cantidadRegistrada,
+                cantidad: f.conteo_total ?? 0,
                 colaborador: f.colaborador || "-",
                 estado: estado,
                 claseEstado: claseEstado
