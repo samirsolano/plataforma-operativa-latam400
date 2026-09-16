@@ -61,10 +61,9 @@
             <nav class="menu">
 
                 <a href="#" class="tab-link activo" data-tab="tabAsignacion">1. Asignación de Pasillos</a>
-                <a href="#" class="tab-link" data-tab="tabUbicaciones">2. Ubicaciones de Picking</a>
-                <a href="#" class="tab-link" data-tab="tabMara">3. Catálogo MARA Picking</a>
-                <a href="#" class="tab-link" data-tab="tabSap">4. Cargar SAP</a>
-                <a href="#" class="tab-link" data-tab="tabDiscrepancias">5. Discrepancias</a>
+                <a href="#" class="tab-link" data-tab="tabMara">2. Catálogo MARA Picking</a>
+                <a href="#" class="tab-link" data-tab="tabSap">3. Cargar SAP</a>
+                <a href="#" class="tab-link" data-tab="tabDiscrepancias">4. Discrepancias</a>
 
             </nav>
 
@@ -152,71 +151,7 @@
             </div>
 
             <!-- ============================================ -->
-            <!-- TAB 2: UBICACIONES DE PICKING -->
-            <!-- ============================================ -->
-
-            <div class="tab-contenido oculto" id="tabUbicaciones">
-
-                <div class="card">
-
-                    <div class="card-header-flex">
-
-                        <h2>
-                            UBICACIONES DE PICKING
-                        </h2>
-
-                        <div class="acciones-mara">
-
-                            <label class="btn-secundario btn-carga-archivo">
-                                ⬆ Cargar Excel
-                                <input type="file" id="archivoUbicaciones" accept=".xlsx,.xls,.csv" hidden>
-                            </label>
-
-                            <button id="btnBorrarUbicaciones" class="btn-peligro">
-                                🗑 Borrar Todo
-                            </button>
-
-                        </div>
-
-                    </div>
-
-                    <p class="nota-modulo">
-                        Lista maestra de las posiciones físicas a auditar (Ubicación, Pasillo, Columna,
-                        Nivel). Define qué pasillos existen y en qué orden se recorren en Centro de
-                        Proyectos: primero el lado impar de menor a mayor, y al terminar, el lado par
-                        de mayor a menor.
-                    </p>
-
-                    <div id="estadoCargaUbicaciones" class="nota-modulo"></div>
-
-                    <table>
-
-                        <thead>
-                            <tr>
-                                <th>Ubicación</th>
-                                <th>Pasillo</th>
-                                <th>Columna</th>
-                                <th>Nivel</th>
-                                <th>Tipo Almacén</th>
-                            </tr>
-                        </thead>
-
-                        <tbody id="tblUbicaciones">
-                            <tr>
-                                <td colspan="5" class="sin-datos">Cargando...</td>
-                            </tr>
-                        </tbody>
-
-                    </table>
-
-                    <div class="paginacion" id="paginacionUbicaciones"></div>
-
-                </div>
-
-            </div>
-
-            <!-- ============================================ -->
-            <!-- TAB 3: CATÁLOGO MARA PICKING -->
+            <!-- TAB 2: CATÁLOGO MARA PICKING -->
             <!-- ============================================ -->
 
             <div class="tab-contenido oculto" id="tabMara">
@@ -319,7 +254,9 @@
                         app qué código debería estar en cada ubicación — de acá sale el OK/ERROR al
                         contar en Centro de Proyectos, y también se usa en "Discrepancias" para comparar
                         el stock. Cada carga reemplaza automáticamente el saldo anterior — no hace falta
-                        usar "Borrar Todo" antes de subir un archivo nuevo.
+                        usar "Borrar Todo" antes de subir un archivo nuevo. Además, de acá mismo se arma
+                        el maestro de Ubicaciones de Picking: por cada pasillo que aparece en el archivo
+                        se generan sus 52 ubicaciones completas (SAP solo trae las que tienen stock).
                     </p>
 
                     <div class="upload-box">
