@@ -110,10 +110,6 @@ document.querySelectorAll(".tab-link").forEach(function(link){
         link.classList.add("activo");
         document.getElementById(link.dataset.tab).classList.remove("oculto");
 
-        if(link.dataset.tab === "tabUbicaciones" && !_ubicacionesCargadasAlMenosUnaVez){
-            cargarUbicaciones();
-        }
-
         if(link.dataset.tab === "tabMara" && !_maraPickingCargadaAlMenosUnaVez){
             cargarMaraPicking();
         }
@@ -263,232 +259,6 @@ async function cargarAsignacion(){
 document.getElementById("btnActualizarAsignacion").addEventListener("click", cargarAsignacion);
 
 cargarAsignacion();
-
-// ========================================
-// TAB: UBICACIONES DE PICKING (lista maestra)
-// ========================================
-
-let _ubicacionesCargadasAlMenosUnaVez = false;
-let _catalogoUbicaciones = [];
-let _paginaActualUbicaciones = 1;
-const FILAS_POR_PAGINA_UBICACIONES = 50;
-
-async function cargarUbicaciones(){
-
-    const tbody = document.getElementById("tblUbicaciones");
-    tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">Cargando...</td></tr>`;
-
-    try{
-
-        _catalogoUbicaciones = await supabaseFetchTodo("/picking_ubicaciones?select=*&order=pasillo.asc,columna.asc");
-        _ubicacionesCargadasAlMenosUnaVez = true;
-        _paginaActualUbicaciones = 1;
-        pintarUbicaciones();
-
-    }catch(e){
-
-        console.error(e);
-        tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">No se pudo cargar la lista.</td></tr>`;
-
-    }
-
-}
-
-function pintarUbicaciones(){
-
-    const tbody = document.getElementById("tblUbicaciones");
-    const paginacion = document.getElementById("paginacionUbicaciones");
-
-    if(!_catalogoUbicaciones.length){
-        tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">Sin ubicaciones cargadas.</td></tr>`;
-        paginacion.innerHTML = "";
-        return;
-    }
-
-    const totalPaginas = Math.max(1, Math.ceil(_catalogoUbicaciones.length / FILAS_POR_PAGINA_UBICACIONES));
-    _paginaActualUbicaciones = Math.min(_paginaActualUbicaciones, totalPaginas);
-
-    const desde = (_paginaActualUbicaciones - 1) * FILAS_POR_PAGINA_UBICACIONES;
-    const visibles = _catalogoUbicaciones.slice(desde, desde + FILAS_POR_PAGINA_UBICACIONES);
-
-    tbody.innerHTML = visibles.map(function(u){
-        return `
-            <tr>
-                <td>${u.ubicacion}</td>
-                <td>${String(u.pasillo).padStart(2, "0")}</td>
-                <td>${u.columna}</td>
-                <td>${u.nivel || "-"}</td>
-                <td>${u.tipo_almacen || "-"}</td>
-            </tr>
-        `;
-    }).join("");
-
-    paginacion.innerHTML = `
-        <button ${_paginaActualUbicaciones <= 1 ? "disabled" : ""} onclick="cambiarPaginaUbicaciones(-1)">‹ Anterior</button>
-        <span>Página ${_paginaActualUbicaciones} de ${totalPaginas} · ${_catalogoUbicaciones.length} ubicación(es)</span>
-        <button ${_paginaActualUbicaciones >= totalPaginas ? "disabled" : ""} onclick="cambiarPaginaUbicaciones(1)">Siguiente ›</button>
-    `;
-
-}
-
-function cambiarPaginaUbicaciones(delta){
-    _paginaActualUbicaciones += delta;
-    pintarUbicaciones();
-}
-
-const ALIAS_COLUMNAS_UBICACIONES = {
-    ubicacion: ["ubicacion"],
-    tipo_almacen: ["tipo almacen"],
-    area: ["area almacenamiento"],
-    tipo_ubicacion: ["tipo de ubicacion"],
-    tp_acceso: ["tp.acceso ubicacion", "tp acceso ubicacion"],
-    pasillo: ["pasillo de ubicacion"],
-    columna: ["columna ubicacion"],
-    nivel: ["nivel de ubicacion"]
-};
-
-document.getElementById("archivoUbicaciones").addEventListener("change", async function(e){
-
-    const archivo = e.target.files[0];
-    if(!archivo){ return; }
-
-    const estadoEl = document.getElementById("estadoCargaUbicaciones");
-    estadoEl.textContent = "Leyendo " + archivo.name + "...";
-
-    try{
-
-        const buffer = await archivo.arrayBuffer();
-        const libro = XLSX.read(buffer, { type: "array" });
-        const hoja = libro.Sheets[libro.SheetNames[0]];
-        const filas = XLSX.utils.sheet_to_json(hoja, { defval: "" });
-
-        if(!filas.length){
-            mostrarToast("El archivo no tiene filas.", "error");
-            estadoEl.textContent = "";
-            return;
-        }
-
-        const encabezadosReales = Object.keys(filas[0]);
-        const mapaColumnas = {};
-
-        Object.keys(ALIAS_COLUMNAS_UBICACIONES).forEach(function(campo){
-
-            const alias = ALIAS_COLUMNAS_UBICACIONES[campo];
-
-            const encontrado = encabezadosReales.find(function(h){
-                return alias.includes(normalizarEncabezadoMaraPicking(h));
-            });
-
-            mapaColumnas[campo] = encontrado || null;
-
-        });
-
-        if(!mapaColumnas.ubicacion || !mapaColumnas.pasillo || !mapaColumnas.columna){
-            mostrarToast("No se encontraron las columnas Ubicación/Pasillo/Columna en el archivo.", "error");
-            estadoEl.textContent = "";
-            return;
-        }
-
-        const registrosCrudos = filas.map(function(f){
-
-            const ubicacion = String(f[mapaColumnas.ubicacion] || "").trim().toUpperCase();
-            const pasillo = Number(f[mapaColumnas.pasillo]);
-            const columna = Number(f[mapaColumnas.columna]);
-
-            if(!ubicacion || isNaN(pasillo) || isNaN(columna)){
-                return null;
-            }
-
-            return {
-                ubicacion: ubicacion,
-                pasillo: pasillo,
-                columna: columna,
-                nivel: mapaColumnas.nivel ? String(f[mapaColumnas.nivel] || "").trim() : null,
-                tipo_almacen: mapaColumnas.tipo_almacen ? String(f[mapaColumnas.tipo_almacen] || "").trim() : null,
-                area: mapaColumnas.area ? String(f[mapaColumnas.area] || "").trim() : null,
-                tipo_ubicacion: mapaColumnas.tipo_ubicacion ? String(f[mapaColumnas.tipo_ubicacion] || "").trim() : null,
-                tp_acceso: mapaColumnas.tp_acceso ? String(f[mapaColumnas.tp_acceso] || "").trim() : null
-            };
-
-        }).filter(Boolean);
-
-        const porUbicacion = new Map();
-        registrosCrudos.forEach(function(r){ porUbicacion.set(r.ubicacion, r); });
-        const registros = [...porUbicacion.values()];
-
-        if(!registros.length){
-            mostrarToast("No se encontraron filas válidas.", "error");
-            estadoEl.textContent = "";
-            return;
-        }
-
-        const TAMANO_BLOQUE = 500;
-
-        for(let i = 0; i < registros.length; i += TAMANO_BLOQUE){
-
-            const bloque = registros.slice(i, i + TAMANO_BLOQUE);
-
-            await supabaseFetch("/picking_ubicaciones?on_conflict=ubicacion", {
-                method: "POST",
-                headers: { "Prefer": "resolution=merge-duplicates" },
-                body: JSON.stringify(bloque)
-            });
-
-        }
-
-        estadoEl.textContent = "✓ Cargado: " + registros.length.toLocaleString("es-PE") + " ubicación(es).";
-        mostrarToast(registros.length + " ubicación(es) cargada(s)/actualizada(s).", "exito");
-
-        document.getElementById("archivoUbicaciones").value = "";
-        await cargarUbicaciones();
-        await cargarAsignacion();
-
-    }catch(err){
-
-        console.error(err);
-        mostrarToast("No se pudo procesar el archivo.", "error");
-        estadoEl.textContent = "";
-
-    }
-
-});
-
-document.getElementById("btnBorrarUbicaciones").addEventListener("click", async function(){
-
-    const btn = document.getElementById("btnBorrarUbicaciones");
-
-    const confirmado = confirm(
-        "Esto borra TODA la lista de Ubicaciones de Picking. Los pasillos dejarán de aparecer en " +
-        "Centro de Proyectos hasta que se vuelva a cargar. No se puede deshacer.\n\n¿Continuar?"
-    );
-
-    if(!confirmado){ return; }
-
-    btn.disabled = true;
-    btn.textContent = "Borrando...";
-
-    try{
-
-        await supabaseFetch("/picking_ubicaciones?ubicacion=not.is.null", { method: "DELETE" });
-
-        mostrarToast("Ubicaciones de Picking borradas.", "exito");
-        document.getElementById("estadoCargaUbicaciones").textContent = "";
-        await cargarUbicaciones();
-        await cargarAsignacion();
-
-    }catch(err){
-
-        console.error(err);
-        mostrarToast("No se pudo borrar: " + err.message, "error");
-
-    }finally{
-
-        btn.disabled = false;
-        btn.textContent = "🗑 Borrar Todo";
-
-    }
-
-});
 
 // ========================================
 // TAB 2: CATÁLOGO MARA PICKING (CRUD + carga masiva)
@@ -877,6 +647,96 @@ const ALIAS_COLUMNAS_SAP_PICKING = {
     peso_carga: ["peso de carga"]
 };
 
+// ========================================
+// UBICACIONES DE PICKING: se arman solas a partir del saldo SAP. El
+// código siempre viene PREFIJO-PASILLO-COLUMNA-NIVEL (ej. PP-07-001-1)
+// y cada pasillo tiene 52 ubicaciones — pero SAP solo trae las que
+// tienen stock, así que se generan las 52 completas para auditar
+// también las vacías.
+// ========================================
+
+const UBICACIONES_POR_PASILLO = 52;
+
+function derivarPasilloDeUbicacion(ubicacionTexto){
+
+    const partes = String(ubicacionTexto || "").trim().toUpperCase().split("-");
+
+    if(partes.length !== 4){
+        return null;
+    }
+
+    const pasillo = Number(partes[1]);
+
+    if(isNaN(pasillo)){
+        return null;
+    }
+
+    return { prefijo: partes[0], pasilloTexto: partes[1], pasillo: pasillo };
+
+}
+
+async function generarUbicacionesDesdeSap(registrosSap){
+
+    const muestraPorPasillo = new Map();
+
+    registrosSap.forEach(function(r){
+
+        const info = derivarPasilloDeUbicacion(r.ubicacion);
+
+        if(!info || muestraPorPasillo.has(info.pasillo)){
+            return;
+        }
+
+        muestraPorPasillo.set(info.pasillo, {
+            prefijo: info.prefijo,
+            pasilloTexto: info.pasilloTexto,
+            tipo_almacen: r.tipo_almacen || null
+        });
+
+    });
+
+    if(!muestraPorPasillo.size){
+        return 0;
+    }
+
+    const registrosUbicacion = [];
+
+    muestraPorPasillo.forEach(function(muestra, pasillo){
+
+        for(let columna = 1; columna <= UBICACIONES_POR_PASILLO; columna++){
+
+            const columnaTexto = String(columna).padStart(3, "0");
+
+            registrosUbicacion.push({
+                ubicacion: muestra.prefijo + "-" + muestra.pasilloTexto + "-" + columnaTexto + "-1",
+                pasillo: pasillo,
+                columna: columna,
+                nivel: "1",
+                tipo_almacen: muestra.tipo_almacen
+            });
+
+        }
+
+    });
+
+    const TAMANO_BLOQUE = 500;
+
+    for(let i = 0; i < registrosUbicacion.length; i += TAMANO_BLOQUE){
+
+        const bloque = registrosUbicacion.slice(i, i + TAMANO_BLOQUE);
+
+        await supabaseFetch("/picking_ubicaciones?on_conflict=ubicacion", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates" },
+            body: JSON.stringify(bloque)
+        });
+
+    }
+
+    return muestraPorPasillo.size;
+
+}
+
 document.getElementById("archivoSapPicking").addEventListener("change", async function(e){
 
     const archivo = e.target.files[0];
@@ -956,6 +816,12 @@ document.getElementById("archivoSapPicking").addEventListener("change", async fu
             return;
         }
 
+        estadoEl.textContent = "Borrando saldo SAP anterior...";
+
+        // Cada carga reemplaza el saldo completo — si no se borra antes,
+        // un archivo subido dos veces deja filas viejas y nuevas mezcladas.
+        await supabaseFetch("/picking_sap_stock?id=gt.0", { method: "DELETE" });
+
         estadoEl.textContent = "Guardando " + registros.length.toLocaleString("es-PE") + " filas...";
 
         const TAMANO_BLOQUE = 500;
@@ -974,10 +840,20 @@ document.getElementById("archivoSapPicking").addEventListener("change", async fu
 
         }
 
-        estadoEl.textContent = "✓ Cargado: " + registros.length.toLocaleString("es-PE") + " filas de " + archivo.name + ".";
-        mostrarToast("Saldo SAP cargado: " + registros.length.toLocaleString("es-PE") + " filas.", "exito");
+        estadoEl.textContent = "Generando ubicaciones de picking...";
+
+        const pasillosGenerados = await generarUbicacionesDesdeSap(registros);
+
+        estadoEl.textContent = "✓ Cargado: " + registros.length.toLocaleString("es-PE") + " filas de " + archivo.name +
+            " · " + pasillosGenerados + " pasillo(s) con ubicaciones generadas.";
+        mostrarToast(
+            "Saldo SAP cargado: " + registros.length.toLocaleString("es-PE") + " filas · " +
+            pasillosGenerados + " pasillo(s) con ubicaciones generadas.",
+            "exito"
+        );
 
         document.getElementById("archivoSapPicking").value = "";
+        await cargarAsignacion();
 
     }catch(err){
 
