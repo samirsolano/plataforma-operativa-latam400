@@ -1787,21 +1787,7 @@ async function cargarReporte(){
 }
 
 function filasFiltradasReporte(){
-
-    const texto = document.getElementById("buscadorReporte").value.trim().toLowerCase();
-
-    if(!texto){
-        return _catalogoReporteDiferencias;
-    }
-
-    return _catalogoReporteDiferencias.filter(function(f){
-        return (
-            f.ubicacion.toLowerCase().includes(texto) ||
-            String(f.codigo).toLowerCase().includes(texto) ||
-            f.descripcion.toLowerCase().includes(texto)
-        );
-    });
-
+    return _catalogoReporteDiferencias;
 }
 
 function pintarReporteDiferencias(){
@@ -1859,11 +1845,6 @@ function cambiarPaginaReporte(delta){
     _paginaActualReporte += delta;
     pintarReporteDiferencias();
 }
-
-document.getElementById("buscadorReporte").addEventListener("input", function(){
-    _paginaActualReporte = 1;
-    pintarReporteDiferencias();
-});
 
 document.getElementById("btnActualizarReporte").addEventListener("click", cargarReporte);
 
