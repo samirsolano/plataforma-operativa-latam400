@@ -1029,7 +1029,7 @@ function pintarReconteo(){
     const filas = filasFiltradasReconteo();
 
     if(!filas.length){
-        tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Sin diferencias revisadas todavía.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Sin diferencias revisadas todavía.</td></tr>`;
         paginacion.innerHTML = "";
         return;
     }
@@ -1041,15 +1041,28 @@ function pintarReconteo(){
     const visibles = filas.slice(desde, desde + FILAS_POR_PAGINA_RECONTEO);
 
     tbody.innerHTML = visibles.map(function(f){
+
+        const idInput = idInputCantidadSap(f.ubicacion);
+        const puedeEditar = f.codigoContado && f.codigoContado !== "-";
+
         return `
             <tr>
                 <td>${String(f.pasillo).padStart(2, "0")}</td>
                 <td>${f.ubicacion}</td>
                 <td>${f.codigoSap}</td>
-                <td>${f.cantidadSap}</td>
+                <td>
+                    ${puedeEditar
+                        ? `<input type="number" step="any" class="input-cantidad-sap" id="${idInput}" value="${f.cantidadSap === "-" ? 0 : f.cantidadSap}">`
+                        : f.cantidadSap}
+                </td>
                 <td>${f.codigoContado}</td>
                 <td>${f.cantidad}</td>
                 <td>${f.colaborador}</td>
+                <td>
+                    ${puedeEditar
+                        ? `<button class="btn-secundario" onclick="actualizarCantidadSap('${f.ubicacion}', '${f.codigoContado}', '${idInput}')">Guardar</button>`
+                        : ""}
+                </td>
             </tr>
         `;
     }).join("");
@@ -1065,6 +1078,59 @@ function pintarReconteo(){
 function cambiarPaginaReconteo(delta){
     _paginaActualReconteo += delta;
     pintarReconteo();
+}
+
+function idInputCantidadSap(ubicacion){
+    return "cantidadSap_" + String(ubicacion).replace(/[^a-zA-Z0-9]/g, "_");
+}
+
+// Corrige a mano el saldo SAP de esa ubicación/código cuando el
+// conteo físico (ya revalidado) confirma que el sistema estaba
+// desactualizado — reemplaza las filas de picking_sap_stock de ese
+// código en esa ubicación por una sola con la cantidad nueva.
+async function actualizarCantidadSap(ubicacion, sku, idInput){
+
+    const input = document.getElementById(idInput);
+    const nuevaCantidad = Number(input.value);
+
+    if(isNaN(nuevaCantidad) || nuevaCantidad < 0){
+        mostrarToast("Cantidad inválida.", "error");
+        return;
+    }
+
+    const claveUbicacion = normalizarTextoAuditoria(ubicacion);
+
+    try{
+
+        // ilike (no eq) en la ubicación: lo que se subió del Excel de
+        // SAP puede no venir en mayúsculas, y acá se compara contra el
+        // valor ya normalizado.
+        await supabaseFetch(
+            "/picking_sap_stock?ubicacion=ilike." + encodeURIComponent(claveUbicacion) +
+            "&sku=eq." + encodeURIComponent(sku),
+            { method: "DELETE" }
+        );
+
+        await supabaseFetch("/picking_sap_stock", {
+            method: "POST",
+            body: JSON.stringify({
+                ubicacion: claveUbicacion,
+                sku: sku,
+                stock: nuevaCantidad,
+                cargado_por: (sesion && sesion.nombre_completo) || null
+            })
+        });
+
+        mostrarToast("Cantidad SAP de " + ubicacion + " actualizada a " + nuevaCantidad + ".", "exito");
+        await cargarDiscrepancias();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo actualizar: " + err.message, "error");
+
+    }
+
 }
 
 document.getElementById("buscadorReconteo").addEventListener("input", function(){

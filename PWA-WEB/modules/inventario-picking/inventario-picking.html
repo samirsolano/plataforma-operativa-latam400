@@ -431,6 +431,8 @@
                         Ubicaciones que el auxiliar ya revisó en Revalidar (Correcto o Corregir) y
                         siguen sin coincidir con el saldo SAP — una diferencia confirmada, distinta de
                         "Segundo Conteo" (todavía nadie la ha vuelto a contar) en Discrepancias.
+                        La cantidad SAP se puede corregir a mano acá si el conteo físico confirma que
+                        el saldo del sistema estaba desactualizado.
                     </p>
 
                     <input
@@ -451,12 +453,13 @@
                                 <th>Código Contado</th>
                                 <th>Cantidad Registrada</th>
                                 <th>Colaborador</th>
+                                <th></th>
                             </tr>
                         </thead>
 
                         <tbody id="tblReconteo">
                             <tr>
-                                <td colspan="7" class="sin-datos">Cargando...</td>
+                                <td colspan="8" class="sin-datos">Cargando...</td>
                             </tr>
                         </tbody>
 
