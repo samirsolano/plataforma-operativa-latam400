@@ -65,6 +65,7 @@
                 <a href="#" class="tab-link" data-tab="tabSap">3. Cargar SAP</a>
                 <a href="#" class="tab-link" data-tab="tabDiscrepancias">4. Registro</a>
                 <a href="#" class="tab-link" data-tab="tabReconteo">5. Reconteo</a>
+                <a href="#" class="tab-link" data-tab="tabRech">6. RECH</a>
 
             </nav>
 
@@ -466,6 +467,91 @@
                     </table>
 
                     <div class="paginacion" id="paginacionReconteo"></div>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 6: RECH -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabRech">
+
+                <header class="topbar">
+
+                    <div class="topbar-titulo">
+
+                        <h2>RECH</h2>
+
+                        <p>Semana <span id="semanaTextoRech">-</span> — ubicaciones de rechazos (tipo de almacén RECH)</p>
+
+                    </div>
+
+                    <button id="btnActualizarRech" class="btn-secundario">
+                        ⟳ Actualizar
+                    </button>
+
+                </header>
+
+                <div class="kpis">
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Ubicaciones RECH</div>
+                        <div class="kpi-numero" id="kpiUbicacionesRech">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Productos contados</div>
+                        <div class="kpi-numero verde" id="kpiProductosContadosRech">-</div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-titulo">Con diferencia</div>
+                        <div class="kpi-numero rojo" id="kpiDiferenciasRech">-</div>
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <p class="nota-modulo">
+                        Compara, por ubicación y producto, lo contado en Centro de Proyectos (tarjeta
+                        "RECH") contra el saldo SAP cargado (filas con Tipo Almacén = RECH). En RECH una
+                        misma ubicación puede tener varios productos, y el conteo es un saldo único (sin
+                        Camas/Sueltos).
+                    </p>
+
+                    <input
+                        type="text"
+                        id="buscadorRech"
+                        placeholder="Buscar por ubicación, código o colaborador..."
+                        class="input-buscador"
+                    >
+
+                    <table>
+
+                        <thead>
+                            <tr>
+                                <th>Ubicación</th>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Cantidad SAP</th>
+                                <th>Cantidad Contada</th>
+                                <th>Diferencia</th>
+                                <th>Colaborador</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="tblRech">
+                            <tr>
+                                <td colspan="7" class="sin-datos">Cargando...</td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+
+                    <div class="paginacion" id="paginacionRech"></div>
 
                 </div>
 
