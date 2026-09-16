@@ -956,6 +956,12 @@ document.getElementById("archivoSapPicking").addEventListener("change", async fu
             return;
         }
 
+        estadoEl.textContent = "Borrando saldo SAP anterior...";
+
+        // Cada carga reemplaza el saldo completo — si no se borra antes,
+        // un archivo subido dos veces deja filas viejas y nuevas mezcladas.
+        await supabaseFetch("/picking_sap_stock?id=gt.0", { method: "DELETE" });
+
         estadoEl.textContent = "Guardando " + registros.length.toLocaleString("es-PE") + " filas...";
 
         const TAMANO_BLOQUE = 500;
