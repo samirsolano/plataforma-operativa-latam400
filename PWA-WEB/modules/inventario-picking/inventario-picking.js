@@ -182,9 +182,11 @@ async function cargarAsignacion(){
         });
 
         const colaboradorPorPasillo = {};
+        const cerradoPorPasillo = {};
 
         (pasillosFilas || []).forEach(function(a){
             if(a.colaborador){ colaboradorPorPasillo[a.pasillo] = a.colaborador; }
+            if(a.estado === "cerrado"){ cerradoPorPasillo[a.pasillo] = true; }
         });
 
         const pasillos = Object.keys(totalPorPasillo).map(Number).sort((a, b) => a - b);
@@ -216,7 +218,11 @@ async function cargarAsignacion(){
             let estado = "sin-asignar";
             let estadoTexto = "Sin iniciar";
 
-            if(porcentaje >= 100){
+            if(cerradoPorPasillo[p]){
+                estado = "cerrado";
+                estadoTexto = "Cerrado";
+                completados++;
+            }else if(porcentaje >= 100){
                 estado = "completado";
                 estadoTexto = "Completado";
                 completados++;
@@ -1000,22 +1006,35 @@ async function cargarDiscrepancias(){
 
         const [conteoFilas, sapFilas] = await Promise.all([
             supabaseFetchTodo(
-                "/picking_conteos?select=pasillo,sku,descripcion,ubicacion_escaneada,ubicacion_esperada,colaborador,cruce,conteo_total,vacia,es_reconteo" +
-                "&semana=eq." + SEMANA
+                "/picking_conteos?select=pasillo,sku,descripcion,ubicacion_escaneada,ubicacion_esperada,colaborador,cruce,conteo_total,vacia,es_reconteo,creado_en" +
+                "&semana=eq." + SEMANA + "&order=creado_en.desc"
             ),
             supabaseFetchTodo("/picking_sap_stock?select=sku,descripcion,stock,ubicacion")
         ]);
 
-        // El % de avance/exactitud y la tabla de auditoría solo miran
-        // el conteo normal — un reconteo es una verificación aparte,
-        // no una ubicación nueva.
-        const normales = (conteoFilas || []).filter(function(f){ return !f.es_reconteo; });
+        // El % de avance/exactitud y la tabla de auditoría deben mirar
+        // el ÚLTIMO registro de cada ubicación, no solo el conteo
+        // original — si hubo una corrección desde Revalidar (reconteo),
+        // esa es la verdad vigente y debe reemplazar al número viejo.
+        const ultimoPorUbicacion = {};
+
+        (conteoFilas || []).forEach(function(f){
+
+            const u = normalizarTextoAuditoria(f.ubicacion_escaneada);
+
+            if(!ultimoPorUbicacion[u]){
+                ultimoPorUbicacion[u] = f;
+            }
+
+        });
+
+        const vigentes = Object.values(ultimoPorUbicacion);
 
         // KPIs generales (equivalente a "Eri Eru"/Dashboard de la
         // plantilla original): códigos únicos contados, cuántos
         // cuadraron (Cruce = OK), y % de exactitud.
-        const skusContados = new Set(normales.map(f => f.sku).filter(Boolean));
-        const errores = normales.filter(f => f.cruce === "ERROR");
+        const skusContados = new Set(vigentes.map(f => f.sku).filter(Boolean));
+        const errores = vigentes.filter(f => f.cruce === "ERROR");
         const skusConError = new Set(errores.map(f => f.sku).filter(Boolean));
         const skusCuadrados = [...skusContados].filter(sku => !skusConError.has(sku));
 
@@ -1051,7 +1070,7 @@ async function cargarDiscrepancias(){
 
         });
 
-        _catalogoAuditoria = normales.map(function(f){
+        _catalogoAuditoria = vigentes.map(function(f){
 
             const ubicacion = f.ubicacion_escaneada || "-";
             const claveUbicacion = normalizarTextoAuditoria(ubicacion);
@@ -1098,7 +1117,7 @@ async function cargarDiscrepancias(){
         const contadoPorSku = {};
         const descripcionPorSku = {};
 
-        normales.forEach(function(f){
+        vigentes.forEach(function(f){
             contadoPorSku[f.sku] = (contadoPorSku[f.sku] || 0) + Number(f.conteo_total || 0);
             if(f.descripcion){ descripcionPorSku[f.sku] = f.descripcion; }
         });
