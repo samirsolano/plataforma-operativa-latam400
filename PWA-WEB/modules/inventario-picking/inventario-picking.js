@@ -168,6 +168,113 @@ document.getElementById("semanaTextoReporte").textContent = SEMANA.split("-W")[1
 // TAB 1: ASIGNACIÓN DE PASILLOS
 // ========================================
 
+// Roster de personal (DNI + nombre) que ya usan Checklist 5S y el
+// Checklist de Higiene — vive en el proyecto Supabase de "check list"
+// (matrix_colaboradores, ver shared/checklist-config.js), no en el
+// proyecto principal de picking. Se carga una sola vez.
+let _rosterColaboradoresPasillo = [];
+let _rosterColaboradoresPasilloCargado = false;
+
+async function cargarRosterColaboradoresPasillo(){
+
+    if(_rosterColaboradoresPasilloCargado){
+        return;
+    }
+
+    try{
+
+        const filas = await checklistFetch(
+            "/matrix_colaboradores?select=dni,nombre_completo&order=nombre_completo.asc"
+        );
+
+        _rosterColaboradoresPasillo = (filas || [])
+            .filter(function(c){ return c.dni && c.nombre_completo; })
+            .map(function(c){ return { dni: String(c.dni).trim(), nombre: c.nombre_completo }; });
+
+        _rosterColaboradoresPasilloCargado = true;
+
+    }catch(e){
+        console.error(e);
+        _rosterColaboradoresPasillo = [];
+    }
+
+}
+
+function opcionesSelectColaboradorPasillo(dniAsignado){
+
+    const opciones = ['<option value="">Sin asignar</option>'];
+
+    _rosterColaboradoresPasillo.forEach(function(c){
+        const seleccionado = c.dni === dniAsignado ? " selected" : "";
+        opciones.push(`<option value="${c.dni}"${seleccionado}>${c.nombre}</option>`);
+    });
+
+    return opciones.join("");
+
+}
+
+// Solo puede contar ese pasillo el DNI asignado — se le manda al
+// mismo picking_pasillos que ya usa Centro de Proyectos para
+// reclamar/bloquear pasillos, preservando estado/horas si ya existía.
+async function asignarColaboradorPasillo(pasillo, dni, nombre){
+
+    try{
+
+        const existentes = await supabaseFetch(
+            "/picking_pasillos?select=estado,hora_inicio,hora_fin&pasillo=eq." + pasillo + "&semana=eq." + SEMANA
+        );
+
+        const actual = (existentes && existentes[0]) || {};
+
+        await supabaseFetch("/picking_pasillos?on_conflict=pasillo,semana", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates" },
+            body: JSON.stringify({
+                pasillo: pasillo,
+                semana: SEMANA,
+                colaborador: nombre || null,
+                colaborador_dni: dni || null,
+                estado: actual.estado || null,
+                hora_inicio: actual.hora_inicio || null,
+                hora_fin: actual.hora_fin || null
+            })
+        });
+
+        mostrarToast(
+            nombre ? "Pasillo " + String(pasillo).padStart(2, "0") + " asignado a " + nombre + "." : "Asignación quitada.",
+            "exito"
+        );
+
+        cargarAsignacion();
+
+    }catch(e){
+
+        console.error(e);
+        mostrarToast("No se pudo guardar la asignación.", "error");
+
+    }
+
+}
+
+document.getElementById("tblAsignacion").addEventListener("click", function(e){
+
+    const boton = e.target.closest(".btn-asignar-pasillo");
+
+    if(!boton){
+        return;
+    }
+
+    const pasillo = Number(boton.dataset.pasillo);
+    const select = document.querySelector('.selectColaboradorPasillo[data-pasillo="' + pasillo + '"]');
+    const dni = select.value;
+    const colaborador = dni
+        ? (_rosterColaboradoresPasillo.find(function(c){ return c.dni === dni; }) || {}).nombre
+        : null;
+
+    asignarColaboradorPasillo(pasillo, dni || null, colaborador || null);
+
+});
+
 async function cargarAsignacion(){
 
     const tbody = document.getElementById("tblAsignacion");
@@ -178,10 +285,11 @@ async function cargarAsignacion(){
         const [ubicacionesFilas, conteoFilas, pasillosFilas] = await Promise.all([
             supabaseFetchTodo("/picking_ubicaciones?select=pasillo"),
             supabaseFetchTodo("/picking_conteos?select=pasillo&semana=eq." + SEMANA + "&es_reconteo=eq.false"),
-            supabaseFetch("/picking_pasillos?select=pasillo,colaborador,estado&semana=eq." + SEMANA).catch(function(e){
+            supabaseFetch("/picking_pasillos?select=pasillo,colaborador,colaborador_dni,estado&semana=eq." + SEMANA).catch(function(e){
                 console.error(e);
                 return [];
-            })
+            }),
+            cargarRosterColaboradoresPasillo()
         ]);
 
         const totalPorPasillo = {};
@@ -197,10 +305,12 @@ async function cargarAsignacion(){
         });
 
         const colaboradorPorPasillo = {};
+        const dniPorPasillo = {};
         const cerradoPorPasillo = {};
 
         (pasillosFilas || []).forEach(function(a){
             if(a.colaborador){ colaboradorPorPasillo[a.pasillo] = a.colaborador; }
+            if(a.colaborador_dni){ dniPorPasillo[a.pasillo] = a.colaborador_dni; }
             if(a.estado === "cerrado"){ cerradoPorPasillo[a.pasillo] = true; }
         });
 
@@ -224,6 +334,7 @@ async function cargarAsignacion(){
         pasillos.forEach(function(p){
 
             const colaborador = colaboradorPorPasillo[p] || "";
+            const dniAsignado = dniPorPasillo[p] || "";
             const total = totalPorPasillo[p] || 0;
             const registrado = Math.min(registradoPorPasillo[p] || 0, total);
             const porcentaje = total > 0 ? Math.round((registrado / total) * 100) : 0;
@@ -251,7 +362,14 @@ async function cargarAsignacion(){
 
             tr.innerHTML = `
                 <td><b>Pasillo ${String(p).padStart(2, "0")}</b></td>
-                <td>${colaborador || "-"}</td>
+                <td>
+                    <div class="asignarColaborador">
+                        <select class="selectColaboradorPasillo" data-pasillo="${p}">
+                            ${opcionesSelectColaboradorPasillo(dniAsignado)}
+                        </select>
+                        <button class="btn-secundario btn-asignar-pasillo" data-pasillo="${p}">Asignar</button>
+                    </div>
+                </td>
                 <td>
                     <span class="barraAvanceMini"><span class="barraAvanceMiniRelleno" style="width:${porcentaje}%;"></span></span>
                     ${porcentaje}% (${registrado}/${total})
