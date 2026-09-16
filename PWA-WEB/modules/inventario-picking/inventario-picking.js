@@ -600,7 +600,7 @@ formMaraPicking.addEventListener("submit", async function(e){
 
 async function eliminarProductoMaraPicking(sku){
 
-    if(!confirm("¿Eliminar el producto " + sku + " del Catálogo MARA Picking?")){
+    if(!(await mostrarConfirmacion("¿Eliminar el producto " + sku + " del Catálogo MARA Picking?"))){
         return;
     }
 
@@ -1015,13 +1015,13 @@ document.getElementById("btnBorrarSap").addEventListener("click", async function
 
     const btn = document.getElementById("btnBorrarSap");
 
-    const confirmado = confirm(
+    const confirmado = await mostrarConfirmacion(
         "Esto borra TODO el saldo SAP cargado en Inventario Picking. No se puede deshacer.\n\n¿Continuar?"
     );
 
     if(!confirmado){ return; }
 
-    const escrito = prompt('Para confirmar, escribe BORRAR (en mayúsculas):');
+    const escrito = await pedirTexto('Para confirmar, escribe BORRAR (en mayúsculas):');
 
     if(escrito !== "BORRAR"){
         mostrarToast("Cancelado: no se escribió BORRAR, no se borró nada.", "info");
@@ -2152,7 +2152,7 @@ async function editarObservacionReporte(clave){
         return;
     }
 
-    const texto = prompt("Observación para " + fila.ubicacion + " · " + fila.codigo + ":", fila.observacion || "");
+    const texto = await pedirTexto("Observación para " + fila.ubicacion + " · " + fila.codigo + ":", fila.observacion || "");
 
     if(texto === null){
         return;
