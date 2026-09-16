@@ -63,7 +63,8 @@
                 <a href="#" class="tab-link activo" data-tab="tabAsignacion">1. Asignación de Pasillos</a>
                 <a href="#" class="tab-link" data-tab="tabMara">2. Catálogo MARA Picking</a>
                 <a href="#" class="tab-link" data-tab="tabSap">3. Cargar SAP</a>
-                <a href="#" class="tab-link" data-tab="tabDiscrepancias">4. Discrepancias</a>
+                <a href="#" class="tab-link" data-tab="tabDiscrepancias">4. Registro</a>
+                <a href="#" class="tab-link" data-tab="tabReconteo">5. Reconteo</a>
 
             </nav>
 
@@ -279,7 +280,7 @@
 
                     <div class="topbar-titulo">
 
-                        <h2>DISCREPANCIAS</h2>
+                        <h2>REGISTRO</h2>
 
                         <p>Semana <span id="semanaTextoDiscrepancias">-</span></p>
 
@@ -387,6 +388,71 @@
                         </tbody>
 
                     </table>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 5: RECONTEO -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabReconteo">
+
+                <header class="topbar">
+
+                    <div class="topbar-titulo">
+
+                        <h2>RECONTEO</h2>
+
+                        <p>Semana <span id="semanaTextoReconteo">-</span> — diferencias ya revisadas en Revalidar</p>
+
+                    </div>
+
+                    <button id="btnActualizarReconteo" class="btn-secundario">
+                        ⟳ Actualizar
+                    </button>
+
+                </header>
+
+                <div class="card">
+
+                    <p class="nota-modulo">
+                        Ubicaciones que el auxiliar ya revisó en Revalidar (Correcto o Corregir) y
+                        siguen sin coincidir con el saldo SAP — una diferencia confirmada, distinta de
+                        "Segundo Conteo" (todavía nadie la ha vuelto a contar) en Discrepancias.
+                    </p>
+
+                    <input
+                        type="text"
+                        id="buscadorReconteo"
+                        placeholder="Buscar por ubicación, código o colaborador..."
+                        class="input-buscador"
+                    >
+
+                    <table>
+
+                        <thead>
+                            <tr>
+                                <th>Pasillo</th>
+                                <th>Ubicación</th>
+                                <th>Código SAP</th>
+                                <th>Cantidad SAP</th>
+                                <th>Código Contado</th>
+                                <th>Cantidad Registrada</th>
+                                <th>Colaborador</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="tblReconteo">
+                            <tr>
+                                <td colspan="7" class="sin-datos">Cargando...</td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+
+                    <div class="paginacion" id="paginacionReconteo"></div>
 
                 </div>
 

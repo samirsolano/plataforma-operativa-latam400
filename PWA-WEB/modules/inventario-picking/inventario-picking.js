@@ -114,7 +114,7 @@ document.querySelectorAll(".tab-link").forEach(function(link){
             cargarMaraPicking();
         }
 
-        if(link.dataset.tab === "tabDiscrepancias"){
+        if(link.dataset.tab === "tabDiscrepancias" || link.dataset.tab === "tabReconteo"){
             cargarDiscrepancias();
         }
 
@@ -147,6 +147,7 @@ const SEMANA = semanaActual();
 
 document.getElementById("semanaTextoAsignacion").textContent = SEMANA.split("-W")[1];
 document.getElementById("semanaTextoDiscrepancias").textContent = SEMANA.split("-W")[1];
+document.getElementById("semanaTextoReconteo").textContent = SEMANA.split("-W")[1];
 
 
 // ========================================
@@ -989,6 +990,86 @@ function cambiarPaginaAuditoria(delta){
     pintarAuditoria();
 }
 
+// ========================================
+// TAB 5: RECONTEO — mismas filas de Auditoría, filtradas a las que
+// ya se revisaron en Revalidar y siguen sin cuadrar con SAP.
+// ========================================
+
+let _catalogoReconteo = [];
+let _paginaActualReconteo = 1;
+const FILAS_POR_PAGINA_RECONTEO = 50;
+
+function filasFiltradasReconteo(){
+
+    const texto = document.getElementById("buscadorReconteo").value.trim().toLowerCase();
+
+    if(!texto){
+        return _catalogoReconteo;
+    }
+
+    return _catalogoReconteo.filter(function(f){
+        return (
+            f.ubicacion.toLowerCase().includes(texto) ||
+            f.codigoContado.toLowerCase().includes(texto) ||
+            f.codigoSap.toLowerCase().includes(texto) ||
+            f.colaborador.toLowerCase().includes(texto)
+        );
+    });
+
+}
+
+function pintarReconteo(){
+
+    const tbody = document.getElementById("tblReconteo");
+    const paginacion = document.getElementById("paginacionReconteo");
+    const filas = filasFiltradasReconteo();
+
+    if(!filas.length){
+        tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Sin diferencias revisadas todavía.</td></tr>`;
+        paginacion.innerHTML = "";
+        return;
+    }
+
+    const totalPaginas = Math.max(1, Math.ceil(filas.length / FILAS_POR_PAGINA_RECONTEO));
+    _paginaActualReconteo = Math.min(_paginaActualReconteo, totalPaginas);
+
+    const desde = (_paginaActualReconteo - 1) * FILAS_POR_PAGINA_RECONTEO;
+    const visibles = filas.slice(desde, desde + FILAS_POR_PAGINA_RECONTEO);
+
+    tbody.innerHTML = visibles.map(function(f){
+        return `
+            <tr>
+                <td>${String(f.pasillo).padStart(2, "0")}</td>
+                <td>${f.ubicacion}</td>
+                <td>${f.codigoSap}</td>
+                <td>${f.cantidadSap}</td>
+                <td>${f.codigoContado}</td>
+                <td>${f.cantidad}</td>
+                <td>${f.colaborador}</td>
+            </tr>
+        `;
+    }).join("");
+
+    paginacion.innerHTML = `
+        <button ${_paginaActualReconteo <= 1 ? "disabled" : ""} onclick="cambiarPaginaReconteo(-1)">‹ Anterior</button>
+        <span>Página ${_paginaActualReconteo} de ${totalPaginas} · ${filas.length} ubicación(es)</span>
+        <button ${_paginaActualReconteo >= totalPaginas ? "disabled" : ""} onclick="cambiarPaginaReconteo(1)">Siguiente ›</button>
+    `;
+
+}
+
+function cambiarPaginaReconteo(delta){
+    _paginaActualReconteo += delta;
+    pintarReconteo();
+}
+
+document.getElementById("buscadorReconteo").addEventListener("input", function(){
+    _paginaActualReconteo = 1;
+    pintarReconteo();
+});
+
+document.getElementById("btnActualizarReconteo").addEventListener("click", cargarDiscrepancias);
+
 document.getElementById("buscadorAuditoria").addEventListener("input", function(){
     _paginaActualAuditoria = 1;
     pintarAuditoria();
@@ -1128,6 +1209,10 @@ async function cargarDiscrepancias(){
 
         _paginaActualAuditoria = 1;
         pintarAuditoria();
+
+        _catalogoReconteo = _catalogoAuditoria.filter(f => f.claseEstado === "revisado");
+        _paginaActualReconteo = 1;
+        pintarReconteo();
 
         // Contado vs SAP, por SKU
         const contadoPorSku = {};
