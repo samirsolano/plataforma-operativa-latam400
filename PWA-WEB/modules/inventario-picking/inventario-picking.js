@@ -1095,7 +1095,7 @@ async function cargarDiscrepancias(){
                 // Ya pasó por Revalidar (Correcto o Corregir) y la
                 // diferencia contra SAP sigue existiendo — es una
                 // diferencia confirmada, no una pendiente por revisar.
-                estado = "Revisado (con diferencia)";
+                estado = "Reconteo";
                 claseEstado = "revisado";
             }else if(tieneDiferencia){
                 estado = "Segundo Conteo";
