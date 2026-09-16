@@ -2295,15 +2295,28 @@ async function calcularCruce(){
             }else if(escaneadoUnidades === null){
                 estadoTexto = "Sin factor";
                 estadoClase = "advertencia";
-            }else if(escaneadoUnidades > solicitado){
-                estadoTexto = "Excede lo solicitado";
-                estadoClase = "pendiente";
-            }else if(escaneadoUnidades === solicitado){
-                estadoTexto = "Completo";
-                estadoClase = "activado";
             }else{
-                estadoTexto = "Pendiente";
-                estadoClase = "disponible";
+
+                // No siempre lo solicitado es múltiplo exacto del factor
+                // (ej: pide 2110 unidades con factor 84 → 25 cajas son
+                // 2100, y 26 cajas ya son 2184, más de lo pedido). No
+                // se puede escanear una caja "a medias", así que lo
+                // máximo que se puede llegar sin pasarse es el múltiplo
+                // entero de cajas más cercano por debajo — eso ya
+                // cuenta como completo.
+                const cajasMaxSinExceder = Math.floor(solicitado / factor);
+
+                if(escaneadoCajas > cajasMaxSinExceder){
+                    estadoTexto = "Excede lo solicitado";
+                    estadoClase = "pendiente";
+                }else if(escaneadoCajas === cajasMaxSinExceder){
+                    estadoTexto = "Completo";
+                    estadoClase = "activado";
+                }else{
+                    estadoTexto = "Pendiente";
+                    estadoClase = "disponible";
+                }
+
             }
 
             return {
