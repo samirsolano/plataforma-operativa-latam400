@@ -1848,8 +1848,113 @@ function cambiarPaginaReporte(delta){
 
 document.getElementById("btnActualizarReporte").addEventListener("click", cargarReporte);
 
-// Arma el mismo reporte (ERI/ERU + Observaciones) como texto plano,
-// listo para pegar en el correo que se manda siempre.
+// Arma el mismo reporte que se manda por correo (con tablas y colores,
+// no solo texto), para pegarlo directo en el cuerpo de un correo.
+function escaparHtml(texto){
+    return String(texto)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
+function htmlCopiarReporte(){
+
+    const fechaHoy = new Date().toLocaleDateString("es-PE");
+
+    const codigosContados = document.getElementById("repCodigosContados").textContent;
+    const codigosCuadrados = document.getElementById("repCodigosCuadrados").textContent;
+    const eri = document.getElementById("repEri").textContent;
+    const ubicacionesContadas = document.getElementById("repUbicacionesContadas").textContent;
+    const ubicacionesCuadradas = document.getElementById("repUbicacionesCuadradas").textContent;
+    const eru = document.getElementById("repEru").textContent;
+
+    const estiloCeldaTitulo = "background:#FC000D;color:#ffffff;font-weight:bold;padding:6px 10px;border:1px solid #ffffff;text-align:center;";
+    const estiloCeldaTexto = "background:#ffffff;color:#111827;padding:6px 10px;border:1px solid #d1d5db;";
+    const estiloCeldaValor = "background:#ffffff;color:#111827;padding:6px 10px;border:1px solid #d1d5db;text-align:center;";
+
+    const tablaCodigos = `
+        <table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;">
+            <tr><td colspan="2" style="${estiloCeldaTitulo}">Códigos</td></tr>
+            <tr><td style="${estiloCeldaTexto}">Códigos Contados</td><td style="${estiloCeldaValor}">${codigosContados}</td></tr>
+            <tr><td style="${estiloCeldaTexto}">Códigos Cuadrados</td><td style="${estiloCeldaValor}">${codigosCuadrados}</td></tr>
+            <tr><td style="${estiloCeldaTitulo}">ERI</td><td style="${estiloCeldaTitulo}">${eri}</td></tr>
+        </table>
+    `;
+
+    const tablaUbicaciones = `
+        <table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;">
+            <tr><td colspan="2" style="${estiloCeldaTitulo}">Ubicaciones</td></tr>
+            <tr><td style="${estiloCeldaTexto}">Ubicaciones Contadas</td><td style="${estiloCeldaValor}">${ubicacionesContadas}</td></tr>
+            <tr><td style="${estiloCeldaTexto}">Ubicaciones Cuadradas</td><td style="${estiloCeldaValor}">${ubicacionesCuadradas}</td></tr>
+            <tr><td style="${estiloCeldaTitulo}">ERU</td><td style="${estiloCeldaTitulo}">${eru}</td></tr>
+        </table>
+    `;
+
+    const estiloEncabezadoAzul = "background:#4472C4;color:#ffffff;font-weight:bold;padding:6px 8px;border:1px solid #ffffff;text-align:center;";
+    const estiloEncabezadoRojo = "background:#FC000D;color:#ffffff;font-weight:bold;padding:6px 8px;border:1px solid #ffffff;text-align:center;";
+    const estiloEncabezadoVerde = "background:#2e7d32;color:#ffffff;font-weight:bold;padding:6px 8px;border:1px solid #ffffff;text-align:center;";
+    const estiloCeldaFila = "background:#ffffff;color:#111827;padding:6px 8px;border:1px solid #d1d5db;font-family:Arial,sans-serif;font-size:12px;";
+
+    const filasDiferencias = !_catalogoReporteDiferencias.length
+        ? `<tr><td colspan="9" style="${estiloCeldaFila}text-align:center;">Sin diferencias — todo cuadra.</td></tr>`
+        : _catalogoReporteDiferencias.map(function(f){
+            const diferenciaTexto = (f.diferencia > 0 ? "+" : "") + f.diferencia;
+            const colorStatus = f.status === "Sobrante" ? "#FFF176" : (f.status === "Faltante" ? "#FFB74D" : "#ffffff");
+            return `
+                <tr>
+                    <td style="${estiloCeldaFila}">${escaparHtml(f.ubicacion)}</td>
+                    <td style="${estiloCeldaFila}">${escaparHtml(f.codigo)}</td>
+                    <td style="${estiloCeldaFila}">${escaparHtml(f.descripcion)}</td>
+                    <td style="${estiloCeldaFila}text-align:center;">${escaparHtml(f.uma)}</td>
+                    <td style="${estiloCeldaFila}text-align:center;">${escaparHtml(f.cantidadSap)}</td>
+                    <td style="${estiloCeldaFila}text-align:center;">${escaparHtml(f.cantidadContada)}</td>
+                    <td style="${estiloCeldaFila}text-align:center;">${escaparHtml(diferenciaTexto)}</td>
+                    <td style="${estiloCeldaFila}text-align:center;background:${colorStatus};font-weight:bold;">${escaparHtml(f.status)}</td>
+                    <td style="${estiloCeldaFila}">${escaparHtml(f.observacion ? f.observacion : "Sin observaciones")}</td>
+                </tr>
+            `;
+        }).join("");
+
+    return `
+        <div style="font-family:Arial,sans-serif;">
+            <p style="font-size:14px;color:#111827;">
+                <b>Equipo buenos días,</b><br>
+                Se envía el resultado del inventario del turno día de la fecha ${fechaHoy}.
+            </p>
+
+            <table style="border-collapse:separate;border-spacing:20px 0;">
+                <tr>
+                    <td style="vertical-align:top;padding:0;">${tablaCodigos}</td>
+                    <td style="vertical-align:top;padding:0;">${tablaUbicaciones}</td>
+                </tr>
+            </table>
+
+            <p style="font-size:14px;color:#111827;"><b><i>Observación:</i></b></p>
+
+            <table style="border-collapse:collapse;width:100%;">
+                <thead>
+                    <tr>
+                        <th style="${estiloEncabezadoAzul}">Ubicación</th>
+                        <th style="${estiloEncabezadoAzul}">Código</th>
+                        <th style="${estiloEncabezadoAzul}">Descripción</th>
+                        <th style="${estiloEncabezadoAzul}">UMA</th>
+                        <th style="${estiloEncabezadoAzul}">Cant. SAP</th>
+                        <th style="${estiloEncabezadoAzul}">Cant. Contado</th>
+                        <th style="${estiloEncabezadoRojo}">Diferencia</th>
+                        <th style="${estiloEncabezadoAzul}">Status</th>
+                        <th style="${estiloEncabezadoVerde}">Observación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filasDiferencias}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+}
+
+// Versión en texto plano, como respaldo por si el destino no acepta HTML.
 function textoCopiarReporte(){
 
     const semana = document.getElementById("semanaTextoReporte").textContent;
@@ -1894,7 +1999,20 @@ document.getElementById("btnCopiarReporte").addEventListener("click", async func
     const textoOriginal = boton.textContent;
 
     try{
-        await navigator.clipboard.writeText(textoCopiarReporte());
+        const html = htmlCopiarReporte();
+        const texto = textoCopiarReporte();
+
+        if(window.ClipboardItem){
+            await navigator.clipboard.write([
+                new ClipboardItem({
+                    "text/html": new Blob([html], { type: "text/html" }),
+                    "text/plain": new Blob([texto], { type: "text/plain" })
+                })
+            ]);
+        } else {
+            await navigator.clipboard.writeText(texto);
+        }
+
         boton.textContent = "✓ Copiado";
     } catch(e){
         console.error(e);
