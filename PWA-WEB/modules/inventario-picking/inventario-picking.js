@@ -1848,6 +1848,63 @@ function cambiarPaginaReporte(delta){
 
 document.getElementById("btnActualizarReporte").addEventListener("click", cargarReporte);
 
+// Arma el mismo reporte (ERI/ERU + Observaciones) como texto plano,
+// listo para pegar en el correo que se manda siempre.
+function textoCopiarReporte(){
+
+    const semana = document.getElementById("semanaTextoReporte").textContent;
+
+    const lineas = [];
+
+    lineas.push("REPORTE INVENTARIO DE PICKING — SEMANA " + semana);
+    lineas.push("");
+    lineas.push("CÓDIGOS");
+    lineas.push("Códigos Contados: " + document.getElementById("repCodigosContados").textContent);
+    lineas.push("Códigos Cuadrados: " + document.getElementById("repCodigosCuadrados").textContent);
+    lineas.push("ERI: " + document.getElementById("repEri").textContent);
+    lineas.push("");
+    lineas.push("UBICACIONES");
+    lineas.push("Ubicaciones Contadas: " + document.getElementById("repUbicacionesContadas").textContent);
+    lineas.push("Ubicaciones Cuadradas: " + document.getElementById("repUbicacionesCuadradas").textContent);
+    lineas.push("ERU: " + document.getElementById("repEru").textContent);
+    lineas.push("");
+    lineas.push("OBSERVACIONES");
+
+    if(!_catalogoReporteDiferencias.length){
+        lineas.push("Sin diferencias — todo cuadra.");
+    } else {
+        _catalogoReporteDiferencias.forEach(function(f){
+            const diferenciaTexto = (f.diferencia > 0 ? "+" : "") + f.diferencia;
+            lineas.push(
+                f.ubicacion + " · " + f.codigo + " · " + f.descripcion + " · " + f.uma +
+                " · Cant. SAP: " + f.cantidadSap + " · Cant. Contado: " + f.cantidadContada +
+                " · Diferencia: " + diferenciaTexto + " · " + f.status +
+                " · Observación: " + (f.observacion ? f.observacion : "Sin observaciones")
+            );
+        });
+    }
+
+    return lineas.join("\n");
+
+}
+
+document.getElementById("btnCopiarReporte").addEventListener("click", async function(){
+
+    const boton = document.getElementById("btnCopiarReporte");
+    const textoOriginal = boton.textContent;
+
+    try{
+        await navigator.clipboard.writeText(textoCopiarReporte());
+        boton.textContent = "✓ Copiado";
+    } catch(e){
+        console.error(e);
+        boton.textContent = "✗ No se pudo copiar";
+    }
+
+    setTimeout(function(){ boton.textContent = textoOriginal; }, 1800);
+
+});
+
 // Observación es manual — la plataforma no tiene los datos de viajes/
 // HU de planta para calcularla sola. Se guarda por (semana, ubicación,
 // código) en picking_reporte_observaciones.

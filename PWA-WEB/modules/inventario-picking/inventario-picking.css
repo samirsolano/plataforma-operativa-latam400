@@ -192,6 +192,13 @@ body{
     gap:12px;
 }
 
+.acciones-topbar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
 .topbar-titulo h2{
     font-size:22px;
     font-weight:800;
