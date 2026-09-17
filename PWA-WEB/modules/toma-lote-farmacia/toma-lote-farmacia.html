@@ -611,10 +611,10 @@
 
                     <p class="nota-modulo">
                         Sube el Excel del maestro Alicorp con las columnas: CODIGO, DECRIPCION DE
-                        MATERIAL, CODIGO EAN/UPC, FACTOR UNID. DE ALM., UND. DE ALMACENAMIENTO.
-                        A diferencia de "3. MARA InRetail Pharma", aquí el CODIGO coincide directo
-                        con el CODIGO/SKU que se usa en el resto del módulo. Al subir un archivo
-                        nuevo se reemplaza por completo el maestro actual.
+                        MATERIAL, CODIGO EAN/UPC, FACTOR UNID. DE ALM., UND. DE ALMACENAMIENTO, TVU
+                        (meses). A diferencia de "3. MARA InRetail Pharma", aquí el CODIGO coincide
+                        directo con el CODIGO/SKU que se usa en el resto del módulo. Al subir un
+                        archivo nuevo se reemplaza por completo el maestro actual.
                     </p>
 
                     <div class="data-modulado">
@@ -652,64 +652,6 @@
                             <h3>✓ Procesado correctamente</h3>
 
                             <p>El maestro Alicorp quedó disponible para consulta.</p>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <div class="card">
-
-                    <div class="card-header-flex">
-
-                        <h2>
-                            ACTUALIZAR TVU (TIEMPO DE VIDA ÚTIL)
-                        </h2>
-
-                        <button id="btnDescargarPlantillaTvu" class="btn-secundario">
-                            ⬇ Descargar Plantilla
-                        </button>
-
-                    </div>
-
-                    <p class="nota-modulo">
-                        Sube el Excel de TVU con las columnas: MAT, DES, TVU (meses). Solo
-                        actualiza el TVU de los códigos que ya existen en el maestro Alicorp de
-                        arriba — no crea códigos nuevos ni toca EAN/factor/unidad. Si un código del
-                        archivo no está en el maestro, se avisa cuáles no se actualizaron.
-                    </p>
-
-                    <div class="data-modulado">
-
-                        <div class="upload-box">
-
-                            <input
-                                type="file"
-                                id="archivoTvu"
-                            >
-
-                        </div>
-
-                        <div class="detalle-archivo">
-
-                            <p>
-                                Archivo:
-                                <span id="nombreArchivoTvu">-</span>
-                            </p>
-
-                            <p>
-                                Actualizados:
-                                <span id="totalActualizadosTvu">-</span>
-                            </p>
-
-                        </div>
-
-                        <div class="estado-ok">
-
-                            <h3>✓ Procesado correctamente</h3>
-
-                            <p>El TVU quedó actualizado en el maestro Alicorp.</p>
 
                         </div>
 
