@@ -88,10 +88,15 @@ body{
     padding:30px 0;
 }
 
+/* Cada pasillo es UNA HOJA A4 apaisada completa (misma medida que
+   el tablero de Equipo Completo: 1122x793px en pantalla ≈ 297x210mm),
+   una debajo de otra — no una grilla de tarjetas chicas. */
+
 .grid-tablero{
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(520px, 1fr));
-    gap:25px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:30px;
 }
 
 .tarjeta-pasillo{
@@ -99,15 +104,18 @@ body{
     border:3px solid #d1181f;
     border-radius:14px;
     overflow:hidden;
-    box-shadow:0 5px 20px rgba(0,0,0,.08);
-    break-inside:avoid;
-    page-break-inside:avoid;
+    box-shadow:0 8px 25px rgba(0,0,0,.12);
+    width:100%;
+    max-width:1122px;
+    min-height:793px;
+    display:flex;
+    flex-direction:column;
 }
 
 .tarjeta-banner{
     background:#d1181f;
     color:white;
-    padding:14px 20px;
+    padding:18px 30px;
     display:flex;
     align-items:center;
     justify-content:space-between;
@@ -116,31 +124,33 @@ body{
 }
 
 .tarjeta-banner .titulo-principal{
-    font-size:20px;
+    font-size:26px;
     font-weight:800;
 }
 
 .tarjeta-banner .subtitulo{
-    font-size:13px;
+    font-size:15px;
     font-weight:600;
     opacity:.92;
 }
 
 .tarjeta-logo{
-    padding:14px 20px 0;
+    padding:18px 30px 0;
 }
 
 .logo-sigma-img{
-    height:32px;
+    height:40px;
     width:auto;
     display:block;
 }
 
 .tarjeta-personas{
+    flex:1;
     display:grid;
     grid-template-columns:repeat(3, 1fr);
-    gap:14px;
-    padding:18px 20px 22px;
+    align-content:center;
+    gap:30px;
+    padding:30px 60px;
 }
 
 .persona{
@@ -148,34 +158,36 @@ body{
 }
 
 .persona .foto-persona{
-    width:100px;
-    height:100px;
-    border-radius:12px;
+    width:100%;
+    max-width:220px;
+    aspect-ratio:1/1;
+    border-radius:16px;
     object-fit:cover;
     background:#f3f4f6;
     border:1px solid #e5e7eb;
-    margin-bottom:10px;
+    margin:0 auto 16px;
+    display:block;
 }
 
 .persona .etiqueta-rol{
-    font-size:14px;
+    font-size:20px;
     font-weight:800;
     color:#1f2937;
 }
 
 .persona .etiqueta-turno{
-    font-size:12px;
+    font-size:16px;
     font-weight:700;
     color:#d1181f;
-    margin-bottom:8px;
+    margin-bottom:12px;
 }
 
 .persona .nombre-persona{
     display:inline-block;
     background:#f3f4f6;
     border-radius:8px;
-    padding:6px 10px;
-    font-size:12px;
+    padding:8px 14px;
+    font-size:15px;
     font-weight:700;
     color:#1f2937;
     word-break:break-word;
@@ -186,7 +198,7 @@ body{
     align-items:center;
     justify-content:center;
     color:#9ca3af;
-    font-size:12px;
+    font-size:14px;
 }
 
 @media print{
@@ -195,17 +207,32 @@ body{
         display:none !important;
     }
 
+    @page{
+        size:A4 landscape;
+        margin:8mm;
+    }
+
     body{
         background:white;
         padding:0;
     }
 
     .grid-tablero{
-        grid-template-columns:1fr;
+        gap:0;
     }
 
     .tarjeta-pasillo{
+        max-width:none;
+        width:100%;
+        height:100vh;
+        border-width:2px;
+        box-shadow:none;
         page-break-after:always;
+        break-after:page;
+    }
+
+    .tarjeta-pasillo:last-child{
+        page-break-after:auto;
     }
 
 }
