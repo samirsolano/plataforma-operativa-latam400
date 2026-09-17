@@ -2473,11 +2473,12 @@ async function generarDataFinal(){
 
     try{
 
-        const [lecturasFilas, maraFilas] = await Promise.all([
+        const [lecturasFilas, alicorpFilas, maraFilas] = await Promise.all([
             supabaseFetchTodo(
                 "/farmacia_lecturas?select=codigo,lote,fv,cantidad_cajas&viaje=eq." + viaje + "&oc=eq." + oc
             ),
-            supabaseFetchTodo("/mara_farmacia?select=cod_proveedor,cod_sap")
+            supabaseFetchTodo("/mara_alicorp?select=codigo,ean,factor_unidad_alm"),
+            supabaseFetchTodo("/mara_farmacia?select=ean_principal,cod_proveedor")
         ]);
 
         if(!lecturasFilas || !lecturasFilas.length){
@@ -2486,12 +2487,31 @@ async function generarDataFinal(){
             return;
         }
 
-        const skuPorCodigo = {};
+        // Cadena de resolución del SKU final: nuestro código -> EAN
+        // (vía "5. MARA Alicorp") -> Cód. Proveedor de ese mismo EAN
+        // en "3. MARA InRetail Pharma" (no es directo por código).
+        const eanPorCodigo = {};
+        const factorPorCodigo = {};
+
+        (alicorpFilas || []).forEach(function(a){
+            const clave = String(a.codigo || "").trim();
+            if(!clave){
+                return;
+            }
+            if(a.ean && !eanPorCodigo[clave]){
+                eanPorCodigo[clave] = String(a.ean).trim();
+            }
+            if(a.factor_unidad_alm && !factorPorCodigo[clave]){
+                factorPorCodigo[clave] = Number(a.factor_unidad_alm);
+            }
+        });
+
+        const codProveedorPorEan = {};
 
         (maraFilas || []).forEach(function(m){
-            const clave = String(m.cod_proveedor || "").trim();
-            if(clave && !skuPorCodigo[clave]){
-                skuPorCodigo[clave] = m.cod_sap;
+            const clave = String(m.ean_principal || "").trim();
+            if(clave && !codProveedorPorEan[clave]){
+                codProveedorPorEan[clave] = m.cod_proveedor;
             }
         });
 
@@ -2499,19 +2519,22 @@ async function generarDataFinal(){
 
         lecturasFilas.forEach(function(l){
 
-            const sku = skuPorCodigo[String(l.codigo || "").trim()] || null;
+            const codigo = String(l.codigo || "").trim();
+            const ean = eanPorCodigo[codigo] || null;
+            const sku = ean ? (codProveedorPorEan[ean] || null) : null;
             const clave = l.codigo + "|" + (l.lote || "") + "|" + (l.fv || "");
 
             if(!grupos[clave]){
                 grupos[clave] = {
+                    codigo: codigo,
                     sku: sku,
                     lote: l.lote || "-",
                     fv: l.fv || "-",
-                    cantidad: 0
+                    cantidadCajas: 0
                 };
             }
 
-            grupos[clave].cantidad += Number(l.cantidad_cajas || 0);
+            grupos[clave].cantidadCajas += Number(l.cantidad_cajas || 0);
 
         });
 
@@ -2519,11 +2542,19 @@ async function generarDataFinal(){
             return String(a.sku).localeCompare(String(b.sku));
         });
 
+        // La cantidad final va en UNIDADES (cajas × factor de "5. MARA
+        // Alicorp"), no en cajas.
         _ultimaDataFinal = filas.map(function(f){
+
+            const factor = factorPorCodigo[f.codigo] || null;
+            const cantidadUnidades = (factor && factor > 0)
+                ? Math.round(f.cantidadCajas * factor)
+                : f.cantidadCajas;
+
             return {
                 oc: oc,
                 sku: f.sku || "Sin MARA",
-                cantidad: f.cantidad,
+                cantidad: cantidadUnidades,
                 lote: f.lote,
                 fv: f.fv
             };

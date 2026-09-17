@@ -967,9 +967,12 @@
 
                     <p class="nota-modulo">
                         Selecciona el Viaje y la OC. Se toma lo escaneado en "2. Lecturas y
-                        Evidencias" para esa OC, se busca el código en "3. MARA InRetail Pharma"
-                        (por Cód. Proveedor) para obtener el SKU real, y se arma el reporte final
-                        agrupado por SKU y Lote: No. OC, SKU, Cantidad, No. Lote y Fecha Vto.
+                        Evidencias" para esa OC, se busca el código en "5. MARA Alicorp" para
+                        obtener su EAN, y con ese EAN se busca en "3. MARA InRetail Pharma" el
+                        Cód. Proveedor real (el SKU). La cantidad escaneada (en cajas) se
+                        convierte a unidades con el factor de MARA Alicorp, y se arma el reporte
+                        final agrupado por SKU y Lote: No. OC, SKU, Cantidad (Unidades), No. Lote
+                        y Fecha Vto.
                     </p>
 
                     <div class="filtros-mara">
@@ -1002,7 +1005,7 @@
 
                                 <th>No. OC</th>
                                 <th>SKU</th>
-                                <th>Cantidad</th>
+                                <th>Cantidad (Unidades)</th>
                                 <th>No. Lote</th>
                                 <th>Fecha Vto.</th>
 
