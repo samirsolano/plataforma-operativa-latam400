@@ -488,14 +488,55 @@ tbody tr:hover{
     flex-wrap:wrap;
 }
 
-.selectColaboradorPasillo{
+.buscarColaboradorPasillo{
+    position:relative;
     min-width:220px;
     max-width:280px;
+    flex:1;
+}
+
+.inputBuscarColaboradorPasillo{
+    width:100%;
     padding:6px 8px;
     border:1px solid #d5dbe5;
     border-radius:8px;
     font-size:13px;
     color:#111827;
+    box-sizing:border-box;
+}
+
+.sugerenciasColaboradorPasillo{
+    position:absolute;
+    top:100%;
+    left:0;
+    right:0;
+    margin-top:4px;
+    background:#fff;
+    border:1px solid #d5dbe5;
+    border-radius:8px;
+    max-height:180px;
+    overflow-y:auto;
+    z-index:20;
+    box-shadow:0 8px 20px rgba(0,0,0,.12);
+}
+
+.sugerenciasColaboradorPasillo.oculto{
+    display:none;
+}
+
+.sugerenciaColaboradorItem{
+    padding:8px 10px;
+    cursor:pointer;
+    font-size:13px;
+    color:#111827;
+}
+
+.sugerenciaColaboradorItem:hover{
+    background:#f3f4f6;
+}
+
+.sugerenciaColaboradorItem small{
+    color:#6b7280;
 }
 
 .btn-asignar-pasillo{
