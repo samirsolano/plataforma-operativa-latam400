@@ -1797,12 +1797,16 @@ cmbOcASubir.addEventListener("change", function(){
 
 });
 
+// Solo se exigen las columnas que realmente se usan en el módulo; el
+// resto del reporte del portal (tipo de documento, direcciones,
+// precios, descuentos, destino, etc.) se acepta si viene pero no es
+// obligatorio, porque varía según el reporte que exporte el cliente.
+// "OC" a veces sale como "No. OC", e "Inretail / QS" a veces sale
+// como "Código Inkafarma" — por eso esas dos son listas de nombres
+// alternativos aceptados.
 const COLUMNAS_ESPERADAS_OC = [
-    "oc", "tipo o/c", "clase de documento", "codigo lugar de entrega", "nombre lugar de entrega",
-    "direccion de entrega", "fecha emision", "fecha vencimiento", "posicion", "inretail / qs",
-    "ean", "codigo proveedor", "descripcion producto", "empaque", "sku/empaque", "p. lista",
-    "desc. 1", "desc. 2", "desc. 3", "desc. 4", "desc. 5", "desc. 6", "p. final neto",
-    "p. final(con imp)", "codigo local destino", "nombre local destino", "ctdad. sku solicitadas"
+    ["oc", "no. oc"], ["inretail / qs", "codigo inkafarma"], "ean", "descripcion producto",
+    "sku/empaque", "ctdad. sku solicitadas"
 ];
 
 async function leerFilasOcExcel(archivo){
@@ -1824,9 +1828,12 @@ function validarFormatoOc(filasCrudas){
 
     const columnasArchivo = Object.keys(filasCrudas[0]).map(c => sinTildes(c).trim().toLowerCase());
 
-    const faltantes = COLUMNAS_ESPERADAS_OC.filter(
-        esperada => !columnasArchivo.includes(sinTildes(esperada))
-    );
+    const faltantes = COLUMNAS_ESPERADAS_OC.filter(function(esperada){
+        const alternativas = Array.isArray(esperada) ? esperada : [esperada];
+        return !alternativas.some(alt => columnasArchivo.includes(sinTildes(alt)));
+    }).map(function(esperada){
+        return Array.isArray(esperada) ? esperada.join(" / ") : esperada;
+    });
 
     if(faltantes.length){
         return "Este archivo no tiene el formato de OC del portal del cliente. Faltan las columnas: " +
@@ -1846,8 +1853,14 @@ function normalizarFilaOc(filaOriginal, archivo, cargadoPor){
     });
 
     function valor(clave){
-        const v = mapaFila[clave];
-        return (v === undefined || v === null) ? "" : v;
+        const claves = Array.isArray(clave) ? clave : [clave];
+        for(let i = 0; i < claves.length; i++){
+            const v = mapaFila[claves[i]];
+            if(v !== undefined && v !== null && v !== ""){
+                return v;
+            }
+        }
+        return "";
     }
 
     function num(clave){
@@ -1864,7 +1877,7 @@ function normalizarFilaOc(filaOriginal, archivo, cargadoPor){
     }
 
     return {
-        oc: num("oc"),
+        oc: num(["oc", "no. oc"]),
         tipo_oc: texto("tipo o/c"),
         clase_documento: texto("clase de documento"),
         cod_lugar_entrega: texto("codigo lugar de entrega"),
@@ -1873,7 +1886,7 @@ function normalizarFilaOc(filaOriginal, archivo, cargadoPor){
         fecha_emision: fecha("fecha emision"),
         fecha_vencimiento: fecha("fecha vencimiento"),
         posicion: num("posicion"),
-        inretail_qs: texto("inretail / qs"),
+        inretail_qs: texto(["inretail / qs", "codigo inkafarma"]),
         ean: texto("ean"),
         codigo_proveedor: texto("codigo proveedor"),
         descripcion_producto: texto("descripcion producto"),
@@ -1932,10 +1945,10 @@ archivoOcPortal.addEventListener("change", async function(e){
 
         const filasNormalizadas = filasCrudas
             .map(f => normalizarFilaOc(f, archivo.name, cargadoPor))
-            .filter(f => f.oc !== null && f.codigo_proveedor);
+            .filter(f => f.oc !== null && f.ean);
 
         if(!filasNormalizadas.length){
-            mostrarToast("No se encontraron filas válidas en el archivo (revisa las columnas OC y CODIGO PROVEEDOR).", "error");
+            mostrarToast("No se encontraron filas válidas en el archivo (revisa las columnas OC y EAN).", "error");
             nombreArchivoOc.textContent = "-";
             archivoOcPortal.value = "";
             return;

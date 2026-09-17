@@ -492,15 +492,14 @@
                     <p class="nota-modulo">
                         Primero selecciona la OC que vas a subir (solo aparecen las OC que ya
                         están en la plantilla de "1. Carga y Viajes"), y luego sube el Excel de
-                        esa OC tal como lo exporta el portal del cliente (una fila por posición):
-                        OC, Tipo O/C, Clase de Documento, Codigo/Nombre lugar de Entrega,
-                        Dirección de entrega, Fecha Emisión, Fecha Vencimiento, Posición,
-                        Inretail/QS, EAN, Codigo Proveedor, Descripción Producto, Empaque,
-                        SKU/Empaque, precios y descuentos, Codigo/Nombre local destino y Ctdad.
-                        SKU solicitadas. El archivo debe traer únicamente la OC seleccionada; si
-                        trae otra OC, se rechaza. Por ahora solo se carga y guarda — el cruce
-                        contra Toma de Lote Farmacia se agregará después. Al volver a subir un
-                        archivo de la misma OC, se reemplazan solo sus filas.
+                        esa OC tal como lo exporta el portal del cliente (una fila por posición).
+                        Solo son obligatorias las columnas OC (o "No. OC"), EAN, Descripción
+                        Producto, SKU/Empaque, Ctdad. SKU solicitadas e Inretail/QS (o "Código
+                        Inkafarma", según el reporte) — el resto de columnas del export (tipo de
+                        documento, direcciones, fechas, precios, descuentos, destino, etc.) se
+                        ignora si viene. El archivo debe traer únicamente la OC seleccionada; si
+                        trae otra OC, se rechaza. Al volver a subir un archivo de la misma OC, se
+                        reemplazan solo sus filas.
                     </p>
 
                     <div class="grupo-oc-portal">
