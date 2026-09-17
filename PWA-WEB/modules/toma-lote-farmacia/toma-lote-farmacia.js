@@ -161,6 +161,8 @@ document.getElementById("btnDescargarPlantilla").addEventListener("click", funct
 const archivoFarmacia = document.getElementById("archivoFarmacia");
 const nombreArchivo = document.getElementById("nombreArchivo");
 const fechaArchivo = document.getElementById("fechaArchivo");
+const archivoReemplazarViaje = document.getElementById("archivoReemplazarViaje");
+let _viajeAReemplazar = null;
 
 const COLUMNAS_ESPERADAS_FARMACIA = [
     "viaje", "orden de compra", "entrega", "n° cita",
@@ -289,25 +291,32 @@ archivoFarmacia.addEventListener("change", async function(e){
             return;
         }
 
-        // Un viaje ya cargado no se puede volver a subir "por encima"
-        // sin más: si está Activo o Finalizado, queda bloqueado (hay
-        // que Desactivarlo primero); si está Desactivado (o es la
-        // primera vez que se carga), sí se puede reemplazar. Si el
-        // archivo trae algún viaje bloqueado, se rechaza completo.
+        // Este cargador es SOLO para viajes nuevos. Si el archivo
+        // trae algún viaje que ya tiene datos (sea cual sea su
+        // estado), se rechaza completo — reemplazar un viaje ya
+        // cargado es un flujo aparte: botón "Reemplazar" en el menú
+        // ⋮ de VIAJES GENERADOS (solo disponible si está Desactivado).
         const viajesEnArchivo = [...new Set(filasNormalizadas.map(f => f.viaje))];
 
-        const estadosActuales = await obtenerViajesActivadosFarmacia();
+        const viajesYaCargados = [];
 
-        const bloqueados = viajesEnArchivo.filter(function(v){
-            const estado = estadosActuales.get(v);
-            return estado === "activo" || estado === "finalizado";
-        });
+        for(const v of viajesEnArchivo){
 
-        if(bloqueados.length){
+            const existentes = await supabaseFetch(
+                "/farmacia_data?select=id&limit=1&viaje=eq." + v
+            );
+
+            if(existentes && existentes.length){
+                viajesYaCargados.push(v);
+            }
+
+        }
+
+        if(viajesYaCargados.length){
 
             mostrarToast(
-                "No se puede cargar: el viaje " + bloqueados.join(", ") +
-                " está Activo/Finalizado. Desactívalo primero para poder reemplazarlo.",
+                "No se puede cargar: el viaje " + viajesYaCargados.join(", ") +
+                " ya está cargado. Usa \"Reemplazar\" en el menú ⋮ de Viajes Generados para actualizarlo.",
                 "error"
             );
 
@@ -317,44 +326,10 @@ archivoFarmacia.addEventListener("change", async function(e){
 
         }
 
-        const viajesConDataPrevia = [];
-
-        for(const v of viajesEnArchivo){
-
-            const existentes = await supabaseFetch(
-                "/farmacia_data?select=id&limit=1&viaje=eq." + v
-            );
-
-            if(existentes && existentes.length){
-                viajesConDataPrevia.push(v);
-            }
-
-        }
-
-        if(viajesConDataPrevia.length){
-
-            const confirmado = confirm(
-                "Vas a reemplazar los datos ya cargados del/los viaje(s) " +
-                viajesConDataPrevia.join(", ") + " (" + filasNormalizadas.length + " filas en el archivo). ¿Continuar?"
-            );
-
-            if(!confirmado){
-                nombreArchivo.textContent = "-";
-                archivoFarmacia.value = "";
-                return;
-            }
-
-        }
-
         nombreArchivo.textContent = "Guardando " + archivo.name + "...";
 
-        for(const v of viajesEnArchivo){
-            await supabaseFetch("/farmacia_data?viaje=eq." + v, { method: "DELETE" });
-        }
-
-        // Cada viaje cargado (nuevo o reemplazado) queda en
-        // "desactivado" — hay que activarlo a propósito desde
-        // "VIAJES GENERADOS".
+        // Todo viaje recién cargado queda en "desactivado" — hay que
+        // activarlo a propósito desde "VIAJES GENERADOS".
         await supabaseFetch("/farmacia_viajes_activados?on_conflict=viaje", {
             method: "POST",
             headers: { "Prefer": "resolution=merge-duplicates" },
@@ -381,6 +356,102 @@ archivoFarmacia.addEventListener("change", async function(e){
         mostrarToast("No se pudo cargar el archivo: " + err.message, "error");
         nombreArchivo.textContent = "-";
         archivoFarmacia.value = "";
+
+    }
+
+});
+
+// Reemplazo dedicado de UN viaje puntual (disparado desde el botón
+// "Reemplazar" del menú ⋮ en Viajes Generados). A diferencia del
+// cargador de arriba, este exige que el archivo traiga únicamente
+// el viaje que se está reemplazando.
+archivoReemplazarViaje.addEventListener("change", async function(e){
+
+    const archivo = e.target.files[0];
+    const viaje = _viajeAReemplazar;
+
+    if(!archivo || !viaje){
+        archivoReemplazarViaje.value = "";
+        return;
+    }
+
+    try{
+
+        // Revalida el estado por si cambió mientras se elegía el archivo.
+        const estados = await obtenerViajesActivadosFarmacia();
+        const estadoActual = estados.get(viaje) || "desactivado";
+
+        if(estadoActual !== "desactivado"){
+            mostrarToast("El viaje " + viaje + " ya no está Desactivado, no se puede reemplazar.", "error");
+            archivoReemplazarViaje.value = "";
+            _viajeAReemplazar = null;
+            return;
+        }
+
+        const filasCrudas = await leerFilasFarmaciaExcel(archivo);
+
+        const errorFormato = validarFormatoFarmacia(filasCrudas);
+
+        if(errorFormato){
+            mostrarToast(errorFormato, "error");
+            archivoReemplazarViaje.value = "";
+            return;
+        }
+
+        const cargadoPor = (sesion && (sesion.nombre_completo || sesion.usuario)) || "";
+
+        const filasNormalizadas = filasCrudas
+            .map(f => normalizarFilaFarmacia(f, archivo.name, cargadoPor))
+            .filter(f => f.viaje !== null && f.codigo);
+
+        if(!filasNormalizadas.length){
+            mostrarToast("No se encontraron filas válidas en el archivo (revisa columnas VIAJE y CODIGO/SKU).", "error");
+            archivoReemplazarViaje.value = "";
+            return;
+        }
+
+        const viajesDelArchivo = [...new Set(filasNormalizadas.map(f => f.viaje))];
+
+        if(viajesDelArchivo.length > 1 || viajesDelArchivo[0] !== viaje){
+
+            mostrarToast(
+                "Este archivo trae el viaje " + viajesDelArchivo.join(", ") +
+                ", pero estás reemplazando el viaje " + viaje + ". Sube el archivo de ese viaje exacto.",
+                "error"
+            );
+
+            archivoReemplazarViaje.value = "";
+            return;
+
+        }
+
+        const confirmado = confirm(
+            "¿Reemplazar los datos del viaje " + viaje + " con este archivo (" +
+            filasNormalizadas.length + " filas)?"
+        );
+
+        if(!confirmado){
+            archivoReemplazarViaje.value = "";
+            return;
+        }
+
+        await supabaseFetch("/farmacia_data?viaje=eq." + viaje, { method: "DELETE" });
+
+        await guardarEnBloques("farmacia_data", filasNormalizadas);
+
+        mostrarToast("Viaje " + viaje + " reemplazado: " + filasNormalizadas.length + " filas.", "exito");
+
+        await cargarResumenExistente();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo reemplazar el viaje: " + err.message, "error");
+
+    }finally{
+
+        archivoReemplazarViaje.value = "";
+        _viajeAReemplazar = null;
 
     }
 
@@ -539,8 +610,8 @@ document.getElementById("tblViajes").addEventListener("click", async function(e)
 
     if(botonReemplazar){
         cerrarMenusAcciones(null);
-        mostrarToast("Sube el nuevo Excel de ese viaje arriba: al estar Desactivado, se reemplaza automáticamente.", "info");
-        archivoFarmacia.click();
+        _viajeAReemplazar = Number(botonReemplazar.dataset.viaje);
+        archivoReemplazarViaje.click();
         return;
     }
 
