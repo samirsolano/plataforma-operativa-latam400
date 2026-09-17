@@ -47,13 +47,14 @@ async function cargarEquipoCompleto(){
 
     try{
 
-        const [promotores, fotos] = await Promise.all([
+        const [promotores, fotos, logoUrl] = await Promise.all([
             checklistFetch(
                 "/promotores_5s?select=zona,pasillo,turno,dni,nombre&activo=eq.true&order=turno.asc,zona.asc,pasillo.asc"
             ),
             checklistFetch(
                 "/fotos_colaboradores?select=dni,foto"
-            )
+            ),
+            cargarLogoSigmaTransparente()
         ]);
 
         if(!promotores || !promotores.length){
@@ -68,7 +69,7 @@ async function cargarEquipoCompleto(){
             fotosPorDni[f.dni] = f.foto;
         });
 
-        renderizarEquipoCompleto(promotores, fotosPorDni);
+        renderizarEquipoCompleto(promotores, fotosPorDni, logoUrl);
 
         mensajeCarga.style.display = "none";
 
@@ -81,7 +82,7 @@ async function cargarEquipoCompleto(){
 
 }
 
-function renderizarEquipoCompleto(promotores, fotosPorDni){
+function renderizarEquipoCompleto(promotores, fotosPorDni, logoUrl){
 
     contenedorTurnos.innerHTML = "";
 
@@ -121,7 +122,7 @@ function renderizarEquipoCompleto(promotores, fotosPorDni){
 
             hoja.innerHTML = `
                 <div class="hoja-banner">
-                    <div class="hoja-logo">${LOGO_SIGMA_SVG}</div>
+                    <div class="hoja-logo"><img class="logo-sigma-img" src="${logoUrl}" alt="SIGMA"></div>
                     <div class="hoja-titulos">
                         <h2>PROMOTORES 5S</h2>
                         <span>${ETIQUETAS_TURNO[turno]} — LATAM 400 CL${sufijoHoja}</span>

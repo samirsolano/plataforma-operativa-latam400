@@ -1,38 +1,77 @@
 // ========================================
-// LOGO "SIGMA" — recreado en SVG (no tenemos el archivo original
-// del logo, solo se vio pegado en el chat) para los tableros de
-// Promotor 5S. Si en algún momento se consigue el PNG/SVG real,
-// basta con reemplazar esta constante por un <img src="...">.
+// LOGO "SIGMA" — archivo real (assets/logo-sigma.jpg), no una
+// recreación. El archivo viene con fondo negro sólido (no es un PNG
+// transparente), así que acá se "recorta" ese negro por canvas antes
+// de mostrarlo, para que no aparezca un cuadro negro sobre el chip
+// blanco del banner.
 // ========================================
 
-const LOGO_SIGMA_SVG = `
-<svg class="logo-sigma-svg" viewBox="0 0 260 90" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SIGMA">
-    <defs>
-        <clipPath id="sigmaDisco">
-            <circle cx="205" cy="45" r="34"/>
-        </clipPath>
-    </defs>
+const LOGO_SIGMA_SRC = "assets/logo-sigma.jpg";
 
-    <text x="0" y="66" font-family="Arial, 'Segoe UI', sans-serif"
-          font-weight="800" font-size="56" fill="#ee2f24" letter-spacing="-1">SIGMA</text>
+let logoSigmaUrlCache = null;
 
-    <!-- Ícono: hoja + disco partido por 2 chevrones (como el logo real:
-         hoja arriba-izquierda, y a la derecha un círculo "cortado" por
-         flechas apuntando a la derecha). -->
-    <path d="M168 10
-             C 182 1, 202 5, 206 18
-             C 195 10, 182 8, 172 14
-             C 170 13, 169 11, 168 10 Z"
-          fill="#6fa82e"/>
+function cargarLogoSigmaTransparente(){
 
-    <g clip-path="url(#sigmaDisco)">
-        <circle cx="205" cy="45" r="34" fill="#6fa82e"/>
-        <polyline points="165,26 190,26 204,45 190,64 165,64"
-                   fill="none" stroke="white" stroke-width="7"
-                   stroke-linejoin="round" stroke-linecap="round"/>
-        <polyline points="165,50 186,50 198,64 186,78 165,78"
-                   fill="none" stroke="white" stroke-width="7"
-                   stroke-linejoin="round" stroke-linecap="round"/>
-    </g>
-</svg>
-`;
+    if(logoSigmaUrlCache){
+        return Promise.resolve(logoSigmaUrlCache);
+    }
+
+    return new Promise(function(resolve){
+
+        const img = new Image();
+
+        img.onload = function(){
+
+            try{
+
+                const canvas = document.createElement("canvas");
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0);
+
+                const datos = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const pixeles = datos.data;
+
+                // El fondo del archivo es negro sólido; el logo en sí
+                // (rojo/verde) siempre tiene algún canal bien alto, así
+                // que usar el canal más brillante como "oscuridad" no
+                // afecta al logo, solo al fondo. Se suaviza el borde
+                // (30-70) para no dejar un halo duro por la compresión
+                // JPEG.
+                for(let i = 0; i < pixeles.length; i += 4){
+
+                    const brillo = Math.max(pixeles[i], pixeles[i + 1], pixeles[i + 2]);
+
+                    if(brillo <= 30){
+                        pixeles[i + 3] = 0;
+                    }else if(brillo < 70){
+                        pixeles[i + 3] = Math.round(255 * (brillo - 30) / 40);
+                    }
+
+                }
+
+                ctx.putImageData(datos, 0, 0);
+
+                logoSigmaUrlCache = canvas.toDataURL("image/png");
+                resolve(logoSigmaUrlCache);
+
+            }catch(e){
+
+                console.error("No se pudo recortar el fondo del logo SIGMA", e);
+                resolve(LOGO_SIGMA_SRC);
+
+            }
+
+        };
+
+        img.onerror = function(){
+            resolve(LOGO_SIGMA_SRC);
+        };
+
+        img.src = LOGO_SIGMA_SRC;
+
+    });
+
+}

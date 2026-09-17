@@ -27,13 +27,14 @@ async function cargarTablero(){
 
     try{
 
-        const [promotores, fotos] = await Promise.all([
+        const [promotores, fotos, logoUrl] = await Promise.all([
             checklistFetch(
                 "/promotores_5s?select=zona,pasillo,turno,dni,nombre&activo=eq.true&order=zona.asc,pasillo.asc,turno.asc"
             ),
             checklistFetch(
                 "/fotos_colaboradores?select=dni,foto"
-            )
+            ),
+            cargarLogoSigmaTransparente()
         ]);
 
         if(!promotores || !promotores.length){
@@ -50,7 +51,7 @@ async function cargarTablero(){
 
         const grupos = agruparPorPasillo(promotores);
 
-        renderizarTablero(grupos, fotosPorDni);
+        renderizarTablero(grupos, fotosPorDni, logoUrl);
 
         mensajeCarga.style.display = "none";
 
@@ -85,7 +86,7 @@ function agruparPorPasillo(promotores){
 
 }
 
-function renderizarTablero(grupos, fotosPorDni){
+function renderizarTablero(grupos, fotosPorDni, logoUrl){
 
     contenedorTablero.innerHTML = "";
 
@@ -129,7 +130,7 @@ function renderizarTablero(grupos, fotosPorDni){
                 <div class="subtitulo">${grupo.zona} — ${grupo.pasillo}</div>
             </div>
             <div class="tarjeta-logo">
-                ${LOGO_SIGMA_SVG}
+                <img class="logo-sigma-img" src="${logoUrl}" alt="SIGMA">
             </div>
             <div class="tarjeta-personas">
                 ${personasHtml}
