@@ -2489,8 +2489,9 @@ async function generarDataFinal(){
         const skuPorCodigo = {};
 
         (maraFilas || []).forEach(function(m){
-            if(m.cod_proveedor && !skuPorCodigo[m.cod_proveedor]){
-                skuPorCodigo[m.cod_proveedor] = m.cod_sap;
+            const clave = String(m.cod_proveedor || "").trim();
+            if(clave && !skuPorCodigo[clave]){
+                skuPorCodigo[clave] = m.cod_sap;
             }
         });
 
@@ -2498,7 +2499,7 @@ async function generarDataFinal(){
 
         lecturasFilas.forEach(function(l){
 
-            const sku = skuPorCodigo[l.codigo] || null;
+            const sku = skuPorCodigo[String(l.codigo || "").trim()] || null;
             const clave = l.codigo + "|" + (l.lote || "") + "|" + (l.fv || "");
 
             if(!grupos[clave]){
