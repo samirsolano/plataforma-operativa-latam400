@@ -133,17 +133,11 @@ document.querySelectorAll(".tab-link").forEach(function(link){
 document.getElementById("btnDescargarPlantilla").addEventListener("click", function(){
 
     const encabezados = [
-        "VIAJE", "ORDEN DE COMPRA", "ENTREGA", "N° CITA",
+        "FECHA DE CITA", "VIAJE", "ORDEN DE COMPRA", "ENTREGA",
         "CODIGO/SKU", "DESCRIPCION", "UN", "CANTIDAD SOLICITADA"
     ];
 
-    const filasEjemplo = [
-        [1000150787, 1000427525, 85758703, 324837, "8301101", "CEP DENTO PREMIUM GRAB RT MED.14UND 6DSP", "CJA", 36],
-        [1000150787, 1000427525, 85758703, 324837, "8301123", "ENJ.BUCAL DENTO XTRA COOL 500ML 12UND", "CJA", 6],
-        [1000150787, 1000427526, 85758704, 324840, "8301102", "CEP DENTO PREMIUM GRAB RT DUR.14UND 6DSP", "CJA", 25]
-    ];
-
-    const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filasEjemplo]);
+    const hoja = XLSX.utils.aoa_to_sheet([encabezados]);
     const libro = XLSX.utils.book_new();
 
     XLSX.utils.book_append_sheet(libro, hoja, "TOMA DE LOTE FARMACIA");
@@ -165,14 +159,14 @@ const archivoReemplazarViaje = document.getElementById("archivoReemplazarViaje")
 let _viajeAReemplazar = null;
 
 const COLUMNAS_ESPERADAS_FARMACIA = [
-    "viaje", "orden de compra", "entrega", "n° cita",
+    "fecha de cita", "viaje", "orden de compra", "entrega",
     "codigo/sku", "descripcion", "un", "cantidad solicitada"
 ];
 
 async function leerFilasFarmaciaExcel(archivo){
 
     const buffer = await archivo.arrayBuffer();
-    const libro = XLSX.read(buffer, { type: "array" });
+    const libro = XLSX.read(buffer, { type: "array", cellDates: true });
 
     const hoja = libro.Sheets[libro.SheetNames[0]];
 
@@ -223,11 +217,15 @@ function normalizarFilaFarmacia(filaOriginal, archivo, cargadoPor){
         return String(valor(clave)).trim();
     }
 
+    function fecha(clave){
+        return parsearFechaExcel(valor(clave));
+    }
+
     return {
         viaje: num("viaje"),
         orden_compra: num("orden de compra"),
         entrega: num("entrega"),
-        n_cita: num("n° cita"),
+        fecha_cita: fecha("fecha de cita"),
         codigo: texto("codigo/sku"),
         descripcion: texto("descripcion"),
         un: texto("un"),
@@ -479,11 +477,15 @@ function cargarViajesReales(filas, estadosMap){
         }
 
         if(!porViaje[clave]){
-            porViaje[clave] = { viaje: clave, ocs: new Set(), codigos: 0, cantidad: 0 };
+            porViaje[clave] = { viaje: clave, ocs: new Set(), codigos: 0, cantidad: 0, fecha_cita: null };
         }
 
         if(f.orden_compra !== null && f.orden_compra !== undefined){
             porViaje[clave].ocs.add(f.orden_compra);
+        }
+
+        if(!porViaje[clave].fecha_cita && f.fecha_cita){
+            porViaje[clave].fecha_cita = f.fecha_cita;
         }
 
         porViaje[clave].codigos++;
@@ -497,7 +499,7 @@ function cargarViajesReales(filas, estadosMap){
     tbody.innerHTML = "";
 
     if(!viajes.length){
-        tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">Sube la plantilla para ver los viajes.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Sube la plantilla para ver los viajes.</td></tr>`;
         return;
     }
 
@@ -540,6 +542,7 @@ function cargarViajesReales(filas, estadosMap){
         tr.innerHTML = `
             <td>${v.viaje}</td>
             <td>${v.ocs.size}</td>
+            <td>${v.fecha_cita || "-"}</td>
             <td>${v.codigos}</td>
             <td>${formatearNumeroFarmacia(v.cantidad)}</td>
             <td><span class="estado ${estadoClase}">${estadoTexto}</span></td>
@@ -711,7 +714,7 @@ async function obtenerViajesActivadosFarmacia(){
 async function refrescarVistaViajes(){
 
     const filas = await supabaseFetch(
-        "/farmacia_data?select=viaje,orden_compra,cantidad"
+        "/farmacia_data?select=viaje,orden_compra,cantidad,fecha_cita"
     );
 
     if(!filas || !filas.length){
@@ -734,7 +737,7 @@ async function cargarResumenExistente(){
     try{
 
         const filas = await supabaseFetch(
-            "/farmacia_data?select=viaje,orden_compra,cantidad,archivo_origen,created_at&order=created_at.desc"
+            "/farmacia_data?select=viaje,orden_compra,cantidad,fecha_cita,archivo_origen,created_at&order=created_at.desc"
         );
 
         if(!filas || !filas.length){
