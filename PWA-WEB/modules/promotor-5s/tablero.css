@@ -1,0 +1,194 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+
+body{
+    background:#eef2f7;
+    padding:25px;
+}
+
+.barra-superior{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    background:white;
+    border-radius:16px;
+    padding:18px 25px;
+    margin-bottom:25px;
+    box-shadow:0 5px 15px rgba(0,0,0,.05);
+}
+
+.barra-superior h1{
+    font-size:20px;
+    color:#1f2937;
+    flex:1;
+    text-align:center;
+}
+
+.volver{
+    color:#6b7280;
+    text-decoration:none;
+    font-size:14px;
+    font-weight:600;
+}
+
+.volver:hover{
+    color:#FC000D;
+}
+
+.btn-imprimir{
+    background:#FC000D;
+    color:white;
+    border:none;
+    padding:12px 22px;
+    border-radius:12px;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.3s;
+}
+
+.btn-imprimir:hover{
+    background:#d40009;
+}
+
+.mensaje-carga{
+    text-align:center;
+    color:#6b7280;
+    padding:30px 0;
+}
+
+.grid-tablero{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(520px, 1fr));
+    gap:25px;
+}
+
+.tarjeta-pasillo{
+    background:white;
+    border:3px solid #d1181f;
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 5px 20px rgba(0,0,0,.08);
+    break-inside:avoid;
+    page-break-inside:avoid;
+}
+
+.tarjeta-banner{
+    background:#d1181f;
+    color:white;
+    padding:14px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.tarjeta-banner .titulo-principal{
+    font-size:20px;
+    font-weight:800;
+}
+
+.tarjeta-banner .subtitulo{
+    font-size:13px;
+    font-weight:600;
+    opacity:.92;
+}
+
+.tarjeta-logo{
+    display:flex;
+    align-items:baseline;
+    gap:2px;
+    padding:14px 20px 0;
+}
+
+.tarjeta-logo .sigma{
+    font-size:22px;
+    font-weight:800;
+    font-style:italic;
+    color:#d1181f;
+}
+
+.tarjeta-logo .sigma span{
+    color:#8bc53f;
+}
+
+.tarjeta-personas{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:14px;
+    padding:18px 20px 22px;
+}
+
+.persona{
+    text-align:center;
+}
+
+.persona .foto-persona{
+    width:100px;
+    height:100px;
+    border-radius:12px;
+    object-fit:cover;
+    background:#f3f4f6;
+    border:1px solid #e5e7eb;
+    margin-bottom:10px;
+}
+
+.persona .etiqueta-rol{
+    font-size:14px;
+    font-weight:800;
+    color:#1f2937;
+}
+
+.persona .etiqueta-turno{
+    font-size:12px;
+    font-weight:700;
+    color:#d1181f;
+    margin-bottom:8px;
+}
+
+.persona .nombre-persona{
+    display:inline-block;
+    background:#f3f4f6;
+    border-radius:8px;
+    padding:6px 10px;
+    font-size:12px;
+    font-weight:700;
+    color:#1f2937;
+    word-break:break-word;
+}
+
+.persona.vacia .foto-persona{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#9ca3af;
+    font-size:12px;
+}
+
+@media print{
+
+    .noImprimir{
+        display:none !important;
+    }
+
+    body{
+        background:white;
+        padding:0;
+    }
+
+    .grid-tablero{
+        grid-template-columns:1fr;
+    }
+
+    .tarjeta-pasillo{
+        page-break-after:always;
+    }
+
+}

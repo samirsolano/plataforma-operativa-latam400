@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Tablero Promotor 5S - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="tablero.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="barra-superior noImprimir">
+
+        <a href="promotor-5s.html" class="volver">
+            ← Volver a Promotor 5S
+        </a>
+
+        <h1>Tablero de Promotores 5S — por pasillo</h1>
+
+        <button type="button" class="btn-imprimir" id="btnImprimir">
+            🖨️ Imprimir
+        </button>
+
+    </div>
+
+    <p id="mensajeCarga" class="mensaje-carga">
+        Cargando promotores...
+    </p>
+
+    <div id="contenedorTablero" class="grid-tablero"></div>
+
+    <script src="../../shared/checklist-config.js"></script>
+    <script src="tablero.js"></script>
+
+</body>
+
+</html>
