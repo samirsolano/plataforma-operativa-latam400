@@ -216,6 +216,14 @@ body{
         margin:8mm;
     }
 
+    /* Sin esto, Chrome/Edge no imprimen fondos de color (el banner
+       rojo, el fondo de las fotos, etc.) salvo que la persona marque
+       "Gráficos de fondo" a mano en el diálogo de impresión. */
+    *{
+        -webkit-print-color-adjust:exact;
+        print-color-adjust:exact;
+    }
+
     body{
         background:white;
         padding:0;
