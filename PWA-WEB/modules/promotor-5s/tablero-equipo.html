@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Equipo Completo Promotores 5S - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="tablero-equipo.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="barra-superior noImprimir">
+
+        <a href="promotor-5s.html" class="volver">
+            ← Volver a Promotor 5S
+        </a>
+
+        <h1>Tablero de Promotores 5S — Equipo Completo</h1>
+
+        <div class="acciones-barra">
+
+            <a href="tablero.html" class="btn-secundario-barra">
+                Ver por Pasillo
+            </a>
+
+            <button type="button" class="btn-imprimir" id="btnImprimir">
+                🖨️ Imprimir
+            </button>
+
+        </div>
+
+    </div>
+
+    <div class="poster">
+
+        <div class="poster-banner">
+
+            <div id="logoSigma" class="poster-logo"></div>
+
+            <div class="poster-titulos">
+                <h2>PROMOTORES 5S</h2>
+                <span>EQUIPO COMPLETO — LATAM 400 CL</span>
+            </div>
+
+        </div>
+
+        <p id="mensajeCarga" class="mensaje-carga">
+            Cargando promotores...
+        </p>
+
+        <div id="contenedorTurnos"></div>
+
+    </div>
+
+    <script src="../../shared/checklist-config.js"></script>
+    <script src="logo-sigma.js"></script>
+    <script src="tablero-equipo.js"></script>
+
+</body>
+
+</html>

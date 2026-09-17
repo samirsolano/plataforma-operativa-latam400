@@ -129,7 +129,7 @@ function renderizarTablero(grupos, fotosPorDni){
                 <div class="subtitulo">${grupo.zona} — ${grupo.pasillo}</div>
             </div>
             <div class="tarjeta-logo">
-                <span class="sigma">SIGMA<span>5S</span></span>
+                ${LOGO_SIGMA_SVG}
             </div>
             <div class="tarjeta-personas">
                 ${personasHtml}

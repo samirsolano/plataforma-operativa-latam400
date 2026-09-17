@@ -44,6 +44,10 @@ document.getElementById("btnVerTablero").addEventListener("click", function(){
     window.location.href = "tablero.html";
 });
 
+document.getElementById("btnVerEquipoCompleto").addEventListener("click", function(){
+    window.location.href = "tablero-equipo.html";
+});
+
 // ========================================
 // ETIQUETAS DE TURNO
 // ========================================

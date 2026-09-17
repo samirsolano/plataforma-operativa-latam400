@@ -88,105 +88,113 @@ body{
     padding:30px 0;
 }
 
-.grid-tablero{
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(520px, 1fr));
-    gap:25px;
-}
-
-.tarjeta-pasillo{
+.poster{
     background:white;
     border:3px solid #d1181f;
     border-radius:14px;
     overflow:hidden;
     box-shadow:0 5px 20px rgba(0,0,0,.08);
-    break-inside:avoid;
-    page-break-inside:avoid;
 }
 
-.tarjeta-banner{
+.poster-banner{
     background:#d1181f;
     color:white;
-    padding:14px 20px;
+    padding:16px 25px;
     display:flex;
     align-items:center;
-    justify-content:space-between;
-    gap:10px;
+    gap:20px;
     flex-wrap:wrap;
 }
 
-.tarjeta-banner .titulo-principal{
-    font-size:20px;
-    font-weight:800;
-}
-
-.tarjeta-banner .subtitulo{
-    font-size:13px;
-    font-weight:600;
-    opacity:.92;
-}
-
-.tarjeta-logo{
-    padding:14px 20px 0;
+.poster-logo{
+    background:white;
+    border-radius:8px;
+    padding:6px 12px;
 }
 
 .logo-sigma-svg{
-    height:32px;
+    height:30px;
     width:auto;
     display:block;
 }
 
-.tarjeta-personas{
-    display:grid;
-    grid-template-columns:repeat(3, 1fr);
-    gap:14px;
-    padding:18px 20px 22px;
+.poster-titulos h2{
+    font-size:24px;
+    font-weight:800;
+    letter-spacing:.5px;
 }
 
-.persona{
+.poster-titulos span{
+    font-size:13px;
+    font-weight:600;
+    opacity:.9;
+}
+
+.bloque-turno{
+    padding:20px 25px;
+    border-bottom:1px solid #f3f4f6;
+}
+
+.bloque-turno:last-child{
+    border-bottom:none;
+}
+
+.bloque-turno h3{
+    font-size:15px;
+    font-weight:800;
+    color:#d1181f;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    margin-bottom:14px;
+}
+
+.fila-personas{
+    display:flex;
+    gap:12px;
+    overflow-x:auto;
+    padding-bottom:6px;
+}
+
+.chip-persona{
+    flex:0 0 auto;
+    width:120px;
     text-align:center;
 }
 
-.persona .foto-persona{
-    width:100px;
-    height:100px;
-    border-radius:12px;
+.chip-persona .foto-persona{
+    width:90px;
+    height:90px;
+    border-radius:10px;
     object-fit:cover;
     background:#f3f4f6;
     border:1px solid #e5e7eb;
-    margin-bottom:10px;
+    margin-bottom:6px;
 }
 
-.persona .etiqueta-rol{
-    font-size:14px;
-    font-weight:800;
-    color:#1f2937;
-}
-
-.persona .etiqueta-turno{
-    font-size:12px;
-    font-weight:700;
-    color:#d1181f;
-    margin-bottom:8px;
-}
-
-.persona .nombre-persona{
-    display:inline-block;
-    background:#f3f4f6;
-    border-radius:8px;
-    padding:6px 10px;
+.chip-persona .nombre-persona{
     font-size:12px;
     font-weight:700;
     color:#1f2937;
     word-break:break-word;
+    min-height:30px;
 }
 
-.persona.vacia .foto-persona{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    color:#9ca3af;
-    font-size:12px;
+.chip-persona .zona-persona{
+    font-size:11px;
+    font-weight:700;
+    color:#d1181f;
+    background:#fdeceb;
+    border-radius:6px;
+    padding:2px 6px;
+    display:inline-block;
+    margin-top:4px;
+}
+
+.chip-persona .pasillo-persona{
+    font-size:11px;
+    color:#6b7280;
+    margin-top:2px;
+    word-break:break-word;
 }
 
 @media print{
@@ -200,12 +208,18 @@ body{
         padding:0;
     }
 
-    .grid-tablero{
-        grid-template-columns:1fr;
+    .poster{
+        border-width:2px;
     }
 
-    .tarjeta-pasillo{
-        page-break-after:always;
+    .fila-personas{
+        flex-wrap:wrap;
+        overflow:visible;
+    }
+
+    .bloque-turno{
+        break-inside:avoid;
+        page-break-inside:avoid;
     }
 
 }
