@@ -661,6 +661,64 @@
 
                 <div class="card">
 
+                    <div class="card-header-flex">
+
+                        <h2>
+                            ACTUALIZAR TVU (TIEMPO DE VIDA ÚTIL)
+                        </h2>
+
+                        <button id="btnDescargarPlantillaTvu" class="btn-secundario">
+                            ⬇ Descargar Plantilla
+                        </button>
+
+                    </div>
+
+                    <p class="nota-modulo">
+                        Sube el Excel de TVU con las columnas: MAT, DES, TVU (meses). Solo
+                        actualiza el TVU de los códigos que ya existen en el maestro Alicorp de
+                        arriba — no crea códigos nuevos ni toca EAN/factor/unidad. Si un código del
+                        archivo no está en el maestro, se avisa cuáles no se actualizaron.
+                    </p>
+
+                    <div class="data-modulado">
+
+                        <div class="upload-box">
+
+                            <input
+                                type="file"
+                                id="archivoTvu"
+                            >
+
+                        </div>
+
+                        <div class="detalle-archivo">
+
+                            <p>
+                                Archivo:
+                                <span id="nombreArchivoTvu">-</span>
+                            </p>
+
+                            <p>
+                                Actualizados:
+                                <span id="totalActualizadosTvu">-</span>
+                            </p>
+
+                        </div>
+
+                        <div class="estado-ok">
+
+                            <h3>✓ Procesado correctamente</h3>
+
+                            <p>El TVU quedó actualizado en el maestro Alicorp.</p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="card">
+
                     <h2>
                         CONSULTAR MARA ALICORP
                     </h2>
@@ -694,6 +752,7 @@
                                 <th>EAN/UPC</th>
                                 <th>Factor Unid. Alm.</th>
                                 <th>Und. Almacenamiento</th>
+                                <th>TVU (meses)</th>
 
                             </tr>
 
@@ -702,7 +761,7 @@
                         <tbody id="tblAlicorp">
 
                             <tr>
-                                <td colspan="5" class="sin-datos">
+                                <td colspan="6" class="sin-datos">
                                     Cargando maestro Alicorp...
                                 </td>
                             </tr>
