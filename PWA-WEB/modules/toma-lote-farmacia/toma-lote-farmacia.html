@@ -67,6 +67,7 @@
                 <a href="#" class="tab-link" data-tab="tabMaraAlicorp">5. MARA Alicorp</a>
                 <a href="#" class="tab-link" data-tab="tabStockFisico">6. Stock Físico SAP</a>
                 <a href="#" class="tab-link" data-tab="tabCruce">7. Cruce de Información</a>
+                <a href="#" class="tab-link" data-tab="tabDataFinal">8. Data Final</a>
 
             </nav>
 
@@ -933,6 +934,87 @@
                             <tr>
                                 <td colspan="8" class="sin-datos">
                                     Selecciona el Viaje y la OC, y presiona "Calcular Cruce".
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TAB 8: DATA FINAL -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabDataFinal">
+
+                <div class="card">
+
+                    <div class="card-header-flex">
+
+                        <h2>
+                            8. DATA FINAL
+                        </h2>
+
+                        <button id="btnExportarDataFinal" class="btn-secundario">
+                            ⬇ Exportar Excel
+                        </button>
+
+                    </div>
+
+                    <p class="nota-modulo">
+                        Selecciona el Viaje y la OC. Se toma lo escaneado en "2. Lecturas y
+                        Evidencias" para esa OC, se busca el código en "3. MARA InRetail Pharma"
+                        (por Cód. Proveedor) para obtener el SKU real, y se arma el reporte final
+                        agrupado por SKU y Lote: No. OC, SKU, Cantidad, No. Lote y Fecha Vto.
+                    </p>
+
+                    <div class="filtros-mara">
+
+                        <div>
+                            <label>Viaje</label>
+                            <select id="cmbViajeDataFinal">
+                                <option value="">Selecciona el viaje...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label>OC</label>
+                            <select id="cmbOcDataFinal" disabled>
+                                <option value="">Selecciona primero el viaje...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <button id="btnGenerarDataFinal">Generar Data Final</button>
+                        </div>
+
+                    </div>
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>No. OC</th>
+                                <th>SKU</th>
+                                <th>Cantidad</th>
+                                <th>No. Lote</th>
+                                <th>Fecha Vto.</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblDataFinal">
+
+                            <tr>
+                                <td colspan="5" class="sin-datos">
+                                    Selecciona el Viaje y la OC, y presiona "Generar Data Final".
                                 </td>
                             </tr>
 

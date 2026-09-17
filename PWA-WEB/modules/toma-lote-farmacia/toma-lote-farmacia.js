@@ -118,6 +118,10 @@ document.querySelectorAll(".tab-link").forEach(function(link){
             cargarViajesParaCruce();
         }
 
+        if(link.dataset.tab === "tabDataFinal"){
+            cargarViajesParaDataFinal();
+        }
+
     });
 
 });
@@ -2369,3 +2373,209 @@ async function calcularCruce(){
 }
 
 document.getElementById("btnCalcularCruce").addEventListener("click", calcularCruce);
+
+// ========================================
+// DATA FINAL
+// ========================================
+// Lo escaneado en Lecturas -> se resuelve el SKU real buscando el
+// código en "3. MARA InRetail Pharma" (por Cód. Proveedor) -> se
+// arma el reporte final agrupado por SKU y Lote. Reusa
+// supabaseFetchTodo y mostrarToast (definidos arriba).
+
+const cmbViajeDataFinal = document.getElementById("cmbViajeDataFinal");
+const cmbOcDataFinal = document.getElementById("cmbOcDataFinal");
+
+let _viajesDataFinalCargados = false;
+let _ultimaDataFinal = [];
+
+async function cargarViajesParaDataFinal(){
+
+    if(_viajesDataFinalCargados){
+        return;
+    }
+
+    try{
+
+        const filas = await supabaseFetchTodo("/farmacia_data?select=viaje");
+
+        const viajes = [...new Set((filas || []).map(f => f.viaje))]
+            .filter(v => v !== null && v !== undefined)
+            .sort((a, b) => a - b);
+
+        viajes.forEach(function(v){
+            const option = document.createElement("option");
+            option.value = String(v);
+            option.textContent = String(v);
+            cmbViajeDataFinal.appendChild(option);
+        });
+
+        _viajesDataFinalCargados = true;
+
+    }catch(e){
+        console.error(e);
+    }
+
+}
+
+cmbViajeDataFinal.addEventListener("change", async function(){
+
+    cmbOcDataFinal.innerHTML = `<option value="">Selecciona primero el viaje...</option>`;
+    cmbOcDataFinal.disabled = true;
+
+    document.getElementById("tblDataFinal").innerHTML =
+        `<tr><td colspan="5" class="sin-datos">Selecciona el Viaje y la OC, y presiona "Generar Data Final".</td></tr>`;
+
+    if(!cmbViajeDataFinal.value){
+        return;
+    }
+
+    try{
+
+        const filas = await supabaseFetchTodo(
+            "/farmacia_data?select=orden_compra&viaje=eq." + cmbViajeDataFinal.value
+        );
+
+        const ocs = [...new Set((filas || []).map(f => f.orden_compra))]
+            .filter(v => v !== null && v !== undefined)
+            .sort((a, b) => a - b);
+
+        cmbOcDataFinal.innerHTML = `<option value="">Selecciona la OC...</option>`;
+
+        ocs.forEach(function(oc){
+            const option = document.createElement("option");
+            option.value = String(oc);
+            option.textContent = String(oc);
+            cmbOcDataFinal.appendChild(option);
+        });
+
+        cmbOcDataFinal.disabled = false;
+
+    }catch(e){
+        console.error(e);
+        mostrarToast("No se pudieron cargar las OC de ese viaje.", "error");
+    }
+
+});
+
+async function generarDataFinal(){
+
+    const viaje = Number(cmbViajeDataFinal.value);
+    const oc = Number(cmbOcDataFinal.value);
+
+    const tbody = document.getElementById("tblDataFinal");
+
+    if(!cmbViajeDataFinal.value || !cmbOcDataFinal.value){
+        mostrarToast("Primero selecciona el Viaje y la OC.", "error");
+        return;
+    }
+
+    tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">Generando...</td></tr>`;
+
+    try{
+
+        const [lecturasFilas, maraFilas] = await Promise.all([
+            supabaseFetchTodo(
+                "/farmacia_lecturas?select=codigo,lote,fv,cantidad_cajas&viaje=eq." + viaje + "&oc=eq." + oc
+            ),
+            supabaseFetchTodo("/mara_farmacia?select=cod_proveedor,cod_sap")
+        ]);
+
+        if(!lecturasFilas || !lecturasFilas.length){
+            tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">Esa OC todavía no tiene lecturas escaneadas.</td></tr>`;
+            _ultimaDataFinal = [];
+            return;
+        }
+
+        const skuPorCodigo = {};
+
+        (maraFilas || []).forEach(function(m){
+            if(m.cod_proveedor && !skuPorCodigo[m.cod_proveedor]){
+                skuPorCodigo[m.cod_proveedor] = m.cod_sap;
+            }
+        });
+
+        const grupos = {};
+
+        lecturasFilas.forEach(function(l){
+
+            const sku = skuPorCodigo[l.codigo] || null;
+            const clave = l.codigo + "|" + (l.lote || "") + "|" + (l.fv || "");
+
+            if(!grupos[clave]){
+                grupos[clave] = {
+                    sku: sku,
+                    lote: l.lote || "-",
+                    fv: l.fv || "-",
+                    cantidad: 0
+                };
+            }
+
+            grupos[clave].cantidad += Number(l.cantidad_cajas || 0);
+
+        });
+
+        const filas = Object.values(grupos).sort(function(a, b){
+            return String(a.sku).localeCompare(String(b.sku));
+        });
+
+        _ultimaDataFinal = filas.map(function(f){
+            return {
+                oc: oc,
+                sku: f.sku || "Sin MARA",
+                cantidad: f.cantidad,
+                lote: f.lote,
+                fv: f.fv
+            };
+        });
+
+        tbody.innerHTML = "";
+
+        _ultimaDataFinal.forEach(function(f){
+
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${f.oc}</td>
+                <td>${f.sku}</td>
+                <td>${formatearNumeroFarmacia(f.cantidad)}</td>
+                <td>${f.lote}</td>
+                <td>${f.fv}</td>
+            `;
+
+            tbody.appendChild(tr);
+
+        });
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">No se pudo generar la data final.</td></tr>`;
+        _ultimaDataFinal = [];
+
+    }
+
+}
+
+document.getElementById("btnGenerarDataFinal").addEventListener("click", generarDataFinal);
+
+document.getElementById("btnExportarDataFinal").addEventListener("click", function(){
+
+    if(!_ultimaDataFinal.length){
+        mostrarToast("Genera la data final antes de exportar.", "error");
+        return;
+    }
+
+    const encabezados = ["No. OC", "SKU", "Cantidad", "No. Lote", "Fecha Vto."];
+
+    const filas = _ultimaDataFinal.map(function(f){
+        return [f.oc, f.sku, f.cantidad, f.lote, f.fv];
+    });
+
+    const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filas]);
+    const libro = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(libro, hoja, "DATA FINAL");
+
+    XLSX.writeFile(libro, "DATA_FINAL_" + new Date().toISOString().slice(0, 10) + ".xlsx");
+
+});
