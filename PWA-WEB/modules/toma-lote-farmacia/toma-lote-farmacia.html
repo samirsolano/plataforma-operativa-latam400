@@ -243,16 +243,22 @@
                     </div>
 
                     <p class="nota-modulo">
-                        Busca por viaje, código y/o lote para revisar lo que escanearon los auxiliares y ver la foto de evidencia de cada caja.
+                        Busca por viaje, OC, código, lote y/o estado para revisar lo que
+                        escanearon los auxiliares y ver la foto de evidencia de cada caja.
                     </p>
 
-                    <div class="filtros-lecturas">
+                    <div class="filtros-lecturas filtros-lecturas-6">
 
                         <div>
                             <label>Viaje</label>
                             <select id="cmbViajeLecturas">
                                 <option value="">Todos</option>
                             </select>
+                        </div>
+
+                        <div>
+                            <label>OC</label>
+                            <input type="text" id="filtroOcLecturas" placeholder="Ej: 1000427525">
                         </div>
 
                         <div>
@@ -266,10 +272,64 @@
                         </div>
 
                         <div>
+                            <label>Estado</label>
+                            <select id="filtroEstadoResumen">
+                                <option value="">Todos</option>
+                                <option value="completo">Completo</option>
+                                <option value="pendiente">Pendiente</option>
+                                <option value="observaciones">Con observaciones</option>
+                            </select>
+                        </div>
+
+                        <div>
                             <button id="btnBuscarLecturas">Buscar</button>
                         </div>
 
                     </div>
+
+                </div>
+
+                <div class="card">
+
+                    <h2>
+                        RESUMEN POR CÓDIGO
+                    </h2>
+
+                    <p class="nota-modulo">
+                        Cada fila es un código; haz clic en ella para ver las líneas
+                        pistoleadas (lote, F.V., cajas, quién y cuándo).
+                        "Con observaciones": más de 3 lotes, un lote con vida útil restante
+                        menor a 2/3 de su TVU, o diferencia entre lo solicitado y lo pistoleado.
+                    </p>
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Ctd. Solicitada</th>
+                                <th>Ctd. Pistoleada</th>
+                                <th>Lotes</th>
+                                <th>Estado</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblResumenCodigo">
+
+                            <tr>
+                                <td colspan="6" class="sin-datos">
+                                    Usa los filtros de arriba para buscar.
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
 
                 </div>
 

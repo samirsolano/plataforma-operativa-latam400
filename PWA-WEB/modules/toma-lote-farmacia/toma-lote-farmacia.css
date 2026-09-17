@@ -462,6 +462,64 @@ body{
     align-items:end;
 }
 
+.filtros-lecturas-6{
+    grid-template-columns:
+        1fr
+        1fr
+        1fr
+        1fr
+        1fr
+        140px;
+}
+
+/* RESUMEN POR CÓDIGO (expandible) */
+
+.fila-resumen-codigo{
+    cursor:pointer;
+}
+
+.fila-resumen-codigo:hover{
+    background:#f9fafb;
+}
+
+.fila-detalle-lotes.oculto{
+    display:none;
+}
+
+.fila-detalle-lotes td{
+    background:#f8fafc;
+    padding:0 !important;
+}
+
+.tabla-detalle-lotes{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.tabla-detalle-lotes th{
+    padding:8px 14px;
+    font-size:11.5px;
+    color:#6b7280;
+    text-align:left;
+}
+
+.tabla-detalle-lotes td{
+    padding:8px 14px;
+    font-size:12.5px;
+    border-top:1px solid #e5e7eb;
+}
+
+.flecha-resumen{
+    display:inline-block;
+    margin-right:8px;
+    transition:.15s;
+    color:#9aa5b1;
+}
+
+.fila-resumen-codigo.expandido .flecha-resumen{
+    transform:rotate(90deg);
+}
+
 .filtros-lecturas label{
     display:block;
     margin-bottom:8px;
