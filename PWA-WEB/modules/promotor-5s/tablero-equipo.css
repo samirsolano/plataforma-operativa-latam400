@@ -106,11 +106,14 @@ body{
     background:white;
     border:3px solid #d1181f;
     border-radius:14px;
-    overflow:hidden;
     box-shadow:0 8px 25px rgba(0,0,0,.12);
     width:100%;
     max-width:1122px;
-    aspect-ratio:1.414 / 1;
+    /* Alto de una hoja A4 apaisada a este ancho (1122 / 1.414). Es un
+       mínimo, no un tope: si por algún motivo entra más gente de la
+       que calcula PERSONAS_POR_HOJA, la hoja crece en vez de recortar
+       filas — nunca se debe esconder a alguien por overflow:hidden. */
+    min-height:793px;
     display:flex;
     flex-direction:column;
 }

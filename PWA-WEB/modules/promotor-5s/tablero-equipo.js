@@ -13,6 +13,24 @@ const ETIQUETAS_TURNO = {
     NOCHE: "3er turno — NOCHE"
 };
 
+// Cuántas personas caben cómodas en una sola hoja (7 columnas x 3
+// filas, el mismo layout que ya se ve en pantalla). Si un turno
+// tiene más gente que esto, se reparte en varias hojas en vez de
+// achicar todo para que "quepa" — así nunca se recorta a nadie.
+const PERSONAS_POR_HOJA = 21;
+
+function partirEnGrupos(lista, tamano){
+
+    const grupos = [];
+
+    for(let i = 0; i < lista.length; i += tamano){
+        grupos.push(lista.slice(i, i + tamano));
+    }
+
+    return grupos;
+
+}
+
 // Mismo placeholder corporativo que usa el resto de la app
 // (Check List 5S / auditoria.js) cuando no hay foto propia.
 const FOTO_DEFAULT =
@@ -75,38 +93,48 @@ function renderizarEquipoCompleto(promotores, fotosPorDni){
             return;
         }
 
-        const hoja = document.createElement("div");
-        hoja.className = "hoja-turno";
+        const grupos = partirEnGrupos(personasDelTurno, PERSONAS_POR_HOJA);
 
-        const chipsHtml = personasDelTurno.map(function(persona){
+        grupos.forEach(function(grupo, indice){
 
-            const foto = fotosPorDni[persona.dni] || FOTO_DEFAULT;
+            const hoja = document.createElement("div");
+            hoja.className = "hoja-turno";
 
-            return `
-                <div class="chip-persona">
-                    <img class="foto-persona" src="${foto}" alt="${persona.nombre}">
-                    <div class="nombre-persona">${persona.nombre}</div>
-                    <span class="zona-persona">${persona.zona}</span>
-                    <div class="pasillo-persona">${persona.pasillo}</div>
+            const chipsHtml = grupo.map(function(persona){
+
+                const foto = fotosPorDni[persona.dni] || FOTO_DEFAULT;
+
+                return `
+                    <div class="chip-persona">
+                        <img class="foto-persona" src="${foto}" alt="${persona.nombre}">
+                        <div class="nombre-persona">${persona.nombre}</div>
+                        <span class="zona-persona">${persona.zona}</span>
+                        <div class="pasillo-persona">${persona.pasillo}</div>
+                    </div>
+                `;
+
+            }).join("");
+
+            const sufijoHoja = grupos.length > 1
+                ? " · Hoja " + (indice + 1) + " de " + grupos.length
+                : "";
+
+            hoja.innerHTML = `
+                <div class="hoja-banner">
+                    <div class="hoja-logo">${LOGO_SIGMA_SVG}</div>
+                    <div class="hoja-titulos">
+                        <h2>PROMOTORES 5S</h2>
+                        <span>${ETIQUETAS_TURNO[turno]} — LATAM 400 CL${sufijoHoja}</span>
+                    </div>
+                </div>
+                <div class="hoja-personas">
+                    ${chipsHtml}
                 </div>
             `;
 
-        }).join("");
+            contenedorTurnos.appendChild(hoja);
 
-        hoja.innerHTML = `
-            <div class="hoja-banner">
-                <div class="hoja-logo">${LOGO_SIGMA_SVG}</div>
-                <div class="hoja-titulos">
-                    <h2>PROMOTORES 5S</h2>
-                    <span>${ETIQUETAS_TURNO[turno]} — LATAM 400 CL</span>
-                </div>
-            </div>
-            <div class="hoja-personas">
-                ${chipsHtml}
-            </div>
-        `;
-
-        contenedorTurnos.appendChild(hoja);
+        });
 
     });
 
