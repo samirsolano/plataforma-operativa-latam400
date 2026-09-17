@@ -1122,7 +1122,10 @@ async function buscarResumenCodigo(){
                 <td>${f.oc || "-"}</td>
                 <td><span class="flecha-resumen">▸</span>${f.codigo}</td>
                 <td>${f.descripcion || "-"}</td>
-                <td>${formatearNumeroFarmacia(f.solicitada)}</td>
+                <td>
+                    ${formatearNumeroFarmacia(f.solicitada)}
+                    <button class="btn-editar-solicitada" data-viaje="${f.viaje}" data-oc="${f.oc}" data-codigo="${f.codigo}" data-actual="${f.solicitada}">✎</button>
+                </td>
                 <td>${formatearNumeroFarmacia(f.pistoleada)}</td>
                 <td>${f.lotesUnicos.length}</td>
                 <td>
@@ -1197,6 +1200,60 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
         document.getElementById("modalFotoImg").src = botonFoto.dataset.foto;
         document.getElementById("modalFoto").classList.remove("oculto");
         return;
+    }
+
+    const botonEditar = e.target.closest(".btn-editar-solicitada");
+
+    if(botonEditar){
+
+        const viajeBtn = botonEditar.dataset.viaje;
+        const ocBtn = botonEditar.dataset.oc;
+        const codigoBtn = botonEditar.dataset.codigo;
+        const actual = botonEditar.dataset.actual;
+
+        const nuevoTexto = prompt(
+            "Nueva cantidad solicitada para el código " + codigoBtn +
+            " (Viaje " + viajeBtn + " / OC " + ocBtn + "):",
+            actual
+        );
+
+        if(nuevoTexto === null){
+            return;
+        }
+
+        const nuevaCantidad = Number(nuevoTexto);
+
+        if(isNaN(nuevaCantidad) || nuevaCantidad < 0){
+            mostrarToast("Ingresa una cantidad numérica válida.", "error");
+            return;
+        }
+
+        try{
+
+            const respuesta = await supabaseFetch(
+                "/farmacia_data?viaje=eq." + viajeBtn + "&orden_compra=eq." + ocBtn + "&codigo=eq." + encodeURIComponent(codigoBtn),
+                {
+                    method: "PATCH",
+                    headers: { "Prefer": "return=representation" },
+                    body: JSON.stringify({ cantidad: nuevaCantidad })
+                }
+            );
+
+            if(!respuesta || !respuesta.length){
+                mostrarToast("No se encontró la fila de ese código/viaje/OC en la carga.", "error");
+                return;
+            }
+
+            mostrarToast("Cantidad solicitada actualizada.", "exito");
+            buscarResumenCodigo();
+
+        }catch(err){
+            console.error(err);
+            mostrarToast("No se pudo actualizar la cantidad solicitada.", "error");
+        }
+
+        return;
+
     }
 
     const botonEliminar = e.target.closest(".btn-eliminar-lectura");

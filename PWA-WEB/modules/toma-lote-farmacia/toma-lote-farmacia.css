@@ -608,6 +608,15 @@ body{
     background:#fbd0d0;
 }
 
+.btn-editar-solicitada{
+    background:none;
+    border:none;
+    color:#FC000D;
+    font-size:13px;
+    cursor:pointer;
+    margin-left:4px;
+}
+
 .btn-eliminar-lectura{
     background:#fdecea;
     color:#c0392b;
