@@ -803,7 +803,50 @@ async function cargarViajesParaFiltro(){
         console.error(e);
     }
 
+    await cargarOcsParaFiltroLecturas();
+
 }
+
+async function cargarOcsParaFiltroLecturas(){
+
+    const viaje = document.getElementById("cmbViajeLecturas").value;
+    const cmbOc = document.getElementById("filtroOcLecturas");
+    const ocSeleccionada = cmbOc.value;
+
+    try{
+
+        let ruta = "/farmacia_data?select=orden_compra";
+
+        if(viaje){
+            ruta += "&viaje=eq." + viaje;
+        }
+
+        const filas = await supabaseFetchTodo(ruta);
+
+        const ocs = [...new Set((filas || []).map(f => f.orden_compra))]
+            .filter(v => v !== null && v !== undefined)
+            .sort((a, b) => a - b);
+
+        cmbOc.innerHTML = `<option value="">Todos</option>`;
+
+        ocs.forEach(function(oc){
+            const option = document.createElement("option");
+            option.value = String(oc);
+            option.textContent = String(oc);
+            cmbOc.appendChild(option);
+        });
+
+        if(ocs.map(String).includes(ocSeleccionada)){
+            cmbOc.value = ocSeleccionada;
+        }
+
+    }catch(e){
+        console.error(e);
+    }
+
+}
+
+document.getElementById("cmbViajeLecturas").addEventListener("change", cargarOcsParaFiltroLecturas);
 
 function formatearFechaHoraLecturas(iso){
 
@@ -893,7 +936,7 @@ async function buscarResumenCodigo(){
 
     try{
 
-        let rutaLecturas = "/farmacia_lecturas?select=codigo,descripcion,lote,fv,cantidad_cajas,escaneado_por,foto_url,created_at&order=created_at.desc";
+        let rutaLecturas = "/farmacia_lecturas?select=viaje,oc,codigo,descripcion,lote,fv,cantidad_cajas,escaneado_por,foto_url,created_at&order=created_at.desc";
         let rutaData = "/farmacia_data?select=codigo,descripcion,cantidad";
 
         if(viaje){
@@ -1085,6 +1128,8 @@ async function buscarResumenCodigo(){
 
                 return `
                     <tr>
+                        <td>${l.viaje || "-"}</td>
+                        <td>${l.oc || "-"}</td>
                         <td>${l.lote || "-"}</td>
                         <td>${l.fv || "-"}</td>
                         <td>${formatearNumeroFarmacia(l.cantidad_cajas)}</td>
@@ -1101,6 +1146,8 @@ async function buscarResumenCodigo(){
                     <table class="tabla-detalle-lotes">
                         <thead>
                             <tr>
+                                <th>Viaje</th>
+                                <th>OC</th>
                                 <th>Lote</th>
                                 <th>F.V.</th>
                                 <th>Cajas</th>
@@ -1110,7 +1157,7 @@ async function buscarResumenCodigo(){
                             </tr>
                         </thead>
                         <tbody>
-                            ${filasLotes || '<tr><td colspan="6" class="sin-datos">Sin lecturas.</td></tr>'}
+                            ${filasLotes || '<tr><td colspan="8" class="sin-datos">Sin lecturas.</td></tr>'}
                         </tbody>
                     </table>
                 </td>
