@@ -200,16 +200,22 @@ async function cargarRosterColaboradoresPasillo(){
 
 }
 
-function opcionesSelectColaboradorPasillo(dniAsignado){
+// Busca por nombre o DNI dentro del roster ya cargado — el admin
+// escribe "SAMIR" y ve todos los SAMIR del roster para elegir, en vez
+// de desplazarse por una lista larga.
+function buscarEnRosterColaboradoresPasillo(texto){
 
-    const opciones = ['<option value="">Sin asignar</option>'];
+    const termino = String(texto || "").trim().toLowerCase();
 
-    _rosterColaboradoresPasillo.forEach(function(c){
-        const seleccionado = c.dni === dniAsignado ? " selected" : "";
-        opciones.push(`<option value="${c.dni}"${seleccionado}>${c.nombre}</option>`);
-    });
+    if(termino.length < 2){
+        return [];
+    }
 
-    return opciones.join("");
+    return _rosterColaboradoresPasillo
+        .filter(function(c){
+            return c.nombre.toLowerCase().includes(termino) || c.dni.includes(termino);
+        })
+        .slice(0, 8);
 
 }
 
@@ -256,7 +262,57 @@ async function asignarColaboradorPasillo(pasillo, dni, nombre){
 
 }
 
+document.getElementById("tblAsignacion").addEventListener("input", function(e){
+
+    const input = e.target.closest(".inputBuscarColaboradorPasillo");
+
+    if(!input){
+        return;
+    }
+
+    const pasillo = input.dataset.pasillo;
+    const contenedor = input.closest(".buscarColaboradorPasillo");
+    const hiddenDni = contenedor.querySelector(".dniSeleccionadoPasillo");
+    const sugerencias = contenedor.querySelector(".sugerenciasColaboradorPasillo");
+
+    // Cualquier tecleo invalida la selección anterior — hay que volver
+    // a elegir de las sugerencias (o dejarlo vacío para "Sin asignar").
+    hiddenDni.value = "";
+
+    const resultados = buscarEnRosterColaboradoresPasillo(input.value);
+
+    if(!resultados.length){
+        sugerencias.classList.add("oculto");
+        sugerencias.innerHTML = "";
+        return;
+    }
+
+    sugerencias.innerHTML = resultados.map(function(c){
+        return `<div class="sugerenciaColaboradorItem" data-dni="${escaparHtml(c.dni)}" data-nombre="${escaparHtml(c.nombre)}">${escaparHtml(c.nombre)} <small>(${escaparHtml(c.dni)})</small></div>`;
+    }).join("");
+
+    sugerencias.classList.remove("oculto");
+
+});
+
 document.getElementById("tblAsignacion").addEventListener("click", function(e){
+
+    const item = e.target.closest(".sugerenciaColaboradorItem");
+
+    if(item){
+
+        const contenedor = item.closest(".buscarColaboradorPasillo");
+
+        contenedor.querySelector(".inputBuscarColaboradorPasillo").value = item.dataset.nombre;
+        contenedor.querySelector(".dniSeleccionadoPasillo").value = item.dataset.dni;
+
+        const sugerencias = contenedor.querySelector(".sugerenciasColaboradorPasillo");
+        sugerencias.classList.add("oculto");
+        sugerencias.innerHTML = "";
+
+        return;
+
+    }
 
     const boton = e.target.closest(".btn-asignar-pasillo");
 
@@ -265,13 +321,34 @@ document.getElementById("tblAsignacion").addEventListener("click", function(e){
     }
 
     const pasillo = Number(boton.dataset.pasillo);
-    const select = document.querySelector('.selectColaboradorPasillo[data-pasillo="' + pasillo + '"]');
-    const dni = select.value;
+    const input = document.querySelector('.inputBuscarColaboradorPasillo[data-pasillo="' + pasillo + '"]');
+    const hiddenDni = document.querySelector('.dniSeleccionadoPasillo[data-pasillo="' + pasillo + '"]');
+
+    if(input.value.trim() && !hiddenDni.value){
+        mostrarToast("Selecciona a la persona de la lista de sugerencias.", "error");
+        return;
+    }
+
+    const dni = hiddenDni.value || null;
     const colaborador = dni
         ? (_rosterColaboradoresPasillo.find(function(c){ return c.dni === dni; }) || {}).nombre
         : null;
 
-    asignarColaboradorPasillo(pasillo, dni || null, colaborador || null);
+    asignarColaboradorPasillo(pasillo, dni, colaborador || null);
+
+});
+
+// Cierra cualquier lista de sugerencias abierta si el clic fue afuera.
+document.addEventListener("click", function(e){
+
+    if(e.target.closest(".buscarColaboradorPasillo")){
+        return;
+    }
+
+    document.querySelectorAll(".sugerenciasColaboradorPasillo").forEach(function(el){
+        el.classList.add("oculto");
+        el.innerHTML = "";
+    });
 
 });
 
@@ -364,9 +441,18 @@ async function cargarAsignacion(){
                 <td><b>Pasillo ${String(p).padStart(2, "0")}</b></td>
                 <td>
                     <div class="asignarColaborador">
-                        <select class="selectColaboradorPasillo" data-pasillo="${p}">
-                            ${opcionesSelectColaboradorPasillo(dniAsignado)}
-                        </select>
+                        <div class="buscarColaboradorPasillo">
+                            <input
+                                type="text"
+                                class="inputBuscarColaboradorPasillo"
+                                data-pasillo="${p}"
+                                placeholder="Escribe un nombre..."
+                                autocomplete="off"
+                                value="${escaparHtml(colaborador)}"
+                            >
+                            <input type="hidden" class="dniSeleccionadoPasillo" data-pasillo="${p}" value="${escaparHtml(dniAsignado)}">
+                            <div class="sugerenciasColaboradorPasillo oculto" data-pasillo="${p}"></div>
+                        </div>
                         <button class="btn-secundario btn-asignar-pasillo" data-pasillo="${p}">Asignar</button>
                     </div>
                 </td>
@@ -988,6 +1074,13 @@ document.getElementById("archivoSapPicking").addEventListener("change", async fu
 
         estadoEl.textContent = "Generando ubicaciones de picking...";
 
+        // Igual que el saldo SAP, las ubicaciones se regeneran desde
+        // cero en cada carga — si no se borran antes, un pasillo que ya
+        // no viene en el archivo nuevo (por ejemplo datos de prueba)
+        // se queda para siempre en Asignación de Pasillos y en la
+        // grilla de Centro de Proyectos.
+        await supabaseFetch("/picking_ubicaciones?ubicacion=neq.__ninguna__", { method: "DELETE" });
+
         const pasillosGenerados = await generarUbicacionesDesdeSap(registros);
 
         estadoEl.textContent = "✓ Cargado: " + registros.length.toLocaleString("es-PE") + " filas de " + archivo.name +
@@ -1016,7 +1109,9 @@ document.getElementById("btnBorrarSap").addEventListener("click", async function
     const btn = document.getElementById("btnBorrarSap");
 
     const confirmado = await mostrarConfirmacion(
-        "Esto borra TODO el saldo SAP cargado en Inventario Picking. No se puede deshacer.\n\n¿Continuar?"
+        "Esto borra TODO lo cargado en Inventario Picking de esta semana: saldo SAP, " +
+        "ubicaciones generadas, asignaciones/estado de pasillos, conteos (Picking y RECH) " +
+        "y el estado de Reconteo. No se puede deshacer.\n\n¿Continuar?"
     );
 
     if(!confirmado){ return; }
@@ -1033,10 +1128,22 @@ document.getElementById("btnBorrarSap").addEventListener("click", async function
 
     try{
 
+        // El saldo SAP y las ubicaciones que genera no están atadas a
+        // una semana — se borran completas. Lo demás sí es semanal, así
+        // que se borra solo lo de la semana actual (no se toca el
+        // historial de semanas pasadas).
         await supabaseFetch("/picking_sap_stock?id=gt.0", { method: "DELETE" });
+        await supabaseFetch("/picking_ubicaciones?ubicacion=neq.__ninguna__", { method: "DELETE" });
+        await supabaseFetch("/picking_conteos?semana=eq." + SEMANA, { method: "DELETE" });
+        await supabaseFetch("/picking_rech_conteos?semana=eq." + SEMANA, { method: "DELETE" });
+        await supabaseFetch("/picking_pasillos?semana=eq." + SEMANA, { method: "DELETE" });
+        await supabaseFetch("/picking_reconteo_activo?semana=eq." + SEMANA, { method: "DELETE" });
+        await supabaseFetch("/picking_reporte_observaciones?semana=eq." + SEMANA, { method: "DELETE" });
 
         document.getElementById("estadoCargaSapPicking").textContent = "";
-        mostrarToast("Saldo SAP borrado.", "exito");
+        mostrarToast("Inventario Picking de esta semana borrado por completo.", "exito");
+
+        await cargarAsignacion();
 
     }catch(err){
 
@@ -1972,7 +2079,8 @@ function escaparHtml(texto){
     return String(texto)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
 }
 
 function htmlCopiarReporte(){
