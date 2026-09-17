@@ -821,6 +821,7 @@ function formatearFechaHoraLecturas(iso){
 async function buscarLecturas(){
 
     const viaje = document.getElementById("cmbViajeLecturas").value;
+    const oc = document.getElementById("filtroOcLecturas").value.trim();
     const codigo = document.getElementById("filtroCodigo").value.trim();
     const lote = document.getElementById("filtroLote").value.trim();
 
@@ -833,6 +834,10 @@ async function buscarLecturas(){
 
         if(viaje){
             ruta += "&viaje=eq." + viaje;
+        }
+
+        if(oc){
+            ruta += "&oc=eq." + encodeURIComponent(oc);
         }
 
         if(codigo){
@@ -888,7 +893,299 @@ async function buscarLecturas(){
 
 }
 
-document.getElementById("btnBuscarLecturas").addEventListener("click", buscarLecturas);
+// ========================================
+// RESUMEN POR CÓDIGO (con observaciones)
+// ========================================
+// "Con observaciones" si: más de 3 lotes distintos, algún lote con
+// vida útil restante (F.V. - hoy) menor a 2/3 de su TVU (de
+// "5. MARA Alicorp"), o diferencia entre Ctd. Solicitada y
+// Ctd. Pistoleada (de más o de menos).
+
+let _ultimoResumenCodigo = [];
+
+function mesesEntre(desde, hasta){
+
+    let meses = (hasta.getFullYear() - desde.getFullYear()) * 12 + (hasta.getMonth() - desde.getMonth());
+
+    if(hasta.getDate() < desde.getDate()){
+        meses -= 1;
+    }
+
+    return meses;
+
+}
+
+async function buscarResumenCodigo(){
+
+    const viaje = document.getElementById("cmbViajeLecturas").value;
+    const oc = document.getElementById("filtroOcLecturas").value.trim();
+    const codigo = document.getElementById("filtroCodigo").value.trim();
+    const lote = document.getElementById("filtroLote").value.trim();
+    const estadoFiltro = document.getElementById("filtroEstadoResumen").value;
+
+    const tbody = document.getElementById("tblResumenCodigo");
+    tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">Buscando...</td></tr>`;
+
+    try{
+
+        let rutaLecturas = "/farmacia_lecturas?select=codigo,descripcion,lote,fv,cantidad_cajas,escaneado_por,foto_url,created_at&order=created_at.desc";
+        let rutaData = "/farmacia_data?select=codigo,descripcion,cantidad";
+
+        if(viaje){
+            rutaLecturas += "&viaje=eq." + viaje;
+            rutaData += "&viaje=eq." + viaje;
+        }
+
+        if(oc){
+            rutaLecturas += "&oc=eq." + encodeURIComponent(oc);
+            rutaData += "&orden_compra=eq." + encodeURIComponent(oc);
+        }
+
+        if(codigo){
+            rutaLecturas += "&codigo=ilike.*" + encodeURIComponent(codigo) + "*";
+            rutaData += "&codigo=ilike.*" + encodeURIComponent(codigo) + "*";
+        }
+
+        if(lote){
+            rutaLecturas += "&lote=ilike.*" + encodeURIComponent(lote) + "*";
+        }
+
+        const [lecturasFilas, dataFilas, tvuFilas] = await Promise.all([
+            supabaseFetchTodo(rutaLecturas),
+            supabaseFetchTodo(rutaData),
+            supabaseFetchTodo("/mara_alicorp?select=codigo,tvu")
+        ]);
+
+        const tvuPorCodigo = {};
+
+        (tvuFilas || []).forEach(function(m){
+            if(m.codigo && m.tvu){
+                tvuPorCodigo[String(m.codigo).trim()] = Number(m.tvu);
+            }
+        });
+
+        const porCodigo = {};
+
+        function obtenerGrupo(codigo, descripcion){
+
+            if(!porCodigo[codigo]){
+                porCodigo[codigo] = {
+                    codigo: codigo,
+                    descripcion: descripcion || "",
+                    solicitada: 0,
+                    pistoleada: 0,
+                    lotes: []
+                };
+            }
+
+            if(descripcion && !porCodigo[codigo].descripcion){
+                porCodigo[codigo].descripcion = descripcion;
+            }
+
+            return porCodigo[codigo];
+
+        }
+
+        (dataFilas || []).forEach(function(f){
+            if(!f.codigo){
+                return;
+            }
+            const grupo = obtenerGrupo(f.codigo, f.descripcion);
+            grupo.solicitada += Number(f.cantidad || 0);
+        });
+
+        (lecturasFilas || []).forEach(function(f){
+            if(!f.codigo){
+                return;
+            }
+            const grupo = obtenerGrupo(f.codigo, f.descripcion);
+            grupo.pistoleada += Number(f.cantidad_cajas || 0);
+            grupo.lotes.push(f);
+        });
+
+        const hoy = new Date();
+
+        const filas = Object.values(porCodigo).map(function(g){
+
+            const lotesUnicos = [...new Set(g.lotes.map(l => l.lote).filter(Boolean))];
+            const observaciones = [];
+
+            if(lotesUnicos.length > 3){
+                observaciones.push("Más de 3 lotes");
+            }
+
+            if(g.pistoleada !== g.solicitada){
+                observaciones.push("Diferencia de cantidad");
+            }
+
+            const tvu = tvuPorCodigo[String(g.codigo).trim()];
+
+            if(tvu){
+
+                const vidaInsuficiente = g.lotes.some(function(l){
+
+                    const fv = parsearFechaExcel(l.fv);
+                    if(!fv){
+                        return false;
+                    }
+
+                    const mesesRestantes = mesesEntre(hoy, new Date(fv + "T00:00:00"));
+
+                    return mesesRestantes < (tvu * 2 / 3);
+
+                });
+
+                if(vidaInsuficiente){
+                    observaciones.push("Vida útil restante menor a 2/3 del TVU");
+                }
+
+            }
+
+            let estadoClase;
+            let estadoTexto;
+
+            if(observaciones.length){
+                estadoClase = "advertencia";
+                estadoTexto = "Con observaciones";
+            }else if(g.pistoleada >= g.solicitada && g.solicitada > 0){
+                estadoClase = "activado";
+                estadoTexto = "Completo";
+            }else{
+                estadoClase = "disponible";
+                estadoTexto = "Pendiente";
+            }
+
+            return {
+                codigo: g.codigo,
+                descripcion: g.descripcion,
+                solicitada: g.solicitada,
+                pistoleada: g.pistoleada,
+                lotesUnicos: lotesUnicos,
+                lotesDetalle: g.lotes,
+                observaciones: observaciones,
+                estadoClase: estadoClase,
+                estadoTexto: estadoTexto
+            };
+
+        }).filter(function(f){
+
+            if(!estadoFiltro){
+                return true;
+            }
+
+            const mapaFiltro = { completo: "activado", pendiente: "disponible", observaciones: "advertencia" };
+            return f.estadoClase === mapaFiltro[estadoFiltro];
+
+        }).sort(function(a, b){
+            return String(a.codigo).localeCompare(String(b.codigo));
+        });
+
+        _ultimoResumenCodigo = filas;
+
+        tbody.innerHTML = "";
+
+        if(!filas.length){
+            tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se encontraron códigos con esos filtros.</td></tr>`;
+            return;
+        }
+
+        filas.forEach(function(f, indice){
+
+            const trResumen = document.createElement("tr");
+            trResumen.className = "fila-resumen-codigo";
+            trResumen.dataset.indice = indice;
+
+            const tituloObservaciones = f.observaciones.length ? f.observaciones.join(" · ") : "";
+
+            trResumen.innerHTML = `
+                <td><span class="flecha-resumen">▸</span>${f.codigo}</td>
+                <td>${f.descripcion || "-"}</td>
+                <td>${formatearNumeroFarmacia(f.solicitada)}</td>
+                <td>${formatearNumeroFarmacia(f.pistoleada)}</td>
+                <td>${f.lotesUnicos.length}</td>
+                <td><span class="estado ${f.estadoClase}" title="${tituloObservaciones}">${f.estadoTexto}</span></td>
+            `;
+
+            const trDetalle = document.createElement("tr");
+            trDetalle.className = "fila-detalle-lotes oculto";
+
+            const filasLotes = f.lotesDetalle.map(function(l){
+
+                const accionFoto = l.foto_url
+                    ? '<button class="btn-ver-foto" data-foto="' + l.foto_url.replace(/"/g, "&quot;") + '">Ver Foto</button>'
+                    : '<span class="sin-foto">Sin foto</span>';
+
+                return `
+                    <tr>
+                        <td>${l.lote || "-"}</td>
+                        <td>${l.fv || "-"}</td>
+                        <td>${formatearNumeroFarmacia(l.cantidad_cajas)}</td>
+                        <td>${l.escaneado_por || "-"}</td>
+                        <td>${formatearFechaHoraLecturas(l.created_at)}</td>
+                        <td>${accionFoto}</td>
+                    </tr>
+                `;
+
+            }).join("");
+
+            trDetalle.innerHTML = `
+                <td colspan="6">
+                    <table class="tabla-detalle-lotes">
+                        <thead>
+                            <tr>
+                                <th>Lote</th>
+                                <th>F.V.</th>
+                                <th>Cajas</th>
+                                <th>Escaneado por</th>
+                                <th>Fecha</th>
+                                <th>Evidencia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filasLotes || '<tr><td colspan="6" class="sin-datos">Sin lecturas.</td></tr>'}
+                        </tbody>
+                    </table>
+                </td>
+            `;
+
+            tbody.appendChild(trResumen);
+            tbody.appendChild(trDetalle);
+
+        });
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se pudo cargar el resumen por código.</td></tr>`;
+
+    }
+
+}
+
+document.getElementById("tblResumenCodigo").addEventListener("click", function(e){
+
+    const botonFoto = e.target.closest(".btn-ver-foto");
+
+    if(botonFoto){
+        document.getElementById("modalFotoImg").src = botonFoto.dataset.foto;
+        document.getElementById("modalFoto").classList.remove("oculto");
+        return;
+    }
+
+    const fila = e.target.closest(".fila-resumen-codigo");
+    if(!fila){
+        return;
+    }
+
+    fila.classList.toggle("expandido");
+    fila.nextElementSibling.classList.toggle("oculto");
+
+});
+
+document.getElementById("btnBuscarLecturas").addEventListener("click", function(){
+    buscarLecturas();
+    buscarResumenCodigo();
+});
 
 document.getElementById("tblLecturas").addEventListener("click", function(e){
 
