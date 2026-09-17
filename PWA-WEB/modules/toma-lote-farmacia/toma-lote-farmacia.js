@@ -477,11 +477,15 @@ function cargarViajesReales(filas, estadosMap){
         }
 
         if(!porViaje[clave]){
-            porViaje[clave] = { viaje: clave, ocs: new Set(), codigos: 0, cantidad: 0 };
+            porViaje[clave] = { viaje: clave, ocs: new Set(), codigos: 0, cantidad: 0, fecha_cita: null };
         }
 
         if(f.orden_compra !== null && f.orden_compra !== undefined){
             porViaje[clave].ocs.add(f.orden_compra);
+        }
+
+        if(!porViaje[clave].fecha_cita && f.fecha_cita){
+            porViaje[clave].fecha_cita = f.fecha_cita;
         }
 
         porViaje[clave].codigos++;
@@ -495,7 +499,7 @@ function cargarViajesReales(filas, estadosMap){
     tbody.innerHTML = "";
 
     if(!viajes.length){
-        tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">Sube la plantilla para ver los viajes.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Sube la plantilla para ver los viajes.</td></tr>`;
         return;
     }
 
@@ -538,6 +542,7 @@ function cargarViajesReales(filas, estadosMap){
         tr.innerHTML = `
             <td>${v.viaje}</td>
             <td>${v.ocs.size}</td>
+            <td>${v.fecha_cita || "-"}</td>
             <td>${v.codigos}</td>
             <td>${formatearNumeroFarmacia(v.cantidad)}</td>
             <td><span class="estado ${estadoClase}">${estadoTexto}</span></td>
@@ -709,7 +714,7 @@ async function obtenerViajesActivadosFarmacia(){
 async function refrescarVistaViajes(){
 
     const filas = await supabaseFetch(
-        "/farmacia_data?select=viaje,orden_compra,cantidad"
+        "/farmacia_data?select=viaje,orden_compra,cantidad,fecha_cita"
     );
 
     if(!filas || !filas.length){
@@ -732,7 +737,7 @@ async function cargarResumenExistente(){
     try{
 
         const filas = await supabaseFetch(
-            "/farmacia_data?select=viaje,orden_compra,cantidad,archivo_origen,created_at&order=created_at.desc"
+            "/farmacia_data?select=viaje,orden_compra,cantidad,fecha_cita,archivo_origen,created_at&order=created_at.desc"
         );
 
         if(!filas || !filas.length){
