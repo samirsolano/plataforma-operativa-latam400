@@ -133,17 +133,11 @@ document.querySelectorAll(".tab-link").forEach(function(link){
 document.getElementById("btnDescargarPlantilla").addEventListener("click", function(){
 
     const encabezados = [
-        "VIAJE", "ORDEN DE COMPRA", "ENTREGA", "N° CITA",
+        "FECHA DE CITA", "VIAJE", "ORDEN DE COMPRA", "ENTREGA",
         "CODIGO/SKU", "DESCRIPCION", "UN", "CANTIDAD SOLICITADA"
     ];
 
-    const filasEjemplo = [
-        [1000150787, 1000427525, 85758703, 324837, "8301101", "CEP DENTO PREMIUM GRAB RT MED.14UND 6DSP", "CJA", 36],
-        [1000150787, 1000427525, 85758703, 324837, "8301123", "ENJ.BUCAL DENTO XTRA COOL 500ML 12UND", "CJA", 6],
-        [1000150787, 1000427526, 85758704, 324840, "8301102", "CEP DENTO PREMIUM GRAB RT DUR.14UND 6DSP", "CJA", 25]
-    ];
-
-    const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filasEjemplo]);
+    const hoja = XLSX.utils.aoa_to_sheet([encabezados]);
     const libro = XLSX.utils.book_new();
 
     XLSX.utils.book_append_sheet(libro, hoja, "TOMA DE LOTE FARMACIA");
@@ -165,14 +159,14 @@ const archivoReemplazarViaje = document.getElementById("archivoReemplazarViaje")
 let _viajeAReemplazar = null;
 
 const COLUMNAS_ESPERADAS_FARMACIA = [
-    "viaje", "orden de compra", "entrega", "n° cita",
+    "fecha de cita", "viaje", "orden de compra", "entrega",
     "codigo/sku", "descripcion", "un", "cantidad solicitada"
 ];
 
 async function leerFilasFarmaciaExcel(archivo){
 
     const buffer = await archivo.arrayBuffer();
-    const libro = XLSX.read(buffer, { type: "array" });
+    const libro = XLSX.read(buffer, { type: "array", cellDates: true });
 
     const hoja = libro.Sheets[libro.SheetNames[0]];
 
@@ -223,11 +217,15 @@ function normalizarFilaFarmacia(filaOriginal, archivo, cargadoPor){
         return String(valor(clave)).trim();
     }
 
+    function fecha(clave){
+        return parsearFechaExcel(valor(clave));
+    }
+
     return {
         viaje: num("viaje"),
         orden_compra: num("orden de compra"),
         entrega: num("entrega"),
-        n_cita: num("n° cita"),
+        fecha_cita: fecha("fecha de cita"),
         codigo: texto("codigo/sku"),
         descripcion: texto("descripcion"),
         un: texto("un"),
