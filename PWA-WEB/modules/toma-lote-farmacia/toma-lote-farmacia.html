@@ -62,12 +62,11 @@
 
                 <a href="#" class="tab-link activo" data-tab="tabCarga">1. Carga y Viajes</a>
                 <a href="#" class="tab-link" data-tab="tabLecturas">2. Lecturas y Evidencias</a>
-                <a href="#" class="tab-link" data-tab="tabMara">3. MARA InRetail Pharma</a>
-                <a href="#" class="tab-link" data-tab="tabOcPortal">4. OC Portal Cliente</a>
-                <a href="#" class="tab-link" data-tab="tabMaraAlicorp">5. MARA Alicorp</a>
-                <a href="#" class="tab-link" data-tab="tabStockFisico">6. Stock Físico SAP</a>
-                <a href="#" class="tab-link" data-tab="tabCruce">7. Cruce de Información</a>
-                <a href="#" class="tab-link" data-tab="tabDataFinal">8. Data Final</a>
+                <a href="#" class="tab-link" data-tab="tabOcPortal">3. OC Portal Cliente</a>
+                <a href="#" class="tab-link" data-tab="tabMaraAlicorp">4. MARA Alicorp</a>
+                <a href="#" class="tab-link" data-tab="tabStockFisico">5. Stock Físico SAP</a>
+                <a href="#" class="tab-link" data-tab="tabCruce">6. Cruce de Información</a>
+                <a href="#" class="tab-link" data-tab="tabDataFinal">7. Data Final</a>
 
             </nav>
 
@@ -340,137 +339,7 @@
             </div>
 
             <!-- ============================================ -->
-            <!-- TAB 3: MAESTRO MARA -->
-            <!-- ============================================ -->
-
-            <div class="tab-contenido oculto" id="tabMara">
-
-                <div class="card">
-
-                    <div class="card-header-flex">
-
-                        <h2>
-                            3. CARGAR MARA INRETAIL PHARMA
-                        </h2>
-
-                        <button id="btnDescargarPlantillaMara" class="btn-secundario">
-                            ⬇ Descargar Plantilla
-                        </button>
-
-                    </div>
-
-                    <p class="nota-modulo">
-                        Sube el Excel del maestro MARA con las columnas: COD. LAB., LABORATORIO,
-                        COD. SAP, COD. PROVEEDOR, EAN PRINCIPAL, DESCRIPCION, CODIGO INKAVENTA,
-                        ESTADO, UM BASE, UM PEDIDO, MASTER PACK. El Cód. Proveedor es el que
-                        coincide con el CODIGO/SKU de esta plantilla. Al subir un archivo nuevo
-                        se reemplaza por completo el maestro actual.
-                    </p>
-
-                    <div class="data-modulado">
-
-                        <div class="upload-box">
-
-                            <input
-                                type="file"
-                                id="archivoMara"
-                            >
-
-                        </div>
-
-                        <div class="detalle-archivo">
-
-                            <p>
-                                Archivo:
-                                <span id="nombreArchivoMara">-</span>
-                            </p>
-
-                            <p>
-                                Fecha:
-                                <span id="fechaArchivoMara">-</span>
-                            </p>
-
-                            <p>
-                                Registros:
-                                <span id="totalRegistrosMara">-</span>
-                            </p>
-
-                        </div>
-
-                        <div class="estado-ok">
-
-                            <h3>✓ Procesado correctamente</h3>
-
-                            <p>El maestro quedó disponible para consulta.</p>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <div class="card">
-
-                    <h2>
-                        CONSULTAR MAESTRO
-                    </h2>
-
-                    <div class="filtros-mara">
-
-                        <div>
-                            <label>Código (SAP o Proveedor)</label>
-                            <input type="text" id="filtroCodigoMara" placeholder="Ej: 8321151">
-                        </div>
-
-                        <div>
-                            <label>Descripción</label>
-                            <input type="text" id="filtroDescripcionMara" placeholder="Ej: DENTO">
-                        </div>
-
-                        <div>
-                            <button id="btnBuscarMara">Buscar</button>
-                        </div>
-
-                    </div>
-
-                    <table>
-
-                        <thead>
-
-                            <tr>
-
-                                <th>Cód. SAP</th>
-                                <th>Cód. Proveedor</th>
-                                <th>EAN Principal</th>
-                                <th>Descripción</th>
-                                <th>Laboratorio</th>
-                                <th>UM Base</th>
-                                <th>UM Pedido</th>
-                                <th>Master Pack</th>
-                                <th>Estado</th>
-
-                            </tr>
-
-                        </thead>
-
-                        <tbody id="tblMara">
-
-                            <tr>
-                                <td colspan="9" class="sin-datos">
-                                    Cargando maestro...
-                                </td>
-                            </tr>
-
-                        </tbody>
-
-                    </table>
-
-                </div>
-
-            </div>
-
-            <!-- ============================================ -->
-            <!-- TAB 4: OC PORTAL CLIENTE -->
+            <!-- TAB 3: OC PORTAL CLIENTE -->
             <!-- ============================================ -->
 
             <div class="tab-contenido oculto" id="tabOcPortal">
@@ -480,7 +349,7 @@
                     <div class="card-header-flex">
 
                         <h2>
-                            4. CARGAR OC DEL PORTAL DEL CLIENTE
+                            3. CARGAR OC DEL PORTAL DEL CLIENTE
                         </h2>
 
                         <button id="btnDescargarPlantillaOc" class="btn-secundario">
@@ -616,7 +485,7 @@
             </div>
 
             <!-- ============================================ -->
-            <!-- TAB 5: MARA ALICORP -->
+            <!-- TAB 4: MARA ALICORP -->
             <!-- ============================================ -->
 
             <div class="tab-contenido oculto" id="tabMaraAlicorp">
@@ -626,7 +495,7 @@
                     <div class="card-header-flex">
 
                         <h2>
-                            5. CARGAR MARA ALICORP
+                            4. CARGAR MARA ALICORP
                         </h2>
 
                         <button id="btnDescargarPlantillaAlicorp" class="btn-secundario">
@@ -638,9 +507,9 @@
                     <p class="nota-modulo">
                         Sube el Excel del maestro Alicorp con las columnas: CODIGO, DECRIPCION DE
                         MATERIAL, CODIGO EAN/UPC, FACTOR UNID. DE ALM., UND. DE ALMACENAMIENTO, TVU
-                        (meses). A diferencia de "3. MARA InRetail Pharma", aquí el CODIGO coincide
-                        directo con el CODIGO/SKU que se usa en el resto del módulo. Al subir un
-                        archivo nuevo se reemplaza por completo el maestro actual.
+                        (meses). Aquí el CODIGO coincide directo con el CODIGO/SKU que se usa en
+                        el resto del módulo. Al subir un archivo nuevo se reemplaza por completo
+                        el maestro actual.
                     </p>
 
                     <div class="data-modulado">
@@ -743,7 +612,7 @@
             </div>
 
             <!-- ============================================ -->
-            <!-- TAB 6: STOCK FÍSICO SAP -->
+            <!-- TAB 5: STOCK FÍSICO SAP -->
             <!-- ============================================ -->
 
             <div class="tab-contenido oculto" id="tabStockFisico">
@@ -753,7 +622,7 @@
                     <div class="card-header-flex">
 
                         <h2>
-                            6. CARGAR STOCK FÍSICO SAP
+                            5. CARGAR STOCK FÍSICO SAP
                         </h2>
 
                         <button id="btnDescargarPlantillaStock" class="btn-secundario">
@@ -905,7 +774,7 @@
             </div>
 
             <!-- ============================================ -->
-            <!-- TAB 7: CRUCE DE INFORMACIÓN -->
+            <!-- TAB 6: CRUCE DE INFORMACIÓN -->
             <!-- ============================================ -->
 
             <div class="tab-contenido oculto" id="tabCruce">
@@ -913,12 +782,12 @@
                 <div class="card">
 
                     <h2>
-                        7. CRUCE DE INFORMACIÓN
+                        6. CRUCE DE INFORMACIÓN
                     </h2>
 
                     <p class="nota-modulo">
-                        Selecciona el Viaje y la OC. Se toma cada línea de "4. OC Portal Cliente"
-                        de esa OC, se busca su EAN en "5. MARA Alicorp" para obtener el código real
+                        Selecciona el Viaje y la OC. Se toma cada línea de "3. OC Portal Cliente"
+                        de esa OC, se busca su EAN en "4. MARA Alicorp" para obtener el código real
                         y el factor (unidades por caja), y se convierte lo escaneado en
                         "2. Lecturas y Evidencias" (que está en cajas) a unidades para compararlo
                         contra lo que pide la OC (que está en unidades). El problema es cuando se
@@ -983,7 +852,7 @@
             </div>
 
             <!-- ============================================ -->
-            <!-- TAB 8: DATA FINAL -->
+            <!-- TAB 7: DATA FINAL -->
             <!-- ============================================ -->
 
             <div class="tab-contenido oculto" id="tabDataFinal">
@@ -993,7 +862,7 @@
                     <div class="card-header-flex">
 
                         <h2>
-                            8. DATA FINAL
+                            7. DATA FINAL
                         </h2>
 
                         <button id="btnExportarDataFinal" class="btn-secundario">
@@ -1004,12 +873,12 @@
 
                     <p class="nota-modulo">
                         Selecciona el Viaje y la OC. Se toma lo escaneado en "2. Lecturas y
-                        Evidencias" para esa OC, se busca el código en "5. MARA Alicorp" para
-                        obtener su EAN, y con ese EAN se busca en "3. MARA InRetail Pharma" el
-                        Cód. Proveedor real (el SKU). La cantidad escaneada (en cajas) se
-                        convierte a unidades con el factor de MARA Alicorp, y se arma el reporte
-                        final agrupado por SKU y Lote: No. OC, SKU, Cantidad (Unidades), No. Lote
-                        y Fecha Vto.
+                        Evidencias" para esa OC, se busca el código en "4. MARA Alicorp" para
+                        obtener su EAN, y con ese EAN se busca en "3. OC Portal Cliente" el
+                        Código Inkafarma (o Inretail/QS) real (el SKU). La cantidad escaneada (en
+                        cajas) se convierte a unidades con el factor de MARA Alicorp, y se arma el
+                        reporte final agrupado por SKU y Lote: No. OC, SKU, Cantidad (Unidades),
+                        No. Lote y Fecha Vto.
                     </p>
 
                     <div class="filtros-mara">
