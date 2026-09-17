@@ -258,7 +258,9 @@
 
                         <div>
                             <label>OC</label>
-                            <input type="text" id="filtroOcLecturas" placeholder="Ej: 1000427525">
+                            <select id="filtroOcLecturas">
+                                <option value="">Todos</option>
+                            </select>
                         </div>
 
                         <div>
@@ -299,7 +301,7 @@
                         Cada fila es un código; haz clic en ella para ver las líneas
                         pistoleadas (lote, F.V., cajas, quién y cuándo).
                         "Con observaciones": más de 3 lotes, un lote con vida útil restante
-                        menor a 2/3 de su TVU, o diferencia entre lo solicitado y lo pistoleado.
+                        menor a 2/3 de su TVU, o se pistoleó más de lo solicitado.
                     </p>
 
                     <table>
@@ -324,43 +326,6 @@
                             <tr>
                                 <td colspan="6" class="sin-datos">
                                     Usa los filtros de arriba para buscar.
-                                </td>
-                            </tr>
-
-                        </tbody>
-
-                    </table>
-
-                </div>
-
-                <div class="card">
-
-                    <table>
-
-                        <thead>
-
-                            <tr>
-
-                                <th>Viaje</th>
-                                <th>OC</th>
-                                <th>Código</th>
-                                <th>Descripción</th>
-                                <th>Lote</th>
-                                <th>F.V.</th>
-                                <th>Cajas</th>
-                                <th>Escaneado por</th>
-                                <th>Fecha</th>
-                                <th>Evidencia</th>
-
-                            </tr>
-
-                        </thead>
-
-                        <tbody id="tblLecturas">
-
-                            <tr>
-                                <td colspan="10" class="sin-datos">
-                                    Usa los filtros de arriba para buscar lecturas.
                                 </td>
                             </tr>
 
