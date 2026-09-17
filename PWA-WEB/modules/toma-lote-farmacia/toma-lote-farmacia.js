@@ -825,9 +825,6 @@ async function buscarLecturas(){
     const codigo = document.getElementById("filtroCodigo").value.trim();
     const lote = document.getElementById("filtroLote").value.trim();
 
-    const tbody = document.getElementById("tblLecturas");
-    tbody.innerHTML = `<tr><td colspan="10" class="sin-datos">Buscando...</td></tr>`;
-
     try{
 
         let ruta = "/farmacia_lecturas?select=viaje,oc,codigo,descripcion,lote,fv,cantidad_cajas,escaneado_por,foto_url,created_at&order=created_at.desc";
@@ -852,42 +849,10 @@ async function buscarLecturas(){
 
         _ultimasLecturas = filas || [];
 
-        tbody.innerHTML = "";
-
-        if(!_ultimasLecturas.length){
-            tbody.innerHTML = `<tr><td colspan="10" class="sin-datos">No se encontraron lecturas con esos filtros.</td></tr>`;
-            return;
-        }
-
-        _ultimasLecturas.forEach(function(f){
-
-            const tr = document.createElement("tr");
-
-            const accionFoto = f.foto_url
-                ? '<button class="btn-ver-foto" data-foto="' + f.foto_url.replace(/"/g, "&quot;") + '">Ver Foto</button>'
-                : '<span class="sin-foto">Sin foto</span>';
-
-            tr.innerHTML = `
-                <td>${f.viaje}</td>
-                <td>${f.oc}</td>
-                <td>${f.codigo}</td>
-                <td>${f.descripcion || "-"}</td>
-                <td>${f.lote || "-"}</td>
-                <td>${f.fv || "-"}</td>
-                <td>${formatearNumeroFarmacia(f.cantidad_cajas)}</td>
-                <td>${f.escaneado_por || "-"}</td>
-                <td>${formatearFechaHoraLecturas(f.created_at)}</td>
-                <td>${accionFoto}</td>
-            `;
-
-            tbody.appendChild(tr);
-
-        });
-
     }catch(e){
 
         console.error(e);
-        tbody.innerHTML = `<tr><td colspan="10" class="sin-datos">No se pudo cargar las lecturas.</td></tr>`;
+        _ultimasLecturas = [];
 
     }
 
@@ -898,8 +863,8 @@ async function buscarLecturas(){
 // ========================================
 // "Con observaciones" si: más de 3 lotes distintos, algún lote con
 // vida útil restante (F.V. - hoy) menor a 2/3 de su TVU (de
-// "5. MARA Alicorp"), o diferencia entre Ctd. Solicitada y
-// Ctd. Pistoleada (de más o de menos).
+// "5. MARA Alicorp"), o se pistoleó más de lo solicitado (si aún
+// falta pistolear, eso es solo "Pendiente", no una observación).
 
 let _ultimoResumenCodigo = [];
 
@@ -1014,8 +979,8 @@ async function buscarResumenCodigo(){
                 observaciones.push("Más de 3 lotes");
             }
 
-            if(g.pistoleada !== g.solicitada){
-                observaciones.push("Diferencia de cantidad");
+            if(g.pistoleada > g.solicitada){
+                observaciones.push("Diferencia de cantidad (se pistoleó más de lo solicitado)");
             }
 
             const tvu = tvuPorCodigo[String(g.codigo).trim()];
@@ -1103,7 +1068,10 @@ async function buscarResumenCodigo(){
                 <td>${formatearNumeroFarmacia(f.solicitada)}</td>
                 <td>${formatearNumeroFarmacia(f.pistoleada)}</td>
                 <td>${f.lotesUnicos.length}</td>
-                <td><span class="estado ${f.estadoClase}" title="${tituloObservaciones}">${f.estadoTexto}</span></td>
+                <td>
+                    <span class="estado ${f.estadoClase}">${f.estadoTexto}</span>
+                    ${tituloObservaciones ? `<div class="detalle-observacion">${tituloObservaciones}</div>` : ""}
+                </td>
             `;
 
             const trDetalle = document.createElement("tr");
@@ -1185,18 +1153,6 @@ document.getElementById("tblResumenCodigo").addEventListener("click", function(e
 document.getElementById("btnBuscarLecturas").addEventListener("click", function(){
     buscarLecturas();
     buscarResumenCodigo();
-});
-
-document.getElementById("tblLecturas").addEventListener("click", function(e){
-
-    const boton = e.target.closest(".btn-ver-foto");
-    if(!boton){
-        return;
-    }
-
-    document.getElementById("modalFotoImg").src = boton.dataset.foto;
-    document.getElementById("modalFoto").classList.remove("oculto");
-
 });
 
 function cerrarModalFoto(){

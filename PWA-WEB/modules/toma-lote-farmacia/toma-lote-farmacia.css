@@ -509,6 +509,13 @@ body{
     border-top:1px solid #e5e7eb;
 }
 
+.detalle-observacion{
+    margin-top:4px;
+    font-size:11.5px;
+    color:#b7791f;
+    font-weight:600;
+}
+
 .flecha-resumen{
     display:inline-block;
     margin-right:8px;
