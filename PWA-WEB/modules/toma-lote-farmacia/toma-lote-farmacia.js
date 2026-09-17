@@ -289,13 +289,53 @@ archivoFarmacia.addEventListener("change", async function(e){
             return;
         }
 
-        const existentes = await supabaseFetch("/farmacia_data?select=id&limit=1");
+        // Un viaje ya cargado no se puede volver a subir "por encima"
+        // sin más: si está Activo o Finalizado, queda bloqueado (hay
+        // que Desactivarlo primero); si está Desactivado (o es la
+        // primera vez que se carga), sí se puede reemplazar. Si el
+        // archivo trae algún viaje bloqueado, se rechaza completo.
+        const viajesEnArchivo = [...new Set(filasNormalizadas.map(f => f.viaje))];
 
-        if(existentes && existentes.length){
+        const estadosActuales = await obtenerViajesActivadosFarmacia();
+
+        const bloqueados = viajesEnArchivo.filter(function(v){
+            const estado = estadosActuales.get(v);
+            return estado === "activo" || estado === "finalizado";
+        });
+
+        if(bloqueados.length){
+
+            mostrarToast(
+                "No se puede cargar: el viaje " + bloqueados.join(", ") +
+                " está Activo/Finalizado. Desactívalo primero para poder reemplazarlo.",
+                "error"
+            );
+
+            nombreArchivo.textContent = "-";
+            archivoFarmacia.value = "";
+            return;
+
+        }
+
+        const viajesConDataPrevia = [];
+
+        for(const v of viajesEnArchivo){
+
+            const existentes = await supabaseFetch(
+                "/farmacia_data?select=id&limit=1&viaje=eq." + v
+            );
+
+            if(existentes && existentes.length){
+                viajesConDataPrevia.push(v);
+            }
+
+        }
+
+        if(viajesConDataPrevia.length){
 
             const confirmado = confirm(
-                "Ya hay datos de Toma de Lote Farmacia cargados. ¿Deseas reemplazarlos con este archivo (" +
-                filasNormalizadas.length + " filas)?"
+                "Vas a reemplazar los datos ya cargados del/los viaje(s) " +
+                viajesConDataPrevia.join(", ") + " (" + filasNormalizadas.length + " filas en el archivo). ¿Continuar?"
             );
 
             if(!confirmado){
@@ -304,28 +344,36 @@ archivoFarmacia.addEventListener("change", async function(e){
                 return;
             }
 
-            await supabaseFetch("/farmacia_data?id=gt.0", { method: "DELETE" });
-
         }
 
         nombreArchivo.textContent = "Guardando " + archivo.name + "...";
+
+        for(const v of viajesEnArchivo){
+            await supabaseFetch("/farmacia_data?viaje=eq." + v, { method: "DELETE" });
+        }
+
+        // Cada viaje cargado (nuevo o reemplazado) queda en
+        // "desactivado" — hay que activarlo a propósito desde
+        // "VIAJES GENERADOS".
+        await supabaseFetch("/farmacia_viajes_activados?on_conflict=viaje", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates" },
+            body: JSON.stringify(viajesEnArchivo.map(function(v){
+                return { viaje: v, estado: "desactivado" };
+            }))
+        });
 
         await guardarEnBloques("farmacia_data", filasNormalizadas);
 
         nombreArchivo.textContent = archivo.name;
         fechaArchivo.textContent = new Date().toLocaleDateString("es-PE");
 
-        document.getElementById("totalRegistros").textContent =
-            filasNormalizadas.length.toLocaleString("es-PE");
-
-        const viajesUnicos = [...new Set(filasNormalizadas.map(f => f.viaje))];
-
-        document.getElementById("totalViajes").textContent =
-            viajesUnicos.length.toLocaleString("es-PE");
-
         mostrarToast("Plantilla cargada: " + filasNormalizadas.length + " filas.", "exito");
 
-        refrescarVistaViajes();
+        // Los totales/tabla de viajes reflejan TODO lo que hay en
+        // farmacia_data (no solo este archivo), ya que ahora la carga
+        // es por viaje y no reemplaza el resto.
+        await cargarResumenExistente();
 
     }catch(err){
 
@@ -346,9 +394,9 @@ function formatearNumeroFarmacia(n){
     return Number(n || 0).toLocaleString("es-PE", { maximumFractionDigits: 2 });
 }
 
-function cargarViajesReales(filas, activadosSet){
+function cargarViajesReales(filas, estadosMap){
 
-    activadosSet = activadosSet || new Set();
+    estadosMap = estadosMap || new Map();
 
     const porViaje = {};
 
@@ -382,18 +430,31 @@ function cargarViajesReales(filas, activadosSet){
         return;
     }
 
+    const TEXTOS_ESTADO = { activo: "Activo", desactivado: "Desactivado", finalizado: "Finalizado" };
+    const CLASES_ESTADO = { activo: "activado", desactivado: "advertencia", finalizado: "disponible" };
+
     viajes.forEach(function(v){
 
         const tr = document.createElement("tr");
 
-        const yaActivado = activadosSet.has(v.viaje);
+        const estado = estadosMap.get(v.viaje) || "desactivado";
+        const estadoTexto = TEXTOS_ESTADO[estado];
+        const estadoClase = CLASES_ESTADO[estado];
 
-        const estadoTexto = yaActivado ? "Activado" : "Disponible";
-        const estadoClase = yaActivado ? "activado" : "disponible";
+        let acciones = "";
 
-        const accion = yaActivado
-            ? "✓ Activado"
-            : '<button class="btn-activar" data-viaje="' + v.viaje + '">Activar</button>';
+        if(estado === "desactivado"){
+            acciones =
+                '<button class="btn-activar" data-viaje="' + v.viaje + '">Activar</button> ' +
+                '<button class="btn-reemplazar" data-viaje="' + v.viaje + '">Reemplazar</button> ' +
+                '<button class="btn-finalizar" data-viaje="' + v.viaje + '">Finalizar</button>';
+        }else if(estado === "activo"){
+            acciones =
+                '<button class="btn-desactivar" data-viaje="' + v.viaje + '">Desactivar</button> ' +
+                '<button class="btn-finalizar" data-viaje="' + v.viaje + '">Finalizar</button>';
+        }else{
+            acciones = '<button class="btn-guardar" data-viaje="' + v.viaje + '">Guardar</button>';
+        }
 
         tr.innerHTML = `
             <td>${v.viaje}</td>
@@ -401,7 +462,7 @@ function cargarViajesReales(filas, activadosSet){
             <td>${v.codigos}</td>
             <td>${formatearNumeroFarmacia(v.cantidad)}</td>
             <td><span class="estado ${estadoClase}">${estadoTexto}</span></td>
-            <td>${accion}</td>
+            <td>${acciones}</td>
         `;
 
         tbody.appendChild(tr);
@@ -410,54 +471,88 @@ function cargarViajesReales(filas, activadosSet){
 
 }
 
+async function cambiarEstadoViaje(viaje, nuevoEstado){
+
+    await supabaseFetch("/farmacia_viajes_activados?on_conflict=viaje", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates" },
+        body: JSON.stringify({
+            viaje: viaje,
+            estado: nuevoEstado,
+            activado_por: (sesion && (sesion.nombre_completo || sesion.usuario)) || ""
+        })
+    });
+
+}
+
 document.getElementById("tblViajes").addEventListener("click", async function(e){
 
-    const boton = e.target.closest(".btn-activar");
+    const botonActivar = e.target.closest(".btn-activar");
+    const botonDesactivar = e.target.closest(".btn-desactivar");
+    const botonFinalizar = e.target.closest(".btn-finalizar");
+    const botonReemplazar = e.target.closest(".btn-reemplazar");
+    const botonGuardar = e.target.closest(".btn-guardar");
+
+    if(botonReemplazar){
+        mostrarToast("Sube el nuevo Excel de ese viaje arriba: al estar Desactivado, se reemplaza automáticamente.", "info");
+        archivoFarmacia.click();
+        return;
+    }
+
+    if(botonGuardar){
+        mostrarToast(
+            "Función en desarrollo: más adelante esto guardará el viaje en un archivo histórico global y lo quitará de las tablas activas. Por ahora queda marcado como Finalizado.",
+            "info"
+        );
+        return;
+    }
+
+    const boton = botonActivar || botonDesactivar || botonFinalizar;
     if(!boton){
         return;
     }
 
     const viaje = Number(boton.dataset.viaje);
 
+    const nuevoEstado = botonActivar ? "activo" : (botonDesactivar ? "desactivado" : "finalizado");
+    const textoProceso = botonActivar ? "Activando..." : (botonDesactivar ? "Desactivando..." : "Finalizando...");
+    const textoOriginal = boton.textContent;
+
     boton.disabled = true;
-    boton.textContent = "Activando...";
+    boton.textContent = textoProceso;
 
     try{
 
-        await supabaseFetch("/farmacia_viajes_activados?on_conflict=viaje", {
-            method: "POST",
-            headers: { "Prefer": "resolution=merge-duplicates" },
-            body: JSON.stringify({
-                viaje: viaje,
-                activado_por: (sesion && (sesion.nombre_completo || sesion.usuario)) || ""
-            })
-        });
+        await cambiarEstadoViaje(viaje, nuevoEstado);
 
-        mostrarToast("Viaje " + viaje + " activado.", "exito");
+        mostrarToast("Viaje " + viaje + ": " + nuevoEstado + ".", "exito");
 
         await refrescarVistaViajes();
 
     }catch(err){
 
         console.error(err);
-        mostrarToast("No se pudo activar el viaje: " + err.message, "error");
+        mostrarToast("No se pudo actualizar el viaje: " + err.message, "error");
         boton.disabled = false;
-        boton.textContent = "Activar";
+        boton.textContent = textoOriginal;
 
     }
 
 });
 
+// Devuelve un Map viaje -> estado ("activo" | "desactivado" | "finalizado").
+// Un viaje sin fila todavía (nunca tocado) se trata como "desactivado"
+// donde se consulte (no bloquea reemplazo, permite Activar).
 async function obtenerViajesActivadosFarmacia(){
 
     try{
 
-        const filas = await supabaseFetch("/farmacia_viajes_activados?select=viaje");
-        return new Set((filas || []).map(f => f.viaje));
+        const filas = await supabaseFetch("/farmacia_viajes_activados?select=viaje,estado");
+        return new Map((filas || []).map(f => [f.viaje, f.estado || "desactivado"]));
 
     }catch(e){
         console.error(e);
-        return new Set();
+        return new Map();
     }
 
 }
