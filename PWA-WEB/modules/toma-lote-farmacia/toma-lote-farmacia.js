@@ -932,12 +932,12 @@ async function buscarResumenCodigo(){
     const estadoFiltro = document.getElementById("filtroEstadoResumen").value;
 
     const tbody = document.getElementById("tblResumenCodigo");
-    tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">Buscando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Buscando...</td></tr>`;
 
     try{
 
-        let rutaLecturas = "/farmacia_lecturas?select=viaje,oc,codigo,descripcion,lote,fv,cantidad_cajas,escaneado_por,foto_url,created_at&order=created_at.desc";
-        let rutaData = "/farmacia_data?select=codigo,descripcion,cantidad";
+        let rutaLecturas = "/farmacia_lecturas?select=id,viaje,oc,codigo,descripcion,lote,fv,cantidad_cajas,escaneado_por,foto_url,created_at&order=created_at.desc";
+        let rutaData = "/farmacia_data?select=viaje,orden_compra,codigo,descripcion,cantidad";
 
         if(viaje){
             rutaLecturas += "&viaje=eq." + viaje;
@@ -972,12 +972,16 @@ async function buscarResumenCodigo(){
             }
         });
 
-        const porCodigo = {};
+        const porGrupo = {};
 
-        function obtenerGrupo(codigo, descripcion){
+        function obtenerGrupo(viajeGrupo, ocGrupo, codigo, descripcion){
 
-            if(!porCodigo[codigo]){
-                porCodigo[codigo] = {
+            const clave = viajeGrupo + "|" + ocGrupo + "|" + codigo;
+
+            if(!porGrupo[clave]){
+                porGrupo[clave] = {
+                    viaje: viajeGrupo,
+                    oc: ocGrupo,
                     codigo: codigo,
                     descripcion: descripcion || "",
                     solicitada: 0,
@@ -986,11 +990,11 @@ async function buscarResumenCodigo(){
                 };
             }
 
-            if(descripcion && !porCodigo[codigo].descripcion){
-                porCodigo[codigo].descripcion = descripcion;
+            if(descripcion && !porGrupo[clave].descripcion){
+                porGrupo[clave].descripcion = descripcion;
             }
 
-            return porCodigo[codigo];
+            return porGrupo[clave];
 
         }
 
@@ -998,7 +1002,7 @@ async function buscarResumenCodigo(){
             if(!f.codigo){
                 return;
             }
-            const grupo = obtenerGrupo(f.codigo, f.descripcion);
+            const grupo = obtenerGrupo(f.viaje, f.orden_compra, f.codigo, f.descripcion);
             grupo.solicitada += Number(f.cantidad || 0);
         });
 
@@ -1006,14 +1010,14 @@ async function buscarResumenCodigo(){
             if(!f.codigo){
                 return;
             }
-            const grupo = obtenerGrupo(f.codigo, f.descripcion);
+            const grupo = obtenerGrupo(f.viaje, f.oc, f.codigo, f.descripcion);
             grupo.pistoleada += Number(f.cantidad_cajas || 0);
             grupo.lotes.push(f);
         });
 
         const hoy = new Date();
 
-        const filas = Object.values(porCodigo).map(function(g){
+        const filas = Object.values(porGrupo).map(function(g){
 
             const lotesUnicos = [...new Set(g.lotes.map(l => l.lote).filter(Boolean))];
             const observaciones = [];
@@ -1064,6 +1068,8 @@ async function buscarResumenCodigo(){
             }
 
             return {
+                viaje: g.viaje,
+                oc: g.oc,
                 codigo: g.codigo,
                 descripcion: g.descripcion,
                 solicitada: g.solicitada,
@@ -1085,6 +1091,12 @@ async function buscarResumenCodigo(){
             return f.estadoClase === mapaFiltro[estadoFiltro];
 
         }).sort(function(a, b){
+            if(String(a.viaje) !== String(b.viaje)){
+                return String(a.viaje).localeCompare(String(b.viaje));
+            }
+            if(String(a.oc) !== String(b.oc)){
+                return String(a.oc).localeCompare(String(b.oc));
+            }
             return String(a.codigo).localeCompare(String(b.codigo));
         });
 
@@ -1093,7 +1105,7 @@ async function buscarResumenCodigo(){
         tbody.innerHTML = "";
 
         if(!filas.length){
-            tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se encontraron códigos con esos filtros.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">No se encontraron códigos con esos filtros.</td></tr>`;
             return;
         }
 
@@ -1106,6 +1118,8 @@ async function buscarResumenCodigo(){
             const tituloObservaciones = f.observaciones.length ? f.observaciones.join(" · ") : "";
 
             trResumen.innerHTML = `
+                <td>${f.viaje || "-"}</td>
+                <td>${f.oc || "-"}</td>
                 <td><span class="flecha-resumen">▸</span>${f.codigo}</td>
                 <td>${f.descripcion || "-"}</td>
                 <td>${formatearNumeroFarmacia(f.solicitada)}</td>
@@ -1128,36 +1142,34 @@ async function buscarResumenCodigo(){
 
                 return `
                     <tr>
-                        <td>${l.viaje || "-"}</td>
-                        <td>${l.oc || "-"}</td>
+                        <td>${formatearNumeroFarmacia(l.cantidad_cajas)}</td>
                         <td>${l.lote || "-"}</td>
                         <td>${l.fv || "-"}</td>
-                        <td>${formatearNumeroFarmacia(l.cantidad_cajas)}</td>
                         <td>${l.escaneado_por || "-"}</td>
                         <td>${formatearFechaHoraLecturas(l.created_at)}</td>
                         <td>${accionFoto}</td>
+                        <td><button class="btn-eliminar-lectura" data-id="${l.id}">Eliminar</button></td>
                     </tr>
                 `;
 
             }).join("");
 
             trDetalle.innerHTML = `
-                <td colspan="6">
+                <td colspan="8">
                     <table class="tabla-detalle-lotes">
                         <thead>
                             <tr>
-                                <th>Viaje</th>
-                                <th>OC</th>
+                                <th>Cantidad</th>
                                 <th>Lote</th>
                                 <th>F.V.</th>
-                                <th>Cajas</th>
                                 <th>Escaneado por</th>
-                                <th>Fecha</th>
+                                <th>Hora</th>
                                 <th>Evidencia</th>
+                                <th>Acción</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${filasLotes || '<tr><td colspan="8" class="sin-datos">Sin lecturas.</td></tr>'}
+                            ${filasLotes || '<tr><td colspan="7" class="sin-datos">Sin lecturas.</td></tr>'}
                         </tbody>
                     </table>
                 </td>
@@ -1171,13 +1183,13 @@ async function buscarResumenCodigo(){
     }catch(e){
 
         console.error(e);
-        tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se pudo cargar el resumen por código.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">No se pudo cargar el resumen por código.</td></tr>`;
 
     }
 
 }
 
-document.getElementById("tblResumenCodigo").addEventListener("click", function(e){
+document.getElementById("tblResumenCodigo").addEventListener("click", async function(e){
 
     const botonFoto = e.target.closest(".btn-ver-foto");
 
@@ -1185,6 +1197,31 @@ document.getElementById("tblResumenCodigo").addEventListener("click", function(e
         document.getElementById("modalFotoImg").src = botonFoto.dataset.foto;
         document.getElementById("modalFoto").classList.remove("oculto");
         return;
+    }
+
+    const botonEliminar = e.target.closest(".btn-eliminar-lectura");
+
+    if(botonEliminar){
+
+        const id = botonEliminar.dataset.id;
+
+        if(!confirm("¿Eliminar esta lectura? Esta acción no se puede deshacer.")){
+            return;
+        }
+
+        try{
+
+            await supabaseFetch("/farmacia_lecturas?id=eq." + id, { method: "DELETE" });
+            mostrarToast("Lectura eliminada.", "exito");
+            buscarResumenCodigo();
+
+        }catch(err){
+            console.error(err);
+            mostrarToast("No se pudo eliminar la lectura.", "error");
+        }
+
+        return;
+
     }
 
     const fila = e.target.closest(".fila-resumen-codigo");
