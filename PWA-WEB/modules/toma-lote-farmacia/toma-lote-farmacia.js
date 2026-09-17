@@ -1912,11 +1912,11 @@ async function buscarAlicorp(){
     const descripcion = document.getElementById("filtroDescripcionAlicorp").value.trim();
 
     const tbody = document.getElementById("tblAlicorp");
-    tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">Cargando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">Cargando...</td></tr>`;
 
     try{
 
-        let ruta = "/mara_alicorp?select=codigo,descripcion,ean,factor_unidad_alm,unidad_almacenamiento&order=descripcion.asc";
+        let ruta = "/mara_alicorp?select=codigo,descripcion,ean,factor_unidad_alm,unidad_almacenamiento,tvu&order=descripcion.asc";
 
         if(codigo){
             ruta += "&codigo=ilike.*" + encodeURIComponent(codigo) + "*";
@@ -1931,7 +1931,7 @@ async function buscarAlicorp(){
         tbody.innerHTML = "";
 
         if(!filas || !filas.length){
-            tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">No se encontraron materiales con esos filtros.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se encontraron materiales con esos filtros.</td></tr>`;
             return;
         }
 
@@ -1945,6 +1945,7 @@ async function buscarAlicorp(){
                 <td>${f.ean || "-"}</td>
                 <td>${f.factor_unidad_alm || "-"}</td>
                 <td>${f.unidad_almacenamiento || "-"}</td>
+                <td>${f.tvu || "-"}</td>
             `;
 
             tbody.appendChild(tr);
@@ -1954,13 +1955,165 @@ async function buscarAlicorp(){
     }catch(e){
 
         console.error(e);
-        tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">No se pudo cargar el maestro Alicorp.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se pudo cargar el maestro Alicorp.</td></tr>`;
 
     }
 
 }
 
 document.getElementById("btnBuscarAlicorp").addEventListener("click", buscarAlicorp);
+
+// ========================================
+// TVU (TIEMPO DE VIDA ÚTIL) — ACTUALIZACIÓN SOBRE MARA ALICORP
+// ========================================
+// A diferencia de la carga del maestro (que reemplaza todo), esto
+// solo actualiza el campo tvu de códigos que YA existen en
+// mara_alicorp — no inserta filas nuevas ni toca EAN/factor/unidad.
+
+document.getElementById("btnDescargarPlantillaTvu").addEventListener("click", function(){
+
+    const encabezados = ["Mat", "Des", "TVU"];
+
+    const hoja = XLSX.utils.aoa_to_sheet([encabezados]);
+    const libro = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(libro, hoja, "TVU ALICORP");
+
+    XLSX.writeFile(libro, "PLANTILLA_TVU_ALICORP.xlsx");
+
+});
+
+const archivoTvu = document.getElementById("archivoTvu");
+const nombreArchivoTvu = document.getElementById("nombreArchivoTvu");
+
+async function leerFilasTvuExcel(archivo){
+
+    const buffer = await archivo.arrayBuffer();
+    const libro = XLSX.read(buffer, { type: "array" });
+
+    const hoja = libro.Sheets[libro.SheetNames[0]];
+
+    return XLSX.utils.sheet_to_json(hoja, { defval: "" });
+
+}
+
+function normalizarFilaTvu(filaOriginal){
+
+    const mapaFila = {};
+
+    Object.keys(filaOriginal).forEach(function(clave){
+        mapaFila[clave.trim().toLowerCase()] = filaOriginal[clave];
+    });
+
+    function valor(clave){
+        const v = mapaFila[clave];
+        return (v === undefined || v === null) ? "" : v;
+    }
+
+    const codigo = String(valor("mat")).trim();
+    const tvuNum = Number(valor("tvu"));
+
+    return {
+        codigo: codigo,
+        tvu: (valor("tvu") === "" || isNaN(tvuNum)) ? null : tvuNum
+    };
+
+}
+
+archivoTvu.addEventListener("change", async function(e){
+
+    const archivo = e.target.files[0];
+
+    if(!archivo){
+        return;
+    }
+
+    nombreArchivoTvu.textContent = "Leyendo " + archivo.name + "...";
+
+    try{
+
+        const filasCrudas = await leerFilasTvuExcel(archivo);
+
+        if(!filasCrudas.length){
+            mostrarToast("El archivo está vacío.", "error");
+            nombreArchivoTvu.textContent = "-";
+            archivoTvu.value = "";
+            return;
+        }
+
+        const columnasArchivo = Object.keys(filasCrudas[0]).map(c => c.trim().toLowerCase());
+
+        if(!columnasArchivo.includes("mat") || !columnasArchivo.includes("tvu")){
+            mostrarToast("Este archivo no tiene el formato de TVU. Faltan las columnas MAT y/o TVU.", "error");
+            nombreArchivoTvu.textContent = "-";
+            archivoTvu.value = "";
+            return;
+        }
+
+        const filasNormalizadas = filasCrudas
+            .map(normalizarFilaTvu)
+            .filter(f => f.codigo && f.tvu !== null);
+
+        if(!filasNormalizadas.length){
+            mostrarToast("No se encontraron filas válidas en el archivo (revisa las columnas MAT y TVU).", "error");
+            nombreArchivoTvu.textContent = "-";
+            archivoTvu.value = "";
+            return;
+        }
+
+        nombreArchivoTvu.textContent = "Actualizando " + archivo.name + "...";
+
+        let actualizados = 0;
+        const noEncontrados = [];
+
+        for(const fila of filasNormalizadas){
+
+            const respuesta = await supabaseFetch(
+                "/mara_alicorp?codigo=eq." + encodeURIComponent(fila.codigo),
+                {
+                    method: "PATCH",
+                    headers: { "Prefer": "return=representation" },
+                    body: JSON.stringify({ tvu: fila.tvu })
+                }
+            );
+
+            if(respuesta && respuesta.length){
+                actualizados++;
+            }else{
+                noEncontrados.push(fila.codigo);
+            }
+
+        }
+
+        nombreArchivoTvu.textContent = archivo.name;
+        document.getElementById("totalActualizadosTvu").textContent =
+            actualizados.toLocaleString("es-PE") + " / " + filasNormalizadas.length.toLocaleString("es-PE");
+
+        if(noEncontrados.length){
+            mostrarToast(
+                "TVU actualizado en " + actualizados + " código(s). No se encontraron en el maestro Alicorp: " +
+                noEncontrados.slice(0, 10).join(", ") + (noEncontrados.length > 10 ? "..." : ""),
+                "error"
+            );
+        }else{
+            mostrarToast("TVU actualizado en " + actualizados + " código(s).", "exito");
+        }
+
+        buscarAlicorp();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo actualizar el TVU: " + err.message, "error");
+        nombreArchivoTvu.textContent = "-";
+
+    }finally{
+
+        archivoTvu.value = "";
+
+    }
+
+});
 
 // ========================================
 // STOCK FÍSICO SAP
