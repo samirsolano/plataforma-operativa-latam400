@@ -88,95 +88,98 @@ body{
     padding:30px 0;
 }
 
-.poster{
+/* ========================================
+   Cada turno es UNA HOJA completa (tamaño carta/A4
+   apaisado), con su propio banner+logo — no una lista
+   que hay que scrollear. Al imprimir, cada hoja sale en
+   su propia página.
+   ======================================== */
+
+.contenedor-hojas{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:30px;
+}
+
+.hoja-turno{
     background:white;
     border:3px solid #d1181f;
     border-radius:14px;
     overflow:hidden;
-    box-shadow:0 5px 20px rgba(0,0,0,.08);
+    box-shadow:0 8px 25px rgba(0,0,0,.12);
+    width:100%;
+    max-width:1122px;
+    aspect-ratio:1.414 / 1;
+    display:flex;
+    flex-direction:column;
 }
 
-.poster-banner{
+.hoja-banner{
     background:#d1181f;
     color:white;
-    padding:16px 25px;
+    padding:18px 30px;
     display:flex;
     align-items:center;
     gap:20px;
     flex-wrap:wrap;
 }
 
-.poster-logo{
+.hoja-logo{
     background:white;
     border-radius:8px;
     padding:6px 12px;
 }
 
 .logo-sigma-svg{
-    height:30px;
+    height:32px;
     width:auto;
     display:block;
 }
 
-.poster-titulos h2{
-    font-size:24px;
+.hoja-titulos h2{
+    font-size:26px;
     font-weight:800;
     letter-spacing:.5px;
 }
 
-.poster-titulos span{
-    font-size:13px;
-    font-weight:600;
-    opacity:.9;
+.hoja-titulos span{
+    font-size:14px;
+    font-weight:700;
+    opacity:.92;
 }
 
-.bloque-turno{
-    padding:20px 25px;
-    border-bottom:1px solid #f3f4f6;
-}
-
-.bloque-turno:last-child{
-    border-bottom:none;
-}
-
-.bloque-turno h3{
-    font-size:15px;
-    font-weight:800;
-    color:#d1181f;
-    text-transform:uppercase;
-    letter-spacing:.5px;
-    margin-bottom:14px;
-}
-
-.fila-personas{
-    display:flex;
-    gap:12px;
-    overflow-x:auto;
-    padding-bottom:6px;
+.hoja-personas{
+    flex:1;
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));
+    align-content:center;
+    gap:18px;
+    padding:24px 34px;
+    overflow:hidden;
 }
 
 .chip-persona{
-    flex:0 0 auto;
-    width:120px;
     text-align:center;
 }
 
 .chip-persona .foto-persona{
-    width:90px;
-    height:90px;
+    width:100%;
+    max-width:110px;
+    aspect-ratio:1/1;
     border-radius:10px;
     object-fit:cover;
     background:#f3f4f6;
     border:1px solid #e5e7eb;
-    margin-bottom:6px;
+    margin:0 auto 8px;
+    display:block;
 }
 
 .chip-persona .nombre-persona{
-    font-size:12px;
+    font-size:13px;
     font-weight:700;
     color:#1f2937;
     word-break:break-word;
-    min-height:30px;
 }
 
 .chip-persona .zona-persona{
@@ -203,23 +206,33 @@ body{
         display:none !important;
     }
 
+    @page{
+        size:A4 landscape;
+        margin:8mm;
+    }
+
     body{
         background:white;
         padding:0;
     }
 
-    .poster{
+    .contenedor-hojas{
+        gap:0;
+    }
+
+    .hoja-turno{
+        max-width:none;
+        width:100%;
+        height:100vh;
+        aspect-ratio:auto;
         border-width:2px;
+        box-shadow:none;
+        page-break-after:always;
+        break-after:page;
     }
 
-    .fila-personas{
-        flex-wrap:wrap;
-        overflow:visible;
-    }
-
-    .bloque-turno{
-        break-inside:avoid;
-        page-break-inside:avoid;
+    .hoja-turno:last-child{
+        page-break-after:auto;
     }
 
 }

@@ -21,8 +21,6 @@ const FOTO_DEFAULT =
 const mensajeCarga = document.getElementById("mensajeCarga");
 const contenedorTurnos = document.getElementById("contenedorTurnos");
 
-document.getElementById("logoSigma").innerHTML = LOGO_SIGMA_SVG;
-
 document.getElementById("btnImprimir").addEventListener("click", function(){
     window.print();
 });
@@ -77,8 +75,8 @@ function renderizarEquipoCompleto(promotores, fotosPorDni){
             return;
         }
 
-        const bloque = document.createElement("div");
-        bloque.className = "bloque-turno";
+        const hoja = document.createElement("div");
+        hoja.className = "hoja-turno";
 
         const chipsHtml = personasDelTurno.map(function(persona){
 
@@ -95,14 +93,20 @@ function renderizarEquipoCompleto(promotores, fotosPorDni){
 
         }).join("");
 
-        bloque.innerHTML = `
-            <h3>${ETIQUETAS_TURNO[turno]}</h3>
-            <div class="fila-personas">
+        hoja.innerHTML = `
+            <div class="hoja-banner">
+                <div class="hoja-logo">${LOGO_SIGMA_SVG}</div>
+                <div class="hoja-titulos">
+                    <h2>PROMOTORES 5S</h2>
+                    <span>${ETIQUETAS_TURNO[turno]} — LATAM 400 CL</span>
+                </div>
+            </div>
+            <div class="hoja-personas">
                 ${chipsHtml}
             </div>
         `;
 
-        contenedorTurnos.appendChild(bloque);
+        contenedorTurnos.appendChild(hoja);
 
     });
 
