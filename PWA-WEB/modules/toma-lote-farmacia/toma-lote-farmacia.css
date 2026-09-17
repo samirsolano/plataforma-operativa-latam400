@@ -385,6 +385,70 @@ body{
     cursor:default;
 }
 
+/* MENÚ ⋮ DE ACCIONES (Viajes Generados) */
+
+.menu-acciones{
+    position:relative;
+    display:inline-block;
+}
+
+.btn-menu-acciones{
+    width:32px;
+    height:32px;
+    border:1px solid #d5dbe5;
+    border-radius:8px;
+    background:white;
+    color:#374151;
+    font-size:16px;
+    font-weight:700;
+    cursor:pointer;
+    line-height:1;
+}
+
+.btn-menu-acciones:hover{
+    background:#f3f4f6;
+}
+
+.dropdown-acciones{
+    position:absolute;
+    top:100%;
+    right:0;
+    margin-top:6px;
+    min-width:180px;
+    background:white;
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:0 10px 25px rgba(0,0,0,.18);
+    z-index:20;
+    display:flex;
+    flex-direction:column;
+}
+
+.dropdown-acciones.oculto{
+    display:none;
+}
+
+.dropdown-acciones button{
+    display:block;
+    width:100%;
+    text-align:left;
+    padding:11px 16px;
+    border:none;
+    background:white;
+    color:#1f2937;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.dropdown-acciones button:hover{
+    background:#f3f4f6;
+}
+
+.dropdown-acciones .btn-eliminar{
+    color:#c0392b;
+}
+
 /* FILTROS LECTURAS */
 
 .filtros-lecturas{

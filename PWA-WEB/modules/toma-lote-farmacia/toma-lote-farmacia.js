@@ -441,20 +441,30 @@ function cargarViajesReales(filas, estadosMap){
         const estadoTexto = TEXTOS_ESTADO[estado];
         const estadoClase = CLASES_ESTADO[estado];
 
-        let acciones = "";
+        let items = "";
 
         if(estado === "desactivado"){
-            acciones =
-                '<button class="btn-activar" data-viaje="' + v.viaje + '">Activar</button> ' +
-                '<button class="btn-reemplazar" data-viaje="' + v.viaje + '">Reemplazar</button> ' +
-                '<button class="btn-finalizar" data-viaje="' + v.viaje + '">Finalizar</button>';
+            items =
+                '<button class="btn-activar" data-viaje="' + v.viaje + '">Activar</button>' +
+                '<button class="btn-reemplazar" data-viaje="' + v.viaje + '">Reemplazar</button>' +
+                '<button class="btn-finalizar" data-viaje="' + v.viaje + '">Guardar (Finalizar)</button>' +
+                '<button class="btn-eliminar" data-viaje="' + v.viaje + '">Eliminar</button>';
         }else if(estado === "activo"){
-            acciones =
-                '<button class="btn-desactivar" data-viaje="' + v.viaje + '">Desactivar</button> ' +
-                '<button class="btn-finalizar" data-viaje="' + v.viaje + '">Finalizar</button>';
+            // Bloqueado: mientras está Activo no se puede Reemplazar
+            // ni Eliminar — primero hay que Desactivarlo.
+            items =
+                '<button class="btn-desactivar" data-viaje="' + v.viaje + '">Desactivar</button>' +
+                '<button class="btn-finalizar" data-viaje="' + v.viaje + '">Guardar (Finalizar)</button>';
         }else{
-            acciones = '<button class="btn-guardar" data-viaje="' + v.viaje + '">Guardar</button>';
+            items = '<button class="btn-guardar" data-viaje="' + v.viaje + '">Guardar</button>';
         }
+
+        const acciones = `
+            <div class="menu-acciones">
+                <button class="btn-menu-acciones" data-viaje="${v.viaje}">⋮</button>
+                <div class="dropdown-acciones oculto">${items}</div>
+            </div>
+        `;
 
         tr.innerHTML = `
             <td>${v.viaje}</td>
@@ -485,21 +495,57 @@ async function cambiarEstadoViaje(viaje, nuevoEstado){
 
 }
 
+function cerrarMenusAcciones(exceptoEste){
+
+    document.querySelectorAll("#tblViajes .dropdown-acciones").forEach(function(d){
+        if(d !== exceptoEste){
+            d.classList.add("oculto");
+        }
+    });
+
+}
+
+document.addEventListener("click", function(){
+    cerrarMenusAcciones(null);
+});
+
 document.getElementById("tblViajes").addEventListener("click", async function(e){
+
+    const botonMenu = e.target.closest(".btn-menu-acciones");
+
+    if(botonMenu){
+
+        e.stopPropagation();
+
+        const dropdown = botonMenu.nextElementSibling;
+        const yaAbierto = !dropdown.classList.contains("oculto");
+
+        cerrarMenusAcciones(null);
+
+        if(!yaAbierto){
+            dropdown.classList.remove("oculto");
+        }
+
+        return;
+
+    }
 
     const botonActivar = e.target.closest(".btn-activar");
     const botonDesactivar = e.target.closest(".btn-desactivar");
     const botonFinalizar = e.target.closest(".btn-finalizar");
     const botonReemplazar = e.target.closest(".btn-reemplazar");
     const botonGuardar = e.target.closest(".btn-guardar");
+    const botonEliminar = e.target.closest(".btn-eliminar");
 
     if(botonReemplazar){
+        cerrarMenusAcciones(null);
         mostrarToast("Sube el nuevo Excel de ese viaje arriba: al estar Desactivado, se reemplaza automáticamente.", "info");
         archivoFarmacia.click();
         return;
     }
 
     if(botonGuardar){
+        cerrarMenusAcciones(null);
         mostrarToast(
             "Función en desarrollo: más adelante esto guardará el viaje en un archivo histórico global y lo quitará de las tablas activas. Por ahora queda marcado como Finalizado.",
             "info"
@@ -507,10 +553,44 @@ document.getElementById("tblViajes").addEventListener("click", async function(e)
         return;
     }
 
+    if(botonEliminar){
+
+        const viaje = Number(botonEliminar.dataset.viaje);
+
+        cerrarMenusAcciones(null);
+
+        const confirmado = confirm(
+            "¿Eliminar por completo el viaje " + viaje + "? Esto borra todos sus códigos, OC y su estado. No se puede deshacer."
+        );
+
+        if(!confirmado){
+            return;
+        }
+
+        try{
+
+            await supabaseFetch("/farmacia_data?viaje=eq." + viaje, { method: "DELETE" });
+            await supabaseFetch("/farmacia_viajes_activados?viaje=eq." + viaje, { method: "DELETE" });
+
+            mostrarToast("Viaje " + viaje + " eliminado.", "exito");
+
+            await cargarResumenExistente();
+
+        }catch(err){
+            console.error(err);
+            mostrarToast("No se pudo eliminar el viaje: " + err.message, "error");
+        }
+
+        return;
+
+    }
+
     const boton = botonActivar || botonDesactivar || botonFinalizar;
     if(!boton){
         return;
     }
+
+    cerrarMenusAcciones(null);
 
     const viaje = Number(boton.dataset.viaje);
 
