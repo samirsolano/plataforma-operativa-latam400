@@ -104,8 +104,9 @@ body{
 
 .hoja-turno{
     background:white;
-    border:3px solid #d1181f;
+    border:3px solid #d72c25;
     border-radius:14px;
+    overflow:hidden;
     box-shadow:0 8px 25px rgba(0,0,0,.12);
     width:100%;
     max-width:1122px;
@@ -119,7 +120,9 @@ body{
 }
 
 .hoja-banner{
-    background:#d1181f;
+    /* Mismo rojo exacto del archivo logo-sigma-rojo.jpg (rgb(215,44,37))
+       para que el logo se funda con el banner sin dejar ver su borde. */
+    background:#d72c25;
     color:white;
     padding:18px 30px;
     display:flex;
@@ -129,13 +132,12 @@ body{
 }
 
 .hoja-logo{
-    background:white;
-    border-radius:8px;
-    padding:6px 12px;
+    display:flex;
+    align-items:center;
 }
 
 .logo-sigma-img{
-    height:32px;
+    height:70px;
     width:auto;
     display:block;
 }
@@ -188,7 +190,7 @@ body{
 .chip-persona .zona-persona{
     font-size:11px;
     font-weight:700;
-    color:#d1181f;
+    color:#d72c25;
     background:#fdeceb;
     border-radius:6px;
     padding:2px 6px;
