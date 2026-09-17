@@ -863,10 +863,10 @@ const ALIAS_COLUMNAS_SAP_PICKING = {
     // El campo interno "stock" es la cantidad SAP con la que se compara
     // el conteo físico en todo el módulo (Registro, Reporte, KPIs). El
     // extracto real de SAP no trae una columna llamada "Stock" — trae
-    // "Ctd." (cantidad en unidades base, la misma unidad que usa
-    // conteo_total = camas×conversión + sueltos en Centro de
-    // Proyectos), así que ese es el encabezado que hay que reconocer.
-    stock: ["ctd.", "ctd", "stock"],
+    // "Ctd.embalada (UMA)", que es la cantidad en UMA (la misma unidad
+    // en la que se cuenta camas/sueltos en Centro de Proyectos). "Ctd."
+    // es la cantidad en unidades sueltas, NO la que hay que usar acá.
+    stock: ["ctd.embalada (uma)", "ctd embalada uma", "stock"],
     umb: ["umb"],
     unidad_manipulacion: ["unidad manipulacion"],
     ctd: ["ctd.", "ctd"],
