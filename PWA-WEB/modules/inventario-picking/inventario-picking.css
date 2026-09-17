@@ -481,6 +481,29 @@ tbody tr:hover{
     background:#2563eb;
 }
 
+.asignarColaborador{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+}
+
+.selectColaboradorPasillo{
+    min-width:220px;
+    max-width:280px;
+    padding:6px 8px;
+    border:1px solid #d5dbe5;
+    border-radius:8px;
+    font-size:13px;
+    color:#111827;
+}
+
+.btn-asignar-pasillo{
+    flex-shrink:0;
+    padding:6px 12px;
+    font-size:12px;
+}
+
 .badge-estado-asig{
     display:inline-block;
     padding:4px 10px;
