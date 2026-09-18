@@ -1761,33 +1761,59 @@ const fechaArchivoOc = document.getElementById("fechaArchivoOc");
 
 let _ocsParaSubirCargadas = false;
 
+// Marca cada OC del desplegable con si ya tiene archivo cargado en
+// "4. OC Portal Cliente" (🟢 Cargado) o no (⚪ Pendiente), para saber
+// de un vistazo cuáles faltan sin tener que probarlas una por una.
 async function cargarOcsParaSubir(){
 
     if(_ocsParaSubirCargadas){
         return;
     }
 
+    _ocsParaSubirCargadas = true;
+
     try{
 
-        const filas = await supabaseFetchTodo("/farmacia_data?select=orden_compra");
+        const ocSeleccionadaAntes = cmbOcASubir.value;
+
+        const [filas, ocPortalFilas] = await Promise.all([
+            supabaseFetchTodo("/farmacia_data?select=orden_compra"),
+            supabaseFetchTodo("/oc_portal_cliente?select=oc")
+        ]);
 
         const ocs = [...new Set((filas || []).map(f => f.orden_compra))]
             .filter(v => v !== null && v !== undefined)
             .sort((a, b) => a - b);
 
+        const ocsCargadas = new Set((ocPortalFilas || []).map(f => f.oc));
+
+        cmbOcASubir.querySelectorAll("option[value]:not([value=''])").forEach(function(op){
+            op.remove();
+        });
+
         ocs.forEach(function(oc){
             const option = document.createElement("option");
             option.value = String(oc);
-            option.textContent = String(oc);
+            option.textContent = oc + (ocsCargadas.has(oc) ? " — 🟢 Cargado" : " — ⚪ Pendiente");
             cmbOcASubir.appendChild(option);
         });
 
-        _ocsParaSubirCargadas = true;
+        cmbOcASubir.value = ocSeleccionadaAntes;
 
     }catch(e){
+
         console.error(e);
+        _ocsParaSubirCargadas = false;
+
     }
 
+}
+
+// Vuelve a consultar cuáles OC ya tienen archivo, para que el
+// desplegable quede al día justo después de cargar una.
+function refrescarOcsParaSubir(){
+    _ocsParaSubirCargadas = false;
+    cargarOcsParaSubir();
 }
 
 cmbOcASubir.addEventListener("change", function(){
@@ -2003,6 +2029,7 @@ archivoOcPortal.addEventListener("change", async function(e){
         );
 
         cargarResumenExistenteOcPortal();
+        refrescarOcsParaSubir();
 
     }catch(err){
 
