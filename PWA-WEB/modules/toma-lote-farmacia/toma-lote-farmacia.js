@@ -138,7 +138,7 @@ document.addEventListener("click", function(){
 
 [
     "cmbViajeLecturas", "filtroOcLecturas", "filtroEstadoResumen", "cmbOcASubir",
-    "cmbViajeStock", "cmbOcStock", "cmbViajeFiltroStock",
+    "cmbViajeStock", "cmbViajeFiltroStock",
     "cmbViajeCruce", "cmbOcCruce", "cmbOcDataFinal"
 ].forEach(mejorarSelect);
 
@@ -2571,7 +2571,9 @@ document.getElementById("btnDescargarPlantillaStock").addEventListener("click", 
 });
 
 const cmbViajeStock = document.getElementById("cmbViajeStock");
-const cmbOcStock = document.getElementById("cmbOcStock");
+const cajaOcsCanalStock = document.getElementById("cajaOcsCanalStock");
+const listaOcCanalStock = document.getElementById("listaOcCanalStock");
+const btnGuardarCanalesStock = document.getElementById("btnGuardarCanalesStock");
 const archivoStock = document.getElementById("archivoStock");
 const nombreArchivoStock = document.getElementById("nombreArchivoStock");
 const fechaArchivoStock = document.getElementById("fechaArchivoStock");
@@ -2609,8 +2611,8 @@ async function cargarViajesParaStock(){
 
 function resetearSeleccionStock(){
 
-    cmbOcStock.innerHTML = `<option value="">Selecciona primero el viaje...</option>`;
-    cmbOcStock.disabled = true;
+    cajaOcsCanalStock.classList.add("oculto");
+    listaOcCanalStock.innerHTML = "";
 
     archivoStock.value = "";
     archivoStock.disabled = true;
@@ -2618,6 +2620,31 @@ function resetearSeleccionStock(){
     nombreArchivoStock.textContent = "-";
     fechaArchivoStock.textContent = "-";
     document.getElementById("totalRegistrosStock").textContent = "-";
+
+}
+
+function ocsDelFormularioStock(){
+    return Array.from(listaOcCanalStock.querySelectorAll(".input-canal-oc"))
+        .map(input => Number(input.dataset.oc));
+}
+
+async function guardarCanalesActuales(){
+
+    const filas = Array.from(listaOcCanalStock.querySelectorAll(".input-canal-oc"))
+        .map(function(input){
+            return { oc: Number(input.dataset.oc), canal: input.value.trim() };
+        })
+        .filter(f => f.canal);
+
+    if(!filas.length){
+        return;
+    }
+
+    await supabaseFetch("/oc_canal?on_conflict=oc", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates" },
+        body: JSON.stringify(filas)
+    });
 
 }
 
@@ -2639,16 +2666,45 @@ cmbViajeStock.addEventListener("change", async function(){
             .filter(v => v !== null && v !== undefined)
             .sort((a, b) => a - b);
 
-        cmbOcStock.innerHTML = `<option value="">Selecciona la OC...</option>`;
+        if(!ocs.length){
+            mostrarToast("Ese viaje no tiene OC cargadas.", "error");
+            return;
+        }
+
+        const canalesExistentes = await supabaseFetchTodo(
+            "/oc_canal?select=oc,canal&oc=in.(" + ocs.join(",") + ")"
+        );
+
+        const mapaCanal = new Map((canalesExistentes || []).map(f => [f.oc, f.canal || ""]));
+
+        listaOcCanalStock.innerHTML = "";
 
         ocs.forEach(function(oc){
-            const option = document.createElement("option");
-            option.value = String(oc);
-            option.textContent = String(oc);
-            cmbOcStock.appendChild(option);
+
+            const fila = document.createElement("div");
+            fila.className = "fila-oc-canal";
+            fila.innerHTML =
+                '<span class="oc-numero">' + oc + '</span>' +
+                '<input type="text" class="input-canal-oc" data-oc="' + oc + '" ' +
+                'placeholder="Ej: CD LIMA" value="' + (mapaCanal.get(oc) || "") + '">';
+
+            listaOcCanalStock.appendChild(fila);
+
         });
 
-        cmbOcStock.disabled = false;
+        cajaOcsCanalStock.classList.remove("oculto");
+        archivoStock.disabled = false;
+
+        const yaCargado = await supabaseFetchTodo(
+            "/stock_fisico_sap?select=id,archivo_origen,created_at&viaje=eq." + cmbViajeStock.value +
+            "&order=created_at.desc"
+        );
+
+        if(yaCargado && yaCargado.length){
+            nombreArchivoStock.textContent = yaCargado[0].archivo_origen || "-";
+            fechaArchivoStock.textContent = new Date(yaCargado[0].created_at).toLocaleDateString("es-PE");
+            document.getElementById("totalRegistrosStock").textContent = yaCargado.length.toLocaleString("es-PE");
+        }
 
     }catch(e){
         console.error(e);
@@ -2657,38 +2713,25 @@ cmbViajeStock.addEventListener("change", async function(){
 
 });
 
-cmbOcStock.addEventListener("change", async function(){
+btnGuardarCanalesStock.addEventListener("click", async function(){
 
-    archivoStock.value = "";
-    archivoStock.disabled = !cmbOcStock.value;
+    const filas = Array.from(listaOcCanalStock.querySelectorAll(".input-canal-oc"))
+        .map(function(input){
+            return { oc: Number(input.dataset.oc), canal: input.value.trim() };
+        })
+        .filter(f => f.canal);
 
-    if(!cmbOcStock.value){
-        nombreArchivoStock.textContent = "-";
-        fechaArchivoStock.textContent = "-";
-        document.getElementById("totalRegistrosStock").textContent = "-";
+    if(!filas.length){
+        mostrarToast("Escribe al menos un Canal para guardar.", "error");
         return;
     }
 
     try{
-
-        const filas = await supabaseFetchTodo(
-            "/stock_fisico_sap?select=id,archivo_origen,created_at&viaje=eq." + cmbViajeStock.value +
-            "&oc=eq." + cmbOcStock.value + "&order=created_at.desc"
-        );
-
-        if(!filas || !filas.length){
-            nombreArchivoStock.textContent = "-";
-            fechaArchivoStock.textContent = "-";
-            document.getElementById("totalRegistrosStock").textContent = "0";
-            return;
-        }
-
-        nombreArchivoStock.textContent = filas[0].archivo_origen || "-";
-        fechaArchivoStock.textContent = new Date(filas[0].created_at).toLocaleDateString("es-PE");
-        document.getElementById("totalRegistrosStock").textContent = filas.length.toLocaleString("es-PE");
-
+        await guardarCanalesActuales();
+        mostrarToast("Canales guardados.", "exito");
     }catch(e){
         console.error(e);
+        mostrarToast("No se pudieron guardar los canales: " + e.message, "error");
     }
 
 });
@@ -2731,7 +2774,7 @@ function validarFormatoStock(filasCrudas){
 
 }
 
-function normalizarFilaStock(filaOriginal, archivo, cargadoPor, viaje, oc){
+function normalizarFilaStock(filaOriginal, archivo, cargadoPor, viaje, mapaCanalPorUbicacion){
 
     const mapaFila = {};
 
@@ -2757,11 +2800,14 @@ function normalizarFilaStock(filaOriginal, archivo, cargadoPor, viaje, oc){
         return parsearFechaExcel(valor(clave));
     }
 
+    const ubicacionTexto = texto("ubicacion");
+    const ocEncontrada = mapaCanalPorUbicacion.get(sinTildes(ubicacionTexto).trim().toLowerCase());
+
     return {
         viaje: viaje,
-        oc: oc,
+        oc: (ocEncontrada === undefined) ? null : ocEncontrada,
         tipo_almacen: texto("tipo almacen"),
-        ubicacion: texto("ubicacion"),
+        ubicacion: ubicacionTexto,
         producto: texto("producto"),
         descripcion_producto: texto("descripcion producto"),
         lote: texto("lote"),
@@ -2786,10 +2832,9 @@ archivoStock.addEventListener("change", async function(e){
     }
 
     const viajeSeleccionado = Number(cmbViajeStock.value);
-    const ocSeleccionada = Number(cmbOcStock.value);
 
-    if(!cmbViajeStock.value || !cmbOcStock.value){
-        mostrarToast("Primero selecciona el Viaje y la OC.", "error");
+    if(!cmbViajeStock.value){
+        mostrarToast("Primero selecciona el Viaje.", "error");
         archivoStock.value = "";
         return;
     }
@@ -2809,10 +2854,28 @@ archivoStock.addEventListener("change", async function(e){
             return;
         }
 
+        // Guarda lo que haya en los campos de Canal antes de usarlos para
+        // identificar la OC de cada fila.
+        await guardarCanalesActuales();
+
+        const ocsDelViaje = ocsDelFormularioStock();
+
+        const canalesActuales = await supabaseFetchTodo(
+            "/oc_canal?select=oc,canal&oc=in.(" + ocsDelViaje.join(",") + ")"
+        );
+
+        const mapaCanalPorUbicacion = new Map();
+
+        (canalesActuales || []).forEach(function(f){
+            if(f.canal){
+                mapaCanalPorUbicacion.set(sinTildes(f.canal).trim().toLowerCase(), f.oc);
+            }
+        });
+
         const cargadoPor = (sesion && (sesion.nombre_completo || sesion.usuario)) || "";
 
         const filasNormalizadas = filasCrudas
-            .map(f => normalizarFilaStock(f, archivo.name, cargadoPor, viajeSeleccionado, ocSeleccionada))
+            .map(f => normalizarFilaStock(f, archivo.name, cargadoPor, viajeSeleccionado, mapaCanalPorUbicacion))
             .filter(f => f.producto && f.lote);
 
         if(!filasNormalizadas.length){
@@ -2822,14 +2885,16 @@ archivoStock.addEventListener("change", async function(e){
             return;
         }
 
+        const filasSinOc = filasNormalizadas.filter(f => f.oc === null).length;
+
         const existentes = await supabaseFetch(
-            "/stock_fisico_sap?viaje=eq." + viajeSeleccionado + "&oc=eq." + ocSeleccionada + "&select=id&limit=1"
+            "/stock_fisico_sap?viaje=eq." + viajeSeleccionado + "&select=id&limit=1"
         );
 
         if(existentes && existentes.length){
 
             const confirmado = confirm(
-                "Ya hay stock físico cargado para el Viaje " + viajeSeleccionado + " / OC " + ocSeleccionada +
+                "Ya hay stock físico cargado para el Viaje " + viajeSeleccionado +
                 ". ¿Deseas reemplazarlo con este archivo (" + filasNormalizadas.length + " filas)?"
             );
 
@@ -2840,7 +2905,7 @@ archivoStock.addEventListener("change", async function(e){
             }
 
             await supabaseFetch(
-                "/stock_fisico_sap?viaje=eq." + viajeSeleccionado + "&oc=eq." + ocSeleccionada,
+                "/stock_fisico_sap?viaje=eq." + viajeSeleccionado,
                 { method: "DELETE" }
             );
 
@@ -2857,8 +2922,8 @@ archivoStock.addEventListener("change", async function(e){
             filasNormalizadas.length.toLocaleString("es-PE");
 
         mostrarToast(
-            "Stock físico cargado para Viaje " + viajeSeleccionado + " / OC " + ocSeleccionada +
-            ": " + filasNormalizadas.length + " filas.",
+            "Stock físico cargado para Viaje " + viajeSeleccionado + ": " + filasNormalizadas.length + " filas" +
+            (filasSinOc ? " (" + filasSinOc + " sin OC identificada por Canal)." : "."),
             "exito"
         );
 
@@ -2946,7 +3011,7 @@ async function buscarStock(){
 
             tr.innerHTML = `
                 <td>${f.viaje}</td>
-                <td>${f.oc}</td>
+                <td>${f.oc === null ? "-" : f.oc}</td>
                 <td>${f.producto || "-"}</td>
                 <td>${f.descripcion_producto || "-"}</td>
                 <td>${f.lote || "-"}</td>
