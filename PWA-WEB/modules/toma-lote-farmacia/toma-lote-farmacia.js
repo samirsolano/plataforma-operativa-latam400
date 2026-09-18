@@ -901,9 +901,12 @@ async function buscarLecturas(){
 // ========================================
 // "Con observaciones" si: más de 3 lotes distintos, algún lote con
 // vida útil restante (F.V. - hoy) menor a 2/3 de su TVU (de
-// "4. MARA Alicorp"), la F.V. no cuadra con lo que dice el Lote (ver
-// decodificarLote), o se pistoleó más de lo solicitado (si aún falta
-// pistolear, eso es solo "Pendiente", no una observación).
+// "4. MARA Alicorp"), o se pistoleó más de lo solicitado (si aún
+// falta pistolear, eso es solo "Pendiente", no una observación). Para
+// el chequeo de vida útil, si el F.V. leído/pistoleado está
+// incompleto o vacío, se completa con la fecha de producción del
+// Lote + el TVU del código (ver completarFvConLote) — eso solo se usa
+// cuando falta el dato, nunca para "corregir" un F.V. ya completo.
 
 let _ultimoResumenCodigo = [];
 
@@ -946,6 +949,80 @@ function decodificarLote(lote){
         fechaProduccion: "20" + aa + "-" + mm + "-" + dd,
         codigoPlanta: codigoPlanta
     };
+
+}
+
+const MESES_ES = {
+    enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7,
+    agosto: 8, setiembre: 9, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12
+};
+
+// Detecta "MES AAAA" (ej: "SETIEMBRE 2029") en el texto del F.V.
+// cuando no se pudo leer el día. Devuelve {mes, anio} o null.
+function extraerMesAnio(texto){
+
+    const limpio = sinTildes(String(texto || "")).trim().toLowerCase();
+    const m = limpio.match(/([a-z]+)\D+(\d{4})/);
+
+    if(!m){
+        return null;
+    }
+
+    const mes = MESES_ES[m[1]];
+
+    return mes ? { mes: mes, anio: Number(m[2]) } : null;
+
+}
+
+function ultimoDiaDeMes(anio, mes){
+    return new Date(anio, mes, 0).getDate();
+}
+
+// Completa el F.V. SOLO cuando falta el dato (parcial o total),
+// usando la fecha de producción del Lote + el TVU del código. Si el
+// F.V. ya viene completo (día/mes/año), se devuelve tal cual, sin
+// tocarlo.
+function completarFvConLote(fvTexto, lote, tvu){
+
+    const fechaCompleta = parsearFechaExcel(fvTexto);
+
+    if(fechaCompleta){
+        return fechaCompleta;
+    }
+
+    const decodificado = decodificarLote(lote);
+
+    if(!decodificado || !tvu){
+        return null;
+    }
+
+    const calculada = new Date(decodificado.fechaProduccion + "T00:00:00");
+    calculada.setMonth(calculada.getMonth() + tvu);
+
+    const anioCalc = calculada.getFullYear();
+    const mesCalc = calculada.getMonth() + 1;
+    const diaCalc = calculada.getDate();
+
+    const mesAnio = extraerMesAnio(fvTexto);
+
+    if(mesAnio && mesAnio.mes === mesCalc && mesAnio.anio === anioCalc){
+        // Se leyó mes/año y coincide con el cálculo: solo faltaba el
+        // día, se completa con el que da el cálculo.
+        return anioCalc + "-" + String(mesCalc).padStart(2, "0") + "-" + String(diaCalc).padStart(2, "0");
+    }
+
+    if(mesAnio){
+        // Se leyó mes/año pero no coincide con el cálculo del Lote:
+        // se respeta el mes/año leído y se completa el día con el
+        // último día de ese mes (no se confía en el cálculo si el
+        // mes/año no cuadra).
+        const dia = ultimoDiaDeMes(mesAnio.anio, mesAnio.mes);
+        return mesAnio.anio + "-" + String(mesAnio.mes).padStart(2, "0") + "-" + String(dia).padStart(2, "0");
+    }
+
+    // No hay nada legible en el F.V. (vacío o ilegible): se completa
+    // todo (día, mes y año) con el cálculo del Lote + TVU.
+    return anioCalc + "-" + String(mesCalc).padStart(2, "0") + "-" + String(diaCalc).padStart(2, "0");
 
 }
 
@@ -1062,7 +1139,7 @@ async function buscarResumenCodigo(){
 
                 const vidaInsuficiente = g.lotes.some(function(l){
 
-                    const fv = parsearFechaExcel(l.fv);
+                    const fv = completarFvConLote(l.fv, l.lote, tvu);
                     if(!fv){
                         return false;
                     }
@@ -1075,28 +1152,6 @@ async function buscarResumenCodigo(){
 
                 if(vidaInsuficiente){
                     observaciones.push("Vida útil restante menor a 2/3 del TVU");
-                }
-
-                const fvNoCoincideConLote = g.lotes.some(function(l){
-
-                    const decodificado = decodificarLote(l.lote);
-                    const fv = parsearFechaExcel(l.fv);
-
-                    if(!decodificado || !fv){
-                        return false;
-                    }
-
-                    const mesesSegunEtiqueta = mesesEntre(
-                        new Date(decodificado.fechaProduccion + "T00:00:00"),
-                        new Date(fv + "T00:00:00")
-                    );
-
-                    return Math.abs(mesesSegunEtiqueta - tvu) > 1;
-
-                });
-
-                if(fvNoCoincideConLote){
-                    observaciones.push("F.V. no coincide con la fecha de producción del Lote + TVU");
                 }
 
             }
