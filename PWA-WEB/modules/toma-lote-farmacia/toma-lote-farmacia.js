@@ -1781,11 +1781,18 @@ async function cargarOcsParaSubir(){
             supabaseFetchTodo("/oc_portal_cliente?select=oc")
         ]);
 
-        const ocs = [...new Set((filas || []).map(f => f.orden_compra))]
+        const ocsCargadas = new Set((ocPortalFilas || []).map(f => f.oc));
+
+        // Unión de las OC de "1. Carga y Viajes" con las que ya
+        // tengan archivo en "4. OC Portal Cliente" — así una OC no
+        // desaparece del desplegable aunque su viaje ya no esté en
+        // farmacia_data (por ejemplo, si se eliminó o se reemplazó).
+        const ocs = [...new Set([
+            ...(filas || []).map(f => f.orden_compra),
+            ...ocsCargadas
+        ])]
             .filter(v => v !== null && v !== undefined)
             .sort((a, b) => a - b);
-
-        const ocsCargadas = new Set((ocPortalFilas || []).map(f => f.oc));
 
         cmbOcASubir.querySelectorAll("option[value]:not([value=''])").forEach(function(op){
             op.remove();
