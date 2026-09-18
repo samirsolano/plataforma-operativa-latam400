@@ -1292,6 +1292,12 @@ function pintarReconteo(){
 
         const idInput = idInputCantidadSap(f.ubicacion);
         const puedeEditar = f.codigoContado && f.codigoContado !== "-";
+        // SAP no espera nada en esta ubicación — lo que se registró ahí
+        // (un código, aunque sea con cantidad 0) fue un error de escaneo,
+        // no una diferencia real de saldo. En vez de "corregir" un saldo
+        // SAP que no existe, se da la opción de declarar la ubicación
+        // vacía (eso hace que deje de aparecer acá).
+        const sinNadaEnSap = f.codigoSap === "-";
 
         return `
             <tr>
@@ -1307,9 +1313,14 @@ function pintarReconteo(){
                 <td>${f.cantidad}</td>
                 <td>${f.colaborador}</td>
                 <td>
-                    ${puedeEditar
-                        ? `<button class="btn-secundario" onclick="actualizarCantidadSap('${f.ubicacion}', '${f.codigoContado}', '${idInput}')">Guardar</button>`
-                        : ""}
+                    <div class="acciones-reconteo">
+                        ${puedeEditar
+                            ? `<button class="btn-secundario" onclick="actualizarCantidadSap('${f.ubicacion}', '${f.codigoContado}', '${idInput}')">Guardar</button>`
+                            : ""}
+                        ${sinNadaEnSap
+                            ? `<button class="btn-secundario" onclick="marcarUbicacionVaciaReconteo('${f.ubicacion}', ${f.pasillo})">Ubicación vacía</button>`
+                            : ""}
+                    </div>
                 </td>
             </tr>
         `;
@@ -1370,6 +1381,55 @@ async function actualizarCantidadSap(ubicacion, sku, idInput){
         });
 
         mostrarToast("Cantidad SAP de " + ubicacion + " actualizada a " + nuevaCantidad + ".", "exito");
+        await cargarDiscrepancias();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo actualizar: " + err.message, "error");
+
+    }
+
+}
+
+// Cuando SAP no espera nada en la ubicación pero quedó un código
+// registrado (un escaneo por error), se declara la ubicación vacía en
+// vez de "corregir" un saldo SAP que no existe — el nuevo registro
+// (vacia:true) queda como el vigente, así que la fila deja de
+// aparecer en Reconteo.
+async function marcarUbicacionVaciaReconteo(ubicacion, pasillo){
+
+    const confirmado = await mostrarConfirmacion(
+        "¿Marcar " + ubicacion + " como ubicación vacía? El registro que hay ahí no debió contarse " +
+        "(SAP no esperaba nada), así que se reemplaza por uno vacío."
+    );
+
+    if(!confirmado){ return; }
+
+    try{
+
+        await supabaseFetch("/picking_conteos", {
+            method: "POST",
+            body: JSON.stringify({
+                pasillo: pasillo,
+                semana: SEMANA,
+                colaborador: (sesion && sesion.nombre_completo) || "Admin",
+                es_reconteo: true,
+                ubicacion_escaneada: ubicacion,
+                codigo_barras: null,
+                sku: null,
+                descripcion: null,
+                unidad: null,
+                ubicacion_esperada: null,
+                camas: 0,
+                sueltos: 0,
+                conteo_total: 0,
+                cruce: "OK",
+                vacia: true
+            })
+        });
+
+        mostrarToast("Ubicación " + ubicacion + " marcada como vacía.", "exito");
         await cargarDiscrepancias();
 
     }catch(err){
