@@ -415,7 +415,7 @@ body{
 }
 
 .fila-oc-canal input{
-    flex:1;
+    width:220px;
     padding:10px 12px;
     border:1px solid #d5dbe5;
     border-radius:10px;
