@@ -962,17 +962,81 @@
 
                 <div class="card">
 
-                    <div class="card-header-flex">
+                    <h2>
+                        CRUCE LOTES SAP VS FÍSICO
+                    </h2>
 
-                        <h2>
-                            CRUCE LOTES SAP VS FÍSICO
-                        </h2>
+                    <p class="nota-modulo">
+                        Compara, por Código, el Lote y la cantidad que registra "5. Stock Físico
+                        SAP" (en cajas/bultos) contra lo realmente escaneado en
+                        "2. Lecturas y Evidencias" — lo físico es lo que vale. "Con
+                        observaciones": la cantidad no coincide, o algún Lote de SAP no aparece
+                        entre los Lotes escaneados de ese código — ese es el Lote que hay que
+                        cambiar en SAP. Haz clic en una fila para ver el detalle por Ubicación,
+                        con el Lote a cambiar y la F.V. (solo informativa).
+                    </p>
+
+                    <div class="filtros-lecturas">
+
+                        <div>
+                            <label>Viaje</label>
+                            <select id="cmbViajeCruceLotes">
+                                <option value="">Selecciona el viaje...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label>OC</label>
+                            <select id="filtroOcCruceLotes" disabled>
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label>Estado</label>
+                            <select id="filtroEstadoCruceLotes">
+                                <option value="">Todos</option>
+                                <option value="completo">Completo</option>
+                                <option value="observaciones">Con observaciones</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <button id="btnBuscarCruceLotes">Buscar</button>
+                        </div>
 
                     </div>
 
-                    <p class="nota-modulo">
-                        Módulo en construcción.
-                    </p>
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Viaje</th>
+                                <th>OC</th>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Ctd. SAP (Cajas)</th>
+                                <th>Ctd. Pistoleada (Cajas)</th>
+                                <th>Lotes SAP</th>
+                                <th>Estado</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblCruceLotesSap">
+
+                            <tr>
+                                <td colspan="8" class="sin-datos">
+                                    Selecciona el Viaje y presiona "Buscar".
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
 
                 </div>
 

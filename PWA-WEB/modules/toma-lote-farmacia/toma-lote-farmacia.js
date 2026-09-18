@@ -139,7 +139,8 @@ document.addEventListener("click", function(){
 [
     "cmbViajeLecturas", "filtroOcLecturas", "filtroEstadoResumen", "cmbOcASubir",
     "cmbViajeStock", "cmbViajeFiltroStock",
-    "cmbViajeCruce", "cmbOcCruce", "cmbOcDataFinal"
+    "cmbViajeCruce", "cmbOcCruce", "cmbOcDataFinal",
+    "cmbViajeCruceLotes", "filtroOcCruceLotes", "filtroEstadoCruceLotes"
 ].forEach(mejorarSelect);
 
 // ========================================
@@ -230,6 +231,10 @@ document.querySelectorAll(".tab-link").forEach(function(link){
 
         if(link.dataset.tab === "tabDataFinal"){
             cargarOcsCompletasParaDataFinal();
+        }
+
+        if(link.dataset.tab === "tabCruceLotesSap"){
+            cargarViajesParaCruceLotes();
         }
 
     });
@@ -3665,5 +3670,328 @@ document.getElementById("btnExportarDataFinal").addEventListener("click", functi
     XLSX.utils.book_append_sheet(libro, hoja, "DATA FINAL");
 
     XLSX.writeFile(libro, "DATA_FINAL_" + new Date().toISOString().slice(0, 10) + ".xlsx");
+
+});
+
+// ========================================
+// MONITOR: CRUCE LOTES SAP VS FÍSICO
+// ========================================
+// Compara, por Código dentro de un Viaje, lo que registra SAP
+// ("5. Stock Físico SAP", stock_fisico_sap.producto = codigo) contra
+// lo realmente escaneado en "2. Lecturas y Evidencias"
+// (farmacia_lecturas). Lo físico manda: si un Lote de SAP no aparece
+// entre los Lotes escaneados de ese código, es el Lote a corregir en
+// SAP. La cantidad se compara por código, sumando cajas de cada lado
+// (cantidad_embalada en SAP, cantidad_cajas en lo escaneado).
+
+const cmbViajeCruceLotes = document.getElementById("cmbViajeCruceLotes");
+const filtroOcCruceLotes = document.getElementById("filtroOcCruceLotes");
+const filtroEstadoCruceLotes = document.getElementById("filtroEstadoCruceLotes");
+
+let _viajesCruceLotesCargados = false;
+
+async function cargarViajesParaCruceLotes(){
+
+    if(_viajesCruceLotesCargados){
+        return;
+    }
+
+    try{
+
+        const filas = await supabaseFetchTodo("/stock_fisico_sap?select=viaje");
+
+        const viajes = [...new Set((filas || []).map(f => f.viaje))]
+            .filter(v => v !== null && v !== undefined)
+            .sort((a, b) => a - b);
+
+        viajes.forEach(function(v){
+            const option = document.createElement("option");
+            option.value = String(v);
+            option.textContent = String(v);
+            cmbViajeCruceLotes.appendChild(option);
+        });
+
+        _viajesCruceLotesCargados = true;
+
+    }catch(e){
+        console.error(e);
+    }
+
+}
+
+cmbViajeCruceLotes.addEventListener("change", async function(){
+
+    filtroOcCruceLotes.innerHTML = `<option value="">Todas</option>`;
+    filtroOcCruceLotes.disabled = true;
+
+    if(!cmbViajeCruceLotes.value){
+        return;
+    }
+
+    try{
+
+        const filas = await supabaseFetchTodo(
+            "/stock_fisico_sap?select=oc&viaje=eq." + cmbViajeCruceLotes.value
+        );
+
+        const ocs = [...new Set((filas || []).map(f => f.oc))]
+            .filter(v => v !== null && v !== undefined)
+            .sort((a, b) => a - b);
+
+        ocs.forEach(function(oc){
+            const option = document.createElement("option");
+            option.value = String(oc);
+            option.textContent = String(oc);
+            filtroOcCruceLotes.appendChild(option);
+        });
+
+        filtroOcCruceLotes.disabled = false;
+
+    }catch(e){
+        console.error(e);
+    }
+
+});
+
+async function buscarCruceLotesSap(){
+
+    const viaje = cmbViajeCruceLotes.value;
+    const oc = filtroOcCruceLotes.value;
+    const estadoFiltro = filtroEstadoCruceLotes.value;
+
+    const tbody = document.getElementById("tblCruceLotesSap");
+
+    if(!viaje){
+        mostrarToast("Primero selecciona el Viaje.", "error");
+        return;
+    }
+
+    tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Buscando...</td></tr>`;
+
+    try{
+
+        let rutaSap = "/stock_fisico_sap?select=viaje,oc,producto,descripcion_producto,ubicacion,lote,fecha_caducidad,cantidad_embalada&viaje=eq." + viaje;
+        let rutaLecturas = "/farmacia_lecturas?select=viaje,oc,codigo,descripcion,lote,cantidad_cajas&viaje=eq." + viaje;
+
+        if(oc){
+            rutaSap += "&oc=eq." + oc;
+            rutaLecturas += "&oc=eq." + oc;
+        }
+
+        const [sapFilas, lecturasFilas] = await Promise.all([
+            supabaseFetchTodo(rutaSap),
+            supabaseFetchTodo(rutaLecturas)
+        ]);
+
+        const porGrupo = {};
+
+        function obtenerGrupo(viajeGrupo, ocGrupo, codigo, descripcion){
+
+            const clave = viajeGrupo + "|" + ocGrupo + "|" + codigo;
+
+            if(!porGrupo[clave]){
+                porGrupo[clave] = {
+                    viaje: viajeGrupo,
+                    oc: ocGrupo,
+                    codigo: codigo,
+                    descripcion: descripcion || "",
+                    ctdSap: 0,
+                    ctdPistoleada: 0,
+                    filasSap: [],
+                    lotesPistoleados: []
+                };
+            }
+
+            if(descripcion && !porGrupo[clave].descripcion){
+                porGrupo[clave].descripcion = descripcion;
+            }
+
+            return porGrupo[clave];
+
+        }
+
+        (sapFilas || []).forEach(function(f){
+            if(!f.producto){
+                return;
+            }
+            const grupo = obtenerGrupo(f.viaje, f.oc, f.producto, f.descripcion_producto);
+            grupo.ctdSap += Number(f.cantidad_embalada || 0);
+            grupo.filasSap.push(f);
+        });
+
+        (lecturasFilas || []).forEach(function(f){
+            if(!f.codigo){
+                return;
+            }
+            const grupo = obtenerGrupo(f.viaje, f.oc, f.codigo, f.descripcion);
+            grupo.ctdPistoleada += Number(f.cantidad_cajas || 0);
+            if(f.lote){
+                grupo.lotesPistoleados.push(f.lote);
+            }
+        });
+
+        const filas = Object.values(porGrupo).filter(function(g){
+
+            // Solo interesan los códigos que SAP realmente registró
+            // (sin data de Stock Físico SAP no hay nada que cruzar).
+            return g.filasSap.length > 0;
+
+        }).map(function(g){
+
+            const lotesPistoleadosSet = new Set(g.lotesPistoleados.map(l => String(l).trim()));
+
+            const observaciones = [];
+
+            const lotesConProblema = g.filasSap.filter(function(f){
+                return f.lote && !lotesPistoleadosSet.has(String(f.lote).trim());
+            });
+
+            if(lotesConProblema.length){
+                observaciones.push(lotesConProblema.length + " lote(s) de SAP no coinciden con lo escaneado");
+            }
+
+            if(g.ctdSap !== g.ctdPistoleada){
+                observaciones.push("Cantidad no coincide (SAP " + g.ctdSap + " vs pistoleado " + g.ctdPistoleada + ")");
+            }
+
+            const lotesSapUnicos = [...new Set(g.filasSap.map(f => f.lote).filter(Boolean))];
+
+            let estadoClase;
+            let estadoTexto;
+
+            if(observaciones.length){
+                estadoClase = "advertencia";
+                estadoTexto = "Con observaciones";
+            }else{
+                estadoClase = "activado";
+                estadoTexto = "Completo";
+            }
+
+            return {
+                viaje: g.viaje,
+                oc: g.oc,
+                codigo: g.codigo,
+                descripcion: g.descripcion,
+                ctdSap: g.ctdSap,
+                ctdPistoleada: g.ctdPistoleada,
+                lotesSapUnicos: lotesSapUnicos,
+                filasSap: g.filasSap,
+                lotesPistoleadosSet: lotesPistoleadosSet,
+                observaciones: observaciones,
+                estadoClase: estadoClase,
+                estadoTexto: estadoTexto
+            };
+
+        }).filter(function(f){
+
+            if(!estadoFiltro){
+                return true;
+            }
+
+            const mapaFiltro = { completo: "activado", observaciones: "advertencia" };
+            return f.estadoClase === mapaFiltro[estadoFiltro];
+
+        }).sort(function(a, b){
+
+            if(String(a.oc) !== String(b.oc)){
+                return String(a.oc).localeCompare(String(b.oc));
+            }
+            return String(a.codigo).localeCompare(String(b.codigo));
+
+        });
+
+        tbody.innerHTML = "";
+
+        if(!filas.length){
+            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">No se encontró data de Stock Físico SAP para ese Viaje.</td></tr>`;
+            return;
+        }
+
+        filas.forEach(function(f, indice){
+
+            const trResumen = document.createElement("tr");
+            trResumen.className = "fila-resumen-codigo";
+            trResumen.dataset.indice = indice;
+
+            const tituloObservaciones = f.observaciones.length ? f.observaciones.join(" · ") : "";
+
+            trResumen.innerHTML = `
+                <td>${f.viaje || "-"}</td>
+                <td>${f.oc || "-"}</td>
+                <td><span class="flecha-resumen">▸</span>${f.codigo}</td>
+                <td>${f.descripcion || "-"}</td>
+                <td>${formatearNumeroFarmacia(f.ctdSap)}</td>
+                <td>${formatearNumeroFarmacia(f.ctdPistoleada)}</td>
+                <td>${f.lotesSapUnicos.length}</td>
+                <td>
+                    <span class="estado ${f.estadoClase}">${f.estadoTexto}</span>
+                    ${tituloObservaciones ? `<div class="detalle-observacion">${tituloObservaciones}</div>` : ""}
+                </td>
+            `;
+
+            const trDetalle = document.createElement("tr");
+            trDetalle.className = "fila-detalle-lotes oculto";
+
+            const filasSapDetalle = f.filasSap.map(function(s){
+
+                const noCoincide = s.lote && !f.lotesPistoleadosSet.has(String(s.lote).trim());
+
+                return `
+                    <tr>
+                        <td>${s.ubicacion || "-"}</td>
+                        <td class="${noCoincide ? "lote-a-cambiar" : ""}">${s.lote || "-"}</td>
+                        <td>${formatearNumeroFarmacia(s.cantidad_embalada)}</td>
+                        <td>${s.fecha_caducidad || "-"}</td>
+                        <td>${noCoincide ? "No coincide con lo escaneado — cambiar en SAP" : "-"}</td>
+                    </tr>
+                `;
+
+            }).join("");
+
+            trDetalle.innerHTML = `
+                <td colspan="8">
+                    <table class="tabla-detalle-lotes">
+                        <thead>
+                            <tr>
+                                <th>Ubicación</th>
+                                <th>Lote (SAP)</th>
+                                <th>Ctd. (Cajas)</th>
+                                <th>F.V.</th>
+                                <th>Observación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filasSapDetalle || '<tr><td colspan="5" class="sin-datos">Sin filas de Stock Físico SAP.</td></tr>'}
+                        </tbody>
+                    </table>
+                </td>
+            `;
+
+            tbody.appendChild(trResumen);
+            tbody.appendChild(trDetalle);
+
+        });
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">No se pudo calcular el cruce.</td></tr>`;
+
+    }
+
+}
+
+document.getElementById("btnBuscarCruceLotes").addEventListener("click", buscarCruceLotesSap);
+
+document.getElementById("tblCruceLotesSap").addEventListener("click", function(e){
+
+    const fila = e.target.closest(".fila-resumen-codigo");
+
+    if(!fila){
+        return;
+    }
+
+    fila.classList.toggle("expandido");
+    fila.nextElementSibling.classList.toggle("oculto");
 
 });

@@ -686,6 +686,11 @@ select{
     transform:rotate(90deg);
 }
 
+.lote-a-cambiar{
+    color:#FC000D;
+    font-weight:700;
+}
+
 .filtros-lecturas label{
     display:block;
     margin-bottom:8px;
