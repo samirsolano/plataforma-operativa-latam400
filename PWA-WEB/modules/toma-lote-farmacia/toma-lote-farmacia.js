@@ -550,6 +550,45 @@ function cargarViajesReales(filas, estadosMap){
 
 }
 
+// "Finalizado" significa que ya se pistoleó todo lo que pide el
+// viaje (todos sus códigos, en todas sus OC). Devuelve
+// {completo, pendientes} — pendientes es la lista de códigos a los
+// que aún les falta.
+async function viajeCompletamenteEscaneado(viaje){
+
+    const [dataFilas, lecturasFilas] = await Promise.all([
+        supabaseFetchTodo("/farmacia_data?select=codigo,cantidad&viaje=eq." + viaje),
+        supabaseFetchTodo("/farmacia_lecturas?select=codigo,cantidad_cajas&viaje=eq." + viaje)
+    ]);
+
+    const solicitadoPorCodigo = {};
+
+    (dataFilas || []).forEach(function(f){
+        if(!f.codigo){
+            return;
+        }
+        solicitadoPorCodigo[f.codigo] = (solicitadoPorCodigo[f.codigo] || 0) + Number(f.cantidad || 0);
+    });
+
+    const escaneadoPorCodigo = {};
+
+    (lecturasFilas || []).forEach(function(f){
+        if(!f.codigo){
+            return;
+        }
+        escaneadoPorCodigo[f.codigo] = (escaneadoPorCodigo[f.codigo] || 0) + Number(f.cantidad_cajas || 0);
+    });
+
+    const pendientes = Object.keys(solicitadoPorCodigo).filter(function(codigo){
+        const solicitado = solicitadoPorCodigo[codigo];
+        const escaneado = escaneadoPorCodigo[codigo] || 0;
+        return solicitado > 0 && escaneado < solicitado;
+    });
+
+    return { completo: pendientes.length === 0, pendientes: pendientes };
+
+}
+
 async function cambiarEstadoViaje(viaje, nuevoEstado){
 
     await supabaseFetch("/farmacia_viajes_activados?on_conflict=viaje", {
@@ -664,13 +703,36 @@ document.getElementById("tblViajes").addEventListener("click", async function(e)
     const viaje = Number(boton.dataset.viaje);
 
     const nuevoEstado = botonActivar ? "activo" : (botonDesactivar ? "desactivado" : "finalizado");
-    const textoProceso = botonActivar ? "Activando..." : (botonDesactivar ? "Desactivando..." : "Finalizando...");
+    const textoProceso = botonActivar ? "Activando..." : (botonDesactivar ? "Desactivando..." : "Verificando...");
     const textoOriginal = boton.textContent;
 
     boton.disabled = true;
     boton.textContent = textoProceso;
 
     try{
+
+        if(nuevoEstado === "finalizado"){
+
+            const chequeo = await viajeCompletamenteEscaneado(viaje);
+
+            if(!chequeo.completo){
+
+                mostrarToast(
+                    "No se puede finalizar: todavía falta pistolear " + chequeo.pendientes.length +
+                    " código(s) de este viaje (" + chequeo.pendientes.join(", ") + ").",
+                    "error"
+                );
+
+                boton.disabled = false;
+                boton.textContent = textoOriginal;
+
+                return;
+
+            }
+
+            boton.textContent = "Finalizando...";
+
+        }
 
         await cambiarEstadoViaje(viaje, nuevoEstado);
 
