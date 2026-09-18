@@ -1037,8 +1037,8 @@ async function buscarLecturas(){
 // RESUMEN POR CÓDIGO (con observaciones)
 // ========================================
 // "Con observaciones" si: más de 3 lotes distintos, algún lote con
-// vida útil restante (F.V. - hoy) menor a 2/3 de su TVU (de
-// "4. MARA Alicorp"), o se pistoleó más de lo solicitado (si aún
+// vida útil restante (F.V. - hoy) menor o igual a la mitad de su TVU
+// (de "4. MARA Alicorp"), o se pistoleó más de lo solicitado (si aún
 // falta pistolear, eso es solo "Pendiente", no una observación). Para
 // el chequeo de vida útil, si el F.V. leído/pistoleado está
 // incompleto o vacío, se completa con la fecha de producción del
@@ -1283,12 +1283,12 @@ async function buscarResumenCodigo(){
 
                     const mesesRestantes = mesesEntre(hoy, new Date(fv + "T00:00:00"));
 
-                    return mesesRestantes < (tvu * 2 / 3);
+                    return mesesRestantes <= (tvu / 2);
 
                 });
 
                 if(vidaInsuficiente){
-                    observaciones.push("Vida útil restante menor a 2/3 del TVU");
+                    observaciones.push("Vida útil restante menor o igual a la mitad del TVU");
                 }
 
             }
@@ -1781,11 +1781,18 @@ async function cargarOcsParaSubir(){
             supabaseFetchTodo("/oc_portal_cliente?select=oc")
         ]);
 
-        const ocs = [...new Set((filas || []).map(f => f.orden_compra))]
+        const ocsCargadas = new Set((ocPortalFilas || []).map(f => f.oc));
+
+        // Unión de las OC de "1. Carga y Viajes" con las que ya
+        // tengan archivo en "4. OC Portal Cliente" — así una OC no
+        // desaparece del desplegable aunque su viaje ya no esté en
+        // farmacia_data (por ejemplo, si se eliminó o se reemplazó).
+        const ocs = [...new Set([
+            ...(filas || []).map(f => f.orden_compra),
+            ...ocsCargadas
+        ])]
             .filter(v => v !== null && v !== undefined)
             .sort((a, b) => a - b);
-
-        const ocsCargadas = new Set((ocPortalFilas || []).map(f => f.oc));
 
         cmbOcASubir.querySelectorAll("option[value]:not([value=''])").forEach(function(op){
             op.remove();

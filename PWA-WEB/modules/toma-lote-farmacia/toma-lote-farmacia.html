@@ -299,7 +299,7 @@
                         Cada fila es un código; haz clic en ella para ver las líneas
                         pistoleadas (lote, F.V., cajas, quién y cuándo).
                         "Con observaciones": más de 3 lotes, un lote con vida útil restante
-                        menor a 2/3 de su TVU, o se pistoleó más de lo solicitado. Si el F.V.
+                        menor o igual a la mitad de su TVU, o se pistoleó más de lo solicitado. Si el F.V.
                         leído/pistoleado está incompleto o vacío, se completa con la fecha de
                         producción del Lote (primeros 6 dígitos) + el TVU del código, solo para
                         ese chequeo de vida útil.
@@ -361,8 +361,10 @@
                     </div>
 
                     <p class="nota-modulo">
-                        Primero selecciona la OC que vas a subir (solo aparecen las OC que ya
-                        están en la plantilla de "1. Carga y Viajes"), y luego sube el Excel de
+                        Primero selecciona la OC que vas a subir (aparecen las OC de la plantilla
+                        de "1. Carga y Viajes" más las que ya tengan archivo cargado aquí, aunque
+                        su viaje ya no esté en la carga — 🟢 Cargado / ⚪ Pendiente), y luego sube
+                        el Excel de
                         esa OC tal como lo exporta el portal del cliente (una fila por posición).
                         Solo son obligatorias las columnas OC (o "No. OC"), EAN, Descripción
                         Producto, SKU/Empaque, Ctdad. SKU solicitadas e Inretail/QS (o "Código
