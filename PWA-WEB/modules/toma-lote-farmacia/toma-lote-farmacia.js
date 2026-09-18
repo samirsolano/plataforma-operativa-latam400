@@ -494,7 +494,7 @@ function cargarViajesReales(filas, estadosMap){
     tbody.innerHTML = "";
 
     if(!viajes.length){
-        tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Sube la plantilla para ver los viajes.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">Sube la plantilla para ver los viajes.</td></tr>`;
         return;
     }
 
@@ -527,9 +527,14 @@ function cargarViajesReales(filas, estadosMap){
             items = '<button class="btn-guardar" data-viaje="' + v.viaje + '">Guardar</button>';
         }
 
-        const acciones = `
+        // El badge de Estado ES el botón que abre el menú de acciones
+        // (Activar/Desactivar/Finalizar/...) — así todo queda en una
+        // sola columna angosta y no se corta en pantallas chicas.
+        const estadoConMenu = `
             <div class="menu-acciones">
-                <button class="btn-menu-acciones" data-viaje="${v.viaje}">⋮</button>
+                <button class="btn-menu-acciones btn-estado-menu" data-viaje="${v.viaje}">
+                    <span class="estado ${estadoClase}">${estadoTexto} ▾</span>
+                </button>
                 <div class="dropdown-acciones oculto">${items}</div>
             </div>
         `;
@@ -540,8 +545,7 @@ function cargarViajesReales(filas, estadosMap){
             <td>${v.fecha_cita || "-"}</td>
             <td>${v.codigos}</td>
             <td>${formatearNumeroFarmacia(v.cantidad)}</td>
-            <td><span class="estado ${estadoClase}">${estadoTexto}</span></td>
-            <td>${acciones}</td>
+            <td>${estadoConMenu}</td>
         `;
 
         tbody.appendChild(tr);

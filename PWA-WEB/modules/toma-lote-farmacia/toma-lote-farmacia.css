@@ -405,6 +405,16 @@ body{
     line-height:1;
 }
 
+/* Variante donde el badge de Estado ES el botón del menú (Viajes
+   Generados) — sin la caja fija de 32x32, se ajusta al texto. */
+.btn-estado-menu{
+    width:auto;
+    height:auto;
+    border:none;
+    background:none;
+    padding:0;
+}
+
 .btn-menu-acciones:hover{
     background:#f3f4f6;
 }
