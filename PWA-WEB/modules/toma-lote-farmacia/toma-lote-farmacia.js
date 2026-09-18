@@ -3020,14 +3020,11 @@ async function calcularCruce(){
                 if(escaneadoCajas > cajasMaxSinExceder){
                     estadoTexto = "Excede lo solicitado";
                     estadoClase = "pendiente";
-                }else if(escaneadoCajas === cajasMaxSinExceder){
-                    estadoTexto = "Completo";
-                    estadoClase = "activado";
                 }else{
-                    // Escaneado <= solicitado: está bien (no es un
-                    // problema, solo falta terminar), va en verde
-                    // igual que "Completo".
-                    estadoTexto = "Pendiente";
+                    // Escaneado <= solicitado: está bien (no importa
+                    // si es justo lo solicitado o menos), cuenta como
+                    // Completo. El único problema es exceder.
+                    estadoTexto = "Completo";
                     estadoClase = "activado";
                 }
 
