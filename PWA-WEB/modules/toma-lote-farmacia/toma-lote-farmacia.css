@@ -852,3 +852,34 @@ select:disabled{
     border-color:#FC000D;
     box-shadow:0 0 0 3px rgba(252,0,13,.12);
 }
+
+/* .filtros-lecturas button y .filtros-mara button pintan de rojo
+   CUALQUIER <button> dentro de esas cajas (pensado para el botón
+   Buscar/Filtrar). El botón del select-bonito también es un
+   <button>, así que hereda ese rojo por error — se restaura aquí
+   su apariencia normal, con más especificidad para ganar siempre. */
+.filtros-lecturas .select-bonito-boton,
+.filtros-mara .select-bonito-boton{
+    width:100%;
+    height:auto;
+    text-align:left;
+    padding:12px 38px 12px 12px;
+    border:1px solid #d5dbe5;
+    border-radius:10px;
+    background-color:white;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%236b7280'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.25a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08z' clip-rule='evenodd'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+    background-size:16px;
+    font-size:13px;
+    font-weight:400;
+    color:#1f2937;
+    cursor:pointer;
+}
+
+.filtros-lecturas .select-bonito-boton:hover,
+.filtros-mara .select-bonito-boton:hover{
+    border-color:#FC000D;
+    background-color:white;
+    color:#1f2937;
+}
