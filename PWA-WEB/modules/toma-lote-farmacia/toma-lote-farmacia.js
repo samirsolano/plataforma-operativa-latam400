@@ -28,6 +28,121 @@ function mostrarToast(mensaje, tipo){
 }
 
 // ========================================
+// SELECT PERSONALIZADO
+// ========================================
+// Un <select> nativo nunca deja pintar la LISTA de opciones con CSS
+// (eso lo dibuja el sistema operativo, no el navegador) — solo el
+// control cerrado. Para que se vea bien de verdad, se reemplaza cada
+// <select> por un botón + una lista propia (mismo estilo que los
+// menús ⋮ de Viajes Generados). El <select> original NO se borra:
+// queda oculto pero sigue siendo la fuente de verdad (su .value y su
+// evento "change"), así que todo el resto del código (cascadas
+// Viaje→OC, filtros, etc.) sigue funcionando exactamente igual, sin
+// tocarlo.
+function mejorarSelect(id){
+
+    const original = document.getElementById(id);
+
+    if(!original || original.dataset.mejorado){
+        return;
+    }
+
+    original.dataset.mejorado = "1";
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "select-bonito";
+
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.className = "select-bonito-boton";
+
+    const lista = document.createElement("div");
+    lista.className = "select-bonito-lista oculto";
+
+    original.parentNode.insertBefore(wrapper, original);
+    wrapper.appendChild(original);
+    wrapper.appendChild(boton);
+    wrapper.appendChild(lista);
+
+    function render(){
+
+        const opcionActual = original.options[original.selectedIndex];
+        boton.textContent = opcionActual ? opcionActual.textContent : "";
+        boton.disabled = original.disabled;
+
+        lista.innerHTML = "";
+
+        Array.from(original.options).forEach(function(op, indice){
+
+            const item = document.createElement("div");
+            item.className = "select-bonito-item" + (indice === original.selectedIndex ? " activo" : "");
+            item.textContent = op.textContent;
+
+            item.addEventListener("click", function(){
+
+                if(original.selectedIndex !== indice){
+                    original.selectedIndex = indice;
+                    original.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+
+                lista.classList.add("oculto");
+                render();
+
+            });
+
+            lista.appendChild(item);
+
+        });
+
+    }
+
+    boton.addEventListener("click", function(e){
+
+        if(boton.disabled){
+            return;
+        }
+
+        e.stopPropagation();
+
+        const abierto = !lista.classList.contains("oculto");
+
+        document.querySelectorAll(".select-bonito-lista").forEach(function(l){
+            l.classList.add("oculto");
+        });
+
+        if(!abierto){
+            lista.classList.remove("oculto");
+        }
+
+    });
+
+    // El select original puede repoblarse (innerHTML nuevo con otras
+    // OC/Viajes) o habilitarse/deshabilitarse en cualquier momento
+    // desde el resto del código — se observa para mantener la lista
+    // propia siempre al día sin tener que tocar esas funciones.
+    new MutationObserver(render).observe(original, {
+        childList: true,
+        attributes: true,
+        attributeFilter: ["disabled"]
+    });
+
+    render();
+
+}
+
+document.addEventListener("click", function(){
+    document.querySelectorAll(".select-bonito-lista").forEach(function(l){
+        l.classList.add("oculto");
+    });
+});
+
+[
+    "cmbViajeLecturas", "filtroOcLecturas", "filtroEstadoResumen", "cmbOcASubir",
+    "cmbViajeStock", "cmbOcStock", "cmbViajeFiltroStock",
+    "cmbViajeCruce", "cmbOcCruce", "cmbOcDataFinal"
+].forEach(mejorarSelect);
+
+// ========================================
 // SESIÓN Y PERMISOS
 // ========================================
 // Solo el rol Administrador puede ver este módulo.
