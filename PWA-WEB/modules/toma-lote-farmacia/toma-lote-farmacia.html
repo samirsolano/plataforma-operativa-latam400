@@ -62,21 +62,21 @@
 
                 <div class="menu-seccion">Despacho</div>
 
-                <a href="#" class="tab-link" data-tab="tabLecturas">2. Lecturas y Evidencias</a>
+                <a href="#" class="tab-link" data-tab="tabLecturas">Lecturas y Evidencias</a>
 
                 <div class="menu-separador"></div>
                 <div class="menu-seccion">Facturación</div>
 
-                <a href="#" class="tab-link activo" data-tab="tabCarga">1. Carga y Viajes</a>
-                <a href="#" class="tab-link" data-tab="tabOcPortal">3. OC Portal Cliente</a>
-                <a href="#" class="tab-link" data-tab="tabCruce">6. Cruce de Información</a>
-                <a href="#" class="tab-link" data-tab="tabDataFinal">7. Data Final</a>
-                <a href="#" class="tab-link" data-tab="tabMaraAlicorp">4. MARA Alicorp</a>
+                <a href="#" class="tab-link activo" data-tab="tabCarga">Carga y Viajes</a>
+                <a href="#" class="tab-link" data-tab="tabOcPortal">OC Portal Cliente</a>
+                <a href="#" class="tab-link" data-tab="tabCruce">Cruce de Información</a>
+                <a href="#" class="tab-link" data-tab="tabDataFinal">Data Final</a>
+                <a href="#" class="tab-link" data-tab="tabMaraAlicorp">MARA Alicorp</a>
 
                 <div class="menu-separador"></div>
                 <div class="menu-seccion">Monitor</div>
 
-                <a href="#" class="tab-link" data-tab="tabStockFisico">5. Stock Físico SAP</a>
+                <a href="#" class="tab-link" data-tab="tabStockFisico">Stock Físico SAP</a>
                 <a href="#" class="tab-link" data-tab="tabCruceLotesSap">Cruce Lotes SAP vs Físico</a>
 
             </nav>
@@ -644,15 +644,18 @@
                     </div>
 
                     <p class="nota-modulo">
-                        Primero selecciona el Viaje y luego la OC de ese viaje (solo aparecen los
-                        que ya están en la plantilla de "1. Carga y Viajes"), y recién ahí sube el
-                        Excel de stock físico tal como lo exporta SAP: Tipo almacén, Ubicación,
+                        Primero selecciona el Viaje (solo aparecen los que ya están en la
+                        plantilla de "1. Carga y Viajes"). Verás todas las OC de ese viaje: a
+                        cada una le asignas un Canal (ubicación lógica) — se guarda asociado a la
+                        OC, así que si ya se lo pusiste antes, no hace falta repetirlo. Luego sube
+                        el Excel de stock físico tal como lo exporta SAP: Tipo almacén, Ubicación,
                         Producto, Descripción producto, Lote, FeCaduc/FePreferCons, Tipo de stock,
-                        Ctd.embalada (UMA), Un.medida alternat., Ctd. y Fecha EM. El export de SAP
-                        no trae Viaje ni OC — por eso se etiqueta con lo que selecciones. Por ahora
-                        solo se carga y guarda; el cruce contra lo escaneado se agregará después.
-                        Al volver a subir un archivo del mismo Viaje/OC, se reemplazan solo esas
-                        filas.
+                        Ctd.embalada (UMA), Un.medida alternat., Ctd. y Fecha EM — una sola vez por
+                        Viaje completo. La columna Ubicación del Excel de SAP es ese mismo Canal;
+                        con eso se identifica a qué OC pertenece cada fila. Las filas cuya Ubicación
+                        no coincida con ningún Canal asignado quedan sin OC. Al volver a subir un
+                        archivo del mismo Viaje, se reemplaza todo lo que había cargado para ese
+                        viaje.
                     </p>
 
                     <div class="grupo-oc-portal">
@@ -665,13 +668,16 @@
 
                     </div>
 
-                    <div class="grupo-oc-portal">
+                    <div class="card-ocs-canal oculto" id="cajaOcsCanalStock">
 
-                        <label>OC</label>
+                        <div class="card-header-flex">
+                            <label>OC del viaje y su Canal (ubicación lógica)</label>
+                            <button id="btnGuardarCanalesStock" class="btn-secundario">
+                                Guardar Canales
+                            </button>
+                        </div>
 
-                        <select id="cmbOcStock" disabled>
-                            <option value="">Selecciona primero el viaje...</option>
-                        </select>
+                        <div id="listaOcCanalStock"></div>
 
                     </div>
 
