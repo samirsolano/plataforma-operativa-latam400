@@ -2187,25 +2187,44 @@ function htmlCopiarReporte(){
     const estiloEncabezadoVerde = "background:#2e7d32;color:#ffffff;font-weight:bold;padding:6px 8px;border:1px solid #ffffff;text-align:center;";
     const estiloCeldaFila = "background:#ffffff;color:#111827;padding:6px 8px;border:1px solid #d1d5db;font-family:Arial,sans-serif;font-size:12px;";
 
-    const filasDiferencias = !_catalogoReporteDiferencias.length
-        ? `<tr><td colspan="9" style="${estiloCeldaFila}text-align:center;">Sin diferencias — todo cuadra.</td></tr>`
-        : _catalogoReporteDiferencias.map(function(f){
-            const diferenciaTexto = (f.diferencia > 0 ? "+" : "") + f.diferencia;
-            const colorStatus = f.status === "Sobrante" ? "#FFF176" : (f.status === "Faltante" ? "#FFB74D" : "#ffffff");
-            return `
-                <tr>
-                    <td style="${estiloCeldaFila}">${escaparHtml(f.ubicacion)}</td>
-                    <td style="${estiloCeldaFila}">${escaparHtml(f.codigo)}</td>
-                    <td style="${estiloCeldaFila}">${escaparHtml(f.descripcion)}</td>
-                    <td style="${estiloCeldaFila}text-align:center;">${escaparHtml(f.uma)}</td>
-                    <td style="${estiloCeldaFila}text-align:center;">${escaparHtml(f.cantidadSap)}</td>
-                    <td style="${estiloCeldaFila}text-align:center;">${escaparHtml(f.cantidadContada)}</td>
-                    <td style="${estiloCeldaFila}text-align:center;">${escaparHtml(diferenciaTexto)}</td>
-                    <td style="${estiloCeldaFila}text-align:center;background:${colorStatus};font-weight:bold;">${escaparHtml(f.status)}</td>
-                    <td style="${estiloCeldaFila}">${escaparHtml(f.observacion ? f.observacion : "Sin observaciones")}</td>
-                </tr>
-            `;
-        }).join("");
+    const bloqueObservaciones = !_catalogoReporteDiferencias.length
+        ? `<p style="font-size:14px;color:#111827;">Sin observaciones.</p>`
+        : `
+            <table style="border-collapse:collapse;width:100%;">
+                <thead>
+                    <tr>
+                        <th style="${estiloEncabezadoAzul}">Ubicación</th>
+                        <th style="${estiloEncabezadoAzul}">Código</th>
+                        <th style="${estiloEncabezadoAzul}">Descripción</th>
+                        <th style="${estiloEncabezadoAzul}">UMA</th>
+                        <th style="${estiloEncabezadoAzul}">Cant. SAP</th>
+                        <th style="${estiloEncabezadoAzul}">Cant. Contado</th>
+                        <th style="${estiloEncabezadoRojo}">Diferencia</th>
+                        <th style="${estiloEncabezadoAzul}">Status</th>
+                        <th style="${estiloEncabezadoVerde}">Observación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${_catalogoReporteDiferencias.map(function(f){
+                        const diferenciaTexto = (f.diferencia > 0 ? "+" : "") + f.diferencia;
+                        const colorStatus = f.status === "Sobrante" ? "#FFF176" : (f.status === "Faltante" ? "#FFB74D" : "#ffffff");
+                        return `
+                            <tr>
+                                <td style="${estiloCeldaFila}">${escaparHtml(f.ubicacion)}</td>
+                                <td style="${estiloCeldaFila}">${escaparHtml(f.codigo)}</td>
+                                <td style="${estiloCeldaFila}">${escaparHtml(f.descripcion)}</td>
+                                <td style="${estiloCeldaFila}text-align:center;">${escaparHtml(f.uma)}</td>
+                                <td style="${estiloCeldaFila}text-align:center;">${escaparHtml(f.cantidadSap)}</td>
+                                <td style="${estiloCeldaFila}text-align:center;">${escaparHtml(f.cantidadContada)}</td>
+                                <td style="${estiloCeldaFila}text-align:center;">${escaparHtml(diferenciaTexto)}</td>
+                                <td style="${estiloCeldaFila}text-align:center;background:${colorStatus};font-weight:bold;">${escaparHtml(f.status)}</td>
+                                <td style="${estiloCeldaFila}">${escaparHtml(f.observacion ? f.observacion : "Sin observaciones")}</td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        `;
 
     return `
         <div style="font-family:Arial,sans-serif;">
@@ -2223,24 +2242,7 @@ function htmlCopiarReporte(){
 
             <p style="font-size:14px;color:#111827;"><b><i>Observación:</i></b></p>
 
-            <table style="border-collapse:collapse;width:100%;">
-                <thead>
-                    <tr>
-                        <th style="${estiloEncabezadoAzul}">Ubicación</th>
-                        <th style="${estiloEncabezadoAzul}">Código</th>
-                        <th style="${estiloEncabezadoAzul}">Descripción</th>
-                        <th style="${estiloEncabezadoAzul}">UMA</th>
-                        <th style="${estiloEncabezadoAzul}">Cant. SAP</th>
-                        <th style="${estiloEncabezadoAzul}">Cant. Contado</th>
-                        <th style="${estiloEncabezadoRojo}">Diferencia</th>
-                        <th style="${estiloEncabezadoAzul}">Status</th>
-                        <th style="${estiloEncabezadoVerde}">Observación</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${filasDiferencias}
-                </tbody>
-            </table>
+            ${bloqueObservaciones}
         </div>
     `;
 
@@ -2268,7 +2270,7 @@ function textoCopiarReporte(){
     lineas.push("OBSERVACIONES");
 
     if(!_catalogoReporteDiferencias.length){
-        lineas.push("Sin diferencias — todo cuadra.");
+        lineas.push("Sin observaciones.");
     } else {
         _catalogoReporteDiferencias.forEach(function(f){
             const diferenciaTexto = (f.diferencia > 0 ? "+" : "") + f.diferencia;
