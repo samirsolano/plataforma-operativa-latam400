@@ -901,8 +901,9 @@ async function buscarLecturas(){
 // ========================================
 // "Con observaciones" si: más de 3 lotes distintos, algún lote con
 // vida útil restante (F.V. - hoy) menor a 2/3 de su TVU (de
-// "4. MARA Alicorp"), o se pistoleó más de lo solicitado (si aún
-// falta pistolear, eso es solo "Pendiente", no una observación).
+// "4. MARA Alicorp"), la F.V. no cuadra con lo que dice el Lote (ver
+// decodificarLote), o se pistoleó más de lo solicitado (si aún falta
+// pistolear, eso es solo "Pendiente", no una observación).
 
 let _ultimoResumenCodigo = [];
 
@@ -915,6 +916,36 @@ function mesesEntre(desde, hasta){
     }
 
     return meses;
+
+}
+
+// El Lote de estas etiquetas trae 10 dígitos: los primeros 6 son la
+// fecha de producción (AAMMDD, año de 2000 en adelante) y los
+// últimos 4 son el código de planta. Sirve para validar la F.V.
+// leída/pistoleada contra el TVU del código (fecha de producción +
+// TVU en meses = F.V. esperada), independiente de si el F.V. fue
+// bien leído por OCR o a mano.
+function decodificarLote(lote){
+
+    const texto = String(lote || "").trim();
+
+    if(!/^\d{10}$/.test(texto)){
+        return null;
+    }
+
+    const aa = texto.slice(0, 2);
+    const mm = texto.slice(2, 4);
+    const dd = texto.slice(4, 6);
+    const codigoPlanta = texto.slice(6, 10);
+
+    if(Number(mm) < 1 || Number(mm) > 12 || Number(dd) < 1 || Number(dd) > 31){
+        return null;
+    }
+
+    return {
+        fechaProduccion: "20" + aa + "-" + mm + "-" + dd,
+        codigoPlanta: codigoPlanta
+    };
 
 }
 
@@ -1044,6 +1075,28 @@ async function buscarResumenCodigo(){
 
                 if(vidaInsuficiente){
                     observaciones.push("Vida útil restante menor a 2/3 del TVU");
+                }
+
+                const fvNoCoincideConLote = g.lotes.some(function(l){
+
+                    const decodificado = decodificarLote(l.lote);
+                    const fv = parsearFechaExcel(l.fv);
+
+                    if(!decodificado || !fv){
+                        return false;
+                    }
+
+                    const mesesSegunEtiqueta = mesesEntre(
+                        new Date(decodificado.fechaProduccion + "T00:00:00"),
+                        new Date(fv + "T00:00:00")
+                    );
+
+                    return Math.abs(mesesSegunEtiqueta - tvu) > 1;
+
+                });
+
+                if(fvNoCoincideConLote){
+                    observaciones.push("F.V. no coincide con la fecha de producción del Lote + TVU");
                 }
 
             }
