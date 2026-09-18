@@ -3805,8 +3805,8 @@ async function buscarCruceLotesSap(){
 
     try{
 
-        let rutaSap = "/stock_fisico_sap?select=viaje,oc,producto,descripcion_producto,ubicacion,lote,fecha_caducidad,cantidad_embalada&viaje=eq." + viaje;
-        let rutaLecturas = "/farmacia_lecturas?select=viaje,oc,codigo,descripcion,lote,cantidad_cajas&viaje=eq." + viaje;
+        let rutaSap = "/stock_fisico_sap?select=viaje,oc,producto,descripcion_producto,ubicacion,lote,cantidad_embalada&viaje=eq." + viaje;
+        let rutaLecturas = "/farmacia_lecturas?select=viaje,oc,codigo,descripcion,lote,fv,cantidad_cajas&viaje=eq." + viaje;
 
         if(oc){
             rutaSap += "&oc=eq." + oc;
@@ -3833,7 +3833,8 @@ async function buscarCruceLotesSap(){
                     ctdSap: 0,
                     ctdPistoleada: 0,
                     filasSap: [],
-                    lotesPistoleados: []
+                    lotesPistoleados: [],
+                    fvPorLote: {}
                 };
             }
 
@@ -3862,6 +3863,9 @@ async function buscarCruceLotesSap(){
             grupo.ctdPistoleada += Number(f.cantidad_cajas || 0);
             if(f.lote){
                 grupo.lotesPistoleados.push(f.lote);
+                if(f.fv && !grupo.fvPorLote[String(f.lote).trim()]){
+                    grupo.fvPorLote[String(f.lote).trim()] = f.fv;
+                }
             }
         });
 
@@ -3912,6 +3916,7 @@ async function buscarCruceLotesSap(){
                 lotesSapUnicos: lotesSapUnicos,
                 filasSap: g.filasSap,
                 lotesPistoleadosSet: lotesPistoleadosSet,
+                fvPorLote: g.fvPorLote,
                 observaciones: observaciones,
                 estadoClase: estadoClase,
                 estadoTexto: estadoTexto
@@ -3973,7 +3978,13 @@ async function buscarCruceLotesSap(){
 
             const filasSapDetalle = f.filasSap.map(function(s){
 
-                const noCoincide = s.lote && !f.lotesPistoleadosSet.has(String(s.lote).trim());
+                const loteTexto = s.lote ? String(s.lote).trim() : "";
+                const noCoincide = loteTexto && !f.lotesPistoleadosSet.has(loteTexto);
+
+                // El F.V. sale de lo escaneado (Lecturas), no del export
+                // de SAP — lo físico es lo que vale. Si ese Lote no se
+                // escaneó, no hay F.V. de lo físico que mostrar.
+                const fv = loteTexto ? (f.fvPorLote[loteTexto] || "-") : "-";
 
                 return `
                     <tr>
@@ -3981,7 +3992,7 @@ async function buscarCruceLotesSap(){
                         <td class="${noCoincide ? "lote-a-cambiar" : ""}">${s.lote || "-"}</td>
                         <td>${noCoincide ? lotesFisicosTexto : "-"}</td>
                         <td>${formatearNumeroFarmacia(s.cantidad_embalada)}</td>
-                        <td>${s.fecha_caducidad || "-"}</td>
+                        <td>${fv}</td>
                         <td>${noCoincide ? "No coincide con lo escaneado — cambiar en SAP" : "-"}</td>
                     </tr>
                 `;
