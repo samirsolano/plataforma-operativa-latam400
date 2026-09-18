@@ -1391,7 +1391,7 @@ async function buscarResumenCodigo(){
                         <td>${l.escaneado_por || "-"}</td>
                         <td>${formatearFechaHoraLecturas(l.created_at)}</td>
                         <td>${accionFoto}</td>
-                        <td><button class="btn-eliminar-lectura" data-id="${l.id}">Eliminar</button></td>
+                        <td><button class="btn-eliminar-lectura" data-id="${l.id}" data-viaje="${l.viaje}">Eliminar</button></td>
                     </tr>
                 `;
 
@@ -1501,6 +1501,7 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
     if(botonEliminar){
 
         const id = botonEliminar.dataset.id;
+        const viaje = botonEliminar.dataset.viaje;
 
         if(!confirm("¿Eliminar esta lectura? Esta acción no se puede deshacer.")){
             return;
@@ -1509,7 +1510,32 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
         try{
 
             await supabaseFetch("/farmacia_lecturas?id=eq." + id, { method: "DELETE" });
-            mostrarToast("Lectura eliminada.", "exito");
+
+            // Si el viaje ya estaba Finalizado y esta lectura era
+            // parte de lo que lo completaba, deja de estarlo: vuelve
+            // a Activo (y así reaparece en Centro de Proyectos, en
+            // vez de seguir "Finalizado" con datos incompletos).
+            let mensaje = "Lectura eliminada.";
+
+            if(viaje){
+
+                const filaEstado = await supabaseFetch("/farmacia_viajes_activados?select=estado&viaje=eq." + viaje);
+                const estadoActual = filaEstado && filaEstado[0] && filaEstado[0].estado;
+
+                if(estadoActual === "finalizado"){
+
+                    const chequeo = await viajeCompletamenteEscaneado(viaje);
+
+                    if(!chequeo.completo){
+                        await cambiarEstadoViaje(Number(viaje), "activo");
+                        mensaje = "Lectura eliminada. El viaje " + viaje + " volvió a Activo (ya no está completo).";
+                    }
+
+                }
+
+            }
+
+            mostrarToast(mensaje, "exito");
             buscarResumenCodigo();
 
         }catch(err){
@@ -2019,18 +2045,19 @@ async function buscarOcPortal(){
     const codigo = document.getElementById("filtroCodigoOcPortal").value.trim();
 
     const tbody = document.getElementById("tblOcPortal");
-    tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">Cargando...</td></tr>`;
 
     try{
 
-        let ruta = "/oc_portal_cliente?select=oc,posicion,codigo_proveedor,descripcion_producto,empaque,cantidad_sku_solicitada,fecha_emision,fecha_vencimiento,nombre_local_destino&order=oc.asc,posicion.asc";
+        let ruta = "/oc_portal_cliente?select=oc,posicion,inretail_qs,ean,descripcion_producto,sku_empaque,cantidad_sku_solicitada&order=oc.asc,posicion.asc";
 
         if(oc){
             ruta += "&oc=eq." + encodeURIComponent(oc);
         }
 
         if(codigo){
-            ruta += "&codigo_proveedor=ilike.*" + encodeURIComponent(codigo) + "*";
+            ruta +=
+                "&or=(ean.ilike.*" + encodeURIComponent(codigo) + "*,inretail_qs.ilike.*" + encodeURIComponent(codigo) + "*)";
         }
 
         const filas = await supabaseFetchTodo(ruta);
@@ -2038,7 +2065,7 @@ async function buscarOcPortal(){
         tbody.innerHTML = "";
 
         if(!filas || !filas.length){
-            tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se encontraron OC con esos filtros.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se encontraron OC con esos filtros.</td></tr>`;
             return;
         }
 
@@ -2048,14 +2075,11 @@ async function buscarOcPortal(){
 
             tr.innerHTML = `
                 <td>${f.oc}</td>
-                <td>${f.posicion || "-"}</td>
-                <td>${f.codigo_proveedor || "-"}</td>
+                <td>${f.inretail_qs || "-"}</td>
+                <td>${f.ean || "-"}</td>
                 <td>${f.descripcion_producto || "-"}</td>
-                <td>${f.empaque || "-"}</td>
+                <td>${f.sku_empaque || "-"}</td>
                 <td>${formatearNumeroFarmacia(f.cantidad_sku_solicitada)}</td>
-                <td>${f.fecha_emision || "-"}</td>
-                <td>${f.fecha_vencimiento || "-"}</td>
-                <td>${f.nombre_local_destino || "-"}</td>
             `;
 
             tbody.appendChild(tr);
@@ -2065,7 +2089,7 @@ async function buscarOcPortal(){
     }catch(e){
 
         console.error(e);
-        tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar las OC del portal.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se pudo cargar las OC del portal.</td></tr>`;
 
     }
 
