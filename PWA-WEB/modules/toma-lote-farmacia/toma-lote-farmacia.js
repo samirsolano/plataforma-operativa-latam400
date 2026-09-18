@@ -3024,8 +3024,11 @@ async function calcularCruce(){
                     estadoTexto = "Completo";
                     estadoClase = "activado";
                 }else{
+                    // Escaneado <= solicitado: está bien (no es un
+                    // problema, solo falta terminar), va en verde
+                    // igual que "Completo".
                     estadoTexto = "Pendiente";
-                    estadoClase = "disponible";
+                    estadoClase = "activado";
                 }
 
             }
