@@ -2585,33 +2585,53 @@ const fechaArchivoStock = document.getElementById("fechaArchivoStock");
 
 let _viajesStockCargados = false;
 
+// Se marca 🟢 Cargado / ⚪ Pendiente según si el viaje ya tiene Stock
+// Físico SAP guardado, igual que el desplegable de OC en
+// "3. OC Portal Cliente" — así se ve de un vistazo cuáles faltan.
 async function cargarViajesParaStock(){
 
     if(_viajesStockCargados){
         return;
     }
 
+    _viajesStockCargados = true;
+
     try{
 
-        const filas = await supabaseFetchTodo("/farmacia_data?select=viaje");
+        const viajeSeleccionadoAntes = cmbViajeStock.value;
+
+        const [filas, sapFilas] = await Promise.all([
+            supabaseFetchTodo("/farmacia_data?select=viaje"),
+            supabaseFetchTodo("/stock_fisico_sap?select=viaje")
+        ]);
+
+        const viajesConSap = new Set((sapFilas || []).map(f => f.viaje));
 
         const viajes = [...new Set((filas || []).map(f => f.viaje))]
             .filter(v => v !== null && v !== undefined)
             .sort((a, b) => a - b);
 
+        cmbViajeStock.querySelectorAll("option[value]:not([value=''])").forEach(op => op.remove());
+
         viajes.forEach(function(v){
             const option = document.createElement("option");
             option.value = String(v);
-            option.textContent = String(v);
+            option.textContent = v + (viajesConSap.has(v) ? " — 🟢 Cargado" : " — ⚪ Pendiente");
             cmbViajeStock.appendChild(option);
         });
 
-        _viajesStockCargados = true;
+        cmbViajeStock.value = viajeSeleccionadoAntes;
 
     }catch(e){
         console.error(e);
+        _viajesStockCargados = false;
     }
 
+}
+
+function refrescarViajesParaStock(){
+    _viajesStockCargados = false;
+    cargarViajesParaStock();
 }
 
 function resetearSeleccionStock(){
@@ -2959,6 +2979,8 @@ archivoStock.addEventListener("change", async function(e){
             "Stock físico cargado para Viaje " + viajeSeleccionado + ": " + filasNormalizadas.length + " filas.",
             "exito"
         );
+
+        refrescarViajesParaStock();
 
     }catch(err){
 
