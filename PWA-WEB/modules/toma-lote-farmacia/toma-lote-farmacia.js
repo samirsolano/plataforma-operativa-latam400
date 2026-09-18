@@ -2932,13 +2932,16 @@ async function calcularCruce(){
 
     try{
 
-        const [ocPortalFilas, maraAlicorpFilas, lecturasFilas] = await Promise.all([
+        const [ocPortalFilas, maraAlicorpFilas, lecturasFilas, dataFilas] = await Promise.all([
             supabaseFetchTodo(
                 "/oc_portal_cliente?select=ean,codigo_proveedor,descripcion_producto,posicion,cantidad_sku_solicitada&oc=eq." + oc
             ),
             supabaseFetchTodo("/mara_alicorp?select=ean,codigo,descripcion,factor_unidad_alm"),
             supabaseFetchTodo(
                 "/farmacia_lecturas?select=codigo,cantidad_cajas&viaje=eq." + viaje + "&oc=eq." + oc
+            ),
+            supabaseFetchTodo(
+                "/farmacia_data?select=codigo&viaje=eq." + viaje + "&orden_compra=eq." + oc
             )
         ]);
 
@@ -2946,6 +2949,12 @@ async function calcularCruce(){
             tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Esa OC todavía no tiene datos cargados en "3. OC Portal Cliente".</td></tr>`;
             return;
         }
+
+        // Solo se cruzan los códigos que realmente se solicitaron en
+        // SAP (lo que se sube primero en "1. Carga y Viajes"): la OC
+        // Portal Cliente trae MUCHAS líneas que no son parte de este
+        // envío puntual, y esas no deben aparecer en el cruce.
+        const codigosSap = new Set((dataFilas || []).map(f => String(f.codigo || "").trim()).filter(Boolean));
 
         const maraPorEan = {};
 
@@ -2969,7 +2978,15 @@ async function calcularCruce(){
         // compararlo directo contra lo que pide la OC. El problema es
         // escanear MÁS unidades de las que pide la OC — si todavía
         // falta, solo está pendiente (no es un error).
-        const filas = ocPortalFilas.map(function(row){
+        const filas = ocPortalFilas.filter(function(row){
+
+            const ean = String(row.ean || "").trim();
+            const mara = maraPorEan[ean] || null;
+            const codigo = mara ? String(mara.codigo || "").trim() : null;
+
+            return codigo && codigosSap.has(codigo);
+
+        }).map(function(row){
 
             const ean = String(row.ean || "").trim();
             const mara = maraPorEan[ean] || null;
@@ -3033,6 +3050,11 @@ async function calcularCruce(){
         });
 
         tbody.innerHTML = "";
+
+        if(!filas.length){
+            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Ninguna línea de la OC Portal coincide con los códigos solicitados en "1. Carga y Viajes" para este Viaje/OC.</td></tr>`;
+            return;
+        }
 
         filas.forEach(function(f){
 

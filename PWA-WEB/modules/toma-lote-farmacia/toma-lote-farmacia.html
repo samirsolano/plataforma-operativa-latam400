@@ -791,8 +791,11 @@
                         de esa OC, se busca su EAN en "4. MARA Alicorp" para obtener el código real
                         y el factor (unidades por caja), y se convierte lo escaneado en
                         "2. Lecturas y Evidencias" (que está en cajas) a unidades para compararlo
-                        contra lo que pide la OC (que está en unidades). El problema es cuando se
-                        escanea MÁS de lo que pide la OC; si aún falta, solo está pendiente.
+                        contra lo que pide la OC (que está en unidades). Solo se muestran los
+                        códigos que también están solicitados en "1. Carga y Viajes" (SAP) para
+                        ese Viaje/OC; el resto de líneas de la OC Portal se ignora. El problema es
+                        cuando se escanea MÁS de lo que pide la OC; si aún falta, solo está
+                        pendiente.
                     </p>
 
                     <div class="filtros-mara">
