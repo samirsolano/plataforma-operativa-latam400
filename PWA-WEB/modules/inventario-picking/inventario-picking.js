@@ -2115,7 +2115,7 @@ function pintarReporteDiferencias(){
                 <td class="${claseStatus}">${f.status}</td>
                 <td>
                     <div class="celda-observacion">
-                        <span>${f.observacion || "-"}</span>
+                        <span>${f.observacion || "Sin observaciones"}</span>
                         <button class="btn-secundario" onclick="editarObservacionReporte('${f.claveObs}')">✎ Editar</button>
                     </div>
                 </td>
