@@ -527,14 +527,13 @@ function cargarViajesReales(filas, estadosMap){
             items = '<button class="btn-guardar" data-viaje="' + v.viaje + '">Guardar</button>';
         }
 
-        // El badge de Estado ES el botón que abre el menú de acciones
-        // (Activar/Desactivar/Finalizar/...) — así todo queda en una
-        // sola columna angosta y no se corta en pantallas chicas.
+        // Badge de Estado + botón ⋮ (que sigue siendo el que abre el
+        // menú) juntos en una sola columna, para que no se corte en
+        // pantallas angostas como pasaba antes con "Acción" aparte.
         const estadoConMenu = `
             <div class="menu-acciones">
-                <button class="btn-menu-acciones btn-estado-menu" data-viaje="${v.viaje}">
-                    <span class="estado ${estadoClase}">${estadoTexto} ▾</span>
-                </button>
+                <span class="estado ${estadoClase}">${estadoTexto}</span>
+                <button class="btn-menu-acciones" data-viaje="${v.viaje}">⋮</button>
                 <div class="dropdown-acciones oculto">${items}</div>
             </div>
         `;
@@ -762,8 +761,80 @@ async function obtenerViajesActivadosFarmacia(){
 
     try{
 
-        const filas = await supabaseFetch("/farmacia_viajes_activados?select=viaje,estado");
-        return new Map((filas || []).map(f => [f.viaje, f.estado || "desactivado"]));
+        const [filas, dataFilas, lecturasFilas] = await Promise.all([
+            supabaseFetch("/farmacia_viajes_activados?select=viaje,estado"),
+            supabaseFetchTodo("/farmacia_data?select=viaje,codigo,cantidad"),
+            supabaseFetchTodo("/farmacia_lecturas?select=viaje,codigo,cantidad_cajas")
+        ]);
+
+        const estadosMap = new Map((filas || []).map(f => [f.viaje, f.estado || "desactivado"]));
+
+        // "Finalizado" aparece SOLO (sin que nadie tenga que apretar
+        // "Guardar (Finalizar)") apenas un viaje Activo/Desactivado
+        // ya tiene todo pistoleado — mismo criterio que
+        // viajeCompletamenteEscaneado, pero calculado para todos los
+        // viajes de una sola pasada.
+        const porViaje = {}; // viaje -> { codigo: {solicitado, escaneado} }
+
+        (dataFilas || []).forEach(function(f){
+            if(!f.codigo || f.viaje === null || f.viaje === undefined){
+                return;
+            }
+            if(!porViaje[f.viaje]){
+                porViaje[f.viaje] = {};
+            }
+            if(!porViaje[f.viaje][f.codigo]){
+                porViaje[f.viaje][f.codigo] = { solicitado: 0, escaneado: 0 };
+            }
+            porViaje[f.viaje][f.codigo].solicitado += Number(f.cantidad || 0);
+        });
+
+        (lecturasFilas || []).forEach(function(f){
+            if(!f.codigo || f.viaje === null || f.viaje === undefined){
+                return;
+            }
+            if(!porViaje[f.viaje] || !porViaje[f.viaje][f.codigo]){
+                return;
+            }
+            porViaje[f.viaje][f.codigo].escaneado += Number(f.cantidad_cajas || 0);
+        });
+
+        const porFinalizar = [];
+
+        Object.keys(porViaje).forEach(function(viajeStr){
+
+            const viaje = Number(viajeStr);
+            const estadoActual = estadosMap.get(viaje) || "desactivado";
+
+            if(estadoActual === "finalizado"){
+                return;
+            }
+
+            const codigos = Object.values(porViaje[viajeStr]);
+
+            const completo = codigos.length > 0 && codigos.every(function(c){
+                return c.solicitado <= 0 || c.escaneado >= c.solicitado;
+            });
+
+            if(completo){
+                porFinalizar.push(viaje);
+            }
+
+        });
+
+        if(porFinalizar.length){
+
+            await Promise.all(porFinalizar.map(function(viaje){
+                return cambiarEstadoViaje(viaje, "finalizado").catch(function(e){ console.error(e); });
+            }));
+
+            porFinalizar.forEach(function(viaje){
+                estadosMap.set(viaje, "finalizado");
+            });
+
+        }
+
+        return estadosMap;
 
     }catch(e){
         console.error(e);
