@@ -876,28 +876,24 @@
                     </div>
 
                     <p class="nota-modulo">
-                        Selecciona el Viaje y la OC. Se toma lo escaneado en "2. Lecturas y
-                        Evidencias" para esa OC, se busca el código en "4. MARA Alicorp" para
-                        obtener su EAN, y con ese EAN se busca en "3. OC Portal Cliente" el
-                        Código Inkafarma (o Inretail/QS) real (el SKU). La cantidad escaneada (en
-                        cajas) se convierte a unidades con el factor de MARA Alicorp, y se arma el
-                        reporte final agrupado por SKU y Lote: No. OC, SKU, Cantidad (Unidades),
-                        No. Lote y Fecha Vto.
+                        Solo aparecen las OC que ya están completas: cruzadas exacto contra
+                        "6. Cruce de Información" (sin exceder ni faltar) y sin ninguna
+                        observación en el Resumen por Código de "2. Lecturas y Evidencias" (más
+                        de 3 lotes, vida útil, diferencia de cantidad). Selecciona la OC. Se toma
+                        lo escaneado en "2. Lecturas y Evidencias" para esa OC, se busca el código
+                        en "4. MARA Alicorp" para obtener su EAN, y con ese EAN se busca en
+                        "3. OC Portal Cliente" el Código Inkafarma (o Inretail/QS) real (el SKU).
+                        La cantidad escaneada (en cajas) se convierte a unidades con el factor de
+                        MARA Alicorp, y se arma el reporte final agrupado por SKU y Lote: No. OC,
+                        SKU, Cantidad (Unidades), No. Lote y Fecha Vto.
                     </p>
 
                     <div class="filtros-mara">
 
                         <div>
-                            <label>Viaje</label>
-                            <select id="cmbViajeDataFinal">
-                                <option value="">Selecciona el viaje...</option>
-                            </select>
-                        </div>
-
-                        <div>
                             <label>OC</label>
                             <select id="cmbOcDataFinal" disabled>
-                                <option value="">Selecciona primero el viaje...</option>
+                                <option value="">Cargando OC...</option>
                             </select>
                         </div>
 
