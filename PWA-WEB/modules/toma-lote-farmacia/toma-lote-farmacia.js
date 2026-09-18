@@ -2839,6 +2839,19 @@ archivoStock.addEventListener("change", async function(e){
         return;
     }
 
+    const inputsCanal = Array.from(listaOcCanalStock.querySelectorAll(".input-canal-oc"));
+    const ocsSinCanal = inputsCanal.filter(input => !input.value.trim()).map(input => input.dataset.oc);
+
+    if(ocsSinCanal.length){
+        mostrarToast(
+            "No se subió nada: falta asignar el Canal a la OC " + ocsSinCanal.join(", ") +
+            ". Todas las OC del viaje deben tener Canal antes de subir el archivo.",
+            "error"
+        );
+        archivoStock.value = "";
+        return;
+    }
+
     nombreArchivoStock.textContent = "Leyendo " + archivo.name + "...";
 
     try{
@@ -2885,7 +2898,23 @@ archivoStock.addEventListener("change", async function(e){
             return;
         }
 
-        const filasSinOc = filasNormalizadas.filter(f => f.oc === null).length;
+        const filasSinOc = filasNormalizadas.filter(f => f.oc === null);
+
+        if(filasSinOc.length){
+
+            const ubicacionesSinMatch = [...new Set(filasSinOc.map(f => f.ubicacion || "(vacío)"))];
+
+            mostrarToast(
+                "No se subió nada: " + filasSinOc.length + " fila(s) tienen una Ubicación que no " +
+                "coincide con ningún Canal asignado (" + ubicacionesSinMatch.join(", ") + "). " +
+                "Corrige el Canal de la OC correspondiente o la Ubicación del archivo y vuelve a subirlo.",
+                "error"
+            );
+            nombreArchivoStock.textContent = "-";
+            archivoStock.value = "";
+            return;
+
+        }
 
         const existentes = await supabaseFetch(
             "/stock_fisico_sap?viaje=eq." + viajeSeleccionado + "&select=id&limit=1"
@@ -2922,8 +2951,7 @@ archivoStock.addEventListener("change", async function(e){
             filasNormalizadas.length.toLocaleString("es-PE");
 
         mostrarToast(
-            "Stock físico cargado para Viaje " + viajeSeleccionado + ": " + filasNormalizadas.length + " filas" +
-            (filasSinOc ? " (" + filasSinOc + " sin OC identificada por Canal)." : "."),
+            "Stock físico cargado para Viaje " + viajeSeleccionado + ": " + filasNormalizadas.length + " filas.",
             "exito"
         );
 
