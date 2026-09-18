@@ -1391,7 +1391,7 @@ async function buscarResumenCodigo(){
                         <td>${l.escaneado_por || "-"}</td>
                         <td>${formatearFechaHoraLecturas(l.created_at)}</td>
                         <td>${accionFoto}</td>
-                        <td><button class="btn-eliminar-lectura" data-id="${l.id}">Eliminar</button></td>
+                        <td><button class="btn-eliminar-lectura" data-id="${l.id}" data-viaje="${l.viaje}">Eliminar</button></td>
                     </tr>
                 `;
 
@@ -1501,6 +1501,7 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
     if(botonEliminar){
 
         const id = botonEliminar.dataset.id;
+        const viaje = botonEliminar.dataset.viaje;
 
         if(!confirm("¿Eliminar esta lectura? Esta acción no se puede deshacer.")){
             return;
@@ -1509,7 +1510,32 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
         try{
 
             await supabaseFetch("/farmacia_lecturas?id=eq." + id, { method: "DELETE" });
-            mostrarToast("Lectura eliminada.", "exito");
+
+            // Si el viaje ya estaba Finalizado y esta lectura era
+            // parte de lo que lo completaba, deja de estarlo: vuelve
+            // a Activo (y así reaparece en Centro de Proyectos, en
+            // vez de seguir "Finalizado" con datos incompletos).
+            let mensaje = "Lectura eliminada.";
+
+            if(viaje){
+
+                const filaEstado = await supabaseFetch("/farmacia_viajes_activados?select=estado&viaje=eq." + viaje);
+                const estadoActual = filaEstado && filaEstado[0] && filaEstado[0].estado;
+
+                if(estadoActual === "finalizado"){
+
+                    const chequeo = await viajeCompletamenteEscaneado(viaje);
+
+                    if(!chequeo.completo){
+                        await cambiarEstadoViaje(Number(viaje), "activo");
+                        mensaje = "Lectura eliminada. El viaje " + viaje + " volvió a Activo (ya no está completo).";
+                    }
+
+                }
+
+            }
+
+            mostrarToast(mensaje, "exito");
             buscarResumenCodigo();
 
         }catch(err){
