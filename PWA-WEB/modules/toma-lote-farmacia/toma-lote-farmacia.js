@@ -3967,6 +3967,10 @@ async function buscarCruceLotesSap(){
             const trDetalle = document.createElement("tr");
             trDetalle.className = "fila-detalle-lotes oculto";
 
+            const lotesFisicosTexto = f.lotesPistoleadosSet.size
+                ? [...f.lotesPistoleadosSet].join(", ")
+                : "Sin lecturas de este código";
+
             const filasSapDetalle = f.filasSap.map(function(s){
 
                 const noCoincide = s.lote && !f.lotesPistoleadosSet.has(String(s.lote).trim());
@@ -3975,6 +3979,7 @@ async function buscarCruceLotesSap(){
                     <tr>
                         <td>${s.ubicacion || "-"}</td>
                         <td class="${noCoincide ? "lote-a-cambiar" : ""}">${s.lote || "-"}</td>
+                        <td>${noCoincide ? lotesFisicosTexto : "-"}</td>
                         <td>${formatearNumeroFarmacia(s.cantidad_embalada)}</td>
                         <td>${s.fecha_caducidad || "-"}</td>
                         <td>${noCoincide ? "No coincide con lo escaneado — cambiar en SAP" : "-"}</td>
@@ -3990,13 +3995,14 @@ async function buscarCruceLotesSap(){
                             <tr>
                                 <th>Ubicación</th>
                                 <th>Lote (SAP)</th>
+                                <th>Lote Físico (escaneado)</th>
                                 <th>Ctd. (Cajas)</th>
                                 <th>F.V.</th>
                                 <th>Observación</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${filasSapDetalle || '<tr><td colspan="5" class="sin-datos">Sin filas de Stock Físico SAP.</td></tr>'}
+                            ${filasSapDetalle || '<tr><td colspan="6" class="sin-datos">Sin filas de Stock Físico SAP.</td></tr>'}
                         </tbody>
                     </table>
                 </td>
