@@ -671,7 +671,8 @@ document.getElementById("tblViajes").addEventListener("click", async function(e)
         cerrarMenusAcciones(null);
 
         const confirmado = confirm(
-            "¿Eliminar por completo el viaje " + viaje + "? Esto borra todos sus códigos, OC y su estado. No se puede deshacer."
+            "¿Eliminar por completo el viaje " + viaje + "? Esto borra todos sus códigos, OC, lecturas, " +
+            "stock físico y su estado (en todas las pestañas). No se puede deshacer."
         );
 
         if(!confirmado){
@@ -680,10 +681,31 @@ document.getElementById("tblViajes").addEventListener("click", async function(e)
 
         try{
 
+            // Antes de borrar farmacia_data hay que saber qué OC
+            // tenía este viaje, para poder limpiar también sus filas
+            // en oc_portal_cliente (esa tabla no tiene columna
+            // "viaje", solo "oc"). Si no se hace esto, la OC queda
+            // huérfana ahí y sigue apareciendo en otras pantallas.
+            const filasDelViaje = await supabaseFetch(
+                "/farmacia_data?select=orden_compra&viaje=eq." + viaje
+            );
+
+            const ocsDelViaje = [...new Set((filasDelViaje || []).map(f => f.orden_compra))]
+                .filter(v => v !== null && v !== undefined);
+
+            if(ocsDelViaje.length){
+                await supabaseFetch(
+                    "/oc_portal_cliente?oc=in.(" + ocsDelViaje.join(",") + ")",
+                    { method: "DELETE" }
+                );
+            }
+
+            await supabaseFetch("/farmacia_lecturas?viaje=eq." + viaje, { method: "DELETE" });
+            await supabaseFetch("/stock_fisico_sap?viaje=eq." + viaje, { method: "DELETE" });
             await supabaseFetch("/farmacia_data?viaje=eq." + viaje, { method: "DELETE" });
             await supabaseFetch("/farmacia_viajes_activados?viaje=eq." + viaje, { method: "DELETE" });
 
-            mostrarToast("Viaje " + viaje + " eliminado.", "exito");
+            mostrarToast("Viaje " + viaje + " eliminado (junto con sus OC, lecturas y stock).", "exito");
 
             await cargarResumenExistente();
 
