@@ -2045,18 +2045,19 @@ async function buscarOcPortal(){
     const codigo = document.getElementById("filtroCodigoOcPortal").value.trim();
 
     const tbody = document.getElementById("tblOcPortal");
-    tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">Cargando...</td></tr>`;
 
     try{
 
-        let ruta = "/oc_portal_cliente?select=oc,posicion,codigo_proveedor,descripcion_producto,empaque,cantidad_sku_solicitada,fecha_emision,fecha_vencimiento,nombre_local_destino&order=oc.asc,posicion.asc";
+        let ruta = "/oc_portal_cliente?select=oc,posicion,inretail_qs,ean,descripcion_producto,sku_empaque,cantidad_sku_solicitada&order=oc.asc,posicion.asc";
 
         if(oc){
             ruta += "&oc=eq." + encodeURIComponent(oc);
         }
 
         if(codigo){
-            ruta += "&codigo_proveedor=ilike.*" + encodeURIComponent(codigo) + "*";
+            ruta +=
+                "&or=(ean.ilike.*" + encodeURIComponent(codigo) + "*,inretail_qs.ilike.*" + encodeURIComponent(codigo) + "*)";
         }
 
         const filas = await supabaseFetchTodo(ruta);
@@ -2064,7 +2065,7 @@ async function buscarOcPortal(){
         tbody.innerHTML = "";
 
         if(!filas || !filas.length){
-            tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se encontraron OC con esos filtros.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se encontraron OC con esos filtros.</td></tr>`;
             return;
         }
 
@@ -2074,14 +2075,11 @@ async function buscarOcPortal(){
 
             tr.innerHTML = `
                 <td>${f.oc}</td>
-                <td>${f.posicion || "-"}</td>
-                <td>${f.codigo_proveedor || "-"}</td>
+                <td>${f.inretail_qs || "-"}</td>
+                <td>${f.ean || "-"}</td>
                 <td>${f.descripcion_producto || "-"}</td>
-                <td>${f.empaque || "-"}</td>
+                <td>${f.sku_empaque || "-"}</td>
                 <td>${formatearNumeroFarmacia(f.cantidad_sku_solicitada)}</td>
-                <td>${f.fecha_emision || "-"}</td>
-                <td>${f.fecha_vencimiento || "-"}</td>
-                <td>${f.nombre_local_destino || "-"}</td>
             `;
 
             tbody.appendChild(tr);
@@ -2091,7 +2089,7 @@ async function buscarOcPortal(){
     }catch(e){
 
         console.error(e);
-        tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar las OC del portal.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se pudo cargar las OC del portal.</td></tr>`;
 
     }
 
