@@ -2981,6 +2981,7 @@ archivoStock.addEventListener("change", async function(e){
         );
 
         refrescarViajesParaStock();
+        refrescarViajesParaCruceLotes();
 
     }catch(err){
 
@@ -3718,13 +3719,19 @@ async function cargarViajesParaCruceLotes(){
         return;
     }
 
+    _viajesCruceLotesCargados = true;
+
     try{
+
+        const viajeSeleccionadoAntes = cmbViajeCruceLotes.value;
 
         const filas = await supabaseFetchTodo("/stock_fisico_sap?select=viaje");
 
         const viajes = [...new Set((filas || []).map(f => f.viaje))]
             .filter(v => v !== null && v !== undefined)
             .sort((a, b) => a - b);
+
+        cmbViajeCruceLotes.querySelectorAll("option[value]:not([value=''])").forEach(op => op.remove());
 
         viajes.forEach(function(v){
             const option = document.createElement("option");
@@ -3733,12 +3740,18 @@ async function cargarViajesParaCruceLotes(){
             cmbViajeCruceLotes.appendChild(option);
         });
 
-        _viajesCruceLotesCargados = true;
+        cmbViajeCruceLotes.value = viajeSeleccionadoAntes;
 
     }catch(e){
         console.error(e);
+        _viajesCruceLotesCargados = false;
     }
 
+}
+
+function refrescarViajesParaCruceLotes(){
+    _viajesCruceLotesCargados = false;
+    cargarViajesParaCruceLotes();
 }
 
 cmbViajeCruceLotes.addEventListener("change", async function(){
