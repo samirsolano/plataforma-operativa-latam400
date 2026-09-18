@@ -114,7 +114,7 @@ document.querySelectorAll(".tab-link").forEach(function(link){
         }
 
         if(link.dataset.tab === "tabDataFinal"){
-            cargarViajesParaDataFinal();
+            cargarOcsCompletasParaDataFinal();
         }
 
     });
@@ -3117,66 +3117,169 @@ document.getElementById("btnCalcularCruce").addEventListener("click", calcularCr
 // Cliente" -> se arma el reporte final agrupado por SKU y Lote.
 // Reusa supabaseFetchTodo y mostrarToast (definidos arriba).
 
-const cmbViajeDataFinal = document.getElementById("cmbViajeDataFinal");
 const cmbOcDataFinal = document.getElementById("cmbOcDataFinal");
 
-let _viajesDataFinalCargados = false;
+let _ocsDataFinalCargadas = false;
+let _viajePorOcDataFinal = {};
 let _ultimaDataFinal = [];
 
-async function cargarViajesParaDataFinal(){
+// Solo se ofrecen las OC ya "completas": cruzadas exacto (ni exceden
+// ni les falta, igual que "6. Cruce de Información") y sin ninguna
+// observación por código (más de 3 lotes, vida útil <= mitad del
+// TVU) — mismos criterios que Cruce y Resumen por Código, pero
+// evaluados acá para decidir si la OC ya está lista para el reporte
+// final.
+async function cargarOcsCompletasParaDataFinal(){
 
-    if(_viajesDataFinalCargados){
+    if(_ocsDataFinalCargadas){
         return;
     }
 
-    try{
+    _ocsDataFinalCargadas = true;
 
-        const filas = await supabaseFetchTodo("/farmacia_data?select=viaje");
-
-        const viajes = [...new Set((filas || []).map(f => f.viaje))]
-            .filter(v => v !== null && v !== undefined)
-            .sort((a, b) => a - b);
-
-        viajes.forEach(function(v){
-            const option = document.createElement("option");
-            option.value = String(v);
-            option.textContent = String(v);
-            cmbViajeDataFinal.appendChild(option);
-        });
-
-        _viajesDataFinalCargados = true;
-
-    }catch(e){
-        console.error(e);
-    }
-
-}
-
-cmbViajeDataFinal.addEventListener("change", async function(){
-
-    cmbOcDataFinal.innerHTML = `<option value="">Selecciona primero el viaje...</option>`;
+    cmbOcDataFinal.innerHTML = `<option value="">Cargando OC...</option>`;
     cmbOcDataFinal.disabled = true;
 
-    document.getElementById("tblDataFinal").innerHTML =
-        `<tr><td colspan="5" class="sin-datos">Selecciona el Viaje y la OC, y presiona "Generar Data Final".</td></tr>`;
-
-    if(!cmbViajeDataFinal.value){
-        return;
-    }
-
     try{
 
-        const filas = await supabaseFetchTodo(
-            "/farmacia_data?select=orden_compra&viaje=eq." + cmbViajeDataFinal.value
-        );
+        const [dataFilas, ocPortalFilas, alicorpFilas, lecturasFilas] = await Promise.all([
+            supabaseFetchTodo("/farmacia_data?select=viaje,orden_compra,codigo"),
+            supabaseFetchTodo("/oc_portal_cliente?select=oc,ean,cantidad_sku_solicitada"),
+            supabaseFetchTodo("/mara_alicorp?select=ean,codigo,factor_unidad_alm,tvu"),
+            supabaseFetchTodo("/farmacia_lecturas?select=viaje,oc,codigo,lote,fv,cantidad_cajas")
+        ]);
 
-        const ocs = [...new Set((filas || []).map(f => f.orden_compra))]
-            .filter(v => v !== null && v !== undefined)
-            .sort((a, b) => a - b);
+        const maraPorEan = {};
+        const tvuPorCodigo = {};
+
+        (alicorpFilas || []).forEach(function(m){
+            if(m.ean){
+                maraPorEan[String(m.ean).trim()] = m;
+            }
+            if(m.codigo && m.tvu){
+                tvuPorCodigo[String(m.codigo).trim()] = Number(m.tvu);
+            }
+        });
+
+        const infoPorOc = {};
+
+        (dataFilas || []).forEach(function(f){
+            if(f.orden_compra === null || f.orden_compra === undefined || !f.codigo){
+                return;
+            }
+            if(!infoPorOc[f.orden_compra]){
+                infoPorOc[f.orden_compra] = { viaje: f.viaje, codigosSap: new Set() };
+            }
+            infoPorOc[f.orden_compra].codigosSap.add(String(f.codigo).trim());
+        });
+
+        const lecturasPorOcCodigo = {};
+
+        (lecturasFilas || []).forEach(function(l){
+            if(l.oc === null || l.oc === undefined || !l.codigo){
+                return;
+            }
+            const clave = l.oc + "|" + l.codigo;
+            if(!lecturasPorOcCodigo[clave]){
+                lecturasPorOcCodigo[clave] = { cajas: 0, lotes: [] };
+            }
+            lecturasPorOcCodigo[clave].cajas += Number(l.cantidad_cajas || 0);
+            lecturasPorOcCodigo[clave].lotes.push(l);
+        });
+
+        const lineasPorOc = {};
+
+        (ocPortalFilas || []).forEach(function(row){
+
+            const info = infoPorOc[row.oc];
+            if(!info){
+                return;
+            }
+
+            const ean = String(row.ean || "").trim();
+            const mara = maraPorEan[ean] || null;
+            const codigo = mara ? String(mara.codigo || "").trim() : null;
+
+            if(!codigo || !info.codigosSap.has(codigo)){
+                return;
+            }
+
+            if(!lineasPorOc[row.oc]){
+                lineasPorOc[row.oc] = [];
+            }
+
+            lineasPorOc[row.oc].push({
+                codigo: codigo,
+                solicitado: Number(row.cantidad_sku_solicitada || 0),
+                factor: Number(mara.factor_unidad_alm) || null
+            });
+
+        });
+
+        const hoy = new Date();
+        _viajePorOcDataFinal = {};
+
+        const ocsCompletas = Object.keys(lineasPorOc).filter(function(ocStr){
+
+            const oc = Number(ocStr);
+            const lineas = lineasPorOc[ocStr];
+
+            const completa = lineas.length > 0 && lineas.every(function(linea){
+
+                if(!linea.factor || linea.factor <= 0){
+                    return false;
+                }
+
+                const datosLectura = lecturasPorOcCodigo[oc + "|" + linea.codigo] || { cajas: 0, lotes: [] };
+                const cajasMaxSinExceder = Math.floor(linea.solicitado / linea.factor);
+
+                if(datosLectura.cajas !== cajasMaxSinExceder){
+                    return false;
+                }
+
+                const lotesUnicos = [...new Set(datosLectura.lotes.map(l => l.lote).filter(Boolean))];
+
+                if(lotesUnicos.length > 3){
+                    return false;
+                }
+
+                const tvu = tvuPorCodigo[linea.codigo];
+
+                if(tvu){
+
+                    const vidaInsuficiente = datosLectura.lotes.some(function(l){
+
+                        const fv = completarFvConLote(l.fv, l.lote, tvu);
+                        if(!fv){
+                            return false;
+                        }
+
+                        const mesesRestantes = mesesEntre(hoy, new Date(fv + "T00:00:00"));
+                        return mesesRestantes <= (tvu / 2);
+
+                    });
+
+                    if(vidaInsuficiente){
+                        return false;
+                    }
+
+                }
+
+                return true;
+
+            });
+
+            if(completa){
+                _viajePorOcDataFinal[oc] = infoPorOc[oc].viaje;
+            }
+
+            return completa;
+
+        }).map(Number).sort((a, b) => a - b);
 
         cmbOcDataFinal.innerHTML = `<option value="">Selecciona la OC...</option>`;
 
-        ocs.forEach(function(oc){
+        ocsCompletas.forEach(function(oc){
             const option = document.createElement("option");
             option.value = String(oc);
             option.textContent = String(oc);
@@ -3185,22 +3288,32 @@ cmbViajeDataFinal.addEventListener("change", async function(){
 
         cmbOcDataFinal.disabled = false;
 
+        if(!ocsCompletas.length){
+            mostrarToast(
+                "Todavía no hay ninguna OC completa (sin exceder/faltar y sin observaciones) para generar Data Final.",
+                "info"
+            );
+        }
+
     }catch(e){
+
         console.error(e);
-        mostrarToast("No se pudieron cargar las OC de ese viaje.", "error");
+        cmbOcDataFinal.innerHTML = `<option value="">No se pudieron cargar las OC</option>`;
+        _ocsDataFinalCargadas = false;
+
     }
 
-});
+}
 
 async function generarDataFinal(){
 
-    const viaje = Number(cmbViajeDataFinal.value);
     const oc = Number(cmbOcDataFinal.value);
+    const viaje = _viajePorOcDataFinal[oc];
 
     const tbody = document.getElementById("tblDataFinal");
 
-    if(!cmbViajeDataFinal.value || !cmbOcDataFinal.value){
-        mostrarToast("Primero selecciona el Viaje y la OC.", "error");
+    if(!cmbOcDataFinal.value || !viaje){
+        mostrarToast("Primero selecciona la OC.", "error");
         return;
     }
 
