@@ -647,13 +647,15 @@
                         Primero selecciona el Viaje (solo aparecen los que ya están en la
                         plantilla de "1. Carga y Viajes"). Verás todas las OC de ese viaje: a
                         cada una le asignas un Canal (ubicación lógica) — se guarda asociado a la
-                        OC, así que si ya se lo pusiste antes, no hace falta repetirlo. Luego sube
-                        el Excel de stock físico tal como lo exporta SAP: Tipo almacén, Ubicación,
-                        Producto, Descripción producto, Lote, FeCaduc/FePreferCons, Tipo de stock,
-                        Ctd.embalada (UMA), Un.medida alternat., Ctd. y Fecha EM — una sola vez por
-                        Viaje completo. La columna Ubicación del Excel de SAP es ese mismo Canal;
-                        con eso se identifica a qué OC pertenece cada fila. Las filas cuya Ubicación
-                        no coincida con ningún Canal asignado quedan sin OC. Al volver a subir un
+                        OC, así que si ya se lo pusiste antes, no hace falta repetirlo, pero TODAS
+                        las OC del viaje deben tener Canal antes de poder subir el archivo. Luego
+                        sube el Excel de stock físico tal como lo exporta SAP: Tipo almacén,
+                        Ubicación, Producto, Descripción producto, Lote, FeCaduc/FePreferCons,
+                        Tipo de stock, Ctd.embalada (UMA), Un.medida alternat., Ctd. y Fecha EM —
+                        una sola vez por Viaje completo. La columna Ubicación del Excel de SAP es
+                        ese mismo Canal; con eso se identifica a qué OC pertenece cada fila. Es
+                        todo o nada: si aunque sea una fila trae una Ubicación que no coincide con
+                        ningún Canal asignado, no se sube nada del archivo. Al volver a subir un
                         archivo del mismo Viaje, se reemplaza todo lo que había cargado para ese
                         viaje.
                     </p>
