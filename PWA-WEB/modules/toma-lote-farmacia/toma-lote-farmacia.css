@@ -394,28 +394,28 @@ body{
     color:#374151;
 }
 
+#listaOcCanalStock{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));
+    gap:12px 20px;
+}
+
 .fila-oc-canal{
     display:flex;
     align-items:center;
-    gap:14px;
-    padding:10px 0;
-    border-bottom:1px solid #eef2f7;
-}
-
-.fila-oc-canal:last-child{
-    border-bottom:none;
+    gap:10px;
 }
 
 .fila-oc-canal .oc-numero{
     font-weight:700;
     font-size:13px;
     color:#1f2937;
-    width:130px;
     flex-shrink:0;
 }
 
 .fila-oc-canal input{
-    width:220px;
+    flex:1;
+    min-width:0;
     padding:10px 12px;
     border:1px solid #d5dbe5;
     border-radius:10px;
