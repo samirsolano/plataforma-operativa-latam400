@@ -92,11 +92,6 @@ document.querySelectorAll(".tab-link").forEach(function(link){
             cargarViajesParaFiltro();
         }
 
-        if(link.dataset.tab === "tabMara"){
-            cargarResumenExistenteMara();
-            buscarMara();
-        }
-
         if(link.dataset.tab === "tabOcPortal"){
             cargarOcsParaSubir();
             cargarResumenExistenteOcPortal();
@@ -906,8 +901,12 @@ async function buscarLecturas(){
 // ========================================
 // "Con observaciones" si: más de 3 lotes distintos, algún lote con
 // vida útil restante (F.V. - hoy) menor a 2/3 de su TVU (de
-// "5. MARA Alicorp"), o se pistoleó más de lo solicitado (si aún
-// falta pistolear, eso es solo "Pendiente", no una observación).
+// "4. MARA Alicorp"), o se pistoleó más de lo solicitado (si aún
+// falta pistolear, eso es solo "Pendiente", no una observación). Para
+// el chequeo de vida útil, si el F.V. leído/pistoleado está
+// incompleto o vacío, se completa con la fecha de producción del
+// Lote + el TVU del código (ver completarFvConLote) — eso solo se usa
+// cuando falta el dato, nunca para "corregir" un F.V. ya completo.
 
 let _ultimoResumenCodigo = [];
 
@@ -920,6 +919,110 @@ function mesesEntre(desde, hasta){
     }
 
     return meses;
+
+}
+
+// El Lote trae 10 dígitos: los primeros 6 son la fecha de producción
+// (AA = año 20XX, MM = mes, DD = día) y los últimos 4 son el código
+// de planta. Sirve para validar la F.V. leída/pistoleada contra el
+// TVU del código (fecha de producción + TVU en meses = F.V.
+// esperada), independiente de si el F.V. fue bien leído por OCR o a
+// mano.
+function decodificarLote(lote){
+
+    const texto = String(lote || "").trim();
+
+    if(!/^\d{10}$/.test(texto)){
+        return null;
+    }
+
+    const aa = texto.slice(0, 2);
+    const mm = texto.slice(2, 4);
+    const dd = texto.slice(4, 6);
+    const codigoPlanta = texto.slice(6, 10);
+
+    if(Number(mm) < 1 || Number(mm) > 12 || Number(dd) < 1 || Number(dd) > 31){
+        return null;
+    }
+
+    return {
+        fechaProduccion: "20" + aa + "-" + mm + "-" + dd,
+        codigoPlanta: codigoPlanta
+    };
+
+}
+
+const MESES_ES = {
+    enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7,
+    agosto: 8, setiembre: 9, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12
+};
+
+// Detecta "MES AAAA" (ej: "SETIEMBRE 2029") en el texto del F.V.
+// cuando no se pudo leer el día. Devuelve {mes, anio} o null.
+function extraerMesAnio(texto){
+
+    const limpio = sinTildes(String(texto || "")).trim().toLowerCase();
+    const m = limpio.match(/([a-z]+)\D+(\d{4})/);
+
+    if(!m){
+        return null;
+    }
+
+    const mes = MESES_ES[m[1]];
+
+    return mes ? { mes: mes, anio: Number(m[2]) } : null;
+
+}
+
+function ultimoDiaDeMes(anio, mes){
+    return new Date(anio, mes, 0).getDate();
+}
+
+// Completa el F.V. SOLO cuando falta el dato (parcial o total),
+// usando la fecha de producción del Lote + el TVU del código. Si el
+// F.V. ya viene completo (día/mes/año), se devuelve tal cual, sin
+// tocarlo.
+function completarFvConLote(fvTexto, lote, tvu){
+
+    const fechaCompleta = parsearFechaExcel(fvTexto);
+
+    if(fechaCompleta){
+        return fechaCompleta;
+    }
+
+    const decodificado = decodificarLote(lote);
+
+    if(!decodificado || !tvu){
+        return null;
+    }
+
+    const calculada = new Date(decodificado.fechaProduccion + "T00:00:00");
+    calculada.setMonth(calculada.getMonth() + tvu);
+
+    const anioCalc = calculada.getFullYear();
+    const mesCalc = calculada.getMonth() + 1;
+    const diaCalc = calculada.getDate();
+
+    const mesAnio = extraerMesAnio(fvTexto);
+
+    if(mesAnio && mesAnio.mes === mesCalc && mesAnio.anio === anioCalc){
+        // Se leyó mes/año y coincide con el cálculo: solo faltaba el
+        // día, se completa con el que da el cálculo.
+        return anioCalc + "-" + String(mesCalc).padStart(2, "0") + "-" + String(diaCalc).padStart(2, "0");
+    }
+
+    if(mesAnio){
+        // Se leyó mes/año pero no coincide con el cálculo del Lote:
+        // se respeta el mes/año leído y se completa el día con el
+        // último día de ese mes (no se confía en el cálculo si el
+        // mes/año no cuadra).
+        const dia = ultimoDiaDeMes(mesAnio.anio, mesAnio.mes);
+        return mesAnio.anio + "-" + String(mesAnio.mes).padStart(2, "0") + "-" + String(dia).padStart(2, "0");
+    }
+
+    // No hay nada legible en el F.V. (vacío o ilegible): se completa
+    // todo (día, mes y año) con el cálculo del Lote + TVU.
+    return anioCalc + "-" + String(mesCalc).padStart(2, "0") + "-" + String(diaCalc).padStart(2, "0");
 
 }
 
@@ -1036,7 +1139,7 @@ async function buscarResumenCodigo(){
 
                 const vidaInsuficiente = g.lotes.some(function(l){
 
-                    const fv = parsearFechaExcel(l.fv);
+                    const fv = completarFvConLote(l.fv, l.lote, tvu);
                     if(!fv){
                         return false;
                     }
@@ -1122,7 +1225,10 @@ async function buscarResumenCodigo(){
                 <td>${f.oc || "-"}</td>
                 <td><span class="flecha-resumen">▸</span>${f.codigo}</td>
                 <td>${f.descripcion || "-"}</td>
-                <td>${formatearNumeroFarmacia(f.solicitada)}</td>
+                <td>
+                    ${formatearNumeroFarmacia(f.solicitada)}
+                    <button class="btn-editar-solicitada" data-viaje="${f.viaje}" data-oc="${f.oc}" data-codigo="${f.codigo}" data-actual="${f.solicitada}">✎</button>
+                </td>
                 <td>${formatearNumeroFarmacia(f.pistoleada)}</td>
                 <td>${f.lotesUnicos.length}</td>
                 <td>
@@ -1197,6 +1303,60 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
         document.getElementById("modalFotoImg").src = botonFoto.dataset.foto;
         document.getElementById("modalFoto").classList.remove("oculto");
         return;
+    }
+
+    const botonEditar = e.target.closest(".btn-editar-solicitada");
+
+    if(botonEditar){
+
+        const viajeBtn = botonEditar.dataset.viaje;
+        const ocBtn = botonEditar.dataset.oc;
+        const codigoBtn = botonEditar.dataset.codigo;
+        const actual = botonEditar.dataset.actual;
+
+        const nuevoTexto = prompt(
+            "Nueva cantidad solicitada para el código " + codigoBtn +
+            " (Viaje " + viajeBtn + " / OC " + ocBtn + "):",
+            actual
+        );
+
+        if(nuevoTexto === null){
+            return;
+        }
+
+        const nuevaCantidad = Number(nuevoTexto);
+
+        if(isNaN(nuevaCantidad) || nuevaCantidad < 0){
+            mostrarToast("Ingresa una cantidad numérica válida.", "error");
+            return;
+        }
+
+        try{
+
+            const respuesta = await supabaseFetch(
+                "/farmacia_data?viaje=eq." + viajeBtn + "&orden_compra=eq." + ocBtn + "&codigo=eq." + encodeURIComponent(codigoBtn),
+                {
+                    method: "PATCH",
+                    headers: { "Prefer": "return=representation" },
+                    body: JSON.stringify({ cantidad: nuevaCantidad })
+                }
+            );
+
+            if(!respuesta || !respuesta.length){
+                mostrarToast("No se encontró la fila de ese código/viaje/OC en la carga.", "error");
+                return;
+            }
+
+            mostrarToast("Cantidad solicitada actualizada.", "exito");
+            buscarResumenCodigo();
+
+        }catch(err){
+            console.error(err);
+            mostrarToast("No se pudo actualizar la cantidad solicitada.", "error");
+        }
+
+        return;
+
     }
 
     const botonEliminar = e.target.closest(".btn-eliminar-lectura");
@@ -1316,36 +1476,6 @@ async function supabaseFetchTodo(ruta){
 
 }
 
-document.getElementById("btnDescargarPlantillaMara").addEventListener("click", function(){
-
-    const encabezados = [
-        "COD. LAB.", "LABORATORIO", "COD. SAP", "COD. PROVEEDOR", "EAN PRINCIPAL",
-        "DESCRIPCION", "CODIGO INKAVENTA", "ESTADO", "UM BASE", "UM PEDIDO", "MASTER PACK"
-    ];
-
-    const filasEjemplo = [
-        [80000151, "ALICORP", 109454001, 109454001, 7751851001724, "DENTO CR DENT HERBAL EXTR NAT TBO 90.1G", "261392", "ACTIVO", "UN", "UN", 72],
-        [80000323, "INTRADEVCO INDUSTRIAL CONSUMO", 138805, 8326097, 7751851032438, "DENTITO GEL DENTAL TBOX85G, CHICHA MORAD", "025896", "ACTIVO", "UN", "UN", 144]
-    ];
-
-    const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filasEjemplo]);
-    const libro = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(libro, hoja, "MARA FARMACIA");
-
-    XLSX.writeFile(libro, "PLANTILLA_MARA_FARMACIA.xlsx");
-
-});
-
-const archivoMara = document.getElementById("archivoMara");
-const nombreArchivoMara = document.getElementById("nombreArchivoMara");
-const fechaArchivoMara = document.getElementById("fechaArchivoMara");
-
-const COLUMNAS_ESPERADAS_MARA = [
-    "cod. lab.", "laboratorio", "cod. sap", "cod. proveedor", "ean principal",
-    "descripcion", "codigo inkaventa", "estado", "um base", "um pedido", "master pack"
-];
-
 // Quita tildes/diéresis para no depender de que el Excel traiga
 // exactamente "Cód." vs "Cod." o "Descripción" vs "Descripcion".
 function sinTildes(texto){
@@ -1423,242 +1553,6 @@ function parsearFechaExcel(v){
     return null;
 
 }
-
-async function leerFilasMaraExcel(archivo){
-
-    const buffer = await archivo.arrayBuffer();
-    const libro = XLSX.read(buffer, { type: "array" });
-
-    const hoja = libro.Sheets[libro.SheetNames[0]];
-
-    return XLSX.utils.sheet_to_json(hoja, { defval: "" });
-
-}
-
-function validarFormatoMara(filasCrudas){
-
-    if(!filasCrudas.length){
-        return "El archivo está vacío.";
-    }
-
-    const columnasArchivo = Object.keys(filasCrudas[0]).map(c => sinTildes(c).trim().toLowerCase());
-
-    const faltantes = COLUMNAS_ESPERADAS_MARA.filter(
-        esperada => !columnasArchivo.includes(sinTildes(esperada))
-    );
-
-    if(faltantes.length){
-        return "Este archivo no tiene el formato del maestro MARA. Faltan las columnas: " +
-            faltantes.join(", ") + ".";
-    }
-
-    return null;
-
-}
-
-function normalizarFilaMara(filaOriginal, archivo, cargadoPor){
-
-    const mapaFila = {};
-
-    Object.keys(filaOriginal).forEach(function(clave){
-        mapaFila[sinTildes(clave).trim().toLowerCase()] = filaOriginal[clave];
-    });
-
-    function valor(clave){
-        const v = mapaFila[clave];
-        return (v === undefined || v === null) ? "" : v;
-    }
-
-    function num(clave){
-        const n = Number(valor(clave));
-        return isNaN(n) || valor(clave) === "" ? null : n;
-    }
-
-    function texto(clave){
-        return String(valor(clave)).trim();
-    }
-
-    return {
-        cod_lab: texto("cod. lab."),
-        laboratorio: texto("laboratorio"),
-        cod_sap: texto("cod. sap"),
-        cod_proveedor: texto("cod. proveedor"),
-        ean_principal: texto("ean principal"),
-        descripcion: texto("descripcion"),
-        codigo_inkaventa: texto("codigo inkaventa"),
-        estado: texto("estado"),
-        um_base: texto("um base"),
-        um_pedido: texto("um pedido"),
-        master_pack: num("master pack"),
-        archivo_origen: archivo,
-        cargado_por: cargadoPor
-    };
-
-}
-
-archivoMara.addEventListener("change", async function(e){
-
-    const archivo = e.target.files[0];
-
-    if(!archivo){
-        return;
-    }
-
-    nombreArchivoMara.textContent = "Leyendo " + archivo.name + "...";
-
-    try{
-
-        const filasCrudas = await leerFilasMaraExcel(archivo);
-
-        const errorFormato = validarFormatoMara(filasCrudas);
-
-        if(errorFormato){
-            mostrarToast(errorFormato, "error");
-            nombreArchivoMara.textContent = "-";
-            archivoMara.value = "";
-            return;
-        }
-
-        const cargadoPor = (sesion && (sesion.nombre_completo || sesion.usuario)) || "";
-
-        const filasNormalizadas = filasCrudas
-            .map(f => normalizarFilaMara(f, archivo.name, cargadoPor))
-            .filter(f => f.cod_sap && f.descripcion);
-
-        if(!filasNormalizadas.length){
-            mostrarToast("No se encontraron filas válidas en el archivo (revisa las columnas COD. SAP y DESCRIPCION).", "error");
-            nombreArchivoMara.textContent = "-";
-            archivoMara.value = "";
-            return;
-        }
-
-        const existentes = await supabaseFetch("/mara_farmacia?select=id&limit=1");
-
-        if(existentes && existentes.length){
-
-            const confirmado = confirm(
-                "Ya hay un maestro MARA cargado. ¿Deseas reemplazarlo con este archivo (" +
-                filasNormalizadas.length + " filas)?"
-            );
-
-            if(!confirmado){
-                nombreArchivoMara.textContent = "-";
-                archivoMara.value = "";
-                return;
-            }
-
-            await supabaseFetch("/mara_farmacia?id=gt.0", { method: "DELETE" });
-
-        }
-
-        nombreArchivoMara.textContent = "Guardando " + archivo.name + "...";
-
-        await guardarEnBloques("mara_farmacia", filasNormalizadas);
-
-        nombreArchivoMara.textContent = archivo.name;
-        fechaArchivoMara.textContent = new Date().toLocaleDateString("es-PE");
-
-        document.getElementById("totalRegistrosMara").textContent =
-            filasNormalizadas.length.toLocaleString("es-PE");
-
-        mostrarToast("Maestro MARA cargado: " + filasNormalizadas.length + " filas.", "exito");
-
-    }catch(err){
-
-        console.error(err);
-        mostrarToast("No se pudo cargar el archivo: " + err.message, "error");
-        nombreArchivoMara.textContent = "-";
-        archivoMara.value = "";
-
-    }
-
-});
-
-async function cargarResumenExistenteMara(){
-
-    try{
-
-        const filas = await supabaseFetchTodo(
-            "/mara_farmacia?select=id,archivo_origen,created_at&order=created_at.desc"
-        );
-
-        if(!filas || !filas.length){
-            return;
-        }
-
-        document.getElementById("totalRegistrosMara").textContent =
-            filas.length.toLocaleString("es-PE");
-
-        nombreArchivoMara.textContent = filas[0].archivo_origen || "-";
-        fechaArchivoMara.textContent = new Date(filas[0].created_at).toLocaleDateString("es-PE");
-
-    }catch(e){
-        console.error(e);
-    }
-
-}
-
-async function buscarMara(){
-
-    const codigo = document.getElementById("filtroCodigoMara").value.trim();
-    const descripcion = document.getElementById("filtroDescripcionMara").value.trim();
-
-    const tbody = document.getElementById("tblMara");
-    tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando...</td></tr>`;
-
-    try{
-
-        let ruta = "/mara_farmacia?select=cod_sap,cod_proveedor,ean_principal,descripcion,laboratorio,um_base,um_pedido,master_pack,estado&order=descripcion.asc";
-
-        if(codigo){
-            ruta += "&or=(cod_sap.ilike.*" + encodeURIComponent(codigo) + "*,cod_proveedor.ilike.*" + encodeURIComponent(codigo) + "*)";
-        }
-
-        if(descripcion){
-            ruta += "&descripcion=ilike.*" + encodeURIComponent(descripcion) + "*";
-        }
-
-        // Sin filtros trae el maestro completo (paginado); con
-        // filtros, la misma paginación cubre resultados grandes.
-        const filas = await supabaseFetchTodo(ruta);
-
-        tbody.innerHTML = "";
-
-        if(!filas || !filas.length){
-            tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se encontraron materiales con esos filtros.</td></tr>`;
-            return;
-        }
-
-        filas.forEach(function(f){
-
-            const tr = document.createElement("tr");
-
-            tr.innerHTML = `
-                <td>${f.cod_sap || "-"}</td>
-                <td>${f.cod_proveedor || "-"}</td>
-                <td>${f.ean_principal || "-"}</td>
-                <td>${f.descripcion || "-"}</td>
-                <td>${f.laboratorio || "-"}</td>
-                <td>${f.um_base || "-"}</td>
-                <td>${f.um_pedido || "-"}</td>
-                <td>${f.master_pack || "-"}</td>
-                <td>${f.estado || "-"}</td>
-            `;
-
-            tbody.appendChild(tr);
-
-        });
-
-    }catch(e){
-
-        console.error(e);
-        tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar el maestro.</td></tr>`;
-
-    }
-
-}
-
-document.getElementById("btnBuscarMara").addEventListener("click", buscarMara);
 
 // ========================================
 // OC PORTAL CLIENTE
@@ -1740,12 +1634,16 @@ cmbOcASubir.addEventListener("change", function(){
 
 });
 
+// Solo se exigen las columnas que realmente se usan en el módulo; el
+// resto del reporte del portal (tipo de documento, direcciones,
+// precios, descuentos, destino, etc.) se acepta si viene pero no es
+// obligatorio, porque varía según el reporte que exporte el cliente.
+// "OC" a veces sale como "No. OC", e "Inretail / QS" a veces sale
+// como "Código Inkafarma" — por eso esas dos son listas de nombres
+// alternativos aceptados.
 const COLUMNAS_ESPERADAS_OC = [
-    "oc", "tipo o/c", "clase de documento", "codigo lugar de entrega", "nombre lugar de entrega",
-    "direccion de entrega", "fecha emision", "fecha vencimiento", "posicion", "inretail / qs",
-    "ean", "codigo proveedor", "descripcion producto", "empaque", "sku/empaque", "p. lista",
-    "desc. 1", "desc. 2", "desc. 3", "desc. 4", "desc. 5", "desc. 6", "p. final neto",
-    "p. final(con imp)", "codigo local destino", "nombre local destino", "ctdad. sku solicitadas"
+    ["oc", "no. oc"], ["inretail / qs", "codigo inkafarma"], "ean", "descripcion producto",
+    "sku/empaque", "ctdad. sku solicitadas"
 ];
 
 async function leerFilasOcExcel(archivo){
@@ -1767,9 +1665,12 @@ function validarFormatoOc(filasCrudas){
 
     const columnasArchivo = Object.keys(filasCrudas[0]).map(c => sinTildes(c).trim().toLowerCase());
 
-    const faltantes = COLUMNAS_ESPERADAS_OC.filter(
-        esperada => !columnasArchivo.includes(sinTildes(esperada))
-    );
+    const faltantes = COLUMNAS_ESPERADAS_OC.filter(function(esperada){
+        const alternativas = Array.isArray(esperada) ? esperada : [esperada];
+        return !alternativas.some(alt => columnasArchivo.includes(sinTildes(alt)));
+    }).map(function(esperada){
+        return Array.isArray(esperada) ? esperada.join(" / ") : esperada;
+    });
 
     if(faltantes.length){
         return "Este archivo no tiene el formato de OC del portal del cliente. Faltan las columnas: " +
@@ -1789,8 +1690,14 @@ function normalizarFilaOc(filaOriginal, archivo, cargadoPor){
     });
 
     function valor(clave){
-        const v = mapaFila[clave];
-        return (v === undefined || v === null) ? "" : v;
+        const claves = Array.isArray(clave) ? clave : [clave];
+        for(let i = 0; i < claves.length; i++){
+            const v = mapaFila[claves[i]];
+            if(v !== undefined && v !== null && v !== ""){
+                return v;
+            }
+        }
+        return "";
     }
 
     function num(clave){
@@ -1807,7 +1714,7 @@ function normalizarFilaOc(filaOriginal, archivo, cargadoPor){
     }
 
     return {
-        oc: num("oc"),
+        oc: num(["oc", "no. oc"]),
         tipo_oc: texto("tipo o/c"),
         clase_documento: texto("clase de documento"),
         cod_lugar_entrega: texto("codigo lugar de entrega"),
@@ -1816,7 +1723,7 @@ function normalizarFilaOc(filaOriginal, archivo, cargadoPor){
         fecha_emision: fecha("fecha emision"),
         fecha_vencimiento: fecha("fecha vencimiento"),
         posicion: num("posicion"),
-        inretail_qs: texto("inretail / qs"),
+        inretail_qs: texto(["inretail / qs", "codigo inkafarma"]),
         ean: texto("ean"),
         codigo_proveedor: texto("codigo proveedor"),
         descripcion_producto: texto("descripcion producto"),
@@ -1875,10 +1782,10 @@ archivoOcPortal.addEventListener("change", async function(e){
 
         const filasNormalizadas = filasCrudas
             .map(f => normalizarFilaOc(f, archivo.name, cargadoPor))
-            .filter(f => f.oc !== null && f.codigo_proveedor);
+            .filter(f => f.oc !== null && f.ean);
 
         if(!filasNormalizadas.length){
-            mostrarToast("No se encontraron filas válidas en el archivo (revisa las columnas OC y CODIGO PROVEEDOR).", "error");
+            mostrarToast("No se encontraron filas válidas en el archivo (revisa las columnas OC y EAN).", "error");
             nombreArchivoOc.textContent = "-";
             archivoOcPortal.value = "";
             return;
@@ -2032,10 +1939,9 @@ document.getElementById("btnBuscarOcPortal").addEventListener("click", buscarOcP
 // ========================================
 // MARA ALICORP
 // ========================================
-// Maestro más simple que "3. MARA InRetail Pharma": acá "codigo" SÍ
-// coincide directo con el CODIGO/SKU que se usa en el resto del
-// módulo. Reusa mostrarToast, sesion, guardarEnBloques, sinTildes y
-// supabaseFetchTodo (definidos arriba).
+// Acá "codigo" coincide directo con el CODIGO/SKU que se usa en el
+// resto del módulo. Reusa mostrarToast, sesion, guardarEnBloques,
+// sinTildes y supabaseFetchTodo (definidos arriba).
 
 document.getElementById("btnDescargarPlantillaAlicorp").addEventListener("click", function(){
 
@@ -2842,7 +2748,7 @@ async function calcularCruce(){
         ]);
 
         if(!ocPortalFilas || !ocPortalFilas.length){
-            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Esa OC todavía no tiene datos cargados en "4. OC Portal Cliente".</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Esa OC todavía no tiene datos cargados en "3. OC Portal Cliente".</td></tr>`;
             return;
         }
 
@@ -2967,9 +2873,10 @@ document.getElementById("btnCalcularCruce").addEventListener("click", calcularCr
 // DATA FINAL
 // ========================================
 // Lo escaneado en Lecturas -> se resuelve el SKU real buscando el
-// código en "3. MARA InRetail Pharma" (por Cód. Proveedor) -> se
-// arma el reporte final agrupado por SKU y Lote. Reusa
-// supabaseFetchTodo y mostrarToast (definidos arriba).
+// EAN en "4. MARA Alicorp" y con ese EAN se busca el "Código
+// Inkafarma" (o "Inretail/QS") de esa misma OC en "3. OC Portal
+// Cliente" -> se arma el reporte final agrupado por SKU y Lote.
+// Reusa supabaseFetchTodo y mostrarToast (definidos arriba).
 
 const cmbViajeDataFinal = document.getElementById("cmbViajeDataFinal");
 const cmbOcDataFinal = document.getElementById("cmbOcDataFinal");
@@ -3062,12 +2969,12 @@ async function generarDataFinal(){
 
     try{
 
-        const [lecturasFilas, alicorpFilas, maraFilas] = await Promise.all([
+        const [lecturasFilas, alicorpFilas, ocPortalFilas] = await Promise.all([
             supabaseFetchTodo(
                 "/farmacia_lecturas?select=codigo,lote,fv,cantidad_cajas&viaje=eq." + viaje + "&oc=eq." + oc
             ),
             supabaseFetchTodo("/mara_alicorp?select=codigo,ean,factor_unidad_alm"),
-            supabaseFetchTodo("/mara_farmacia?select=ean_principal,cod_proveedor")
+            supabaseFetchTodo("/oc_portal_cliente?select=ean,inretail_qs&oc=eq." + oc)
         ]);
 
         if(!lecturasFilas || !lecturasFilas.length){
@@ -3077,8 +2984,8 @@ async function generarDataFinal(){
         }
 
         // Cadena de resolución del SKU final: nuestro código -> EAN
-        // (vía "5. MARA Alicorp") -> Cód. Proveedor de ese mismo EAN
-        // en "3. MARA InRetail Pharma" (no es directo por código).
+        // (vía "4. MARA Alicorp") -> "Código Inkafarma" (o
+        // "Inretail/QS") de ese mismo EAN en "3. OC Portal Cliente".
         const eanPorCodigo = {};
         const factorPorCodigo = {};
 
@@ -3095,12 +3002,12 @@ async function generarDataFinal(){
             }
         });
 
-        const codProveedorPorEan = {};
+        const skuPorEan = {};
 
-        (maraFilas || []).forEach(function(m){
-            const clave = String(m.ean_principal || "").trim();
-            if(clave && !codProveedorPorEan[clave]){
-                codProveedorPorEan[clave] = m.cod_proveedor;
+        (ocPortalFilas || []).forEach(function(o){
+            const clave = String(o.ean || "").trim();
+            if(clave && !skuPorEan[clave]){
+                skuPorEan[clave] = o.inretail_qs;
             }
         });
 
@@ -3110,7 +3017,7 @@ async function generarDataFinal(){
 
             const codigo = String(l.codigo || "").trim();
             const ean = eanPorCodigo[codigo] || null;
-            const sku = ean ? (codProveedorPorEan[ean] || null) : null;
+            const sku = ean ? (skuPorEan[ean] || null) : null;
             const clave = l.codigo + "|" + (l.lote || "") + "|" + (l.fv || "");
 
             if(!grupos[clave]){
@@ -3142,7 +3049,7 @@ async function generarDataFinal(){
 
             return {
                 oc: oc,
-                sku: f.sku || "Sin MARA",
+                sku: f.sku || "Sin código",
                 cantidad: cantidadUnidades,
                 lote: f.lote,
                 fv: f.fv
