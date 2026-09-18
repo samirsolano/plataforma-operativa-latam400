@@ -311,21 +311,6 @@ select{
     transition:border-color .15s, box-shadow .15s;
 }
 
-select:hover{
-    border-color:#FC000D;
-}
-
-select:focus{
-    outline:none;
-    border-color:#FC000D;
-    box-shadow:0 0 0 3px rgba(252,0,13,.12);
-}
-
-select:disabled{
-    cursor:default;
-    opacity:.6;
-}
-
 /* DATA */
 
 .data-modulado{
@@ -762,4 +747,24 @@ td{
 
 tbody tr:hover{
     background:#f9fafb;
+}
+
+/* Hover/foco/disabled de los <select> — declarado al final a
+   propósito, para que gane siempre sobre el border/border-color que
+   define cada contexto (.filtros-mara select, .filtros-lecturas
+   select, .grupo-oc-portal select), sin importar el orden en que
+   se agreguen esas reglas más arriba. */
+select:hover{
+    border-color:#FC000D;
+}
+
+select:focus{
+    outline:none;
+    border-color:#FC000D;
+    box-shadow:0 0 0 3px rgba(252,0,13,.12);
+}
+
+select:disabled{
+    cursor:default;
+    opacity:.6;
 }
