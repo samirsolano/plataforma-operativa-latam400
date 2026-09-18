@@ -919,24 +919,24 @@ function mesesEntre(desde, hasta){
 
 }
 
-// El Lote trae 10 o 12 dígitos: los primeros 6 son la fecha de
-// producción (AA = año 20XX, MM = mes, DD = día) y el resto (4 o 6
-// dígitos según el largo del Lote) es el código de planta. Sirve
-// para validar la F.V. leída/pistoleada contra el TVU del código
-// (fecha de producción + TVU en meses = F.V. esperada), independiente
-// de si el F.V. fue bien leído por OCR o a mano.
+// El Lote trae 10 dígitos: los primeros 6 son la fecha de producción
+// (AA = año 20XX, MM = mes, DD = día) y los últimos 4 son el código
+// de planta. Sirve para validar la F.V. leída/pistoleada contra el
+// TVU del código (fecha de producción + TVU en meses = F.V.
+// esperada), independiente de si el F.V. fue bien leído por OCR o a
+// mano.
 function decodificarLote(lote){
 
     const texto = String(lote || "").trim();
 
-    if(!/^\d{10}$/.test(texto) && !/^\d{12}$/.test(texto)){
+    if(!/^\d{10}$/.test(texto)){
         return null;
     }
 
     const aa = texto.slice(0, 2);
     const mm = texto.slice(2, 4);
     const dd = texto.slice(4, 6);
-    const codigoPlanta = texto.slice(6);
+    const codigoPlanta = texto.slice(6, 10);
 
     if(Number(mm) < 1 || Number(mm) > 12 || Number(dd) < 1 || Number(dd) > 31){
         return null;
