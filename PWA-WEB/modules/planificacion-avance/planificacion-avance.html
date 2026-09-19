@@ -1097,6 +1097,11 @@
               <option value="REPO">Repo</option>
             </select>
 
+            <label>Supervisor</label>
+            <select id="prodSupervisor" onchange="renderizarTablaProductividad()">
+              <option value="">Todos</option>
+            </select>
+
           </div>
 
           <p class="dd-aviso" id="prodAviso"></p>
@@ -1114,11 +1119,13 @@
                     <th>Días trabajados</th>
                     <th>TN Total</th>
                     <th>Promedio TN/día</th>
+                    <th>Horas trabajadas</th>
+                    <th>Promedio TN/hora</th>
                   </tr>
                 </thead>
 
                 <tbody id="prodTabla">
-                  <tr><td colspan="5" class="dd-tabla-vacio">Seleccione un rango de fechas.</td></tr>
+                  <tr><td colspan="7" class="dd-tabla-vacio">Seleccione un rango de fechas.</td></tr>
                 </tbody>
 
               </table>

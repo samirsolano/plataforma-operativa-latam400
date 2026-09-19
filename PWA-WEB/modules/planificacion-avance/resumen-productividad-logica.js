@@ -19,7 +19,7 @@ async function obtenerResumenProductividad(desde, hasta){
         "&p_hasta=" + encodeURIComponent(hasta)
     ) || [];
 
-    // auxiliar -> proceso -> { tn, dias }
+    // auxiliar -> proceso -> { tn, dias, horas }
     const porAuxiliar = {};
 
     filas.forEach(function(f){
@@ -33,12 +33,13 @@ async function obtenerResumenProductividad(desde, hasta){
         const auxiliar = f.auxiliar;
         const tn = Number(f.tn) || 0;
         const dias = Number(f.dias) || 0;
+        const horas = Number(f.horas) || 0;
 
         if(!porAuxiliar[auxiliar]){
             porAuxiliar[auxiliar] = {};
         }
 
-        porAuxiliar[auxiliar][proceso] = { tn: tn, dias: dias };
+        porAuxiliar[auxiliar][proceso] = { tn: tn, dias: dias, horas: horas };
 
     });
 
@@ -46,8 +47,36 @@ async function obtenerResumenProductividad(desde, hasta){
 
 }
 
-// Arma el top ya ordenado por promedio (TN/día) para UNA función.
-function prodTopPorFuncion(porAuxiliar, funcion){
+function prodNormalizarNombre(n){
+    return String(n || "").trim().toUpperCase();
+}
+
+// nombre (auxiliar) -> supervisor, desde "colaboradores_activos" —
+// misma tabla/proyecto Supabase que usa Check List 5S (ver
+// construirMapaSupervisores en reporte-checklist.js) para el filtro
+// de Supervisor.
+async function obtenerMapaSupervisoresProductividad(){
+
+    const filas = await planifFetch(
+        "/colaboradores_activos?select=nombre,supervisor&activo=eq.true"
+    ) || [];
+
+    const mapa = {};
+
+    filas.forEach(function(f){
+        if(f.nombre){
+            mapa[prodNormalizarNombre(f.nombre)] = f.supervisor || "Sin asignar";
+        }
+    });
+
+    return mapa;
+
+}
+
+// Arma el top ya ordenado por promedio (TN/día) para UNA función,
+// opcionalmente filtrado por supervisor (mapa nombre->supervisor de
+// obtenerMapaSupervisoresProductividad).
+function prodTopPorFuncion(porAuxiliar, funcion, supervisorMapa, supervisorFiltro){
 
     return Object.keys(porAuxiliar)
         .map(function(auxiliar){
@@ -58,11 +87,20 @@ function prodTopPorFuncion(porAuxiliar, funcion){
                 return null;
             }
 
+            const supervisor = (supervisorMapa && supervisorMapa[prodNormalizarNombre(auxiliar)]) || "Sin asignar";
+
+            if(supervisorFiltro && supervisor !== supervisorFiltro){
+                return null;
+            }
+
             return {
                 auxiliar: auxiliar,
                 dias: datos.dias,
                 tnTotal: ddRedondear(datos.tn),
-                promedio: ddRedondear(datos.tn / datos.dias)
+                promedio: ddRedondear(datos.tn / datos.dias),
+                horasTrabajadas: datos.horas,
+                promedioHora: ddRedondear(datos.horas > 0 ? datos.tn / datos.horas : 0),
+                supervisor: supervisor
             };
 
         })

@@ -11,12 +11,24 @@
 -- tuvo tareas de ese proceso dentro del rango — sirve para calcular
 -- el promedio de TN por día trabajado en vez de solo el total
 -- acumulado (que premia más los días trabajados que la eficiencia).
+
+-- "horas" = cantidad de franjas fecha+hora distintas con al menos
+-- una tarea de ese proceso — mismo campo "hora" (0-23) que ya usa
+-- Hora x Hora (obtener_hora_x_hora) sobre esta misma tabla. Sirve
+-- para el promedio de TN por hora trabajada.
+
+-- Postgres no permite cambiar las columnas de salida de una función
+-- con "create or replace" — hay que borrarla primero (ya existía con
+-- 4 columnas de salida, ahora son 5).
+drop function if exists public.resumen_productividad_sap(date, date);
+
 create or replace function public.resumen_productividad_sap(p_desde date, p_hasta date)
-returns table (auxiliar text, proceso text, tn numeric, dias bigint)
+returns table (auxiliar text, proceso text, tn numeric, dias bigint, horas bigint)
 language sql
 stable
 as $$
-    select auxiliar, proceso, sum(tn) as tn, count(distinct fecha) as dias
+    select auxiliar, proceso, sum(tn) as tn, count(distinct fecha) as dias,
+           count(distinct (fecha, hora)) as horas
     from public.tareas_almacen_sap
     where fecha >= p_desde
       and fecha <= p_hasta
