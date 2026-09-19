@@ -1,0 +1,13 @@
+Este texto NO se importa como archivo. Se pega a mano dentro del
+libro, en el modulo especial "ThisWorkbook" (ver paso 4 de
+LEEME-EXCEL.txt).
+
+------------------------------------------------------------
+
+Private Sub Workbook_Open()
+    ActualizarTareasSAPHoraAHora
+End Sub
+
+Private Sub Workbook_BeforeClose(Cancel As Boolean)
+    CancelarProximaCorrida
+End Sub

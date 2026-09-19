@@ -1,0 +1,107 @@
+ACTUALIZAR TAREAS SAP -> SUPABASE, CADA 1 HORA (macro de Excel)
+==================================================================
+
+Idea
+----
+En vez de exportar todo el turno (12 horas) de una vez y despues
+subir el Excel a mano en la web, esta macro:
+
+  1. Cada 1 hora, le pide a SAP solo la ultima hora (con un poco de
+     margen) de tareas de almacen -> exportacion mas chica y mas
+     rapida.
+  2. Toma ese Excel que SAP abre solo (dijiste que SAP lo deja en
+     una ruta temporal - lo mas comun es que lo abra directo como
+     un libro nuevo en este mismo Excel; la macro lo detecta solo).
+  3. Lo sube directo a Supabase (tabla tareas_almacen_sap), sin
+     pasar por la web. Es la MISMA tabla y las mismas columnas que
+     usa "SUBIR ARCHIVO SAP" en Planificacion y Avance, asi que el
+     Dashboard y Diálogo Diario que ya existen no cambian en nada.
+  4. Se vuelve a programar sola para repetir en 1 hora.
+
+Como Supabase ignora los id_registro que ya existen (on_conflict +
+resolution=ignore-duplicates), no pasa nada si una hora se pide con
+algo de margen y se solapa un poco con la anterior - no se duplica
+ningun dato.
+
+Archivos de esta carpeta
+------------------------
+- ActualizarTareasSAP.bas    -> el modulo de VBA, se IMPORTA.
+- ThisWorkbook-codigo.txt    -> 2 macros que se PEGAN a mano en
+                                 "ThisWorkbook" (no se importan).
+
+Armar el libro (una sola vez)
+------------------------------
+1. Abre Excel, crea un libro nuevo. Archivo -> Guardar como -> tipo
+   "Libro de Excel habilitado para macros (*.xlsm)". Guardalo en
+   esta misma PC (la que tiene SAP GUI), con el nombre que quieras,
+   por ejemplo "ActualizarTareasSAP.xlsm".
+
+2. Crea una hoja llamada exactamente "Control" (clic derecho en las
+   pestañas de abajo -> Insertar, o renombra "Hoja1"). En esa hoja
+   escribe, a mano:
+
+     A2: Estado:            (B2 lo llena la macro sola)
+     A3: Detalle:           (B3 lo llena la macro sola)
+     A4: Ultima corrida:    (B4 lo llena la macro sola)
+
+3. Abre el editor de VBA (Alt+F11). En el panel de la izquierda,
+   clic derecho sobre el nombre de tu libro -> "Importar archivo..."
+   -> elige ActualizarTareasSAP.bas (de esta carpeta).
+
+4. En ese mismo panel, dentro de tu libro vas a ver un elemento
+   llamado "ThisWorkbook" (viene siempre, no hay que crearlo).
+   Doble clic ahi y PEGA el contenido de ThisWorkbook-codigo.txt.
+
+5. Vuelve a Excel (Alt+Q o Alt+F11 de nuevo), en la hoja "Control":
+   Insertar -> Formas -> dibuja un botón, escribele "Actualizar
+   ahora". Clic derecho sobre el botón -> "Asignar macro..." ->
+   elige ActualizarTareasSAPHoraAHora.
+
+6. Guarda el libro (Ctrl+S, mantener el formato .xlsm).
+
+Usarlo
+------
+1. Abre SAP GUI y entra con tu usuario a tu sesion normal. DEJALA
+   abierta - SAP GUI Scripting se conecta a una sesion que ya
+   existe, no abre una sesion nueva.
+
+2. Abre el Excel del paso anterior. Si Excel muestra una barra
+   amarilla de seguridad, presiona "Habilitar contenido" (si no
+   aparece esa opcion, es que las macros estan bloqueadas por
+   politica de la empresa - hay que pedirle a soporte/TI que
+   habilite macros para este archivo, o que lo agregue como
+   "Ubicacion de confianza").
+
+3. Al abrirse, la macro corre sola una vez (Workbook_Open). Revisa
+   la hoja "Control":
+     - Si B2 dice "OK" y B3 muestra cuantas filas subio: quedo
+       funcionando. Mientras el Excel y SAP GUI sigan abiertos, se
+       va a repetir sola cada hora, sin tocar nada mas.
+     - Si B2 dice "ERROR: no se detecto el Excel exportado por SAP":
+       probablemente en esta PC SAP abre el Excel exportado en OTRA
+       ventana/instancia de Excel, no en este mismo libro. Avisame
+       con ese mensaje exacto y ajusto la macro para que lo busque
+       ahi (es un cambio chico, solo hay que confirmar donde
+       aparece).
+     - Cualquier otro mensaje de error: copiamelo tal cual sale en
+       B3 y lo revisamos.
+
+4. El boton "Actualizar ahora" sirve para forzar una corrida en
+   cualquier momento (por ejemplo, para probarlo la primera vez sin
+   esperar a que abra el libro).
+
+Que sigue siendo igual que antes
+---------------------------------
+- El Dashboard, Diálogo Diario y Resumen de Productividad de
+  Planificacion y Avance NO cambian: siguen leyendo la misma tabla
+  tareas_almacen_sap, ahora alimentada cada hora en vez de una vez
+  por turno.
+- El boton "SUBIR ARCHIVO SAP" de la web sigue existiendo tal cual,
+  por si algun dia hay que subir un Excel a mano (por ejemplo, si
+  esta PC se apaga y hay que rellenar horas que se perdieron).
+
+Ajustes rapidos (dentro de ActualizarTareasSAP.bas)
+----------------------------------------------------
+- MINUTOS_VENTANA (75 por defecto): cuanto para atras se pide cada
+  vez. Subirlo un poco mas no hace daño (los duplicados se ignoran).
+- MINUTOS_ENTRE_CORRIDAS (60 por defecto): cada cuanto se repite.
