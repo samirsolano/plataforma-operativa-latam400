@@ -62,10 +62,10 @@ function prodFilaTop(f, i){
         "<td class=\"prod-pos\">" + (i + 1) + "</td>" +
         "<td>" + (f.auxiliar || "").toUpperCase() + "</td>" +
         "<td class=\"prod-tn\">" + f.dias + "</td>" +
-        "<td class=\"prod-tn\">" + f.tnTotal.toFixed(2) + " TN</td>" +
         "<td class=\"prod-tn prod-promedio\">" + f.promedio.toFixed(2) + " TN/día</td>" +
         "<td class=\"prod-tn\">" + f.horasTrabajadas + "</td>" +
         "<td class=\"prod-tn prod-promedio\">" + f.promedioHora.toFixed(2) + " TN/h</td>" +
+        "<td class=\"prod-tn\">" + f.tnTotal.toFixed(2) + " TN</td>" +
         "</tr>";
 }
 
