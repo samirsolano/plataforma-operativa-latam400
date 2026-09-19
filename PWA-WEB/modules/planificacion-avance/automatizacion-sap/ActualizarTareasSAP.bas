@@ -128,29 +128,21 @@ Sub ExportarDesdeSAP(session As Object, horaDesde As Date, horaHasta As Date)
     session.findById("wnd[0]/tbar[0]/okcd").Text = "/n/scwm/mon"
     session.findById("wnd[0]").sendVKey 0
 
-    ' Nodo "Tarea de almacen" (dentro de "Documentos", que esta en la
-    ' RAIZ del arbol - al mismo nivel que Salida, Entrada, Modulacion,
-    ' etc., NO adentro de ninguna de esas). Confirmado a mano el
-    ' 19/09/2026: la clave es N0000000183.
-    '
-    ' El numero de nodo puede cambiar de un dia a otro (SAP recuerda como
-    ' quedo expandido el arbol la ultima vez que ese usuario lo abrio),
-    ' asi que antes de usarlo se valida que todavia diga "Tarea de
-    ' almacen" - si ya no, avisa en vez de exportar datos de otro lado.
+    ' Nodo "Tarea de almacen" (dentro de "Documentos", raiz del arbol).
+    ' El numero de nodo NO es fijo: SAP recuerda como quedo expandido el
+    ' arbol la ultima vez que ese usuario lo abrio, y eso lo corre. Se
+    ' vieron dos valores correctos en pruebas reales (N0000000033 con el
+    ' script original corrido suelto, N0000000183 dentro de la sesion
+    ' que controla esta macro de Excel) - se prueban los dos, en ese
+    ' orden, y se usa el primero que todavia diga "Tarea de almacen".
     Dim arbol As Object
     Set arbol = session.findById("wnd[0]/usr/shell/shellcont[0]/shell")
 
-    Const CLAVE_NODO_TAREA_ALMACEN As String = "N0000000183"
+    Dim claveNodo As String
+    claveNodo = ClaveValidaTareaAlmacen(arbol, Array("N0000000033", "N0000000183"))
 
-    If NormalizarTexto(arbol.GetNodeTextByKey(CLAVE_NODO_TAREA_ALMACEN)) <> "TAREA DE ALMACEN" Then
-        Err.Raise vbObjectError + 3, "ExportarDesdeSAP", _
-            "El nodo del arbol de SAP cambio de lugar (la clave " & CLAVE_NODO_TAREA_ALMACEN & _
-            " ya no es 'Tarea de almacen', ahora es '" & arbol.GetNodeTextByKey(CLAVE_NODO_TAREA_ALMACEN) & _
-            "'). Corre ListarNodosArbolSAP o MostrarNodoSeleccionado para ubicar la clave nueva."
-    End If
-
-    arbol.selectedNode = CLAVE_NODO_TAREA_ALMACEN
-    arbol.doubleClickNode CLAVE_NODO_TAREA_ALMACEN
+    arbol.selectedNode = claveNodo
+    arbol.doubleClickNode claveNodo
 
     session.findById("wnd[1]/usr/chkP_TOSTCA").Selected = False
     session.findById("wnd[1]/usr/chkP_TOSTOP").Selected = False
@@ -432,6 +424,32 @@ Sub RegistrarEstado(estado As String, detalle As String)
     On Error GoTo 0
 
 End Sub
+
+' ============================================================
+' Prueba cada clave candidata, en orden, y devuelve la primera
+' que todavia diga "Tarea de almacen". Si ninguna sirve, avisa
+' claro en vez de exportar datos de otro lado del arbol.
+' ============================================================
+Function ClaveValidaTareaAlmacen(arbol As Object, clavesCandidatas As Variant) As String
+
+    Dim i As Long
+    For i = LBound(clavesCandidatas) To UBound(clavesCandidatas)
+
+        Dim clave As String
+        clave = clavesCandidatas(i)
+
+        If NormalizarTexto(arbol.GetNodeTextByKey(clave)) = "TAREA DE ALMACEN" Then
+            ClaveValidaTareaAlmacen = clave
+            Exit Function
+        End If
+
+    Next i
+
+    Err.Raise vbObjectError + 3, "ClaveValidaTareaAlmacen", _
+        "El nodo del arbol de SAP cambio de lugar otra vez (ninguna de las claves conocidas dice ya " & _
+        "'Tarea de almacen'). Corre ListarNodosArbolSAP o MostrarNodoSeleccionado para ubicar la clave nueva."
+
+End Function
 
 ' ============================================================
 ' Insensible a mayusculas/minusculas y a tildes - se usa para

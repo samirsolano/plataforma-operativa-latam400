@@ -87,17 +87,14 @@ textoFechaHasta = Right("00" & Day(fechaHasta), 2) & "." & Right("00" & Month(fe
 
 ' ------------------------------------------------------------
 ' Abrir /SCWM/MON y entrar al monitor de tareas de almacen
-' (nodo "Tarea de almacen", dentro de "Documentos", que esta en
-' la RAIZ del arbol - al mismo nivel que Salida, Entrada,
-' Modulacion, etc., NO adentro de ninguna de esas). Confirmado a
-' mano el 19/09/2026: la clave es N0000000183.
-'
-' El numero de nodo puede cambiar de un dia a otro (SAP recuerda
-' como quedo expandido el arbol la ultima vez que ese usuario lo
-' abrio), asi que antes de usarlo se valida que todavia diga
-' "Tarea de almacen" - si ya no, avisa en vez de exportar datos
-' de otro lado (corre ListarNodosArbolSAP o MostrarNodoSeleccionado
-' en ActualizarTareasSAP.bas para ubicar la clave nueva).
+' (nodo "Tarea de almacen", dentro de "Documentos", raiz del
+' arbol). El numero de nodo NO es fijo: SAP recuerda como quedo
+' expandido el arbol la ultima vez que ese usuario lo abrio, y
+' eso lo corre. Se vieron dos valores correctos en pruebas
+' reales (N0000000033 corriendo este mismo script suelto,
+' N0000000183 dentro de otra sesion) - se prueban los dos, en
+' ese orden, y se usa el primero que todavia diga "Tarea de
+' almacen".
 ' ------------------------------------------------------------
 
 session.findById("wnd[0]").maximize
@@ -107,16 +104,11 @@ session.findById("wnd[0]").sendVKey 0
 Dim arbol
 Set arbol = session.findById("wnd[0]/usr/shell/shellcont[0]/shell")
 
-Const CLAVE_NODO_TAREA_ALMACEN = "N0000000183"
+Dim claveNodo
+claveNodo = ClaveValidaTareaAlmacen(arbol, Array("N0000000033", "N0000000183"))
 
-If NormalizarTexto(arbol.GetNodeTextByKey(CLAVE_NODO_TAREA_ALMACEN)) <> "TAREA DE ALMACEN" Then
-    MsgBox "El nodo del arbol de SAP cambio de lugar (la clave " & CLAVE_NODO_TAREA_ALMACEN & _
-        " ya no es 'Tarea de almacen', ahora es '" & arbol.GetNodeTextByKey(CLAVE_NODO_TAREA_ALMACEN) & "')."
-    WScript.Quit
-End If
-
-arbol.selectedNode = CLAVE_NODO_TAREA_ALMACEN
-arbol.doubleClickNode CLAVE_NODO_TAREA_ALMACEN
+arbol.selectedNode = claveNodo
+arbol.doubleClickNode claveNodo
 
 ' Trae TODOS los status (igual que el original: los 3 checkboxes
 ' de status quedan desmarcados, no solo Cancelados/Abiertos/Historico)
@@ -156,6 +148,32 @@ session.findById("wnd[0]/usr/shell/shellcont[1]/shell/shellcont[0]/shell").conte
 session.findById("wnd[0]/usr/shell/shellcont[1]/shell/shellcont[0]/shell").selectContextMenuItem "&XXL"
 session.findById("wnd[1]/tbar[0]/btn[20]").press
 session.findById("wnd[1]/tbar[0]/btn[0]").press
+
+' ============================================================
+' Prueba cada clave candidata, en orden, y devuelve la primera
+' que todavia diga "Tarea de almacen". Si ninguna sirve, avisa
+' claro en vez de exportar datos de otro lado del arbol.
+' ============================================================
+Function ClaveValidaTareaAlmacen(arbol, clavesCandidatas)
+
+    Dim i, clave
+    For i = LBound(clavesCandidatas) To UBound(clavesCandidatas)
+
+        clave = clavesCandidatas(i)
+
+        If NormalizarTexto(arbol.GetNodeTextByKey(clave)) = "TAREA DE ALMACEN" Then
+            ClaveValidaTareaAlmacen = clave
+            Exit Function
+        End If
+
+    Next
+
+    MsgBox "El nodo del arbol de SAP cambio de lugar otra vez (ninguna de las claves conocidas dice ya " & _
+        "'Tarea de almacen'). Corre ListarNodosArbolSAP o MostrarNodoSeleccionado (en ActualizarTareasSAP.bas) " & _
+        "para ubicar la clave nueva."
+    WScript.Quit
+
+End Function
 
 ' ============================================================
 ' Insensible a mayusculas/minusculas y a tildes - se usa para
