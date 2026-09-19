@@ -128,16 +128,21 @@ Sub ExportarDesdeSAP(session As Object, horaDesde As Date, horaHasta As Date)
     session.findById("wnd[0]/tbar[0]/okcd").Text = "/n/scwm/mon"
     session.findById("wnd[0]").sendVKey 0
 
-    ' Nodo "Tarea de almacen" (dentro de "Documentos", raiz del arbol).
-    ' El numero de nodo NO es fijo: SAP recuerda como quedo expandido el
-    ' arbol la ultima vez que ese usuario lo abrio, y eso lo corre. Se
-    ' vieron dos valores correctos en pruebas reales (N0000000033 con el
-    ' script original corrido suelto, N0000000183 dentro de la sesion
-    ' que controla esta macro de Excel) - se prueban los dos, en ese
-    ' orden, y se usa el primero que todavia diga "Tarea de almacen".
     Dim arbol As Object
     Set arbol = session.findById("wnd[0]/usr/shell/shellcont[0]/shell")
 
+    ' El script original (que si funciona) expande la carpeta padre
+    ' ANTES de tocar el nodo hijo - sin eso, el arbol recien entrado
+    ' (todo colapsado) no carga bien las claves de los hijos. C000000003
+    ' es "Documentos" (raiz del arbol) y se ha visto estable en todas
+    ' las pruebas.
+    arbol.expandNode "C000000003"
+
+    ' El numero de nodo de "Tarea de almacen" (el hijo) SI cambia de
+    ' una corrida a otra (SAP recuerda como quedo expandido el arbol la
+    ' ultima vez que ese usuario lo abrio) - se prueban los valores ya
+    ' vistos, en orden, y se usa el primero que todavia diga "Tarea de
+    ' almacen".
     Dim claveNodo As String
     claveNodo = ClaveValidaTareaAlmacen(arbol, Array("N0000000033", "N0000000183"))
 

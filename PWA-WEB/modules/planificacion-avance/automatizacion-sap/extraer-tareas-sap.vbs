@@ -104,6 +104,12 @@ session.findById("wnd[0]").sendVKey 0
 Dim arbol
 Set arbol = session.findById("wnd[0]/usr/shell/shellcont[0]/shell")
 
+' El script original (que si funciona) expande la carpeta padre ANTES
+' de tocar el nodo hijo - sin eso, el arbol recien entrado (todo
+' colapsado) no carga bien las claves de los hijos. C000000003 es
+' "Documentos" (raiz del arbol) y se ha visto estable en las pruebas.
+arbol.expandNode "C000000003"
+
 Dim claveNodo
 claveNodo = ClaveValidaTareaAlmacen(arbol, Array("N0000000033", "N0000000183"))
 
