@@ -127,12 +127,22 @@ Sub ExportarDesdeSAP(session As Object, horaDesde As Date, horaHasta As Date)
     session.findById("wnd[0]").maximize
     session.findById("wnd[0]/tbar[0]/okcd").Text = "/n/scwm/mon"
     session.findById("wnd[0]").sendVKey 0
-    ' Nodo "Tarea de almacen" (bajo Modulacion -> Documentos), confirmado
-    ' a mano el 19/09/2026 - el arbol de /SCWM/MON en esta empresa no
-    ' coincide con el de la grabacion original (Script6.vbs), por eso
-    ' cambio de "N0000000033" a "N0000000183".
-    session.findById("wnd[0]/usr/shell/shellcont[0]/shell").selectedNode = "N0000000183"
-    session.findById("wnd[0]/usr/shell/shellcont[0]/shell").doubleClickNode "N0000000183"
+
+    ' El numero de nodo del arbol (N0000000033, N0000000183, etc.) NO es
+    ' fijo: SAP recuerda como quedo expandido el arbol la ultima vez que
+    ' ESE USUARIO lo abrio, y eso corre la numeracion. Por eso se busca
+    ' el nodo por su TEXTO en vez de por un numero fijo - asi no importa
+    ' como haya quedado el arbol. "Documentos" esta en la RAIZ del arbol
+    ' (al mismo nivel que Salida, Entrada, Modulacion, etc. - no adentro
+    ' de ninguna de esas), y "Tarea de almacen" esta directo adentro.
+    Dim arbol As Object
+    Set arbol = session.findById("wnd[0]/usr/shell/shellcont[0]/shell")
+
+    Dim claveNodo As String
+    claveNodo = BuscarNodoPorRuta(arbol, Array("Documentos", "Tarea de almacen"))
+
+    arbol.selectedNode = claveNodo
+    arbol.doubleClickNode claveNodo
 
     session.findById("wnd[1]/usr/chkP_TOSTCA").Selected = False
     session.findById("wnd[1]/usr/chkP_TOSTOP").Selected = False
@@ -414,6 +424,74 @@ Sub RegistrarEstado(estado As String, detalle As String)
     On Error GoTo 0
 
 End Sub
+
+' ============================================================
+' BUSCAR UN NODO DEL ARBOL POR SU RUTA DE TEXTOS (insensible a
+' mayusculas/minusculas y a tildes), en vez de por un numero de
+' nodo fijo - ver comentario en ExportarDesdeSAP.
+' ============================================================
+Function BuscarNodoPorRuta(arbol As Object, rutaTextos As Variant) As String
+
+    Dim nivelActual As Object
+    Set nivelActual = arbol.GetSubNodesCol("")
+
+    Dim claveActual As String
+    claveActual = ""
+
+    Dim nivel As Long
+    For nivel = LBound(rutaTextos) To UBound(rutaTextos)
+
+        Dim textoBuscado As String
+        textoBuscado = NormalizarTexto(CStr(rutaTextos(nivel)))
+
+        Dim encontrado As Boolean
+        encontrado = False
+
+        Dim i As Long
+        For i = 0 To nivelActual.Count - 1
+
+            Dim clave As String
+            clave = nivelActual.ElementAt(i)
+
+            If NormalizarTexto(arbol.GetNodeTextByKey(clave)) = textoBuscado Then
+                claveActual = clave
+                encontrado = True
+                Exit For
+            End If
+
+        Next i
+
+        If Not encontrado Then
+            Err.Raise vbObjectError + 2, "BuscarNodoPorRuta", _
+                "No se encontro el nodo '" & rutaTextos(nivel) & "' en el arbol de SAP."
+        End If
+
+        If nivel < UBound(rutaTextos) Then
+            arbol.ExpandNode claveActual
+            Set nivelActual = arbol.GetSubNodesCol(claveActual)
+        End If
+
+    Next nivel
+
+    BuscarNodoPorRuta = claveActual
+
+End Function
+
+Function NormalizarTexto(texto As String) As String
+
+    Dim t As String
+    t = UCase(Trim(texto))
+
+    t = Replace(t, "Á", "A")
+    t = Replace(t, "É", "E")
+    t = Replace(t, "Í", "I")
+    t = Replace(t, "Ó", "O")
+    t = Replace(t, "Ú", "U")
+    t = Replace(t, "Ñ", "N")
+
+    NormalizarTexto = t
+
+End Function
 
 ' ============================================================
 ' DIAGNOSTICO (no se usan en la corrida normal - solo si el

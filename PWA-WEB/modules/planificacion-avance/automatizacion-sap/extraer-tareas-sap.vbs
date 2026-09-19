@@ -87,17 +87,29 @@ textoFechaHasta = Right("00" & Day(fechaHasta), 2) & "." & Right("00" & Month(fe
 
 ' ------------------------------------------------------------
 ' Abrir /SCWM/MON y entrar al monitor de tareas de almacen
-' (nodo "Tarea de almacen", bajo Modulacion -> Documentos;
-' confirmado a mano el 19/09/2026 - el arbol de esta empresa no
-' coincide con el de la grabacion original, por eso el codigo
-' cambio de "N0000000033" a "N0000000183")
+' (nodo "Tarea de almacen", bajo Modulacion -> Documentos)
+'
+' El numero de nodo (N0000000033, N0000000183, etc.) NO es fijo:
+' SAP recuerda como quedo expandido el arbol la ultima vez que ESE
+' USUARIO lo abrio, y eso corre la numeracion de un dia para otro.
+' Por eso se busca el nodo por su TEXTO en vez de por un numero
+' fijo - asi no importa como haya quedado el arbol. "Documentos"
+' esta en la RAIZ del arbol (al mismo nivel que Salida, Entrada,
+' Modulacion, etc.), y "Tarea de almacen" esta directo adentro.
 ' ------------------------------------------------------------
 
 session.findById("wnd[0]").maximize
 session.findById("wnd[0]/tbar[0]/okcd").text = "/n/scwm/mon"
 session.findById("wnd[0]").sendVKey 0
-session.findById("wnd[0]/usr/shell/shellcont[0]/shell").selectedNode = "N0000000183"
-session.findById("wnd[0]/usr/shell/shellcont[0]/shell").doubleClickNode "N0000000183"
+
+Dim arbol
+Set arbol = session.findById("wnd[0]/usr/shell/shellcont[0]/shell")
+
+Dim claveNodo
+claveNodo = BuscarNodoPorRuta(arbol, Array("Documentos", "Tarea de almacen"))
+
+arbol.selectedNode = claveNodo
+arbol.doubleClickNode claveNodo
 
 ' Trae TODOS los status (igual que el original: los 3 checkboxes
 ' de status quedan desmarcados, no solo Cancelados/Abiertos/Historico)
@@ -137,3 +149,70 @@ session.findById("wnd[0]/usr/shell/shellcont[1]/shell/shellcont[0]/shell").conte
 session.findById("wnd[0]/usr/shell/shellcont[1]/shell/shellcont[0]/shell").selectContextMenuItem "&XXL"
 session.findById("wnd[1]/tbar[0]/btn[20]").press
 session.findById("wnd[1]/tbar[0]/btn[0]").press
+
+' ============================================================
+' BUSCAR UN NODO DEL ARBOL POR SU RUTA DE TEXTOS (insensible a
+' mayusculas/minusculas y a tildes), en vez de por un numero de
+' nodo fijo.
+' ============================================================
+Function BuscarNodoPorRuta(arbol, rutaTextos)
+
+    Dim nivelActual
+    Set nivelActual = arbol.GetSubNodesCol("")
+
+    Dim claveActual
+    claveActual = ""
+
+    Dim nivel
+    For nivel = LBound(rutaTextos) To UBound(rutaTextos)
+
+        Dim textoBuscado
+        textoBuscado = NormalizarTexto(CStr(rutaTextos(nivel)))
+
+        Dim encontrado
+        encontrado = False
+
+        Dim i, clave
+        For i = 0 To nivelActual.Count - 1
+
+            clave = nivelActual.ElementAt(i)
+
+            If NormalizarTexto(arbol.GetNodeTextByKey(clave)) = textoBuscado Then
+                claveActual = clave
+                encontrado = True
+                Exit For
+            End If
+
+        Next
+
+        If Not encontrado Then
+            Err.Raise vbObjectError + 2, "BuscarNodoPorRuta", _
+                "No se encontro el nodo '" & rutaTextos(nivel) & "' en el arbol de SAP."
+        End If
+
+        If nivel < UBound(rutaTextos) Then
+            arbol.ExpandNode claveActual
+            Set nivelActual = arbol.GetSubNodesCol(claveActual)
+        End If
+
+    Next
+
+    BuscarNodoPorRuta = claveActual
+
+End Function
+
+Function NormalizarTexto(texto)
+
+    Dim t
+    t = UCase(Trim(texto))
+
+    t = Replace(t, "Á", "A")
+    t = Replace(t, "É", "E")
+    t = Replace(t, "Í", "I")
+    t = Replace(t, "Ó", "O")
+    t = Replace(t, "Ú", "U")
+    t = Replace(t, "Ñ", "N")
+
+    NormalizarTexto = t
+
+End Function
