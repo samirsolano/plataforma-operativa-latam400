@@ -3,6 +3,8 @@
 // =========================================================
 
 let prodDatosActual = null; // último resultado de obtenerResumenProductividad, para no re-pedir al cambiar la función
+let prodSupervisorMapa = null; // nombre -> supervisor, para no re-pedir al cambiar filtros
+let prodSupervisorCargado = false;
 
 function abrirResumenProductividad(){
 
@@ -22,7 +24,36 @@ function abrirResumenProductividad(){
             String(hoy.getDate()).padStart(2, "0");
     }
 
+    if(!prodSupervisorCargado){
+        cargarSupervisoresProductividad();
+    }
+
     cargarResumenProductividad();
+
+}
+
+async function cargarSupervisoresProductividad(){
+
+    prodSupervisorCargado = true;
+
+    try{
+
+        prodSupervisorMapa = await obtenerMapaSupervisoresProductividad();
+
+        const select = document.getElementById("prodSupervisor");
+        const supervisores = [...new Set(Object.values(prodSupervisorMapa))].sort();
+
+        supervisores.forEach(function(s){
+            const opcion = document.createElement("option");
+            opcion.value = s;
+            opcion.textContent = s;
+            select.appendChild(opcion);
+        });
+
+    }catch(e){
+        console.error("Resumen de Productividad — no se pudo cargar supervisores:", e);
+        prodSupervisorMapa = null;
+    }
 
 }
 
@@ -33,6 +64,8 @@ function prodFilaTop(f, i){
         "<td class=\"prod-tn\">" + f.dias + "</td>" +
         "<td class=\"prod-tn\">" + f.tnTotal.toFixed(2) + " TN</td>" +
         "<td class=\"prod-tn prod-promedio\">" + f.promedio.toFixed(2) + " TN/día</td>" +
+        "<td class=\"prod-tn\">" + f.horasTrabajadas + "</td>" +
+        "<td class=\"prod-tn prod-promedio\">" + f.promedioHora.toFixed(2) + " TN/h</td>" +
         "</tr>";
 }
 
@@ -45,11 +78,12 @@ function renderizarTablaProductividad(){
     }
 
     const funcion = document.getElementById("prodFuncion").value;
-    const top = prodTopPorFuncion(prodDatosActual, funcion);
+    const supervisorFiltro = document.getElementById("prodSupervisor").value;
+    const top = prodTopPorFuncion(prodDatosActual, funcion, prodSupervisorMapa, supervisorFiltro);
 
     tbody.innerHTML = top.length
         ? top.map(prodFilaTop).join("")
-        : '<tr><td colspan="5" class="dd-tabla-vacio">Sin datos de ' + funcion + ' en ese rango.</td></tr>';
+        : '<tr><td colspan="7" class="dd-tabla-vacio">Sin datos de ' + funcion + ' en ese rango.</td></tr>';
 
 }
 
@@ -76,7 +110,7 @@ async function cargarResumenProductividad(){
         return;
     }
 
-    tbody.innerHTML = '<tr><td colspan="5" class="dd-tabla-vacio">Cargando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="dd-tabla-vacio">Cargando...</td></tr>';
 
     try{
 
@@ -91,7 +125,7 @@ async function cargarResumenProductividad(){
         aviso.style.display = "block";
 
         prodDatosActual = null;
-        tbody.innerHTML = '<tr><td colspan="5" class="dd-tabla-vacio">—</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="dd-tabla-vacio">—</td></tr>';
 
     }
 
