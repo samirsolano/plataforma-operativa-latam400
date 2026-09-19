@@ -25,10 +25,28 @@ async function checklistFetch(ruta, opciones = {}){
     // Sin esto, algunos navegadores sirven una respuesta vieja desde
     // su caché HTTP en vez de pedirla de nuevo — por eso a veces se
     // ve el roster desactualizado aunque ya se haya activado el mes.
-    const respuesta = await fetch(
-        SUPABASE_URL_CHECKLIST + ruta,
-        Object.assign({ cache: "no-store" }, opciones, { headers })
-    );
+    //
+    // El timeout evita que una conexión lenta o caída deje el await
+    // colgado para siempre: sin él, la pantalla parece congelada y no
+    // hay forma de salir de ahí salvo recargar toda la página.
+    const controlador = new AbortController();
+    const limite = setTimeout(() => controlador.abort(), 20000);
+
+    let respuesta;
+
+    try{
+        respuesta = await fetch(
+            SUPABASE_URL_CHECKLIST + ruta,
+            Object.assign({ cache: "no-store" }, opciones, { headers, signal: controlador.signal })
+        );
+    }catch(e){
+        if(e.name === "AbortError"){
+            throw new Error("La conexión tardó demasiado. Verifica tu internet e intenta de nuevo.");
+        }
+        throw e;
+    }finally{
+        clearTimeout(limite);
+    }
 
     if(!respuesta.ok){
         const detalle = await respuesta.text();

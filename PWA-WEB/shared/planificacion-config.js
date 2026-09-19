@@ -18,10 +18,29 @@ async function planifFetch(ruta, opciones = {}){
         opciones.headers || {}
     );
 
-    const respuesta = await fetch(
-        SUPABASE_URL_PLANIF + ruta,
-        Object.assign({}, opciones, { headers })
-    );
+    // Sin timeout, una conexión lenta o caída deja el await colgado
+    // para siempre: la pantalla parece congelada y no hay forma de
+    // salir de ahí salvo recargar toda la página. Esto pega directo
+    // en Planificación y Avance, que se queda abierto horas seguidas
+    // en el mismo turno sin recargar.
+    const controlador = new AbortController();
+    const limite = setTimeout(() => controlador.abort(), 20000);
+
+    let respuesta;
+
+    try{
+        respuesta = await fetch(
+            SUPABASE_URL_PLANIF + ruta,
+            Object.assign({}, opciones, { headers, signal: controlador.signal })
+        );
+    }catch(e){
+        if(e.name === "AbortError"){
+            throw new Error("La conexión tardó demasiado. Verifica tu internet e intenta de nuevo.");
+        }
+        throw e;
+    }finally{
+        clearTimeout(limite);
+    }
 
     if(!respuesta.ok){
         const detalle = await respuesta.text();
