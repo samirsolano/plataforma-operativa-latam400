@@ -92,7 +92,7 @@ Reprogramar:
     Exit Sub
 
 TratarError:
-    RegistrarEstado "ERROR", Err.Description
+    RegistrarEstado "ERROR", "Err " & Err.Number & ": " & Err.Description
     ProgramarProximaCorrida
 
 End Sub
@@ -127,10 +127,12 @@ Sub ExportarDesdeSAP(session As Object, horaDesde As Date, horaHasta As Date)
     session.findById("wnd[0]").maximize
     session.findById("wnd[0]/tbar[0]/okcd").Text = "/n/scwm/mon"
     session.findById("wnd[0]").sendVKey 0
-    session.findById("wnd[0]/usr/shell/shellcont[0]/shell").expandNode "C0000000003"
-    session.findById("wnd[0]/usr/shell/shellcont[0]/shell").selectedNode = "N0000000033"
-    session.findById("wnd[0]/usr/shell/shellcont[0]/shell").topNode = "C0000000001"
-    session.findById("wnd[0]/usr/shell/shellcont[0]/shell").doubleClickNode "N0000000033"
+    ' Nodo "Tarea de almacen" (bajo Modulacion -> Documentos), confirmado
+    ' a mano el 19/09/2026 - el arbol de /SCWM/MON en esta empresa no
+    ' coincide con el de la grabacion original (Script6.vbs), por eso
+    ' cambio de "N0000000033" a "N0000000183".
+    session.findById("wnd[0]/usr/shell/shellcont[0]/shell").selectedNode = "N0000000183"
+    session.findById("wnd[0]/usr/shell/shellcont[0]/shell").doubleClickNode "N0000000183"
 
     session.findById("wnd[1]/usr/chkP_TOSTCA").Selected = False
     session.findById("wnd[1]/usr/chkP_TOSTOP").Selected = False
@@ -410,5 +412,66 @@ Sub RegistrarEstado(estado As String, detalle As String)
     hoja.Range("B4").Value = Now
 
     On Error GoTo 0
+
+End Sub
+
+' ============================================================
+' DIAGNOSTICO (no se usan en la corrida normal - solo si el
+' arbol de /SCWM/MON vuelve a cambiar y hay que ubicar de nuevo
+' el nodo "Tarea de almacen")
+' ============================================================
+
+' Vuelca TODOS los nodos del arbol (clave + texto) en la hoja
+' "Control", desde la fila 7, para buscar un nodo por su texto.
+Sub ListarNodosArbolSAP()
+
+    Dim session As Object
+    Set session = ObtenerSesionSAP()
+
+    Dim arbol As Object
+    Set arbol = session.findById("wnd[0]/usr/shell/shellcont[0]/shell")
+
+    Dim claves As Object
+    Set claves = arbol.GetAllNodeKeys
+
+    Dim hoja As Worksheet
+    Set hoja = ThisWorkbook.Sheets("Control")
+
+    hoja.Range("A6").Value = "Clave"
+    hoja.Range("B6").Value = "Texto"
+
+    Dim fila As Long
+    fila = 7
+
+    Dim i As Long
+    For i = 0 To claves.Count - 1
+        hoja.Cells(fila, 1).Value = claves.ElementAt(i)
+        hoja.Cells(fila, 2).Value = arbol.GetNodeTextByKey(claves.ElementAt(i))
+        fila = fila + 1
+    Next i
+
+    MsgBox "Listo: " & claves.Count & " nodos volcados en 'Control' desde la fila 7."
+
+End Sub
+
+' Con SAP abierto en la pantalla del arbol, haz UN clic (no doble)
+' sobre el nodo que quieres identificar y corre esto: te dice la
+' clave exacta de ese nodo.
+Sub MostrarNodoSeleccionado()
+
+    Dim session As Object
+    Set session = ObtenerSesionSAP()
+
+    Dim arbol As Object
+    Set arbol = session.findById("wnd[0]/usr/shell/shellcont[0]/shell")
+
+    Dim clave As String
+    clave = arbol.SelectedNode
+
+    Dim hoja As Worksheet
+    Set hoja = ThisWorkbook.Sheets("Control")
+    hoja.Range("D2").Value = clave & " -> " & arbol.GetNodeTextByKey(clave)
+
+    MsgBox "Nodo seleccionado: " & clave & " -> " & arbol.GetNodeTextByKey(clave)
 
 End Sub

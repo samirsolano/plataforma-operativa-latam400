@@ -87,16 +87,17 @@ textoFechaHasta = Right("00" & Day(fechaHasta), 2) & "." & Right("00" & Month(fe
 
 ' ------------------------------------------------------------
 ' Abrir /SCWM/MON y entrar al monitor de tareas de almacen
-' (nodo guardado N0000000033, igual que el original)
+' (nodo "Tarea de almacen", bajo Modulacion -> Documentos;
+' confirmado a mano el 19/09/2026 - el arbol de esta empresa no
+' coincide con el de la grabacion original, por eso el codigo
+' cambio de "N0000000033" a "N0000000183")
 ' ------------------------------------------------------------
 
 session.findById("wnd[0]").maximize
 session.findById("wnd[0]/tbar[0]/okcd").text = "/n/scwm/mon"
 session.findById("wnd[0]").sendVKey 0
-session.findById("wnd[0]/usr/shell/shellcont[0]/shell").expandNode "C0000000003"
-session.findById("wnd[0]/usr/shell/shellcont[0]/shell").selectedNode = "N0000000033"
-session.findById("wnd[0]/usr/shell/shellcont[0]/shell").topNode = "C0000000001"
-session.findById("wnd[0]/usr/shell/shellcont[0]/shell").doubleClickNode "N0000000033"
+session.findById("wnd[0]/usr/shell/shellcont[0]/shell").selectedNode = "N0000000183"
+session.findById("wnd[0]/usr/shell/shellcont[0]/shell").doubleClickNode "N0000000183"
 
 ' Trae TODOS los status (igual que el original: los 3 checkboxes
 ' de status quedan desmarcados, no solo Cancelados/Abiertos/Historico)
