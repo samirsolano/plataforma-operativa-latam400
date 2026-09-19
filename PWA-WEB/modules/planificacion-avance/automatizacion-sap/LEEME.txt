@@ -1,0 +1,47 @@
+EXTRAER TAREAS SAP -> EXCEL (extraer-tareas-sap.vbs)
+======================================================
+
+Que hace
+--------
+Automatiza dentro de SAP GUI los mismos pasos que ya se hacian a mano
+para sacar el reporte de tareas de almacen (transaccion /SCWM/MON):
+
+  1. Abre el monitor de tareas de almacen guardado.
+  2. Quita los filtros de status (para traer TODOS los status).
+  3. Pone el rango de fecha/hora del turno que esta corriendo AHORA
+     MISMO (DIA 07:00-19:00, o NOCHE 19:00-07:00 del dia siguiente) -
+     esto se calcula solo, ya no hay que escribir la fecha a mano.
+  4. Carga el layout guardado y exporta el resultado a Excel.
+
+Que NO hace
+-----------
+No sube nada a la web ni a Supabase. El Excel que genera este script
+sigue subiendose a mano, igual que hasta ahora, en:
+
+  Planificacion y Avance -> SAP -> "SUBIR ARCHIVO SAP"
+
+(ver PWA-WEB/modules/planificacion-avance/sap.js y sap-logica.js)
+
+Como usarlo
+-----------
+1. Abre SAP GUI y entra a tu sesion normalmente (con tu usuario).
+2. Con la sesion de SAP ya abierta, corre extraer-tareas-sap.vbs
+   (doble clic, o "cscript extraer-tareas-sap.vbs").
+3. Cuando termine, el Excel exportado queda donde SAP GUI tenga
+   configurada la exportacion por defecto en esa PC (revisalo la
+   primera vez para saber donde cae el archivo).
+4. Sube ese Excel a la web como siempre (paso 3 de arriba).
+
+Si se quiere programar (Task Scheduler de Windows) para que corra
+solo, por ejemplo, a las 07:05 y a las 19:05, la sesion de SAP GUI
+tiene que estar ya abierta y logueada en esa PC al momento de correr
+el script (SAP GUI Scripting se conecta a una sesion existente, no
+abre sesion nueva por su cuenta).
+
+Nota
+----
+Este script viene de una grabacion de SAP GUI Scripting. Los IDs de
+los controles (wnd[0], wnd[1], nombres de campo, etc.) dependen de la
+version/variante de SAP de esta empresa - si SAP cambia de version o
+el layout guardado (fila 81) se borra o se mueve, hay que volver a
+grabar esos pasos.
