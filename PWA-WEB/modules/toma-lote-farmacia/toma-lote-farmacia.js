@@ -903,10 +903,25 @@ async function obtenerViajesActivadosFarmacia(){
 
     try{
 
-        const [filas, dataFilas, lecturasFilas] = await Promise.all([
-            supabaseFetch("/farmacia_viajes_activados?select=viaje,estado"),
-            supabaseFetchTodo("/farmacia_data?select=viaje,codigo,cantidad"),
-            supabaseFetchTodo("/farmacia_lecturas?select=viaje,codigo,cantidad_cajas")
+        const filas = await supabaseFetch("/farmacia_viajes_activados?select=viaje,estado");
+
+        // Los viajes "finalizado" ya no pueden volver a finalizarse ni
+        // afectan el resultado de más abajo, así que se excluyen de la
+        // traída de farmacia_data/farmacia_lecturas: sin esto, cada
+        // apertura del módulo (y cada acción sobre un viaje) volvía a
+        // traer y reprocesar TODO el histórico de ambas tablas, que
+        // solo crece con el tiempo y terminaba colgando la página.
+        const viajesFinalizados = (filas || [])
+            .filter(f => f.estado === "finalizado")
+            .map(f => f.viaje);
+
+        const filtroViajesActivos = viajesFinalizados.length
+            ? "&viaje=not.in.(" + viajesFinalizados.join(",") + ")"
+            : "";
+
+        const [dataFilas, lecturasFilas] = await Promise.all([
+            supabaseFetchTodo("/farmacia_data?select=viaje,codigo,cantidad" + filtroViajesActivos),
+            supabaseFetchTodo("/farmacia_lecturas?select=viaje,codigo,cantidad_cajas" + filtroViajesActivos)
         ]);
 
         const estadosMap = new Map((filas || []).map(f => [f.viaje, f.estado || "desactivado"]));
