@@ -128,21 +128,29 @@ Sub ExportarDesdeSAP(session As Object, horaDesde As Date, horaHasta As Date)
     session.findById("wnd[0]/tbar[0]/okcd").Text = "/n/scwm/mon"
     session.findById("wnd[0]").sendVKey 0
 
-    ' El numero de nodo del arbol (N0000000033, N0000000183, etc.) NO es
-    ' fijo: SAP recuerda como quedo expandido el arbol la ultima vez que
-    ' ESE USUARIO lo abrio, y eso corre la numeracion. Por eso se busca
-    ' el nodo por su TEXTO en vez de por un numero fijo - asi no importa
-    ' como haya quedado el arbol. "Documentos" esta en la RAIZ del arbol
-    ' (al mismo nivel que Salida, Entrada, Modulacion, etc. - no adentro
-    ' de ninguna de esas), y "Tarea de almacen" esta directo adentro.
+    ' Nodo "Tarea de almacen" (dentro de "Documentos", que esta en la
+    ' RAIZ del arbol - al mismo nivel que Salida, Entrada, Modulacion,
+    ' etc., NO adentro de ninguna de esas). Confirmado a mano el
+    ' 19/09/2026: la clave es N0000000183.
+    '
+    ' El numero de nodo puede cambiar de un dia a otro (SAP recuerda como
+    ' quedo expandido el arbol la ultima vez que ese usuario lo abrio),
+    ' asi que antes de usarlo se valida que todavia diga "Tarea de
+    ' almacen" - si ya no, avisa en vez de exportar datos de otro lado.
     Dim arbol As Object
     Set arbol = session.findById("wnd[0]/usr/shell/shellcont[0]/shell")
 
-    Dim claveNodo As String
-    claveNodo = BuscarNodoPorRuta(arbol, Array("Documentos", "Tarea de almacen"))
+    Const CLAVE_NODO_TAREA_ALMACEN As String = "N0000000183"
 
-    arbol.selectedNode = claveNodo
-    arbol.doubleClickNode claveNodo
+    If NormalizarTexto(arbol.GetNodeTextByKey(CLAVE_NODO_TAREA_ALMACEN)) <> "TAREA DE ALMACEN" Then
+        Err.Raise vbObjectError + 3, "ExportarDesdeSAP", _
+            "El nodo del arbol de SAP cambio de lugar (la clave " & CLAVE_NODO_TAREA_ALMACEN & _
+            " ya no es 'Tarea de almacen', ahora es '" & arbol.GetNodeTextByKey(CLAVE_NODO_TAREA_ALMACEN) & _
+            "'). Corre ListarNodosArbolSAP o MostrarNodoSeleccionado para ubicar la clave nueva."
+    End If
+
+    arbol.selectedNode = CLAVE_NODO_TAREA_ALMACEN
+    arbol.doubleClickNode CLAVE_NODO_TAREA_ALMACEN
 
     session.findById("wnd[1]/usr/chkP_TOSTCA").Selected = False
     session.findById("wnd[1]/usr/chkP_TOSTOP").Selected = False
@@ -426,57 +434,10 @@ Sub RegistrarEstado(estado As String, detalle As String)
 End Sub
 
 ' ============================================================
-' BUSCAR UN NODO DEL ARBOL POR SU RUTA DE TEXTOS (insensible a
-' mayusculas/minusculas y a tildes), en vez de por un numero de
-' nodo fijo - ver comentario en ExportarDesdeSAP.
+' Insensible a mayusculas/minusculas y a tildes - se usa para
+' validar el nodo antes de usarlo (ver ExportarDesdeSAP) y en
+' los diagnosticos de mas abajo.
 ' ============================================================
-Function BuscarNodoPorRuta(arbol As Object, rutaTextos As Variant) As String
-
-    Dim nivelActual As Object
-    Set nivelActual = arbol.GetSubNodesCol("")
-
-    Dim claveActual As String
-    claveActual = ""
-
-    Dim nivel As Long
-    For nivel = LBound(rutaTextos) To UBound(rutaTextos)
-
-        Dim textoBuscado As String
-        textoBuscado = NormalizarTexto(CStr(rutaTextos(nivel)))
-
-        Dim encontrado As Boolean
-        encontrado = False
-
-        Dim i As Long
-        For i = 0 To nivelActual.Count - 1
-
-            Dim clave As String
-            clave = nivelActual.ElementAt(i)
-
-            If NormalizarTexto(arbol.GetNodeTextByKey(clave)) = textoBuscado Then
-                claveActual = clave
-                encontrado = True
-                Exit For
-            End If
-
-        Next i
-
-        If Not encontrado Then
-            Err.Raise vbObjectError + 2, "BuscarNodoPorRuta", _
-                "No se encontro el nodo '" & rutaTextos(nivel) & "' en el arbol de SAP."
-        End If
-
-        If nivel < UBound(rutaTextos) Then
-            arbol.ExpandNode claveActual
-            Set nivelActual = arbol.GetSubNodesCol(claveActual)
-        End If
-
-    Next nivel
-
-    BuscarNodoPorRuta = claveActual
-
-End Function
-
 Function NormalizarTexto(texto As String) As String
 
     Dim t As String

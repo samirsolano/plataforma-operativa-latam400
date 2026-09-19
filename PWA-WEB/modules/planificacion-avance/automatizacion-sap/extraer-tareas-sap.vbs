@@ -87,15 +87,17 @@ textoFechaHasta = Right("00" & Day(fechaHasta), 2) & "." & Right("00" & Month(fe
 
 ' ------------------------------------------------------------
 ' Abrir /SCWM/MON y entrar al monitor de tareas de almacen
-' (nodo "Tarea de almacen", bajo Modulacion -> Documentos)
+' (nodo "Tarea de almacen", dentro de "Documentos", que esta en
+' la RAIZ del arbol - al mismo nivel que Salida, Entrada,
+' Modulacion, etc., NO adentro de ninguna de esas). Confirmado a
+' mano el 19/09/2026: la clave es N0000000183.
 '
-' El numero de nodo (N0000000033, N0000000183, etc.) NO es fijo:
-' SAP recuerda como quedo expandido el arbol la ultima vez que ESE
-' USUARIO lo abrio, y eso corre la numeracion de un dia para otro.
-' Por eso se busca el nodo por su TEXTO en vez de por un numero
-' fijo - asi no importa como haya quedado el arbol. "Documentos"
-' esta en la RAIZ del arbol (al mismo nivel que Salida, Entrada,
-' Modulacion, etc.), y "Tarea de almacen" esta directo adentro.
+' El numero de nodo puede cambiar de un dia a otro (SAP recuerda
+' como quedo expandido el arbol la ultima vez que ese usuario lo
+' abrio), asi que antes de usarlo se valida que todavia diga
+' "Tarea de almacen" - si ya no, avisa en vez de exportar datos
+' de otro lado (corre ListarNodosArbolSAP o MostrarNodoSeleccionado
+' en ActualizarTareasSAP.bas para ubicar la clave nueva).
 ' ------------------------------------------------------------
 
 session.findById("wnd[0]").maximize
@@ -105,11 +107,16 @@ session.findById("wnd[0]").sendVKey 0
 Dim arbol
 Set arbol = session.findById("wnd[0]/usr/shell/shellcont[0]/shell")
 
-Dim claveNodo
-claveNodo = BuscarNodoPorRuta(arbol, Array("Documentos", "Tarea de almacen"))
+Const CLAVE_NODO_TAREA_ALMACEN = "N0000000183"
 
-arbol.selectedNode = claveNodo
-arbol.doubleClickNode claveNodo
+If NormalizarTexto(arbol.GetNodeTextByKey(CLAVE_NODO_TAREA_ALMACEN)) <> "TAREA DE ALMACEN" Then
+    MsgBox "El nodo del arbol de SAP cambio de lugar (la clave " & CLAVE_NODO_TAREA_ALMACEN & _
+        " ya no es 'Tarea de almacen', ahora es '" & arbol.GetNodeTextByKey(CLAVE_NODO_TAREA_ALMACEN) & "')."
+    WScript.Quit
+End If
+
+arbol.selectedNode = CLAVE_NODO_TAREA_ALMACEN
+arbol.doubleClickNode CLAVE_NODO_TAREA_ALMACEN
 
 ' Trae TODOS los status (igual que el original: los 3 checkboxes
 ' de status quedan desmarcados, no solo Cancelados/Abiertos/Historico)
@@ -151,56 +158,9 @@ session.findById("wnd[1]/tbar[0]/btn[20]").press
 session.findById("wnd[1]/tbar[0]/btn[0]").press
 
 ' ============================================================
-' BUSCAR UN NODO DEL ARBOL POR SU RUTA DE TEXTOS (insensible a
-' mayusculas/minusculas y a tildes), en vez de por un numero de
-' nodo fijo.
+' Insensible a mayusculas/minusculas y a tildes - se usa para
+' validar el nodo antes de usarlo (ver arriba).
 ' ============================================================
-Function BuscarNodoPorRuta(arbol, rutaTextos)
-
-    Dim nivelActual
-    Set nivelActual = arbol.GetSubNodesCol("")
-
-    Dim claveActual
-    claveActual = ""
-
-    Dim nivel
-    For nivel = LBound(rutaTextos) To UBound(rutaTextos)
-
-        Dim textoBuscado
-        textoBuscado = NormalizarTexto(CStr(rutaTextos(nivel)))
-
-        Dim encontrado
-        encontrado = False
-
-        Dim i, clave
-        For i = 0 To nivelActual.Count - 1
-
-            clave = nivelActual.ElementAt(i)
-
-            If NormalizarTexto(arbol.GetNodeTextByKey(clave)) = textoBuscado Then
-                claveActual = clave
-                encontrado = True
-                Exit For
-            End If
-
-        Next
-
-        If Not encontrado Then
-            Err.Raise vbObjectError + 2, "BuscarNodoPorRuta", _
-                "No se encontro el nodo '" & rutaTextos(nivel) & "' en el arbol de SAP."
-        End If
-
-        If nivel < UBound(rutaTextos) Then
-            arbol.ExpandNode claveActual
-            Set nivelActual = arbol.GetSubNodesCol(claveActual)
-        End If
-
-    Next
-
-    BuscarNodoPorRuta = claveActual
-
-End Function
-
 Function NormalizarTexto(texto)
 
     Dim t
