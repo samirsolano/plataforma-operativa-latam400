@@ -675,45 +675,6 @@ function cargarViajesReales(filas, estadosMap){
 
 }
 
-// "Finalizado" significa que ya se pistoleó todo lo que pide el
-// viaje (todos sus códigos, en todas sus OC). Devuelve
-// {completo, pendientes} — pendientes es la lista de códigos a los
-// que aún les falta.
-async function viajeCompletamenteEscaneado(viaje){
-
-    const [dataFilas, lecturasFilas] = await Promise.all([
-        supabaseFetchTodo("/farmacia_data?select=codigo,cantidad&viaje=eq." + viaje),
-        supabaseFetchTodo("/farmacia_lecturas?select=codigo,cantidad_cajas&viaje=eq." + viaje)
-    ]);
-
-    const solicitadoPorCodigo = {};
-
-    (dataFilas || []).forEach(function(f){
-        if(!f.codigo){
-            return;
-        }
-        solicitadoPorCodigo[f.codigo] = (solicitadoPorCodigo[f.codigo] || 0) + Number(f.cantidad || 0);
-    });
-
-    const escaneadoPorCodigo = {};
-
-    (lecturasFilas || []).forEach(function(f){
-        if(!f.codigo){
-            return;
-        }
-        escaneadoPorCodigo[f.codigo] = (escaneadoPorCodigo[f.codigo] || 0) + Number(f.cantidad_cajas || 0);
-    });
-
-    const pendientes = Object.keys(solicitadoPorCodigo).filter(function(codigo){
-        const solicitado = solicitadoPorCodigo[codigo];
-        const escaneado = escaneadoPorCodigo[codigo] || 0;
-        return solicitado > 0 && escaneado < solicitado;
-    });
-
-    return { completo: pendientes.length === 0, pendientes: pendientes };
-
-}
-
 async function cambiarEstadoViaje(viaje, nuevoEstado){
 
     await supabaseFetch("/farmacia_viajes_activados?on_conflict=viaje", {
@@ -861,13 +822,13 @@ document.getElementById("tblViajes").addEventListener("click", async function(e)
 
         if(nuevoEstado === "finalizado"){
 
-            const chequeo = await viajeCompletamenteEscaneado(viaje);
+            const chequeo = await evaluarRequisitosViaje(viaje);
 
-            if(!chequeo.completo){
+            if(!chequeo.listo){
 
                 mostrarToast(
-                    "No se puede finalizar: todavía falta pistolear " + chequeo.pendientes.length +
-                    " código(s) de este viaje (" + chequeo.pendientes.join(", ") + ").",
+                    "No se puede finalizar, faltan " + chequeo.razones.length + " requisito(s): " +
+                    chequeo.razones.join(" · "),
                     "error"
                 );
 
@@ -906,75 +867,45 @@ async function obtenerViajesActivadosFarmacia(){
 
     try{
 
-        const [filas, dataFilas, lecturasFilas] = await Promise.all([
+        const [filas, dataFilas] = await Promise.all([
             supabaseFetch("/farmacia_viajes_activados?select=viaje,estado"),
-            supabaseFetchTodo("/farmacia_data?select=viaje,codigo,cantidad"),
-            supabaseFetchTodo("/farmacia_lecturas?select=viaje,codigo,cantidad_cajas")
+            supabaseFetchTodo("/farmacia_data?select=viaje")
         ]);
 
         const estadosMap = new Map((filas || []).map(f => [f.viaje, f.estado || "desactivado"]));
 
+        const viajes = [...new Set((dataFilas || []).map(f => f.viaje))]
+            .filter(v => v !== null && v !== undefined);
+
         // "Finalizado" aparece SOLO (sin que nadie tenga que apretar
-        // "Guardar (Finalizar)") apenas un viaje Activo/Desactivado
-        // ya tiene todo pistoleado — mismo criterio que
-        // viajeCompletamenteEscaneado, pero calculado para todos los
-        // viajes de una sola pasada.
-        const porViaje = {}; // viaje -> { codigo: {solicitado, escaneado} }
+        // "Guardar (Finalizar)") apenas un viaje cumple TODOS los
+        // requisitos de evaluarRequisitosViaje — y si un viaje que ya
+        // estaba Finalizado deja de cumplirlos (ej: se eliminó una
+        // lectura, apareció una observación nueva), vuelve a Activo.
+        const cambios = [];
 
-        (dataFilas || []).forEach(function(f){
-            if(!f.codigo || f.viaje === null || f.viaje === undefined){
-                return;
-            }
-            if(!porViaje[f.viaje]){
-                porViaje[f.viaje] = {};
-            }
-            if(!porViaje[f.viaje][f.codigo]){
-                porViaje[f.viaje][f.codigo] = { solicitado: 0, escaneado: 0 };
-            }
-            porViaje[f.viaje][f.codigo].solicitado += Number(f.cantidad || 0);
-        });
+        for(const viaje of viajes){
 
-        (lecturasFilas || []).forEach(function(f){
-            if(!f.codigo || f.viaje === null || f.viaje === undefined){
-                return;
-            }
-            if(!porViaje[f.viaje] || !porViaje[f.viaje][f.codigo]){
-                return;
-            }
-            porViaje[f.viaje][f.codigo].escaneado += Number(f.cantidad_cajas || 0);
-        });
-
-        const porFinalizar = [];
-
-        Object.keys(porViaje).forEach(function(viajeStr){
-
-            const viaje = Number(viajeStr);
             const estadoActual = estadosMap.get(viaje) || "desactivado";
 
-            if(estadoActual === "finalizado"){
-                return;
+            const { listo } = await evaluarRequisitosViaje(viaje);
+
+            if(listo && estadoActual !== "finalizado"){
+                cambios.push({ viaje: viaje, nuevoEstado: "finalizado" });
+            }else if(!listo && estadoActual === "finalizado"){
+                cambios.push({ viaje: viaje, nuevoEstado: "activo" });
             }
 
-            const codigos = Object.values(porViaje[viajeStr]);
+        }
 
-            const completo = codigos.length > 0 && codigos.every(function(c){
-                return c.solicitado <= 0 || c.escaneado >= c.solicitado;
-            });
+        if(cambios.length){
 
-            if(completo){
-                porFinalizar.push(viaje);
-            }
-
-        });
-
-        if(porFinalizar.length){
-
-            await Promise.all(porFinalizar.map(function(viaje){
-                return cambiarEstadoViaje(viaje, "finalizado").catch(function(e){ console.error(e); });
+            await Promise.all(cambios.map(function(c){
+                return cambiarEstadoViaje(c.viaje, c.nuevoEstado).catch(function(e){ console.error(e); });
             }));
 
-            porFinalizar.forEach(function(viaje){
-                estadosMap.set(viaje, "finalizado");
+            cambios.forEach(function(c){
+                estadosMap.set(c.viaje, c.nuevoEstado);
             });
 
         }
@@ -1305,6 +1236,269 @@ function completarFvConLote(fvTexto, lote, tvu){
     // No hay nada legible en el F.V. (vacío o ilegible): se completa
     // todo (día, mes y año) con el cálculo del Lote + TVU.
     return anioCalc + "-" + String(mesCalc).padStart(2, "0") + "-" + String(diaCalc).padStart(2, "0");
+
+}
+
+// ========================================
+// REQUISITOS PARA "FINALIZADO"
+// ========================================
+// Un viaje solo puede llamarse Finalizado cuando TODO esto se cumple,
+// para cada OC del viaje:
+// - "2. Lecturas y Evidencias": todo pistoleado y sin ninguna
+//   observación por código (más de 3 lotes, vida útil <= mitad del
+//   TVU, se pistoleó más de lo solicitado).
+// - "3. OC Portal Cliente" cargado.
+// - "6. Cruce de Información" sin ninguna línea con problema (excede
+//   lo solicitado, sin MARA Alicorp o sin factor).
+// - "5. Stock Físico SAP" cargado para el viaje.
+// - "Cruce Lotes SAP vs Físico" sin ninguna observación (lote o
+//   cantidad que no coincide).
+// - "7. Data Final" generada (exportada) al menos una vez.
+// MARA Alicorp en sí no es "obligatorio" como módulo — su ausencia ya
+// se refleja como observación dentro de Cruce (sin factor/EAN).
+// Devuelve {listo, razones} — razones es la lista de motivos por los
+// que el viaje NO está listo (vacía si listo=true).
+async function evaluarRequisitosViaje(viaje){
+
+    const razones = [];
+
+    const [dataFilas, lecturasFilas, ocPortalFilas, maraFilas, stockFilas, dataFinalFilas] = await Promise.all([
+        supabaseFetchTodo("/farmacia_data?select=orden_compra,codigo,cantidad&viaje=eq." + viaje),
+        supabaseFetchTodo("/farmacia_lecturas?select=oc,codigo,lote,fv,cantidad_cajas&viaje=eq." + viaje),
+        supabaseFetchTodo("/oc_portal_cliente?select=oc,ean,cantidad_sku_solicitada"),
+        supabaseFetchTodo("/mara_alicorp?select=ean,codigo,factor_unidad_alm,tvu"),
+        supabaseFetchTodo("/stock_fisico_sap?select=oc,producto,lote,cantidad_embalada&viaje=eq." + viaje),
+        supabaseFetchTodo("/data_final_generada?select=oc")
+    ]);
+
+    const ocsDelViaje = [...new Set(
+        (dataFilas || []).map(f => f.orden_compra).filter(v => v !== null && v !== undefined)
+    )];
+
+    if(!ocsDelViaje.length){
+        return { listo: false, razones: ["El viaje no tiene OC cargadas."] };
+    }
+
+    const tvuPorCodigo = {};
+
+    (maraFilas || []).forEach(function(m){
+        if(m.codigo && m.tvu){
+            tvuPorCodigo[String(m.codigo).trim()] = Number(m.tvu);
+        }
+    });
+
+    // ---- 1. Lecturas y Evidencias: completo y sin observaciones ----
+
+    const porCodigo = {};
+
+    (dataFilas || []).forEach(function(f){
+        if(!f.codigo){
+            return;
+        }
+        if(!porCodigo[f.codigo]){
+            porCodigo[f.codigo] = { solicitado: 0, escaneado: 0, lotes: [] };
+        }
+        porCodigo[f.codigo].solicitado += Number(f.cantidad || 0);
+    });
+
+    (lecturasFilas || []).forEach(function(f){
+        if(!f.codigo || !porCodigo[f.codigo]){
+            return;
+        }
+        porCodigo[f.codigo].escaneado += Number(f.cantidad_cajas || 0);
+        porCodigo[f.codigo].lotes.push(f);
+    });
+
+    const hoy = new Date();
+
+    Object.keys(porCodigo).forEach(function(codigo){
+
+        const g = porCodigo[codigo];
+
+        if(g.solicitado > 0 && g.escaneado < g.solicitado){
+            razones.push("Código " + codigo + ": todavía falta pistolear.");
+            return;
+        }
+
+        if(g.escaneado > g.solicitado){
+            razones.push("Código " + codigo + ": se pistoleó más de lo solicitado.");
+        }
+
+        const lotesUnicos = [...new Set(g.lotes.map(l => l.lote).filter(Boolean))];
+
+        if(lotesUnicos.length > 3){
+            razones.push("Código " + codigo + ": más de 3 lotes.");
+        }
+
+        const tvu = tvuPorCodigo[String(codigo).trim()];
+
+        if(tvu){
+
+            const vidaInsuficiente = g.lotes.some(function(l){
+
+                const fv = completarFvConLote(l.fv, l.lote, tvu);
+                if(!fv){
+                    return false;
+                }
+
+                const mesesRestantes = mesesEntre(hoy, new Date(fv + "T00:00:00"));
+                return mesesRestantes <= (tvu / 2);
+
+            });
+
+            if(vidaInsuficiente){
+                razones.push("Código " + codigo + ": vida útil restante menor o igual a la mitad del TVU.");
+            }
+
+        }
+
+    });
+
+    // ---- 2. OC Portal Cliente cargado para cada OC ----
+
+    const ocsConPortal = new Set((ocPortalFilas || []).map(f => f.oc));
+
+    ocsDelViaje.forEach(function(oc){
+        if(!ocsConPortal.has(oc)){
+            razones.push("OC " + oc + ": falta cargar OC Portal Cliente.");
+        }
+    });
+
+    // ---- 3. Cruce de Información sin problemas, por cada OC ----
+
+    const maraPorEan = {};
+
+    (maraFilas || []).forEach(function(m){
+        if(m.ean){
+            maraPorEan[String(m.ean).trim()] = m;
+        }
+    });
+
+    const codigosSapPorOc = {};
+
+    (dataFilas || []).forEach(function(f){
+        if(!f.codigo || f.orden_compra === null || f.orden_compra === undefined){
+            return;
+        }
+        if(!codigosSapPorOc[f.orden_compra]){
+            codigosSapPorOc[f.orden_compra] = new Set();
+        }
+        codigosSapPorOc[f.orden_compra].add(String(f.codigo).trim());
+    });
+
+    const escaneadoCajasPorOcCodigo = {};
+
+    (lecturasFilas || []).forEach(function(l){
+        if(!l.codigo || l.oc === null || l.oc === undefined){
+            return;
+        }
+        const clave = l.oc + "|" + l.codigo;
+        escaneadoCajasPorOcCodigo[clave] = (escaneadoCajasPorOcCodigo[clave] || 0) + Number(l.cantidad_cajas || 0);
+    });
+
+    ocsDelViaje.forEach(function(oc){
+
+        if(!ocsConPortal.has(oc)){
+            return; // ya se avisó en el punto 2
+        }
+
+        const codigosSap = codigosSapPorOc[oc] || new Set();
+
+        (ocPortalFilas || []).filter(row => row.oc === oc).forEach(function(row){
+
+            const ean = String(row.ean || "").trim();
+            const mara = maraPorEan[ean] || null;
+            const codigo = mara ? String(mara.codigo || "").trim() : null;
+
+            if(!codigo || !codigosSap.has(codigo)){
+                return;
+            }
+
+            const factor = mara ? Number(mara.factor_unidad_alm) : null;
+            const solicitado = Number(row.cantidad_sku_solicitada || 0);
+
+            if(!factor || factor <= 0){
+                razones.push("Cruce OC " + oc + " código " + codigo + ": sin factor de MARA Alicorp.");
+                return;
+            }
+
+            const escaneadoCajas = escaneadoCajasPorOcCodigo[oc + "|" + codigo] || 0;
+            const cajasMaxSinExceder = Math.floor(solicitado / factor);
+
+            if(escaneadoCajas > cajasMaxSinExceder){
+                razones.push("Cruce OC " + oc + " código " + codigo + ": excede lo solicitado.");
+            }
+
+        });
+
+    });
+
+    // ---- 4. Stock Físico SAP cargado para el viaje ----
+
+    if(!stockFilas || !stockFilas.length){
+        razones.push("Falta cargar Stock Físico SAP para este viaje.");
+    }
+
+    // ---- 5. Cruce Lotes SAP vs Físico sin observaciones ----
+
+    const porGrupoSap = {};
+
+    (stockFilas || []).forEach(function(f){
+        if(!f.producto){
+            return;
+        }
+        const clave = f.oc + "|" + f.producto;
+        if(!porGrupoSap[clave]){
+            porGrupoSap[clave] = { oc: f.oc, codigo: f.producto, ctdSap: 0, filas: [] };
+        }
+        porGrupoSap[clave].ctdSap += Number(f.cantidad_embalada || 0);
+        porGrupoSap[clave].filas.push(f);
+    });
+
+    const lotesPorOcCodigo = {};
+
+    (lecturasFilas || []).forEach(function(l){
+        if(!l.codigo || l.oc === null || l.oc === undefined){
+            return;
+        }
+        const clave = l.oc + "|" + l.codigo;
+        if(!lotesPorOcCodigo[clave]){
+            lotesPorOcCodigo[clave] = new Set();
+        }
+        if(l.lote){
+            lotesPorOcCodigo[clave].add(String(l.lote).trim());
+        }
+    });
+
+    Object.keys(porGrupoSap).forEach(function(clave){
+
+        const g = porGrupoSap[clave];
+        const lotesEscaneados = lotesPorOcCodigo[clave] || new Set();
+        const ctdPistoleada = escaneadoCajasPorOcCodigo[clave] || 0;
+
+        if(g.ctdSap !== ctdPistoleada){
+            razones.push("Cruce Lotes SAP OC " + g.oc + " código " + g.codigo + ": la cantidad no coincide.");
+        }
+
+        const lotesSinCoincidir = g.filas.filter(f => f.lote && !lotesEscaneados.has(String(f.lote).trim()));
+
+        if(lotesSinCoincidir.length){
+            razones.push("Cruce Lotes SAP OC " + g.oc + " código " + g.codigo + ": hay un Lote que no coincide.");
+        }
+
+    });
+
+    // ---- 6. Data Final generada para cada OC ----
+
+    const ocsConDataFinal = new Set((dataFinalFilas || []).map(f => f.oc));
+
+    ocsDelViaje.forEach(function(oc){
+        if(!ocsConDataFinal.has(oc)){
+            razones.push("OC " + oc + ": falta generar/descargar Data Final.");
+        }
+    });
+
+    return { listo: razones.length === 0, razones: razones };
 
 }
 
@@ -1670,9 +1864,9 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
 
                 if(estadoActual === "finalizado"){
 
-                    const chequeo = await viajeCompletamenteEscaneado(viaje);
+                    const chequeo = await evaluarRequisitosViaje(viaje);
 
-                    if(!chequeo.completo){
+                    if(!chequeo.listo){
                         await cambiarEstadoViaje(Number(viaje), "activo");
                         mensaje = "Lectura eliminada. El viaje " + viaje + " volvió a Activo (ya no está completo).";
                     }
@@ -3683,7 +3877,7 @@ async function generarDataFinal(){
 
 document.getElementById("btnGenerarDataFinal").addEventListener("click", generarDataFinal);
 
-document.getElementById("btnExportarDataFinal").addEventListener("click", function(){
+document.getElementById("btnExportarDataFinal").addEventListener("click", async function(){
 
     if(!_ultimaDataFinal.length){
         mostrarToast("Genera la data final antes de exportar.", "error");
@@ -3702,6 +3896,27 @@ document.getElementById("btnExportarDataFinal").addEventListener("click", functi
     XLSX.utils.book_append_sheet(libro, hoja, "DATA FINAL");
 
     XLSX.writeFile(libro, "DATA_FINAL_" + new Date().toISOString().slice(0, 10) + ".xlsx");
+
+    // Queda registrado que esta OC ya tuvo su Data Final exportada —
+    // es uno de los requisitos para que el viaje pase a Finalizado.
+    const oc = Number(cmbOcDataFinal.value);
+    const viaje = _viajePorOcDataFinal[oc];
+
+    try{
+
+        await supabaseFetch("/data_final_generada?on_conflict=oc", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates" },
+            body: JSON.stringify({
+                oc: oc,
+                viaje: viaje || null,
+                generado_por: (sesion && (sesion.nombre_completo || sesion.usuario)) || ""
+            })
+        });
+
+    }catch(e){
+        console.error(e);
+    }
 
 });
 
