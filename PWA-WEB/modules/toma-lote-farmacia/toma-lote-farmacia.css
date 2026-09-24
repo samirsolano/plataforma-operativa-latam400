@@ -521,6 +521,11 @@ select{
     color:#b7791f;
 }
 
+.estado.cerrado{
+    background:#e8f0fe;
+    color:#1d4ed8;
+}
+
 .btn-activar{
     background:#16a34a;
     color:white;

@@ -620,8 +620,12 @@ function cargarViajesReales(filas, estadosMap){
         return;
     }
 
-    const TEXTOS_ESTADO = { activo: "Activo", desactivado: "Desactivado", finalizado: "Finalizado" };
-    const CLASES_ESTADO = { activo: "activado", desactivado: "advertencia", finalizado: "disponible" };
+    const TEXTOS_ESTADO = {
+        activo: "Activo", desactivado: "Desactivado", cerrado: "Cerrado", finalizado: "Finalizado"
+    };
+    const CLASES_ESTADO = {
+        activo: "activado", desactivado: "advertencia", cerrado: "cerrado", finalizado: "disponible"
+    };
 
     viajes.forEach(function(v){
 
@@ -639,9 +643,13 @@ function cargarViajesReales(filas, estadosMap){
                 '<button class="btn-reemplazar" data-viaje="' + v.viaje + '">Reemplazar</button>' +
                 '<button class="btn-finalizar" data-viaje="' + v.viaje + '">Guardar (Finalizar)</button>' +
                 '<button class="btn-eliminar" data-viaje="' + v.viaje + '">Eliminar</button>';
-        }else if(estado === "activo"){
-            // Bloqueado: mientras está Activo no se puede Reemplazar
-            // ni Eliminar — primero hay que Desactivarlo.
+        }else if(estado === "activo" || estado === "cerrado"){
+            // Bloqueado: mientras está Activo/Cerrado no se puede
+            // Reemplazar ni Eliminar — primero hay que Desactivarlo.
+            // "Cerrado" (todo pistoleado en cantidad, con o sin
+            // observaciones) igual puede pasar a Finalizado si ya
+            // cumple el resto de requisitos (OC Portal, Cruce, Stock
+            // SAP, Cruce Lotes SAP, Data Final).
             items =
                 '<button class="btn-desactivar" data-viaje="' + v.viaje + '">Desactivar</button>' +
                 '<button class="btn-finalizar" data-viaje="' + v.viaje + '">Guardar (Finalizar)</button>';
@@ -860,7 +868,46 @@ document.getElementById("tblViajes").addEventListener("click", async function(e)
 
 });
 
-// Devuelve un Map viaje -> estado ("activo" | "desactivado" | "finalizado").
+// "Cerrado" (a diferencia de "Finalizado") solo mira cantidad: que lo
+// pistoleado en "2. Lecturas y Evidencias" sea >= lo solicitado en
+// CADA código del viaje, sin importar si tiene observaciones (más de
+// 3 lotes, vida útil, exceso). No revisa ningún otro módulo.
+async function viajeCantidadCompleta(viaje){
+
+    const [dataFilas, lecturasFilas] = await Promise.all([
+        supabaseFetchTodo("/farmacia_data?select=codigo,cantidad&viaje=eq." + viaje),
+        supabaseFetchTodo("/farmacia_lecturas?select=codigo,cantidad_cajas&viaje=eq." + viaje)
+    ]);
+
+    const solicitadoPorCodigo = {};
+
+    (dataFilas || []).forEach(function(f){
+        if(!f.codigo){
+            return;
+        }
+        solicitadoPorCodigo[f.codigo] = (solicitadoPorCodigo[f.codigo] || 0) + Number(f.cantidad || 0);
+    });
+
+    const escaneadoPorCodigo = {};
+
+    (lecturasFilas || []).forEach(function(f){
+        if(!f.codigo){
+            return;
+        }
+        escaneadoPorCodigo[f.codigo] = (escaneadoPorCodigo[f.codigo] || 0) + Number(f.cantidad_cajas || 0);
+    });
+
+    const codigos = Object.keys(solicitadoPorCodigo);
+
+    return codigos.length > 0 && codigos.every(function(codigo){
+        const solicitado = solicitadoPorCodigo[codigo];
+        const escaneado = escaneadoPorCodigo[codigo] || 0;
+        return solicitado <= 0 || escaneado >= solicitado;
+    });
+
+}
+
+// Devuelve un Map viaje -> estado ("activo" | "desactivado" | "cerrado" | "finalizado").
 // Un viaje sin fila todavía (nunca tocado) se trata como "desactivado"
 // donde se consulte (no bloquea reemplazo, permite Activar).
 async function obtenerViajesActivadosFarmacia(){
@@ -877,22 +924,34 @@ async function obtenerViajesActivadosFarmacia(){
         const viajes = [...new Set((dataFilas || []).map(f => f.viaje))]
             .filter(v => v !== null && v !== undefined);
 
-        // "Finalizado" aparece SOLO (sin que nadie tenga que apretar
-        // "Guardar (Finalizar)") apenas un viaje cumple TODOS los
-        // requisitos de evaluarRequisitosViaje — y si un viaje que ya
-        // estaba Finalizado deja de cumplirlos (ej: se eliminó una
-        // lectura, apareció una observación nueva), vuelve a Activo.
+        // Auto-transición, sin que nadie tenga que apretar ningún
+        // botón: "Cerrado" aparece solo con la cantidad pistoleada
+        // completa (con o sin observaciones); "Finalizado" aparece
+        // solo cuando además se cumplen TODOS los requisitos de
+        // evaluarRequisitosViaje (módulos cargados y sin ninguna
+        // observación). Si un viaje ya Cerrado/Finalizado deja de
+        // cumplir lo que lo sostiene, retrocede (a Cerrado si todavía
+        // tiene la cantidad completa, o a Activo si ni eso).
         const cambios = [];
 
         for(const viaje of viajes){
 
             const estadoActual = estadosMap.get(viaje) || "desactivado";
 
-            const { listo } = await evaluarRequisitosViaje(viaje);
+            const cantidadCompleta = await viajeCantidadCompleta(viaje);
+            const todoListo = cantidadCompleta ? (await evaluarRequisitosViaje(viaje)).listo : false;
 
-            if(listo && estadoActual !== "finalizado"){
-                cambios.push({ viaje: viaje, nuevoEstado: "finalizado" });
-            }else if(!listo && estadoActual === "finalizado"){
+            let nuevoEstado = null;
+
+            if(todoListo){
+                nuevoEstado = "finalizado";
+            }else if(cantidadCompleta){
+                nuevoEstado = "cerrado";
+            }
+
+            if(nuevoEstado && nuevoEstado !== estadoActual){
+                cambios.push({ viaje: viaje, nuevoEstado: nuevoEstado });
+            }else if(!nuevoEstado && (estadoActual === "cerrado" || estadoActual === "finalizado")){
                 cambios.push({ viaje: viaje, nuevoEstado: "activo" });
             }
 
@@ -1851,10 +1910,12 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
 
             await supabaseFetch("/farmacia_lecturas?id=eq." + id, { method: "DELETE" });
 
-            // Si el viaje ya estaba Finalizado y esta lectura era
-            // parte de lo que lo completaba, deja de estarlo: vuelve
-            // a Activo (y así reaparece en Centro de Proyectos, en
-            // vez de seguir "Finalizado" con datos incompletos).
+            // Si el viaje ya estaba Cerrado o Finalizado y esta
+            // lectura era parte de lo que lo sostenía, retrocede: a
+            // Cerrado si la cantidad todavía está completa (pero ya
+            // no cumple todos los requisitos de Finalizado), o a
+            // Activo si ni siquiera la cantidad está completa (y así
+            // reaparece en Centro de Proyectos).
             let mensaje = "Lectura eliminada.";
 
             if(viaje){
@@ -1862,13 +1923,22 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
                 const filaEstado = await supabaseFetch("/farmacia_viajes_activados?select=estado&viaje=eq." + viaje);
                 const estadoActual = filaEstado && filaEstado[0] && filaEstado[0].estado;
 
-                if(estadoActual === "finalizado"){
+                if(estadoActual === "cerrado" || estadoActual === "finalizado"){
 
-                    const chequeo = await evaluarRequisitosViaje(viaje);
+                    const cantidadCompleta = await viajeCantidadCompleta(viaje);
 
-                    if(!chequeo.listo){
+                    if(!cantidadCompleta){
                         await cambiarEstadoViaje(Number(viaje), "activo");
                         mensaje = "Lectura eliminada. El viaje " + viaje + " volvió a Activo (ya no está completo).";
+                    }else if(estadoActual === "finalizado"){
+
+                        const chequeo = await evaluarRequisitosViaje(viaje);
+
+                        if(!chequeo.listo){
+                            await cambiarEstadoViaje(Number(viaje), "cerrado");
+                            mensaje = "Lectura eliminada. El viaje " + viaje + " volvió a Cerrado (ya no cumple todos los requisitos).";
+                        }
+
                     }
 
                 }
