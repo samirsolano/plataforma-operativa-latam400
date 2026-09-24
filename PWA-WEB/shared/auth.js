@@ -11,6 +11,10 @@
 
 const CLAVE_SESION = "latam400_sesion";
 
+// Cierre de sesión por inactividad: 5 minutos sin ningún movimiento
+// de mouse/teclado/touch en la página.
+const TIEMPO_INACTIVIDAD_MS = 5 * 60 * 1000;
+
 function guardarSesion(usuario){
 
     sessionStorage.setItem(
@@ -64,6 +68,25 @@ function esRecarga(){
 
 }
 
+// Reinicia el conteo de inactividad en cada interacción del usuario;
+// si pasan TIEMPO_INACTIVIDAD_MS sin ninguna, cierra la sesión sola.
+function iniciarControlInactividad(){
+
+    let temporizador = null;
+
+    function reiniciarTemporizador(){
+        clearTimeout(temporizador);
+        temporizador = setTimeout(cerrarSesion, TIEMPO_INACTIVIDAD_MS);
+    }
+
+    ["mousedown", "mousemove", "keydown", "scroll", "touchstart"].forEach(function(evento){
+        document.addEventListener(evento, reiniciarTemporizador, { passive: true });
+    });
+
+    reiniciarTemporizador();
+
+}
+
 // Llamar al inicio de cualquier página protegida.
 // Si no hay sesión activa, redirige al login.
 // Si la página fue recargada (F5), cierra la sesión y redirige al login,
@@ -81,6 +104,8 @@ function requerirSesion(){
         window.location.href = "../login/login.html";
         return null;
     }
+
+    iniciarControlInactividad();
 
     return sesion;
 
