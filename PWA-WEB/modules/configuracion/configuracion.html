@@ -11,12 +11,12 @@
     >
 
     <title>
-        Usuarios - Plataforma Operativa
+        Configuración - Plataforma Operativa
     </title>
 
     <link
         rel="stylesheet"
-        href="usuarios.css"
+        href="configuracion.css"
     >
 
 </head>
@@ -34,18 +34,32 @@
                 </a>
 
                 <h1>
-                    Usuarios
+                    Configuración
                 </h1>
 
             </div>
 
-            <button id="btnAgregar" class="btn-primario">
-                + Agregar Usuario
-            </button>
-
         </header>
 
         <div class="card">
+
+            <div class="card-titulo">
+
+                <h2>
+                    Roles habilitados
+                </h2>
+
+                <button id="btnAgregar" class="btn-primario">
+                    + Agregar Rol
+                </button>
+
+            </div>
+
+            <p class="card-subtitulo">
+                Estos son los roles que se pueden asignar a un usuario desde
+                el módulo Usuarios. Un rol inactivo deja de aparecer ahí,
+                pero los usuarios que ya lo tenían asignado no cambian.
+            </p>
 
             <table>
 
@@ -53,10 +67,6 @@
 
                     <tr>
 
-                        <th>Usuario</th>
-                        <th>Contraseña</th>
-                        <th>DNI</th>
-                        <th>Nombre completo</th>
                         <th>Rol</th>
                         <th>Estado</th>
                         <th>Acción</th>
@@ -65,27 +75,27 @@
 
                 </thead>
 
-                <tbody id="tblUsuarios">
+                <tbody id="tblRoles">
                 </tbody>
 
             </table>
 
             <p id="mensajeVacio" class="mensaje-vacio">
-                Cargando usuarios...
+                Cargando roles...
             </p>
 
         </div>
 
     </div>
 
-    <!-- MODAL AGREGAR USUARIO -->
+    <!-- MODAL AGREGAR/EDITAR ROL -->
 
     <div class="modal-overlay" id="modalOverlay">
 
         <div class="modal">
 
             <h3 id="tituloModal">
-                Agregar Usuario
+                Agregar Rol
             </h3>
 
             <form autocomplete="off" onsubmit="return false;">
@@ -93,71 +103,15 @@
                 <div class="grupo">
 
                     <label>
-                        Usuario
-                    </label>
-
-                    <input
-                        type="text"
-                        id="nuevoUsuario"
-                        autocomplete="off"
-                        autocorrect="off"
-                        autocapitalize="off"
-                        spellcheck="false"
-                    >
-
-                </div>
-
-                <div class="grupo">
-
-                    <label>
-                        Contraseña
-                    </label>
-
-                    <input
-                        type="password"
-                        id="nuevoPassword"
-                        autocomplete="new-password"
-                    >
-
-                </div>
-
-                <div class="grupo">
-
-                    <label>
-                        DNI
-                    </label>
-
-                    <input
-                        type="text"
-                        id="nuevoDni"
-                        autocomplete="off"
-                    >
-
-                </div>
-
-                <div class="grupo">
-
-                    <label>
-                        Nombre completo
+                        Nombre del rol
                     </label>
 
                     <input
                         type="text"
                         id="nuevoNombre"
+                        placeholder="Ej: Supervisor"
                         autocomplete="off"
                     >
-
-                </div>
-
-                <div class="grupo">
-
-                    <label>
-                        Rol
-                    </label>
-
-                    <select id="nuevoRol">
-                        <option value="">-- Seleccione un rol --</option>
-                    </select>
 
                 </div>
 
@@ -171,7 +125,7 @@
                             checked
                         >
 
-                        Usuario activo
+                        Rol activo (disponible para asignar)
 
                     </label>
 
@@ -197,9 +151,47 @@
 
     </div>
 
+    <!-- MODAL PERMISOS POR ROL -->
+
+    <div class="modal-overlay" id="modalPermisosOverlay">
+
+        <div class="modal modal-ancho">
+
+            <h3 id="tituloModalPermisos">
+                Permisos de "..."
+            </h3>
+
+            <p class="card-subtitulo">
+                El cuadrito de la izquierda de cada módulo controla si el
+                rol lo ve por completo. Si un módulo tiene pantallas
+                internas, marcá cuáles de esas puede ver.
+            </p>
+
+            <div id="arbolPermisos" class="arbol-permisos">
+            </div>
+
+            <p id="mensajeErrorPermisos" class="mensaje-error"></p>
+
+            <div class="modal-botones">
+
+                <button type="button" id="btnCancelarPermisos" class="btn-secundario">
+                    Cancelar
+                </button>
+
+                <button type="button" id="btnGuardarPermisos" class="btn-primario">
+                    Guardar permisos
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
     <script src="../../shared/supabase-config.js"></script>
     <script src="../../shared/auth.js"></script>
-    <script src="usuarios.js"></script>
+    <script src="../../shared/modulos-app.js"></script>
+    <script src="configuracion.js"></script>
 
 </body>
 

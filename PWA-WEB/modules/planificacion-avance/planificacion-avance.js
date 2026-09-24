@@ -1,8 +1,27 @@
 // ========================================
-// SESIÓN
+// SESIÓN Y PERMISOS
 // ========================================
 
-requerirSesion();
+const sesion = requerirSesion();
+
+if(sesion && !tienePermiso(sesion, "planificacion-avance")){
+    window.location.href = "../inicio/home.html";
+}
+
+if(sesion){
+
+    aplicarPermisosEnIds(sesion, {
+        btnPlanificado: "planificacion-avance.planificado",
+        btnRecursos: "planificacion-avance.recursos",
+        btnReplanificacion: "planificacion-avance.replanificacion",
+        btnSAP: "planificacion-avance.sap",
+        btnDashboard: "planificacion-avance.dashboard",
+        btnHoraHora: "planificacion-avance.horahora",
+        btnDialogoDiario: "planificacion-avance.dialogodiario",
+        btnProductividad: "planificacion-avance.productividad"
+    });
+
+}
 
 let fechaSeleccionada = "";
 let turnoSeleccionado = "";
@@ -120,6 +139,11 @@ function cerrarModalGlobal(confirmado){
 // =====================================================================
 
 function abrirModulo(modulo, boton){
+
+    if(!tienePermiso(sesion, "planificacion-avance", modulo)){
+        mostrarAlertaModal("No tienes permiso para acceder a esta sección.", "error");
+        return;
+    }
 
     // Si venía del modo "pantalla completa" de Hora x Hora, se sale al cambiar de módulo
     document.body.classList.remove("hxh-pantalla-completa");

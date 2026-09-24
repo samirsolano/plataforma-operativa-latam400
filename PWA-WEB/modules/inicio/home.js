@@ -11,26 +11,54 @@ if(sesion){
     document.getElementById("rolUsuario").textContent =
         sesion.rol;
 
-    // El módulo de Usuarios y Toma de Lote Supermercados solo son
-    // visibles para el rol Administrador.
-    if(sesion.rol !== "Administrador"){
-        document.getElementById("linkSkillMatrix").style.display = "none";
-        document.getElementById("cardSkillMatrix").style.display = "none";
-        document.getElementById("linkUsuarios").style.display = "none";
-        document.getElementById("cardUsuarios").style.display = "none";
-        document.getElementById("linkUsuariosCentro").style.display = "none";
-        document.getElementById("cardUsuariosCentro").style.display = "none";
-        document.getElementById("linkTomaLote").style.display = "none";
-        document.getElementById("cardTomaLote").style.display = "none";
-        document.getElementById("linkTomaLoteFarmacia").style.display = "none";
-        document.getElementById("cardTomaLoteFarmacia").style.display = "none";
-        document.getElementById("linkAnomalias").style.display = "none";
-        document.getElementById("cardAnomalias").style.display = "none";
-        document.getElementById("linkInventarioPaletas").style.display = "none";
-        document.getElementById("cardInventarioPaletas").style.display = "none";
-        document.getElementById("linkInventarioPicking").style.display = "none";
-        document.getElementById("cardInventarioPicking").style.display = "none";
-    }
+    // Cada tarjeta/link del Panel Principal se muestra u oculta según
+    // el permiso del rol para ese módulo (ver shared/auth.js,
+    // shared/modulos-app.js y modules/configuracion).
+    aplicarPermisosEnIds(sesion, {
+
+        linkChecklist5s: "checklist-5s",
+        cardChecklist5s: "checklist-5s",
+
+        linkChecklistHigieneNav: "checklist-higiene",
+        cardChecklistHigiene: "checklist-higiene",
+
+        linkChecklistEquiposNav: "checklist-equipos",
+        cardChecklistEquipos: "checklist-equipos",
+
+        linkAnomalias: "reporte-anomalias",
+        cardAnomalias: "reporte-anomalias",
+
+        linkPlanificacionAvance: "planificacion-avance",
+        cardPlanificacionAvance: "planificacion-avance",
+
+        linkReconocimiento: "reconocimiento",
+        cardReconocimiento: "reconocimiento",
+
+        linkSkillMatrix: "skill-matrix",
+        cardSkillMatrix: "skill-matrix",
+
+        linkUsuarios: "usuarios",
+        cardUsuarios: "usuarios",
+
+        linkUsuariosCentro: "usuarios-centro-proyectos",
+        cardUsuariosCentro: "usuarios-centro-proyectos",
+
+        linkTomaLote: "toma-lote-supermercados",
+        cardTomaLote: "toma-lote-supermercados",
+
+        linkTomaLoteFarmacia: "toma-lote-farmacia",
+        cardTomaLoteFarmacia: "toma-lote-farmacia",
+
+        linkInventarioPaletas: "inventario-paletas",
+        cardInventarioPaletas: "inventario-paletas",
+
+        linkInventarioPicking: "inventario-picking",
+        cardInventarioPicking: "inventario-picking",
+
+        linkConfiguracion: "configuracion",
+        cardConfiguracion: "configuracion"
+
+    });
 
 }
 

@@ -67,7 +67,7 @@ const sesion = requerirSesion();
 
 if(sesion){
 
-    if(sesion.rol !== "Administrador"){
+    if(!tienePermiso(sesion, "inventario-picking")){
         window.location.href = "../inicio/home.html";
     }
 

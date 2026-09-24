@@ -120,6 +120,22 @@ body{
     background:#eff6ff;
 }
 
+.btn-permisos{
+    background:none;
+    border:1px solid #c4b5fd;
+    color:#6d28d9;
+    padding:8px 14px;
+    border-radius:10px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.3s;
+}
+
+.btn-permisos:hover{
+    background:#f5f3ff;
+}
+
 .acciones{
     display:flex;
     gap:8px;
@@ -134,6 +150,24 @@ body{
     border-radius:20px;
     padding:30px;
     box-shadow:0 5px 20px rgba(0,0,0,.05);
+}
+
+.card-titulo{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:8px;
+}
+
+.card-titulo h2{
+    font-size:22px;
+    color:#1f2937;
+}
+
+.card-subtitulo{
+    color:#6b7280;
+    font-size:14px;
+    margin-bottom:20px;
 }
 
 table{
@@ -208,6 +242,53 @@ td{
     box-shadow:0 15px 40px rgba(0,0,0,.2);
 }
 
+.modal.modal-ancho{
+    max-width:560px;
+    max-height:85vh;
+    display:flex;
+    flex-direction:column;
+}
+
+/* ======================================== */
+/* ÁRBOL DE PERMISOS */
+/* ======================================== */
+
+.arbol-permisos{
+    overflow-y:auto;
+    margin-bottom:14px;
+    padding-right:6px;
+}
+
+.permiso-modulo{
+    padding:10px 0;
+    border-bottom:1px solid #f3f4f6;
+}
+
+.permiso-modulo-label{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    cursor:pointer;
+    font-size:15px;
+    color:#1f2937;
+}
+
+.permiso-submodulos{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin:10px 0 4px 26px;
+}
+
+.permiso-submodulo-label{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    cursor:pointer;
+    font-size:14px;
+    color:#4b5563;
+}
+
 .modal h3{
     color:#1f2937;
     font-size:22px;
@@ -226,9 +307,7 @@ td{
     font-weight:600;
 }
 
-.grupo input[type="text"],
-.grupo input[type="password"],
-.grupo select{
+.grupo input[type="text"]{
     width:100%;
     padding:12px 14px;
     border:1px solid #e5e7eb;
@@ -236,9 +315,7 @@ td{
     font-size:15px;
 }
 
-.grupo input[type="text"]:focus,
-.grupo input[type="password"]:focus,
-.grupo select:focus{
+.grupo input[type="text"]:focus{
     outline:none;
     border-color:#FC000D;
 }

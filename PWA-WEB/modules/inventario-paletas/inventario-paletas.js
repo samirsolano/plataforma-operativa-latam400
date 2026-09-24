@@ -70,7 +70,7 @@ const sesion = requerirSesion();
 
 if(sesion){
 
-    if(sesion.rol !== "Administrador"){
+    if(!tienePermiso(sesion, "inventario-paletas")){
         window.location.href = "../inicio/home.html";
     }
 

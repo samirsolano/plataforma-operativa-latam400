@@ -4,7 +4,7 @@
 
 const sesion = requerirSesion();
 
-if(sesion && sesion.rol !== "Administrador" && sesion.rol !== "Supervisor"){
+if(sesion && !tienePermiso(sesion, "checklist-5s", "promotor-5s")){
     window.location.href = "../inicio/home.html";
 }
 
@@ -479,6 +479,6 @@ btnEliminar.addEventListener("click", async function(){
 // INICIO
 // ========================================
 
-if(sesion && (sesion.rol === "Administrador" || sesion.rol === "Supervisor")){
+if(sesion && tienePermiso(sesion, "checklist-5s", "promotor-5s")){
     cargarPromotores();
 }

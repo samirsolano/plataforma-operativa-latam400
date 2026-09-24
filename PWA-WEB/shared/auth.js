@@ -87,6 +87,59 @@ function iniciarControlInactividad(){
 
 }
 
+// ========================================
+// PERMISOS POR ROL (módulos/submódulos)
+// ========================================
+// sesion.permisos se arma una sola vez en login.js (tabla
+// permisos_rol) y viaja dentro de la sesión guardada en
+// sessionStorage — así cada página lo consulta en memoria, sin
+// pedirlo de nuevo a Supabase. Administrador siempre puede todo,
+// resuelto acá y no en la tabla, para que un módulo nuevo sin fila
+// sembrada nunca deje afuera al admin por error.
+function tienePermiso(sesion, moduloKey, submoduloKey){
+
+    if(!sesion){
+        return false;
+    }
+
+    if(sesion.rol === "Administrador"){
+        return true;
+    }
+
+    if(!sesion.permisos){
+        return false;
+    }
+
+    const clave = moduloKey + "." + (submoduloKey || "");
+
+    return !!sesion.permisos[clave];
+
+}
+
+// Oculta (display:none) cada elemento del DOM cuyo id esté en
+// `mapaIdsAModulo` y el rol de la sesión no tenga permiso para ese
+// módulo/submódulo. mapaIdsAModulo: { idDelElemento: "moduloKey" } o
+// { idDelElemento: "moduloKey.submoduloKey" }.
+function aplicarPermisosEnIds(sesion, mapaIdsAModulo){
+
+    Object.keys(mapaIdsAModulo).forEach(function(id){
+
+        const [moduloKey, submoduloKey] = mapaIdsAModulo[id].split(".");
+
+        if(tienePermiso(sesion, moduloKey, submoduloKey)){
+            return;
+        }
+
+        const el = document.getElementById(id);
+
+        if(el){
+            el.style.display = "none";
+        }
+
+    });
+
+}
+
 // Llamar al inicio de cualquier página protegida.
 // Si no hay sesión activa, redirige al login.
 // Si la página fue recargada (F5), cierra la sesión y redirige al login,

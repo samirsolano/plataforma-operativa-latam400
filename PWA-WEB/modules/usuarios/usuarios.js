@@ -5,8 +5,38 @@
 
 const sesion = requerirSesion();
 
-if(sesion && sesion.rol !== "Administrador"){
+if(sesion && !tienePermiso(sesion, "usuarios")){
     window.location.href = "../inicio/home.html";
+}
+
+// ========================================
+// ROLES DISPONIBLES (para el <select> del modal)
+// ========================================
+// Ver modules/configuracion — antes "Rol" era un input de texto libre
+// y con el tiempo se acumularon variantes del mismo rol escritas
+// distinto. Solo se ofrecen acá los roles activos; uno inactivo no
+// aparece para asignar a usuarios nuevos, pero no cambia a los que ya
+// lo tenían.
+
+async function cargarRolesDisponibles(){
+
+    try{
+
+        const roles = await supabaseFetch(
+            "/roles_app?select=nombre&activo=eq.true&order=nombre.asc"
+        );
+
+        (roles || []).forEach(function(r){
+            const opcion = document.createElement("option");
+            opcion.value = r.nombre;
+            opcion.textContent = r.nombre;
+            inputNuevoRol.appendChild(opcion);
+        });
+
+    }catch(e){
+        console.error(e);
+    }
+
 }
 
 // ========================================
@@ -289,6 +319,7 @@ btnGuardar.addEventListener("click", async function(){
 // INICIO
 // ========================================
 
-if(sesion && sesion.rol === "Administrador"){
+if(sesion && tienePermiso(sesion, "usuarios")){
+    cargarRolesDisponibles();
     cargarUsuarios();
 }

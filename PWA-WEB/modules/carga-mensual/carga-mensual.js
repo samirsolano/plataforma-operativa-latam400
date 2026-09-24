@@ -4,7 +4,7 @@
 
 const sesion = requerirSesion();
 
-if(sesion && sesion.rol !== "Administrador" && sesion.rol !== "Supervisor"){
+if(sesion && !tienePermiso(sesion, "checklist-5s", "carga-mensual")){
     window.location.href = "../inicio/home.html";
 }
 

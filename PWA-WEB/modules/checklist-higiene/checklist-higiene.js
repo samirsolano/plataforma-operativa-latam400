@@ -4,9 +4,7 @@
 
 const sesion = requerirSesion();
 
-// Coordinador QHSE tiene el mismo acceso que Supervisor acá y en
-// Checklist de Equipos (ver checklist-equipos.js).
-if(sesion && sesion.rol !== "Administrador" && sesion.rol !== "Supervisor" && sesion.rol !== "Coordinador QHSE"){
+if(sesion && !tienePermiso(sesion, "checklist-higiene")){
     window.location.href = "../inicio/home.html";
 }
 

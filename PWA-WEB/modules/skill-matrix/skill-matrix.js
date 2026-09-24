@@ -31,7 +31,7 @@ function mostrarToast(mensaje, tipo){
 
 const sesion = requerirSesion();
 
-if(sesion && sesion.rol !== "Administrador"){
+if(sesion && !tienePermiso(sesion, "skill-matrix")){
     window.location.href = "../inicio/home.html";
 }
 
@@ -744,6 +744,6 @@ document.getElementById("btnExportar").addEventListener("click", function(){
 // INICIO
 // ========================================
 
-if(sesion && sesion.rol === "Administrador"){
+if(sesion && tienePermiso(sesion, "skill-matrix")){
     cargarMatriz();
 }

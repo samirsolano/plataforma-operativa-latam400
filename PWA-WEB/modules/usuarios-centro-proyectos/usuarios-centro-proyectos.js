@@ -5,7 +5,7 @@
 
 const sesion = requerirSesion();
 
-if(sesion && sesion.rol !== "Administrador"){
+if(sesion && !tienePermiso(sesion, "usuarios-centro-proyectos")){
     window.location.href = "../inicio/home.html";
 }
 
@@ -260,6 +260,6 @@ btnGuardar.addEventListener("click", async function(){
 // INICIO
 // ========================================
 
-if(sesion && sesion.rol === "Administrador"){
+if(sesion && tienePermiso(sesion, "usuarios-centro-proyectos")){
     cargarUsuarios();
 }

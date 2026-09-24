@@ -4,18 +4,24 @@
 
 const sesion = requerirSesion();
 
+if(sesion && !tienePermiso(sesion, "checklist-5s")){
+    window.location.href = "../inicio/home.html";
+}
+
 if(sesion){
 
     document.getElementById("nombreUsuario").textContent = sesion.nombre_completo;
     document.getElementById("rolUsuario").textContent = sesion.rol;
 
-    if(sesion.rol !== "Administrador" && sesion.rol !== "Supervisor"){
-        document.getElementById("linkCargaMensual").style.display = "none";
-        document.getElementById("linkColaboradoresActivos").style.display = "none";
-        document.getElementById("linkFotosColaboradores").style.display = "none";
-        document.getElementById("linkPreguntasChecklist").style.display = "none";
-        document.getElementById("linkReporteChecklist").style.display = "none";
-    }
+    aplicarPermisosEnIds(sesion, {
+        linkChecklistHigiene: "checklist-higiene",
+        linkCargaMensual: "checklist-5s.carga-mensual",
+        linkColaboradoresActivos: "checklist-5s.colaboradores-activos",
+        linkFotosColaboradores: "checklist-5s.fotos-colaboradores",
+        linkPreguntasChecklist: "checklist-5s.preguntas-checklist",
+        linkReporteChecklist: "checklist-5s.reporte-checklist",
+        linkPromotor5s: "checklist-5s.promotor-5s"
+    });
 
 }
 

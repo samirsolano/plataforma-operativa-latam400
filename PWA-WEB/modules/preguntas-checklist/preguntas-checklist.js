@@ -4,7 +4,7 @@
 
 const sesion = requerirSesion();
 
-if(sesion && sesion.rol !== "Administrador" && sesion.rol !== "Supervisor"){
+if(sesion && !tienePermiso(sesion, "checklist-5s", "preguntas-checklist")){
     window.location.href = "../inicio/home.html";
 }
 
@@ -394,7 +394,7 @@ btnGuardar.addEventListener("click", async function(){
 // INICIO
 // ========================================
 
-if(sesion && (sesion.rol === "Administrador" || sesion.rol === "Supervisor")){
+if(sesion && tienePermiso(sesion, "checklist-5s", "preguntas-checklist")){
 
     cargarZonas().then(cargarPreguntas);
 

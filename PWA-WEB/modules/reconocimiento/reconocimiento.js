@@ -31,6 +31,10 @@ function mostrarToast(mensaje, tipo){
 
 const sesion = requerirSesion();
 
+if(sesion && !tienePermiso(sesion, "reconocimiento")){
+    window.location.href = "../inicio/home.html";
+}
+
 if(sesion){
     document.getElementById("nombreUsuario").textContent = sesion.nombre_completo;
     document.getElementById("rolUsuario").textContent = sesion.rol;

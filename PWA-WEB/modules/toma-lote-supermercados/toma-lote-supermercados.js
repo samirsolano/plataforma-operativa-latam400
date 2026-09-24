@@ -37,7 +37,7 @@ const sesion = requerirSesion();
 
 if(sesion){
 
-    if(sesion.rol !== "Administrador"){
+    if(!tienePermiso(sesion, "toma-lote-supermercados")){
         window.location.href = "../inicio/home.html";
     }
 

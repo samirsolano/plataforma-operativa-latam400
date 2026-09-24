@@ -152,7 +152,7 @@ const sesion = requerirSesion();
 
 if(sesion){
 
-    if(sesion.rol !== "Administrador"){
+    if(!tienePermiso(sesion, "toma-lote-farmacia")){
         window.location.href = "../inicio/home.html";
     }
 

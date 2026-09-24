@@ -33,7 +33,7 @@ const sesion = requerirSesion();
 
 if(sesion){
 
-    if(sesion.rol !== "Administrador"){
+    if(!tienePermiso(sesion, "reporte-anomalias")){
         window.location.href = "../inicio/home.html";
     }
 
