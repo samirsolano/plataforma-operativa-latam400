@@ -438,7 +438,16 @@ popoverOpciones.addEventListener("click", async function(e){
 // FILTROS
 // ========================================
 
-document.getElementById("buscador").addEventListener("input", renderizarTabla);
+// Redibujar la matriz (colaboradores x habilidades) es una operación
+// pesada — con el buscador disparándola en cada tecla, escribir
+// rápido se sentía trabado. Se espera una pequeña pausa desde la
+// última tecla antes de redibujar.
+let _timeoutBusquedaSkillMatrix = null;
+
+document.getElementById("buscador").addEventListener("input", function(){
+    clearTimeout(_timeoutBusquedaSkillMatrix);
+    _timeoutBusquedaSkillMatrix = setTimeout(renderizarTabla, 250);
+});
 document.getElementById("filtroCategoria").addEventListener("change", renderizarTabla);
 document.getElementById("filtroTurno").addEventListener("change", renderizarTabla);
 document.getElementById("btnRecargar").addEventListener("click", cargarMatriz);
