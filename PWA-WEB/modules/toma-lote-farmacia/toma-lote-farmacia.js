@@ -462,6 +462,7 @@ archivoFarmacia.addEventListener("change", async function(e){
         // farmacia_data (no solo este archivo), ya que ahora la carga
         // es por viaje y no reemplaza el resto.
         await cargarResumenExistente();
+        refrescarCachesViajesFarmacia();
 
     }catch(err){
 
@@ -555,6 +556,7 @@ archivoReemplazarViaje.addEventListener("change", async function(e){
         mostrarToast("Viaje " + viaje + " reemplazado: " + filasNormalizadas.length + " filas.", "exito");
 
         await cargarResumenExistente();
+        refrescarCachesViajesFarmacia();
 
     }catch(err){
 
@@ -828,6 +830,7 @@ document.getElementById("tblViajes").addEventListener("click", async function(e)
             mostrarToast("Viaje " + viaje + " eliminado (junto con sus OC, lecturas y stock).", "exito");
 
             await cargarResumenExistente();
+            refrescarCachesViajesFarmacia();
 
         }catch(err){
             console.error(err);
@@ -1628,6 +1631,7 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
 
             mostrarToast("Cantidad solicitada actualizada.", "exito");
             buscarResumenCodigo();
+            _ocsDataFinalCargadas = false;
 
         }catch(err){
             console.error(err);
@@ -1679,6 +1683,7 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
 
             mostrarToast(mensaje, "exito");
             buscarResumenCodigo();
+            _ocsDataFinalCargadas = false;
 
         }catch(err){
             console.error(err);
@@ -2179,6 +2184,7 @@ archivoOcPortal.addEventListener("change", async function(e){
 
         cargarResumenExistenteOcPortal();
         refrescarOcsParaSubir();
+        _ocsDataFinalCargadas = false;
 
     }catch(err){
 
@@ -2452,6 +2458,8 @@ archivoAlicorp.addEventListener("change", async function(e){
             filasNormalizadas.length.toLocaleString("es-PE");
 
         mostrarToast("Maestro Alicorp cargado: " + filasNormalizadas.length + " filas.", "exito");
+
+        _ocsDataFinalCargadas = false;
 
     }catch(err){
 
@@ -2982,6 +2990,7 @@ archivoStock.addEventListener("change", async function(e){
 
         refrescarViajesParaStock();
         refrescarViajesParaCruceLotes();
+        _viajesFiltroStockCargados = false;
 
     }catch(err){
 
@@ -4047,3 +4056,26 @@ document.getElementById("tblCruceLotesSap").addEventListener("click", function(e
     fila.nextElementSibling.classList.toggle("oculto");
 
 });
+
+// ========================================
+// REFRESCO DE CACHÉS DE VIAJE/OC
+// ========================================
+// Los desplegables de Viaje/OC de varias pestañas se cargan una sola
+// vez por sesión de página (para no repetir la consulta cada vez que
+// se cambia de tab) — si el usuario entra a esa pestaña ANTES de que
+// exista la data que muestran, quedan vacíos/desactualizados para
+// siempre hasta refrescar toda la página. Esta función se llama justo
+// después de cualquier acción que cambie esa data (subir/reemplazar/
+// eliminar un viaje, subir OC Portal, subir MARA Alicorp, subir Stock
+// Físico SAP, eliminar una lectura), para que la próxima vez que se
+// visite cada pestaña, vuelva a consultar en vez de usar lo viejo.
+function refrescarCachesViajesFarmacia(){
+
+    _viajesLecturasCargados = false;
+    _viajesCruceCargados = false;
+    _viajesFiltroStockCargados = false;
+    _ocsDataFinalCargadas = false;
+    _viajesStockCargados = false;
+    _viajesCruceLotesCargados = false;
+
+}
