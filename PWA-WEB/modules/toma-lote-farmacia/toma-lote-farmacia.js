@@ -4909,7 +4909,7 @@ async function armarSnapshotViaje(viaje){
                     filasOc.reduce((s, f) => s + Number(f.cantidad || 0), 0),
                     filasOc.reduce((s, f) => s + cantidadAtendida(f), 0),
                     df ? (df.generado_por || "") : "",
-                    df ? textoFechaHora(df.created_at) : ""
+                    df ? textoFechaHora(df.generado_en || df.created_at) : ""
                 ];
             })
         ),
