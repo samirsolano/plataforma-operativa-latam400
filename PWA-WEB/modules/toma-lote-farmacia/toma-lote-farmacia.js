@@ -3154,7 +3154,7 @@ cmbViajeStock.addEventListener("change", async function(){
             fila.innerHTML =
                 '<span class="oc-numero">' + oc + '</span>' +
                 '<input type="text" class="input-canal-oc" data-oc="' + oc + '" ' +
-                'placeholder="Ej: CD LIMA" value="' + (mapaCanal.get(oc) || "") + '">';
+                'placeholder="Ej: CNL-OUT-59" value="' + (mapaCanal.get(oc) || "") + '">';
 
             listaOcCanalStock.appendChild(fila);
 
