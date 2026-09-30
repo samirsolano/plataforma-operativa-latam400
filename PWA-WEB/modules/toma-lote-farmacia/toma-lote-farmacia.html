@@ -110,7 +110,7 @@
                     <div class="card-header-flex">
 
                         <h2>
-                            1. CARGAR PLANTILLA DE TOMA DE LOTE FARMACIA
+                            CARGAR PLANTILLA DE TOMA DE LOTE FARMACIA
                         </h2>
 
                         <button id="btnDescargarPlantilla" class="btn-secundario">
@@ -307,16 +307,12 @@
                     </h2>
 
                     <p class="nota-modulo">
-                        Cada fila es un código; haz clic en ella para ver las líneas
-                        registradas (lote, F.V., cajas, quién y cuándo).
-                        "Con observaciones": más de 3 lotes, un lote con vida útil restante
-                        menor o igual a la mitad de su TVU, o la Ctd. Registrada supera la Ctd. Atendida.
-                        Ctd. Programada = lo que pide SAP; Ctd. Atendida = lo que realmente sale
-                        (igual a la programada salvo que se ajuste con ✎, p. ej. por falta de stock);
-                        Ctd. Registrada = lo que sube el auxiliar. Si el F.V.
-                        registrado está incompleto o vacío, se completa con la fecha de
-                        producción del Lote (primeros 6 dígitos) + el TVU del código, solo para
-                        ese chequeo de vida útil.
+                        Haz clic en un código para ver sus lecturas y fotos.<br>
+                        <strong>Programada:</strong> lo que pide SAP ·
+                        <strong>Atendida:</strong> lo que sale (se ajusta con ✎) ·
+                        <strong>Registrada:</strong> lo que sube el auxiliar.<br>
+                        <strong>Con observaciones:</strong> más de 3 lotes, menos de 12 meses de vida útil
+                        o Registrada mayor que Atendida.
                     </p>
 
                     <table>
@@ -366,7 +362,7 @@
                     <div class="card-header-flex">
 
                         <h2>
-                            3. CARGAR OC DEL PORTAL DEL CLIENTE
+                            CARGAR OC DEL PORTAL DEL CLIENTE
                         </h2>
 
                         <button id="btnDescargarPlantillaOc" class="btn-secundario">
@@ -377,7 +373,7 @@
 
                     <p class="nota-modulo">
                         Primero selecciona la OC que vas a subir (aparecen las OC de la plantilla
-                        de "1. Carga y Viajes" más las que ya tengan archivo cargado aquí, aunque
+                        de "Carga y Viajes" más las que ya tengan archivo cargado aquí, aunque
                         su viaje ya no esté en la carga — 🟢 Cargado / ⚪ Pendiente), y luego sube
                         el Excel de
                         esa OC tal como lo exporta el portal del cliente (una fila por posición).
@@ -511,7 +507,7 @@
                     <div class="card-header-flex">
 
                         <h2>
-                            4. CARGAR MARA ALICORP
+                            CARGAR MARA ALICORP
                         </h2>
 
                         <button id="btnDescargarPlantillaAlicorp" class="btn-secundario">
@@ -638,7 +634,7 @@
                     <div class="card-header-flex">
 
                         <h2>
-                            5. CARGAR STOCK FÍSICO SAP
+                            CARGAR STOCK FÍSICO SAP
                         </h2>
 
                         <button id="btnDescargarPlantillaStock" class="btn-secundario">
@@ -649,7 +645,7 @@
 
                     <p class="nota-modulo">
                         Primero selecciona el Viaje (solo aparecen los que ya están en la
-                        plantilla de "1. Carga y Viajes"). Verás todas las OC de ese viaje: a
+                        plantilla de "Carga y Viajes"). Verás todas las OC de ese viaje: a
                         cada una le asignas un Canal (ubicación lógica) — se guarda asociado a la
                         OC, así que si ya se lo pusiste antes, no hace falta repetirlo, pero TODAS
                         las OC del viaje deben tener Canal antes de poder subir el archivo. Luego
@@ -806,16 +802,16 @@
                 <div class="card">
 
                     <h2>
-                        6. CRUCE DE INFORMACIÓN
+                        CRUCE DE INFORMACIÓN
                     </h2>
 
                     <p class="nota-modulo">
-                        Selecciona el Viaje y la OC. Se toma cada línea de "3. OC Portal Cliente"
-                        de esa OC, se busca su EAN en "4. MARA Alicorp" para obtener el código real
+                        Selecciona el Viaje y la OC. Se toma cada línea de "OC Portal Cliente"
+                        de esa OC, se busca su EAN en "MARA Alicorp" para obtener el código real
                         y el factor (unidades por caja), y se convierte lo escaneado en
-                        "2. Lecturas y Evidencias" (que está en cajas) a unidades para compararlo
+                        "Lecturas y Evidencias" (que está en cajas) a unidades para compararlo
                         contra lo que pide la OC (que está en unidades). Solo se muestran los
-                        códigos que también están solicitados en "1. Carga y Viajes" (SAP) para
+                        códigos que también están solicitados en "Carga y Viajes" (SAP) para
                         ese Viaje/OC; el resto de líneas de la OC Portal se ignora. El problema es
                         cuando se escanea MÁS de lo que pide la OC; si aún falta, solo está
                         pendiente.
@@ -889,7 +885,7 @@
                     <div class="card-header-flex">
 
                         <h2>
-                            7. DATA FINAL
+                            DATA FINAL
                         </h2>
 
                         <button id="btnExportarDataFinal" class="btn-secundario">
@@ -900,12 +896,12 @@
 
                     <p class="nota-modulo">
                         Solo aparecen las OC que ya están completas: cruzadas exacto contra
-                        "6. Cruce de Información" (sin exceder ni faltar) y sin ninguna
-                        observación en el Resumen por Código de "2. Lecturas y Evidencias" (más
+                        "Cruce de Información" (sin exceder ni faltar) y sin ninguna
+                        observación en el Resumen por Código de "Lecturas y Evidencias" (más
                         de 3 lotes, vida útil, diferencia de cantidad). Selecciona la OC. Se toma
-                        lo escaneado en "2. Lecturas y Evidencias" para esa OC, se busca el código
-                        en "4. MARA Alicorp" para obtener su EAN, y con ese EAN se busca en
-                        "3. OC Portal Cliente" el Código Inkafarma (o Inretail/QS) real (el SKU).
+                        lo escaneado en "Lecturas y Evidencias" para esa OC, se busca el código
+                        en "MARA Alicorp" para obtener su EAN, y con ese EAN se busca en
+                        "OC Portal Cliente" el Código Inkafarma (o Inretail/QS) real (el SKU).
                         La cantidad escaneada (en cajas) se convierte a unidades con el factor de
                         MARA Alicorp, y se arma el reporte final agrupado por SKU y Lote: No. OC,
                         SKU, Cantidad (Unidades), No. Lote y Fecha Vto.
@@ -971,9 +967,9 @@
                     </h2>
 
                     <p class="nota-modulo">
-                        Compara, por Código, el Lote y la cantidad que registra "5. Stock Físico
+                        Compara, por Código, el Lote y la cantidad que registra "Stock Físico
                         SAP" (en cajas/bultos) contra lo realmente escaneado en
-                        "2. Lecturas y Evidencias" — lo físico es lo que vale. "Con
+                        "Lecturas y Evidencias" — lo físico es lo que vale. "Con
                         observaciones": la cantidad no coincide, o algún Lote de SAP no aparece
                         entre los Lotes escaneados de ese código — ese es el Lote que hay que
                         cambiar en SAP. Haz clic en una fila para ver el detalle por Ubicación,

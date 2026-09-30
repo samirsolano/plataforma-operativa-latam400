@@ -468,6 +468,33 @@ select{
     text-align:center;
 }
 
+/* El texto "Ningún archivo seleccionado" va debajo del botón, no al lado */
+.upload-box input[type="file"]{
+    width:100%;
+    font-size:12.5px;
+    color:#6b7280;
+    text-align:center;
+}
+
+.upload-box input[type="file"]::file-selector-button{
+    display:block;
+    margin:0 auto 8px;
+    background:white;
+    color:#FC000D;
+    border:1.5px solid #FC000D;
+    border-radius:10px;
+    padding:9px 16px;
+    font-weight:700;
+    font-size:12.5px;
+    font-family:inherit;
+    cursor:pointer;
+}
+
+.upload-box input[type="file"]::file-selector-button:hover{
+    background:#FC000D;
+    color:white;
+}
+
 .detalle-archivo{
     display:flex;
     flex-direction:column;

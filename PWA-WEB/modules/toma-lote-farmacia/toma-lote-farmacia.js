@@ -3596,7 +3596,7 @@ async function calcularCruce(){
         ]);
 
         if(!ocPortalFilas || !ocPortalFilas.length){
-            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Esa OC todavía no tiene datos cargados en "3. OC Portal Cliente".</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Esa OC todavía no tiene datos cargados en "OC Portal Cliente".</td></tr>`;
             return;
         }
 
@@ -3702,7 +3702,7 @@ async function calcularCruce(){
         tbody.innerHTML = "";
 
         if(!filas.length){
-            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Ninguna línea de la OC Portal coincide con los códigos solicitados en "1. Carga y Viajes" para este Viaje/OC.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Ninguna línea de la OC Portal coincide con los códigos solicitados en "Carga y Viajes" para este Viaje/OC.</td></tr>`;
             return;
         }
 
