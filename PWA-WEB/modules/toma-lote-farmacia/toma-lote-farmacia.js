@@ -237,6 +237,10 @@ document.querySelectorAll(".tab-link").forEach(function(link){
             cargarViajesParaCruceLotes();
         }
 
+        if(link.dataset.tab === "tabBaseDatos"){
+            buscarViajesGuardados();
+        }
+
     });
 
 });
@@ -422,6 +426,40 @@ archivoFarmacia.addEventListener("change", async function(e){
             if(existentes && existentes.length){
                 viajesYaCargados.push(v);
             }
+
+        }
+
+        // Un viaje que ya se guardó en "Base de Datos" tampoco se
+        // puede volver a cargar (su número ya está usado en el
+        // histórico).
+        const viajesYaGuardados = [];
+
+        try{
+
+            const guardados = await supabaseFetch(
+                "/farmacia_viajes_guardados?select=viaje&viaje=in.(" +
+                viajesEnArchivo.filter(v => v !== null && v !== undefined).join(",") + ")"
+            );
+
+            (guardados || []).forEach(g => viajesYaGuardados.push(g.viaje));
+
+        }catch(errGuardados){
+            // Si la tabla aún no existe (falta correr viajes-guardados.sql)
+            // no se bloquea la carga.
+            console.error(errGuardados);
+        }
+
+        if(viajesYaGuardados.length){
+
+            mostrarToast(
+                "No se puede cargar: el viaje " + viajesYaGuardados.join(", ") +
+                " ya está guardado en la Base de Datos.",
+                "error"
+            );
+
+            nombreArchivo.textContent = "-";
+            archivoFarmacia.value = "";
+            return;
 
         }
 
@@ -641,7 +679,7 @@ function cargarViajesReales(filas, estadosMap){
             items =
                 '<button class="btn-activar" data-viaje="' + v.viaje + '">Activar</button>' +
                 '<button class="btn-reemplazar" data-viaje="' + v.viaje + '">Reemplazar</button>' +
-                '<button class="btn-finalizar" data-viaje="' + v.viaje + '">Guardar (Finalizar)</button>' +
+                '<button class="btn-finalizar" data-viaje="' + v.viaje + '">Finalizar</button>' +
                 '<button class="btn-eliminar" data-viaje="' + v.viaje + '">Eliminar</button>';
         }else if(estado === "activo" || estado === "cerrado"){
             // Bloqueado: mientras está Activo/Cerrado no se puede
@@ -652,9 +690,9 @@ function cargarViajesReales(filas, estadosMap){
             // SAP, Cruce Lotes SAP, Data Final).
             items =
                 '<button class="btn-desactivar" data-viaje="' + v.viaje + '">Desactivar</button>' +
-                '<button class="btn-finalizar" data-viaje="' + v.viaje + '">Guardar (Finalizar)</button>';
+                '<button class="btn-finalizar" data-viaje="' + v.viaje + '">Finalizar</button>';
         }else{
-            items = '<button class="btn-guardar" data-viaje="' + v.viaje + '">Guardar</button>';
+            items = '<button class="btn-guardar" data-viaje="' + v.viaje + '">Guardar en Base de Datos</button>';
         }
 
         // Badge de Estado + botón ⋮ (que sigue siendo el que abre el
@@ -748,10 +786,7 @@ document.getElementById("tblViajes").addEventListener("click", async function(e)
 
     if(botonGuardar){
         cerrarMenusAcciones(null);
-        mostrarToast(
-            "Función en desarrollo: más adelante esto guardará el viaje en un archivo histórico global y lo quitará de las tablas activas. Por ahora queda marcado como Finalizado.",
-            "info"
-        );
+        await guardarViajeEnBaseDatos(Number(botonGuardar.dataset.viaje), botonGuardar);
         return;
     }
 
@@ -4483,3 +4518,731 @@ function refrescarCachesViajesFarmacia(){
     _viajesCruceLotesCargados = false;
 
 }
+
+// ========================================
+// BASE DE DATOS (VIAJES GUARDADOS)
+// ========================================
+// Un viaje Finalizado se "Guarda" desde el menú ⋮ de Viajes Generados:
+// se toma una foto de TODA su información (lo que se cargó y lo que se
+// calcula en cada pestaña) y queda en farmacia_viajes_guardados, una
+// fila por viaje, con las hojas del Excel ya armadas en "datos". Recién
+// cuando esa fila quedó guardada se borra el viaje de las tablas de
+// trabajo (igual que "Eliminar"), así nunca se pierde información. MARA
+// Alicorp es un maestro compartido: se copia (solo los códigos del
+// viaje) pero no se borra. Las fotos de evidencia quedan en el storage;
+// en el Excel va su URL.
+
+function hojaSnapshot(nombre, encabezados, filas){
+    return { nombre: nombre, encabezados: encabezados, filas: filas };
+}
+
+function textoFechaHora(iso){
+    return iso ? formatearFechaHoraLecturas(iso) : "";
+}
+
+function valorCelda(v){
+    return (v === null || v === undefined) ? "" : v;
+}
+
+// Mismo cálculo que "Resumen por Código" (buscarResumenCodigo).
+function calcularResumenCodigoSnapshot(dataFilas, lecturasFilas, tvuPorCodigo){
+
+    const porGrupo = {};
+
+    function grupo(oc, codigo, descripcion){
+        const clave = oc + "|" + codigo;
+        if(!porGrupo[clave]){
+            porGrupo[clave] = {
+                oc: oc, codigo: codigo, descripcion: descripcion || "",
+                programada: 0, atendida: 0, registrada: 0, ajuste: "", lotes: []
+            };
+        }
+        if(descripcion && !porGrupo[clave].descripcion){
+            porGrupo[clave].descripcion = descripcion;
+        }
+        return porGrupo[clave];
+    }
+
+    dataFilas.forEach(function(f){
+        if(!f.codigo){
+            return;
+        }
+        const g = grupo(f.orden_compra, f.codigo, f.descripcion);
+        g.programada += Number(f.cantidad || 0);
+        g.atendida += cantidadAtendida(f);
+        if(f.observacion_atendida){
+            g.ajuste = f.observacion_atendida;
+        }
+    });
+
+    lecturasFilas.forEach(function(f){
+        if(!f.codigo){
+            return;
+        }
+        const g = grupo(f.oc, f.codigo, f.descripcion);
+        g.registrada += Number(f.cantidad_cajas || 0);
+        g.lotes.push(f);
+    });
+
+    const hoy = new Date();
+
+    return Object.values(porGrupo).map(function(g){
+
+        const lotesUnicos = [...new Set(g.lotes.map(l => l.lote).filter(Boolean))];
+        const observaciones = [];
+
+        if(lotesUnicos.length > 3){
+            observaciones.push("Más de 3 lotes");
+        }
+
+        if(g.registrada > g.atendida){
+            observaciones.push("Diferencia de cantidad (la Ctd. Registrada supera la Ctd. Atendida)");
+        }
+
+        const tvu = tvuPorCodigo[String(g.codigo).trim()];
+
+        if(tvu){
+            const vidaInsuficiente = g.lotes.some(function(l){
+                const fv = completarFvConLote(l.fv, l.lote, tvu);
+                return fv ? mesesEntre(hoy, new Date(fv + "T00:00:00")) <= (tvu / 2) : false;
+            });
+            if(vidaInsuficiente){
+                observaciones.push("Vida útil restante menor o igual a la mitad del TVU");
+            }
+        }
+
+        let estado;
+        if(observaciones.length){
+            estado = "Con observaciones";
+        }else if(g.registrada >= g.atendida && g.atendida > 0){
+            estado = "Completo";
+        }else{
+            estado = "Pendiente";
+        }
+
+        return [
+            g.oc, g.codigo, g.descripcion, g.programada, g.atendida, g.ajuste,
+            g.registrada, lotesUnicos.length, lotesUnicos.join(", "), estado, observaciones.join(" · ")
+        ];
+
+    }).sort(function(a, b){
+        return String(a[0]).localeCompare(String(b[0])) || String(a[1]).localeCompare(String(b[1]));
+    });
+
+}
+
+// Mismo cálculo que "Cruce de Información" (calcularCruce), para
+// todas las OC del viaje.
+function calcularCruceSnapshot(ocs, dataFilas, lecturasFilas, ocPortalFilas, maraPorEan){
+
+    const filas = [];
+
+    ocs.forEach(function(oc){
+
+        const codigosSap = new Set(
+            dataFilas.filter(f => f.orden_compra === oc).map(f => String(f.codigo || "").trim()).filter(Boolean)
+        );
+
+        const cajasPorCodigo = {};
+
+        lecturasFilas.filter(l => l.oc === oc).forEach(function(l){
+            if(l.codigo){
+                cajasPorCodigo[l.codigo] = (cajasPorCodigo[l.codigo] || 0) + Number(l.cantidad_cajas || 0);
+            }
+        });
+
+        ocPortalFilas.filter(r => r.oc === oc).forEach(function(row){
+
+            const ean = String(row.ean || "").trim();
+            const mara = maraPorEan[ean] || null;
+            const codigo = mara ? String(mara.codigo || "").trim() : null;
+
+            if(!codigo || !codigosSap.has(codigo)){
+                return;
+            }
+
+            const factor = Number(mara.factor_unidad_alm) || null;
+            const solicitado = Number(row.cantidad_sku_solicitada || 0);
+            const cajas = cajasPorCodigo[codigo] || 0;
+            const unidades = (factor && factor > 0) ? Math.round(cajas * factor) : null;
+
+            let estado;
+            if(unidades === null){
+                estado = "Sin factor";
+            }else if(cajas > Math.floor(solicitado / factor)){
+                estado = "Excede lo solicitado";
+            }else{
+                estado = "Completo";
+            }
+
+            filas.push([
+                oc, ean, codigo, mara.descripcion || row.descripcion_producto || "",
+                solicitado, factor || "", cajas, unidades === null ? "" : unidades, estado
+            ]);
+
+        });
+
+    });
+
+    return filas;
+
+}
+
+// Mismo cálculo que "Data Final" (generarDataFinal), para todas las OC
+// del viaje.
+function calcularDataFinalSnapshot(ocs, lecturasFilas, ocPortalFilas, alicorpFilas){
+
+    const eanPorCodigo = {};
+    const factorPorCodigo = {};
+
+    alicorpFilas.forEach(function(a){
+        const clave = String(a.codigo || "").trim();
+        if(!clave){
+            return;
+        }
+        if(a.ean && !eanPorCodigo[clave]){
+            eanPorCodigo[clave] = String(a.ean).trim();
+        }
+        if(a.factor_unidad_alm && !factorPorCodigo[clave]){
+            factorPorCodigo[clave] = Number(a.factor_unidad_alm);
+        }
+    });
+
+    const filas = [];
+
+    ocs.forEach(function(oc){
+
+        const skuPorEan = {};
+
+        ocPortalFilas.filter(o => o.oc === oc).forEach(function(o){
+            const clave = String(o.ean || "").trim();
+            if(clave && !skuPorEan[clave]){
+                skuPorEan[clave] = o.inretail_qs;
+            }
+        });
+
+        const grupos = {};
+
+        lecturasFilas.filter(l => l.oc === oc).forEach(function(l){
+
+            const codigo = String(l.codigo || "").trim();
+            const ean = eanPorCodigo[codigo] || null;
+            const clave = codigo + "|" + (l.lote || "") + "|" + (l.fv || "");
+
+            if(!grupos[clave]){
+                grupos[clave] = {
+                    codigo: codigo,
+                    sku: ean ? (skuPorEan[ean] || null) : null,
+                    lote: l.lote || "",
+                    fv: l.fv || "",
+                    cajas: 0
+                };
+            }
+
+            grupos[clave].cajas += Number(l.cantidad_cajas || 0);
+
+        });
+
+        Object.values(grupos).sort((a, b) => String(a.sku).localeCompare(String(b.sku))).forEach(function(g){
+            const factor = factorPorCodigo[g.codigo] || null;
+            const unidades = (factor && factor > 0) ? Math.round(g.cajas * factor) : g.cajas;
+            filas.push([oc, g.sku || "Sin código", unidades, g.lote, g.fv]);
+        });
+
+    });
+
+    return filas;
+
+}
+
+// Mismo cálculo que "Cruce Lotes SAP vs Físico" (buscarCruceLotesSap).
+function calcularCruceLotesSnapshot(stockFilas, lecturasFilas){
+
+    const porGrupo = {};
+
+    function grupo(oc, codigo, descripcion){
+        const clave = oc + "|" + codigo;
+        if(!porGrupo[clave]){
+            porGrupo[clave] = {
+                oc: oc, codigo: codigo, descripcion: descripcion || "",
+                ctdSap: 0, ctdFisico: 0, filasSap: [], lotesFisicos: new Set()
+            };
+        }
+        if(descripcion && !porGrupo[clave].descripcion){
+            porGrupo[clave].descripcion = descripcion;
+        }
+        return porGrupo[clave];
+    }
+
+    stockFilas.forEach(function(f){
+        if(!f.producto){
+            return;
+        }
+        const g = grupo(f.oc, f.producto, f.descripcion_producto);
+        g.ctdSap += Number(f.cantidad_embalada || 0);
+        g.filasSap.push(f);
+    });
+
+    lecturasFilas.forEach(function(f){
+        if(!f.codigo){
+            return;
+        }
+        const g = grupo(f.oc, f.codigo, f.descripcion);
+        g.ctdFisico += Number(f.cantidad_cajas || 0);
+        if(f.lote){
+            g.lotesFisicos.add(String(f.lote).trim());
+        }
+    });
+
+    return Object.values(porGrupo).filter(g => g.filasSap.length > 0).map(function(g){
+
+        const observaciones = [];
+
+        const lotesConProblema = g.filasSap.filter(f => f.lote && !g.lotesFisicos.has(String(f.lote).trim()));
+
+        if(lotesConProblema.length){
+            observaciones.push(lotesConProblema.length + " lote(s) de SAP no coinciden con lo escaneado");
+        }
+
+        if(g.ctdSap !== g.ctdFisico){
+            observaciones.push("Cantidad no coincide (SAP " + g.ctdSap + " vs registrado " + g.ctdFisico + ")");
+        }
+
+        const lotesSap = [...new Set(g.filasSap.map(f => f.lote).filter(Boolean))];
+
+        return [
+            g.oc, g.codigo, g.descripcion, g.ctdSap, g.ctdFisico,
+            lotesSap.join(", "), [...g.lotesFisicos].join(", "),
+            observaciones.length ? "Con observaciones" : "Completo", observaciones.join(" · ")
+        ];
+
+    }).sort(function(a, b){
+        return String(a[0]).localeCompare(String(b[0])) || String(a[1]).localeCompare(String(b[1]));
+    });
+
+}
+
+async function armarSnapshotViaje(viaje){
+
+    const [dataFilas, estadoFilas, lecturasFilas, stockFilas, alicorpFilas] = await Promise.all([
+        supabaseFetchTodo("/farmacia_data?select=*&viaje=eq." + viaje + "&order=orden_compra.asc,codigo.asc"),
+        supabaseFetch("/farmacia_viajes_activados?select=*&viaje=eq." + viaje),
+        supabaseFetchTodo("/farmacia_lecturas?select=*&viaje=eq." + viaje + "&order=created_at.asc"),
+        supabaseFetchTodo("/stock_fisico_sap?select=*&viaje=eq." + viaje + "&order=oc.asc,producto.asc"),
+        supabaseFetchTodo("/mara_alicorp?select=codigo,descripcion,ean,factor_unidad_alm,unidad_almacenamiento,tvu")
+    ]);
+
+    if(!dataFilas || !dataFilas.length){
+        throw new Error("El viaje " + viaje + " no tiene datos cargados.");
+    }
+
+    const ocs = [...new Set(dataFilas.map(f => f.orden_compra))]
+        .filter(v => v !== null && v !== undefined)
+        .sort((a, b) => a - b);
+
+    const listaOcs = ocs.join(",");
+
+    const [ocPortalFilas, canalFilas, dataFinalFilas] = ocs.length
+        ? await Promise.all([
+            supabaseFetchTodo("/oc_portal_cliente?select=*&oc=in.(" + listaOcs + ")&order=oc.asc,posicion.asc"),
+            supabaseFetchTodo("/oc_canal?select=*&oc=in.(" + listaOcs + ")"),
+            supabaseFetchTodo("/data_final_generada?select=*&oc=in.(" + listaOcs + ")")
+        ])
+        : [[], [], []];
+
+    const lecturas = lecturasFilas || [];
+    const stock = stockFilas || [];
+    const ocPortal = ocPortalFilas || [];
+    const alicorp = alicorpFilas || [];
+
+    const codigosViaje = new Set(dataFilas.map(f => String(f.codigo || "").trim()).filter(Boolean));
+
+    const maraPorEan = {};
+    const tvuPorCodigo = {};
+
+    alicorp.forEach(function(m){
+        if(m.ean){
+            maraPorEan[String(m.ean).trim()] = m;
+        }
+        if(m.codigo && m.tvu){
+            tvuPorCodigo[String(m.codigo).trim()] = Number(m.tvu);
+        }
+    });
+
+    const estado = (estadoFilas && estadoFilas[0] && estadoFilas[0].estado) || "finalizado";
+    const fechaCita = (dataFilas.find(f => f.fecha_cita) || {}).fecha_cita || null;
+
+    const totalProgramada = dataFilas.reduce((s, f) => s + Number(f.cantidad || 0), 0);
+    const totalAtendida = dataFilas.reduce((s, f) => s + cantidadAtendida(f), 0);
+    const totalRegistrada = lecturas.reduce((s, f) => s + Number(f.cantidad_cajas || 0), 0);
+
+    const guardadoPor = (sesion && (sesion.nombre_completo || sesion.usuario)) || "";
+    const guardadoEn = new Date().toISOString();
+
+    const canalPorOc = new Map((canalFilas || []).map(f => [f.oc, f.canal || ""]));
+    const dataFinalPorOc = new Map((dataFinalFilas || []).map(f => [f.oc, f]));
+
+    const hojas = [
+
+        hojaSnapshot("Resumen", ["Dato", "Valor"], [
+            ["Viaje", viaje],
+            ["Fecha de cita", fechaCita || ""],
+            ["Estado", estado],
+            ["OC", ocs.join(", ")],
+            ["Cantidad de OC", ocs.length],
+            ["Códigos", codigosViaje.size],
+            ["Ctd. Programada", totalProgramada],
+            ["Ctd. Atendida", totalAtendida],
+            ["Ctd. Registrada", totalRegistrada],
+            ["Lecturas registradas", lecturas.length],
+            ["Guardado por", guardadoPor],
+            ["Fecha guardado", textoFechaHora(guardadoEn)]
+        ]),
+
+        hojaSnapshot("OC del viaje",
+            ["OC", "Canal", "Códigos", "Ctd. Programada", "Ctd. Atendida", "Data Final generada por", "Fecha Data Final"],
+            ocs.map(function(oc){
+                const filasOc = dataFilas.filter(f => f.orden_compra === oc);
+                const df = dataFinalPorOc.get(oc);
+                return [
+                    oc, canalPorOc.get(oc) || "", filasOc.length,
+                    filasOc.reduce((s, f) => s + Number(f.cantidad || 0), 0),
+                    filasOc.reduce((s, f) => s + cantidadAtendida(f), 0),
+                    df ? (df.generado_por || "") : "",
+                    df ? textoFechaHora(df.created_at) : ""
+                ];
+            })
+        ),
+
+        hojaSnapshot("Carga y Viajes",
+            ["Fecha de cita", "Viaje", "OC", "Entrega", "Código", "Descripción", "UN",
+             "Ctd. Programada", "Ctd. Atendida", "Motivo ajuste", "Ajustado por", "Fecha ajuste",
+             "Archivo", "Cargado por", "Fecha carga"],
+            dataFilas.map(f => [
+                f.fecha_cita, f.viaje, f.orden_compra, f.entrega, f.codigo, f.descripcion, f.un,
+                Number(f.cantidad || 0), cantidadAtendida(f), f.observacion_atendida,
+                f.atendida_por, textoFechaHora(f.atendida_en),
+                f.archivo_origen, f.cargado_por, textoFechaHora(f.created_at)
+            ].map(valorCelda))
+        ),
+
+        hojaSnapshot("Resumen por Código",
+            ["OC", "Código", "Descripción", "Ctd. Programada", "Ctd. Atendida", "Motivo ajuste",
+             "Ctd. Registrada", "N° Lotes", "Lotes", "Estado", "Observaciones"],
+            calcularResumenCodigoSnapshot(dataFilas, lecturas, tvuPorCodigo)
+        ),
+
+        hojaSnapshot("Lecturas y Evidencias",
+            ["Viaje", "OC", "Código", "Descripción", "Lote", "F.V.", "Cantidad de Cajas",
+             "Escaneado por", "Fecha", "URL Foto"],
+            lecturas.map(f => [
+                f.viaje, f.oc, f.codigo, f.descripcion, f.lote, f.fv,
+                Number(f.cantidad_cajas || 0), f.escaneado_por, textoFechaHora(f.created_at), f.foto_url
+            ].map(valorCelda))
+        ),
+
+        hojaSnapshot("OC Portal Cliente",
+            ["OC", "Tipo OC", "Clase documento", "Cód. lugar entrega", "Lugar entrega", "Dirección entrega",
+             "Fecha emisión", "Fecha vencimiento", "Posición", "Inretail/QS", "EAN", "Código proveedor",
+             "Descripción producto", "Empaque", "SKU/Empaque", "Precio lista", "Desc. 1", "Desc. 2",
+             "Desc. 3", "Desc. 4", "Desc. 5", "Desc. 6", "P. Final neto", "P. Final (con imp)",
+             "Cód. local destino", "Local destino", "Ctdad. SKU solicitadas"],
+            ocPortal.map(o => [
+                o.oc, o.tipo_oc, o.clase_documento, o.cod_lugar_entrega, o.nombre_lugar_entrega,
+                o.direccion_entrega, o.fecha_emision, o.fecha_vencimiento, o.posicion, o.inretail_qs,
+                o.ean, o.codigo_proveedor, o.descripcion_producto, o.empaque, o.sku_empaque,
+                o.precio_lista, o.desc_1, o.desc_2, o.desc_3, o.desc_4, o.desc_5, o.desc_6,
+                o.precio_final_neto, o.precio_final_con_imp, o.codigo_local_destino,
+                o.nombre_local_destino, o.cantidad_sku_solicitada
+            ].map(valorCelda))
+        ),
+
+        hojaSnapshot("MARA Alicorp",
+            ["Código", "Descripción", "EAN", "Factor unidad alm.", "Unidad almacenamiento", "TVU (meses)"],
+            alicorp.filter(m => codigosViaje.has(String(m.codigo || "").trim())).map(m => [
+                m.codigo, m.descripcion, m.ean, m.factor_unidad_alm, m.unidad_almacenamiento, m.tvu
+            ].map(valorCelda))
+        ),
+
+        hojaSnapshot("Stock Físico SAP",
+            ["Viaje", "OC", "Tipo almacén", "Ubicación", "Producto", "Descripción", "Lote",
+             "Fecha caducidad", "Tipo stock", "Ctd. embalada", "UM alt.", "Cantidad", "Fecha EM"],
+            stock.map(s => [
+                s.viaje, s.oc, s.tipo_almacen, s.ubicacion, s.producto, s.descripcion_producto, s.lote,
+                s.fecha_caducidad, s.tipo_stock, s.cantidad_embalada, s.unidad_medida_alt, s.cantidad, s.fecha_em
+            ].map(valorCelda))
+        ),
+
+        hojaSnapshot("Cruce de Información",
+            ["OC", "EAN", "Código", "Descripción", "Solicitado (Unidades)", "Factor",
+             "Registrado (Cajas)", "Registrado (Unidades)", "Estado"],
+            calcularCruceSnapshot(ocs, dataFilas, lecturas, ocPortal, maraPorEan)
+        ),
+
+        hojaSnapshot("Data Final",
+            ["No. OC", "SKU", "Cantidad", "No. Lote", "Fecha Vto."],
+            calcularDataFinalSnapshot(ocs, lecturas, ocPortal, alicorp)
+        ),
+
+        hojaSnapshot("Cruce Lotes SAP vs Físico",
+            ["OC", "Código", "Descripción", "Ctd. SAP (Cajas)", "Ctd. Registrada (Cajas)",
+             "Lotes SAP", "Lotes físicos", "Estado", "Observaciones"],
+            calcularCruceLotesSnapshot(stock, lecturas)
+        )
+
+    ];
+
+    return {
+        fila: {
+            viaje: viaje,
+            fecha_cita: fechaCita,
+            ocs: ocs.join(", "),
+            total_ocs: ocs.length,
+            total_codigos: codigosViaje.size,
+            cantidad_programada: totalProgramada,
+            cantidad_atendida: totalAtendida,
+            cantidad_registrada: totalRegistrada,
+            total_lecturas: lecturas.length,
+            guardado_por: guardadoPor,
+            guardado_en: guardadoEn,
+            datos: { version: 1, hojas: hojas }
+        },
+        ocs: ocs
+    };
+
+}
+
+async function guardarViajeEnBaseDatos(viaje, boton){
+
+    const confirmado = confirm(
+        "¿Guardar el viaje " + viaje + " en la Base de Datos?\n\n" +
+        "Se guarda toda su información (plantilla, lecturas, OC Portal, stock SAP, cruces y data final) " +
+        "y luego se BORRA de todos los módulos de trabajo y de Viajes Generados. " +
+        "Después solo se podrá consultar y descargar desde la pestaña \"Base de Datos\"."
+    );
+
+    if(!confirmado){
+        return;
+    }
+
+    const textoOriginal = boton ? boton.textContent : "";
+
+    function avanceBoton(texto){
+        if(boton){
+            boton.disabled = true;
+            boton.textContent = texto;
+        }
+    }
+
+    function restaurarBoton(){
+        if(boton){
+            boton.disabled = false;
+            boton.textContent = textoOriginal;
+        }
+    }
+
+    // 1) Solo viajes que siguen cumpliendo todo para estar Finalizados.
+    avanceBoton("Verificando...");
+
+    try{
+
+        const chequeo = await evaluarRequisitosViaje(viaje);
+
+        if(!chequeo.listo){
+            mostrarToast(
+                "No se puede guardar: el viaje ya no cumple " + chequeo.razones.length + " requisito(s): " +
+                chequeo.razones.join(" · "),
+                "error"
+            );
+            restaurarBoton();
+            return;
+        }
+
+    }catch(err){
+        console.error(err);
+        mostrarToast("No se pudo verificar el viaje: " + err.message, "error");
+        restaurarBoton();
+        return;
+    }
+
+    // 2) Foto completa del viaje + insert en la Base de Datos. Si algo
+    // falla aquí, no se borra nada.
+    let snapshot;
+
+    avanceBoton("Guardando...");
+
+    try{
+
+        const yaGuardado = await supabaseFetch("/farmacia_viajes_guardados?select=viaje&viaje=eq." + viaje);
+
+        if(yaGuardado && yaGuardado.length){
+            mostrarToast("El viaje " + viaje + " ya está guardado en la Base de Datos.", "error");
+            restaurarBoton();
+            return;
+        }
+
+        snapshot = await armarSnapshotViaje(viaje);
+
+        const respuesta = await supabaseFetch("/farmacia_viajes_guardados", {
+            method: "POST",
+            headers: { "Prefer": "return=representation" },
+            body: JSON.stringify(snapshot.fila)
+        });
+
+        if(!respuesta || !respuesta.length){
+            throw new Error("La Base de Datos no confirmó el guardado.");
+        }
+
+    }catch(err){
+        console.error(err);
+        mostrarToast("No se pudo guardar el viaje (no se borró nada): " + err.message, "error");
+        restaurarBoton();
+        return;
+    }
+
+    // 3) Ya está a salvo en la Base de Datos: se limpia de los módulos.
+    avanceBoton("Limpiando...");
+
+    try{
+
+        if(snapshot.ocs.length){
+            const listaOcs = snapshot.ocs.join(",");
+            await supabaseFetch("/oc_portal_cliente?oc=in.(" + listaOcs + ")", { method: "DELETE" });
+            await supabaseFetch("/oc_canal?oc=in.(" + listaOcs + ")", { method: "DELETE" });
+            await supabaseFetch("/data_final_generada?oc=in.(" + listaOcs + ")", { method: "DELETE" });
+        }
+
+        await supabaseFetch("/farmacia_lecturas?viaje=eq." + viaje, { method: "DELETE" });
+        await supabaseFetch("/stock_fisico_sap?viaje=eq." + viaje, { method: "DELETE" });
+        await supabaseFetch("/farmacia_data?viaje=eq." + viaje, { method: "DELETE" });
+        await supabaseFetch("/farmacia_viajes_activados?viaje=eq." + viaje, { method: "DELETE" });
+
+        mostrarToast("Viaje " + viaje + " guardado en la Base de Datos y retirado de los módulos.", "exito");
+
+    }catch(err){
+        console.error(err);
+        mostrarToast(
+            "El viaje " + viaje + " SÍ quedó guardado en la Base de Datos, pero no se pudo borrar todo de los módulos: " +
+            err.message,
+            "error"
+        );
+    }
+
+    await cargarResumenExistente();
+    refrescarCachesViajesFarmacia();
+
+}
+
+async function buscarViajesGuardados(){
+
+    const tbody = document.getElementById("tblViajesGuardados");
+    const viaje = document.getElementById("filtroViajeGuardado").value.trim();
+    const desde = document.getElementById("filtroCitaDesdeGuardado").value;
+    const hasta = document.getElementById("filtroCitaHastaGuardado").value;
+
+    if(viaje && !/^\d+$/.test(viaje)){
+        tbody.innerHTML = `<tr><td colspan="10" class="sin-datos">El viaje debe tener solo números.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = `<tr><td colspan="10" class="sin-datos">Buscando...</td></tr>`;
+
+    try{
+
+        let ruta = "/farmacia_viajes_guardados?select=viaje,fecha_cita,ocs,total_ocs,total_codigos," +
+            "cantidad_programada,cantidad_atendida,cantidad_registrada,guardado_por,guardado_en" +
+            "&order=guardado_en.desc";
+
+        if(viaje){
+            ruta += "&viaje=eq." + viaje;
+        }
+
+        if(desde){
+            ruta += "&fecha_cita=gte." + desde;
+        }
+
+        if(hasta){
+            ruta += "&fecha_cita=lte." + hasta;
+        }
+
+        const filas = await supabaseFetchTodo(ruta);
+
+        if(!filas || !filas.length){
+            tbody.innerHTML = `<tr><td colspan="10" class="sin-datos">No hay viajes guardados con esos filtros.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filas.map(function(f){
+            return `
+                <tr>
+                    <td>${f.viaje}</td>
+                    <td>${f.fecha_cita || "-"}</td>
+                    <td title="${escaparHtmlFarmacia(f.ocs || "")}">${f.total_ocs ?? "-"}</td>
+                    <td>${f.total_codigos ?? "-"}</td>
+                    <td>${formatearNumeroFarmacia(f.cantidad_programada)}</td>
+                    <td>${formatearNumeroFarmacia(f.cantidad_atendida)}</td>
+                    <td>${formatearNumeroFarmacia(f.cantidad_registrada)}</td>
+                    <td>${escaparHtmlFarmacia(f.guardado_por || "-")}</td>
+                    <td>${textoFechaHora(f.guardado_en) || "-"}</td>
+                    <td><button class="btn-descargar-guardado" data-viaje="${f.viaje}">⬇ Descargar</button></td>
+                </tr>
+            `;
+        }).join("");
+
+    }catch(e){
+
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="10" class="sin-datos">No se pudo cargar la Base de Datos. ¿Ya se corrió viajes-guardados.sql en Supabase?</td></tr>`;
+
+    }
+
+}
+
+async function descargarViajeGuardado(viaje, boton){
+
+    const textoOriginal = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = "Descargando...";
+
+    try{
+
+        const filas = await supabaseFetch("/farmacia_viajes_guardados?select=viaje,datos&viaje=eq." + viaje);
+
+        if(!filas || !filas.length || !filas[0].datos || !filas[0].datos.hojas){
+            throw new Error("No se encontró el detalle de ese viaje.");
+        }
+
+        const libro = XLSX.utils.book_new();
+
+        filas[0].datos.hojas.forEach(function(h){
+            const hoja = XLSX.utils.aoa_to_sheet([h.encabezados, ...h.filas]);
+            // Excel limita el nombre de la hoja a 31 caracteres.
+            XLSX.utils.book_append_sheet(libro, hoja, String(h.nombre).slice(0, 31));
+        });
+
+        XLSX.writeFile(libro, "VIAJE_" + viaje + "_DETALLE_GENERAL.xlsx");
+
+    }catch(e){
+        console.error(e);
+        mostrarToast("No se pudo descargar el viaje " + viaje + ": " + e.message, "error");
+    }
+
+    boton.disabled = false;
+    boton.textContent = textoOriginal;
+
+}
+
+document.getElementById("btnBuscarGuardados").addEventListener("click", buscarViajesGuardados);
+
+document.getElementById("filtroViajeGuardado").addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+        buscarViajesGuardados();
+    }
+});
+
+document.getElementById("tblViajesGuardados").addEventListener("click", function(e){
+    const boton = e.target.closest(".btn-descargar-guardado");
+    if(boton){
+        descargarViajeGuardado(boton.dataset.viaje, boton);
+    }
+});

@@ -79,6 +79,11 @@
                 <a href="#" class="tab-link" data-tab="tabStockFisico">Stock Físico SAP</a>
                 <a href="#" class="tab-link" data-tab="tabCruceLotesSap">Cruce Lotes SAP vs Físico</a>
 
+                <div class="menu-separador"></div>
+                <div class="menu-seccion">Histórico</div>
+
+                <a href="#" class="tab-link" data-tab="tabBaseDatos">Base de Datos</a>
+
             </nav>
 
         </aside>
@@ -1032,6 +1037,91 @@
                             <tr>
                                 <td colspan="8" class="sin-datos">
                                     Selecciona el Viaje y presiona "Buscar".
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <!-- BASE DE DATOS (VIAJES GUARDADOS) -->
+
+            <div class="tab-contenido oculto" id="tabBaseDatos">
+
+                <div class="card">
+
+                    <h2>
+                        BASE DE DATOS
+                    </h2>
+
+                    <p class="nota-modulo">
+                        Viajes finalizados y guardados con el botón "Guardar" de Viajes Generados.
+                        Cada viaje guarda toda su información tal como quedó al guardarlo.<br>
+                        Usa <strong>Descargar</strong> para bajar el detalle general en un Excel
+                        (una hoja por módulo).
+                    </p>
+
+                    <div class="filtros-lecturas filtros-base-datos">
+
+                        <div>
+                            <label>Viaje</label>
+                            <input type="text" id="filtroViajeGuardado" placeholder="Ej: 1000164460">
+                        </div>
+
+                        <div>
+                            <label>Cita desde</label>
+                            <input type="date" id="filtroCitaDesdeGuardado">
+                        </div>
+
+                        <div>
+                            <label>Cita hasta</label>
+                            <input type="date" id="filtroCitaHastaGuardado">
+                        </div>
+
+                        <div>
+                            <button id="btnBuscarGuardados">Buscar</button>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <h2>
+                        VIAJES GUARDADOS
+                    </h2>
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Viaje</th>
+                                <th>Cita</th>
+                                <th>OC</th>
+                                <th>Códigos</th>
+                                <th>Ctd. Programada</th>
+                                <th>Ctd. Atendida</th>
+                                <th>Ctd. Registrada</th>
+                                <th>Guardado por</th>
+                                <th>Fecha guardado</th>
+                                <th>Detalle</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tblViajesGuardados">
+
+                            <tr>
+                                <td colspan="10" class="sin-datos">
+                                    Todavía no hay viajes guardados.
                                 </td>
                             </tr>
 

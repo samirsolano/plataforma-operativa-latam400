@@ -663,6 +663,38 @@ select{
         140px;
 }
 
+/* BASE DE DATOS (VIAJES GUARDADOS) */
+
+.filtros-base-datos{
+    grid-template-columns:
+        1.2fr
+        1fr
+        1fr
+        140px;
+}
+
+.btn-descargar-guardado{
+    background:white;
+    color:#FC000D;
+    border:1.5px solid #FC000D;
+    border-radius:8px;
+    padding:6px 12px;
+    font-weight:700;
+    font-size:12px;
+    cursor:pointer;
+    white-space:nowrap;
+}
+
+.btn-descargar-guardado:hover{
+    background:#FC000D;
+    color:white;
+}
+
+.btn-descargar-guardado:disabled{
+    opacity:.6;
+    cursor:default;
+}
+
 /* RESUMEN POR CÓDIGO (expandible) */
 
 .fila-resumen-codigo{
