@@ -310,7 +310,10 @@
                         Cada fila es un código; haz clic en ella para ver las líneas
                         registradas (lote, F.V., cajas, quién y cuándo).
                         "Con observaciones": más de 3 lotes, un lote con vida útil restante
-                        menor o igual a la mitad de su TVU, o la cantidad atendida supera la solicitada. Si el F.V.
+                        menor o igual a la mitad de su TVU, o la Ctd. Registrada supera la Ctd. Atendida.
+                        Ctd. Programada = lo que pide SAP; Ctd. Atendida = lo que realmente sale
+                        (igual a la programada salvo que se ajuste con ✎, p. ej. por falta de stock);
+                        Ctd. Registrada = lo que sube el auxiliar. Si el F.V.
                         registrado está incompleto o vacío, se completa con la fecha de
                         producción del Lote (primeros 6 dígitos) + el TVU del código, solo para
                         ese chequeo de vida útil.
@@ -326,8 +329,9 @@
                                 <th>OC</th>
                                 <th>Código</th>
                                 <th>Descripción</th>
-                                <th>Ctd. Solicitada</th>
+                                <th>Ctd. Programada</th>
                                 <th>Ctd. Atendida</th>
+                                <th>Ctd. Registrada</th>
                                 <th>Lotes</th>
                                 <th>Estado</th>
 
@@ -338,7 +342,7 @@
                         <tbody id="tblResumenCodigo">
 
                             <tr>
-                                <td colspan="8" class="sin-datos">
+                                <td colspan="9" class="sin-datos">
                                     Usa los filtros de arriba para buscar.
                                 </td>
                             </tr>

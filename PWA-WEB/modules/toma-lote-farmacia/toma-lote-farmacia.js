@@ -869,13 +869,13 @@ document.getElementById("tblViajes").addEventListener("click", async function(e)
 });
 
 // "Cerrado" (a diferencia de "Finalizado") solo mira cantidad: que lo
-// pistoleado en "2. Lecturas y Evidencias" sea >= lo solicitado en
+// registrado en "Lecturas y Evidencias" sea >= la Ctd. Atendida en
 // CADA código del viaje, sin importar si tiene observaciones (más de
 // 3 lotes, vida útil, exceso). No revisa ningún otro módulo.
 async function viajeCantidadCompleta(viaje){
 
     const [dataFilas, lecturasFilas] = await Promise.all([
-        supabaseFetchTodo("/farmacia_data?select=codigo,cantidad&viaje=eq." + viaje),
+        supabaseFetchTodo("/farmacia_data?select=codigo,cantidad,cantidad_atendida&viaje=eq." + viaje),
         supabaseFetchTodo("/farmacia_lecturas?select=codigo,cantidad_cajas&viaje=eq." + viaje)
     ]);
 
@@ -885,7 +885,7 @@ async function viajeCantidadCompleta(viaje){
         if(!f.codigo){
             return;
         }
-        solicitadoPorCodigo[f.codigo] = (solicitadoPorCodigo[f.codigo] || 0) + Number(f.cantidad || 0);
+        solicitadoPorCodigo[f.codigo] = (solicitadoPorCodigo[f.codigo] || 0) + cantidadAtendida(f);
     });
 
     const escaneadoPorCodigo = {};
@@ -1182,6 +1182,17 @@ async function buscarLecturas(){
 
 let _ultimoResumenCodigo = [];
 
+// Ctd. Atendida = lo que realmente sale. Arranca igual a la Ctd.
+// Programada (cantidad de SAP) y solo cambia si alguien la ajusta con
+// el ✎ (por ejemplo, no hay stock y sale una caja menos). La Ctd.
+// Registrada (lo que sube el auxiliar) se compara contra esta.
+function cantidadAtendida(f){
+    if(f.cantidad_atendida !== null && f.cantidad_atendida !== undefined){
+        return Number(f.cantidad_atendida);
+    }
+    return Number(f.cantidad || 0);
+}
+
 function mesesEntre(desde, hasta){
 
     let meses = (hasta.getFullYear() - desde.getFullYear()) * 12 + (hasta.getMonth() - desde.getMonth());
@@ -1322,7 +1333,7 @@ async function evaluarRequisitosViaje(viaje){
     const razones = [];
 
     const [dataFilas, lecturasFilas, ocPortalFilas, maraFilas, stockFilas, dataFinalFilas] = await Promise.all([
-        supabaseFetchTodo("/farmacia_data?select=orden_compra,codigo,cantidad&viaje=eq." + viaje),
+        supabaseFetchTodo("/farmacia_data?select=orden_compra,codigo,cantidad,cantidad_atendida&viaje=eq." + viaje),
         supabaseFetchTodo("/farmacia_lecturas?select=oc,codigo,lote,fv,cantidad_cajas&viaje=eq." + viaje),
         supabaseFetchTodo("/oc_portal_cliente?select=oc,ean,cantidad_sku_solicitada"),
         supabaseFetchTodo("/mara_alicorp?select=ean,codigo,factor_unidad_alm,tvu"),
@@ -1357,7 +1368,7 @@ async function evaluarRequisitosViaje(viaje){
         if(!porCodigo[f.codigo]){
             porCodigo[f.codigo] = { solicitado: 0, escaneado: 0, lotes: [] };
         }
-        porCodigo[f.codigo].solicitado += Number(f.cantidad || 0);
+        porCodigo[f.codigo].solicitado += cantidadAtendida(f);
     });
 
     (lecturasFilas || []).forEach(function(f){
@@ -1375,12 +1386,12 @@ async function evaluarRequisitosViaje(viaje){
         const g = porCodigo[codigo];
 
         if(g.solicitado > 0 && g.escaneado < g.solicitado){
-            razones.push("Código " + codigo + ": todavía falta pistolear.");
+            razones.push("Código " + codigo + ": la Ctd. Registrada todavía no llega a la Ctd. Atendida.");
             return;
         }
 
         if(g.escaneado > g.solicitado){
-            razones.push("Código " + codigo + ": se pistoleó más de lo solicitado.");
+            razones.push("Código " + codigo + ": la Ctd. Registrada supera la Ctd. Atendida.");
         }
 
         const lotesUnicos = [...new Set(g.lotes.map(l => l.lote).filter(Boolean))];
@@ -1570,12 +1581,12 @@ async function buscarResumenCodigo(){
     const estadoFiltro = document.getElementById("filtroEstadoResumen").value;
 
     const tbody = document.getElementById("tblResumenCodigo");
-    tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Buscando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">Buscando...</td></tr>`;
 
     try{
 
         let rutaLecturas = "/farmacia_lecturas?select=id,viaje,oc,codigo,descripcion,lote,fv,cantidad_cajas,escaneado_por,foto_url,created_at&order=created_at.desc";
-        let rutaData = "/farmacia_data?select=viaje,orden_compra,codigo,descripcion,cantidad";
+        let rutaData = "/farmacia_data?select=viaje,orden_compra,codigo,descripcion,cantidad,cantidad_atendida";
 
         if(viaje){
             rutaLecturas += "&viaje=eq." + viaje;
@@ -1622,8 +1633,9 @@ async function buscarResumenCodigo(){
                     oc: ocGrupo,
                     codigo: codigo,
                     descripcion: descripcion || "",
-                    solicitada: 0,
-                    pistoleada: 0,
+                    programada: 0,
+                    atendida: 0,
+                    registrada: 0,
                     lotes: []
                 };
             }
@@ -1641,7 +1653,8 @@ async function buscarResumenCodigo(){
                 return;
             }
             const grupo = obtenerGrupo(f.viaje, f.orden_compra, f.codigo, f.descripcion);
-            grupo.solicitada += Number(f.cantidad || 0);
+            grupo.programada += Number(f.cantidad || 0);
+            grupo.atendida += cantidadAtendida(f);
         });
 
         (lecturasFilas || []).forEach(function(f){
@@ -1649,7 +1662,7 @@ async function buscarResumenCodigo(){
                 return;
             }
             const grupo = obtenerGrupo(f.viaje, f.oc, f.codigo, f.descripcion);
-            grupo.pistoleada += Number(f.cantidad_cajas || 0);
+            grupo.registrada += Number(f.cantidad_cajas || 0);
             grupo.lotes.push(f);
         });
 
@@ -1664,8 +1677,8 @@ async function buscarResumenCodigo(){
                 observaciones.push("Más de 3 lotes");
             }
 
-            if(g.pistoleada > g.solicitada){
-                observaciones.push("Diferencia de cantidad (la cantidad atendida supera la solicitada)");
+            if(g.registrada > g.atendida){
+                observaciones.push("Diferencia de cantidad (la Ctd. Registrada supera la Ctd. Atendida)");
             }
 
             const tvu = tvuPorCodigo[String(g.codigo).trim()];
@@ -1697,7 +1710,7 @@ async function buscarResumenCodigo(){
             if(observaciones.length){
                 estadoClase = "advertencia";
                 estadoTexto = "Con observaciones";
-            }else if(g.pistoleada >= g.solicitada && g.solicitada > 0){
+            }else if(g.registrada >= g.atendida && g.atendida > 0){
                 estadoClase = "activado";
                 estadoTexto = "Completo";
             }else{
@@ -1710,8 +1723,9 @@ async function buscarResumenCodigo(){
                 oc: g.oc,
                 codigo: g.codigo,
                 descripcion: g.descripcion,
-                solicitada: g.solicitada,
-                pistoleada: g.pistoleada,
+                programada: g.programada,
+                atendida: g.atendida,
+                registrada: g.registrada,
                 lotesUnicos: lotesUnicos,
                 lotesDetalle: g.lotes,
                 observaciones: observaciones,
@@ -1743,7 +1757,7 @@ async function buscarResumenCodigo(){
         tbody.innerHTML = "";
 
         if(!filas.length){
-            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">No se encontraron códigos con esos filtros.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se encontraron códigos con esos filtros.</td></tr>`;
             return;
         }
 
@@ -1760,11 +1774,12 @@ async function buscarResumenCodigo(){
                 <td>${f.oc || "-"}</td>
                 <td><span class="flecha-resumen">▸</span>${f.codigo}</td>
                 <td>${f.descripcion || "-"}</td>
+                <td>${formatearNumeroFarmacia(f.programada)}</td>
                 <td>
-                    ${formatearNumeroFarmacia(f.solicitada)}
-                    <button class="btn-editar-solicitada" data-viaje="${f.viaje}" data-oc="${f.oc}" data-codigo="${f.codigo}" data-actual="${f.solicitada}">✎</button>
+                    ${formatearNumeroFarmacia(f.atendida)}
+                    <button class="btn-editar-atendida" data-viaje="${f.viaje}" data-oc="${f.oc}" data-codigo="${f.codigo}" data-actual="${f.atendida}">✎</button>
                 </td>
-                <td>${formatearNumeroFarmacia(f.pistoleada)}</td>
+                <td>${formatearNumeroFarmacia(f.registrada)}</td>
                 <td>${f.lotesUnicos.length}</td>
                 <td>
                     <span class="estado ${f.estadoClase}">${f.estadoTexto}</span>
@@ -1796,7 +1811,7 @@ async function buscarResumenCodigo(){
             }).join("");
 
             trDetalle.innerHTML = `
-                <td colspan="8">
+                <td colspan="9">
                     <table class="tabla-detalle-lotes">
                         <thead>
                             <tr>
@@ -1824,7 +1839,7 @@ async function buscarResumenCodigo(){
     }catch(e){
 
         console.error(e);
-        tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">No se pudo cargar el resumen por código.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar el resumen por código.</td></tr>`;
 
     }
 
@@ -1840,7 +1855,7 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
         return;
     }
 
-    const botonEditar = e.target.closest(".btn-editar-solicitada");
+    const botonEditar = e.target.closest(".btn-editar-atendida");
 
     if(botonEditar){
 
@@ -1850,7 +1865,7 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
         const actual = botonEditar.dataset.actual;
 
         const nuevoTexto = prompt(
-            "Nueva cantidad solicitada para el código " + codigoBtn +
+            "Ctd. Atendida (lo que realmente sale) para el código " + codigoBtn +
             " (Viaje " + viajeBtn + " / OC " + ocBtn + "):",
             actual
         );
@@ -1873,7 +1888,7 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
                 {
                     method: "PATCH",
                     headers: { "Prefer": "return=representation" },
-                    body: JSON.stringify({ cantidad: nuevaCantidad })
+                    body: JSON.stringify({ cantidad_atendida: nuevaCantidad })
                 }
             );
 
@@ -1882,13 +1897,13 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
                 return;
             }
 
-            mostrarToast("Cantidad solicitada actualizada.", "exito");
+            mostrarToast("Ctd. Atendida actualizada.", "exito");
             buscarResumenCodigo();
             _ocsDataFinalCargadas = false;
 
         }catch(err){
             console.error(err);
-            mostrarToast("No se pudo actualizar la cantidad solicitada.", "error");
+            mostrarToast("No se pudo actualizar la Ctd. Atendida.", "error");
         }
 
         return;
