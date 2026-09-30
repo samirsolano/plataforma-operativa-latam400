@@ -1066,6 +1066,46 @@
 
     </div>
 
+    <!-- MODAL AJUSTAR CTD. ATENDIDA -->
+
+    <div class="modal-ajuste oculto" id="modalAjuste">
+
+        <div class="modal-ajuste-fondo" id="modalAjusteFondo"></div>
+
+        <div class="modal-ajuste-caja">
+
+            <h3>Ajustar Ctd. Atendida</h3>
+
+            <div class="modal-ajuste-info">
+                <div><span>Código</span><strong id="ajusteCodigo">-</strong></div>
+                <div><span>Viaje / OC</span><strong id="ajusteViajeOc">-</strong></div>
+                <div class="modal-ajuste-descripcion" id="ajusteDescripcion"></div>
+                <div><span>Ctd. Programada (SAP)</span><strong id="ajusteProgramada">-</strong></div>
+            </div>
+
+            <label for="ajusteCantidad">Ctd. Atendida (lo que realmente sale)</label>
+            <input type="number" id="ajusteCantidad" min="0" step="1">
+
+            <label for="ajusteObservacion">Motivo del ajuste <span class="obligatorio">*</span></label>
+            <textarea id="ajusteObservacion" rows="3" maxlength="300"
+                placeholder="Ej: No hay stock suficiente, sale una caja menos."></textarea>
+
+            <p class="modal-ajuste-ayuda">
+                El motivo es obligatorio si la cantidad es distinta a la programada.
+                Si vuelves a poner la cantidad programada, el ajuste se quita.
+            </p>
+
+            <div class="modal-ajuste-error oculto" id="ajusteError"></div>
+
+            <div class="modal-ajuste-botones">
+                <button type="button" class="btn-secundario" id="btnCancelarAjuste">Cancelar</button>
+                <button type="button" class="btn-primario" id="btnGuardarAjuste">Guardar ajuste</button>
+            </div>
+
+        </div>
+
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="../../shared/supabase-config.js"></script>
     <script src="../../shared/auth.js"></script>

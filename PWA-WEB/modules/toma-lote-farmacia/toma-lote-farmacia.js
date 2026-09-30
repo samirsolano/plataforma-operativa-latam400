@@ -1586,7 +1586,7 @@ async function buscarResumenCodigo(){
     try{
 
         let rutaLecturas = "/farmacia_lecturas?select=id,viaje,oc,codigo,descripcion,lote,fv,cantidad_cajas,escaneado_por,foto_url,created_at&order=created_at.desc";
-        let rutaData = "/farmacia_data?select=viaje,orden_compra,codigo,descripcion,cantidad,cantidad_atendida";
+        let rutaData = "/farmacia_data?select=viaje,orden_compra,codigo,descripcion,cantidad,cantidad_atendida,observacion_atendida,atendida_por,atendida_en";
 
         if(viaje){
             rutaLecturas += "&viaje=eq." + viaje;
@@ -1636,6 +1636,7 @@ async function buscarResumenCodigo(){
                     programada: 0,
                     atendida: 0,
                     registrada: 0,
+                    ajuste: null,
                     lotes: []
                 };
             }
@@ -1655,6 +1656,13 @@ async function buscarResumenCodigo(){
             const grupo = obtenerGrupo(f.viaje, f.orden_compra, f.codigo, f.descripcion);
             grupo.programada += Number(f.cantidad || 0);
             grupo.atendida += cantidadAtendida(f);
+            if(f.observacion_atendida){
+                grupo.ajuste = {
+                    observacion: f.observacion_atendida,
+                    por: f.atendida_por || "",
+                    en: f.atendida_en || null
+                };
+            }
         });
 
         (lecturasFilas || []).forEach(function(f){
@@ -1726,6 +1734,7 @@ async function buscarResumenCodigo(){
                 programada: g.programada,
                 atendida: g.atendida,
                 registrada: g.registrada,
+                ajuste: g.ajuste,
                 lotesUnicos: lotesUnicos,
                 lotesDetalle: g.lotes,
                 observaciones: observaciones,
@@ -1769,6 +1778,12 @@ async function buscarResumenCodigo(){
 
             const tituloObservaciones = f.observaciones.length ? f.observaciones.join(" · ") : "";
 
+            const textoAjuste = f.ajuste
+                ? "Ajuste: " + escaparHtmlFarmacia(f.ajuste.observacion) +
+                  (f.ajuste.por ? " — " + escaparHtmlFarmacia(f.ajuste.por) : "") +
+                  (f.ajuste.en ? " (" + formatearFechaHoraLecturas(f.ajuste.en) + ")" : "")
+                : "";
+
             trResumen.innerHTML = `
                 <td>${f.viaje || "-"}</td>
                 <td>${f.oc || "-"}</td>
@@ -1777,7 +1792,8 @@ async function buscarResumenCodigo(){
                 <td>${formatearNumeroFarmacia(f.programada)}</td>
                 <td>
                     ${formatearNumeroFarmacia(f.atendida)}
-                    <button class="btn-editar-atendida" data-viaje="${f.viaje}" data-oc="${f.oc}" data-codigo="${f.codigo}" data-actual="${f.atendida}">✎</button>
+                    <button class="btn-editar-atendida" data-indice="${indice}" title="Ajustar Ctd. Atendida">✎</button>
+                    ${textoAjuste ? `<div class="detalle-ajuste">${textoAjuste}</div>` : ""}
                 </td>
                 <td>${formatearNumeroFarmacia(f.registrada)}</td>
                 <td>${f.lotesUnicos.length}</td>
@@ -1859,51 +1875,10 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
 
     if(botonEditar){
 
-        const viajeBtn = botonEditar.dataset.viaje;
-        const ocBtn = botonEditar.dataset.oc;
-        const codigoBtn = botonEditar.dataset.codigo;
-        const actual = botonEditar.dataset.actual;
+        const fila = _ultimoResumenCodigo[Number(botonEditar.dataset.indice)];
 
-        const nuevoTexto = prompt(
-            "Ctd. Atendida (lo que realmente sale) para el código " + codigoBtn +
-            " (Viaje " + viajeBtn + " / OC " + ocBtn + "):",
-            actual
-        );
-
-        if(nuevoTexto === null){
-            return;
-        }
-
-        const nuevaCantidad = Number(nuevoTexto);
-
-        if(isNaN(nuevaCantidad) || nuevaCantidad < 0){
-            mostrarToast("Ingresa una cantidad numérica válida.", "error");
-            return;
-        }
-
-        try{
-
-            const respuesta = await supabaseFetch(
-                "/farmacia_data?viaje=eq." + viajeBtn + "&orden_compra=eq." + ocBtn + "&codigo=eq." + encodeURIComponent(codigoBtn),
-                {
-                    method: "PATCH",
-                    headers: { "Prefer": "return=representation" },
-                    body: JSON.stringify({ cantidad_atendida: nuevaCantidad })
-                }
-            );
-
-            if(!respuesta || !respuesta.length){
-                mostrarToast("No se encontró la fila de ese código/viaje/OC en la carga.", "error");
-                return;
-            }
-
-            mostrarToast("Ctd. Atendida actualizada.", "exito");
-            buscarResumenCodigo();
-            _ocsDataFinalCargadas = false;
-
-        }catch(err){
-            console.error(err);
-            mostrarToast("No se pudo actualizar la Ctd. Atendida.", "error");
+        if(fila){
+            abrirModalAjuste(fila);
         }
 
         return;
@@ -1995,6 +1970,135 @@ function cerrarModalFoto(){
 
 document.getElementById("btnCerrarModalFoto").addEventListener("click", cerrarModalFoto);
 document.getElementById("modalFotoFondo").addEventListener("click", cerrarModalFoto);
+
+// ========================================
+// MODAL AJUSTAR CTD. ATENDIDA
+// ========================================
+// Todo ajuste de la Ctd. Atendida (distinta a la Programada de SAP)
+// lleva un motivo obligatorio, y queda quién y cuándo lo hizo. Volver
+// a poner la cantidad programada quita el ajuste (deja todo en NULL).
+
+let _filaAjuste = null;
+
+function escaparHtmlFarmacia(texto){
+    return String(texto == null ? "" : texto)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+function mostrarErrorAjuste(mensaje){
+    const caja = document.getElementById("ajusteError");
+    caja.textContent = mensaje || "";
+    caja.classList.toggle("oculto", !mensaje);
+}
+
+function abrirModalAjuste(fila){
+
+    _filaAjuste = fila;
+
+    document.getElementById("ajusteCodigo").textContent = fila.codigo;
+    document.getElementById("ajusteViajeOc").textContent = (fila.viaje || "-") + " / " + (fila.oc || "-");
+    document.getElementById("ajusteDescripcion").textContent = fila.descripcion || "";
+    document.getElementById("ajusteProgramada").textContent = formatearNumeroFarmacia(fila.programada);
+    document.getElementById("ajusteCantidad").value = fila.atendida;
+    document.getElementById("ajusteObservacion").value = fila.ajuste ? fila.ajuste.observacion : "";
+    mostrarErrorAjuste("");
+    document.getElementById("btnGuardarAjuste").disabled = false;
+
+    document.getElementById("modalAjuste").classList.remove("oculto");
+    document.getElementById("ajusteCantidad").focus();
+    document.getElementById("ajusteCantidad").select();
+
+}
+
+function cerrarModalAjuste(){
+    document.getElementById("modalAjuste").classList.add("oculto");
+    _filaAjuste = null;
+}
+
+async function guardarAjusteAtendida(){
+
+    const fila = _filaAjuste;
+
+    if(!fila){
+        return;
+    }
+
+    const textoCantidad = document.getElementById("ajusteCantidad").value.trim();
+    const observacion = document.getElementById("ajusteObservacion").value.trim();
+    const nuevaCantidad = Number(textoCantidad);
+
+    if(textoCantidad === "" || isNaN(nuevaCantidad) || nuevaCantidad < 0){
+        mostrarErrorAjuste("Ingresa una cantidad numérica válida.");
+        return;
+    }
+
+    if(nuevaCantidad > fila.programada){
+        mostrarErrorAjuste("La Ctd. Atendida no puede ser mayor que la Ctd. Programada (" + formatearNumeroFarmacia(fila.programada) + ").");
+        return;
+    }
+
+    const quitaAjuste = nuevaCantidad === fila.programada;
+
+    if(!quitaAjuste && !observacion){
+        mostrarErrorAjuste("Escribe el motivo del ajuste.");
+        document.getElementById("ajusteObservacion").focus();
+        return;
+    }
+
+    const cuerpo = quitaAjuste
+        ? { cantidad_atendida: null, observacion_atendida: null, atendida_por: null, atendida_en: null }
+        : {
+            cantidad_atendida: nuevaCantidad,
+            observacion_atendida: observacion,
+            atendida_por: (sesion && (sesion.nombre_completo || sesion.usuario)) || "",
+            atendida_en: new Date().toISOString()
+        };
+
+    const btnGuardar = document.getElementById("btnGuardarAjuste");
+    btnGuardar.disabled = true;
+
+    try{
+
+        const respuesta = await supabaseFetch(
+            "/farmacia_data?viaje=eq." + fila.viaje + "&orden_compra=eq." + fila.oc + "&codigo=eq." + encodeURIComponent(fila.codigo),
+            {
+                method: "PATCH",
+                headers: { "Prefer": "return=representation" },
+                body: JSON.stringify(cuerpo)
+            }
+        );
+
+        if(!respuesta || !respuesta.length){
+            mostrarErrorAjuste("No se encontró la fila de ese código/viaje/OC en la carga.");
+            btnGuardar.disabled = false;
+            return;
+        }
+
+        cerrarModalAjuste();
+        mostrarToast(quitaAjuste ? "Ajuste quitado: Ctd. Atendida = Ctd. Programada." : "Ctd. Atendida ajustada.", "exito");
+        buscarResumenCodigo();
+        _ocsDataFinalCargadas = false;
+
+    }catch(err){
+        console.error(err);
+        mostrarErrorAjuste("No se pudo guardar el ajuste.");
+        btnGuardar.disabled = false;
+    }
+
+}
+
+document.getElementById("btnGuardarAjuste").addEventListener("click", guardarAjusteAtendida);
+document.getElementById("btnCancelarAjuste").addEventListener("click", cerrarModalAjuste);
+document.getElementById("modalAjusteFondo").addEventListener("click", cerrarModalAjuste);
+
+document.addEventListener("keydown", function(e){
+    if(e.key === "Escape" && !document.getElementById("modalAjuste").classList.contains("oculto")){
+        cerrarModalAjuste();
+    }
+});
 
 document.getElementById("btnExportarLecturas").addEventListener("click", async function(){
 
