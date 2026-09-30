@@ -1665,7 +1665,7 @@ async function buscarResumenCodigo(){
             }
 
             if(g.pistoleada > g.solicitada){
-                observaciones.push("Diferencia de cantidad (se pistoleó más de lo solicitado)");
+                observaciones.push("Diferencia de cantidad (la cantidad atendida supera la solicitada)");
             }
 
             const tvu = tvuPorCodigo[String(g.codigo).trim()];
