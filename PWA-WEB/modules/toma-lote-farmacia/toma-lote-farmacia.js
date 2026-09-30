@@ -1076,33 +1076,50 @@ cargarResumenExistente();
 let _viajesLecturasCargados = false;
 let _ultimasLecturas = [];
 
+// Rearma las opciones de un desplegable de Viaje: deja la primera
+// opción fija (value="", "Todos"/"Selecciona..."), borra las demás y
+// vuelve a poner solo los viajes que existen hoy. Así, al refrescar
+// (después de guardar/eliminar/subir un viaje) no se duplican ni
+// quedan viajes que ya no están. Si el viaje elegido sigue existiendo,
+// se mantiene seleccionado.
+function llenarSelectViajes(cmb, viajes){
+
+    const seleccionadoAntes = cmb.value;
+
+    cmb.querySelectorAll("option:not([value=''])").forEach(op => op.remove());
+
+    viajes.forEach(function(v){
+        const option = document.createElement("option");
+        option.value = String(v);
+        option.textContent = String(v);
+        cmb.appendChild(option);
+    });
+
+    cmb.value = viajes.map(String).includes(seleccionadoAntes) ? seleccionadoAntes : "";
+
+}
+
 async function cargarViajesParaFiltro(){
 
     if(_viajesLecturasCargados){
         return;
     }
 
+    _viajesLecturasCargados = true;
+
     try{
 
-        const filas = await supabaseFetch("/farmacia_data?select=viaje");
+        const filas = await supabaseFetchTodo("/farmacia_data?select=viaje");
 
         const viajes = [...new Set((filas || []).map(f => f.viaje))]
             .filter(v => v !== null && v !== undefined)
             .sort((a, b) => a - b);
 
-        const cmb = document.getElementById("cmbViajeLecturas");
-
-        viajes.forEach(function(v){
-            const option = document.createElement("option");
-            option.value = String(v);
-            option.textContent = String(v);
-            cmb.appendChild(option);
-        });
-
-        _viajesLecturasCargados = true;
+        llenarSelectViajes(document.getElementById("cmbViajeLecturas"), viajes);
 
     }catch(e){
         console.error(e);
+        _viajesLecturasCargados = false;
     }
 
     await cargarOcsParaFiltroLecturas();
@@ -3431,6 +3448,8 @@ async function cargarViajesFiltroStock(){
         return;
     }
 
+    _viajesFiltroStockCargados = true;
+
     try{
 
         const filas = await supabaseFetchTodo("/stock_fisico_sap?select=viaje");
@@ -3439,17 +3458,11 @@ async function cargarViajesFiltroStock(){
             .filter(v => v !== null && v !== undefined)
             .sort((a, b) => a - b);
 
-        viajes.forEach(function(v){
-            const option = document.createElement("option");
-            option.value = String(v);
-            option.textContent = String(v);
-            cmbViajeFiltroStock.appendChild(option);
-        });
-
-        _viajesFiltroStockCargados = true;
+        llenarSelectViajes(cmbViajeFiltroStock, viajes);
 
     }catch(e){
         console.error(e);
+        _viajesFiltroStockCargados = false;
     }
 
 }
@@ -3538,6 +3551,8 @@ async function cargarViajesParaCruce(){
         return;
     }
 
+    _viajesCruceCargados = true;
+
     try{
 
         const filas = await supabaseFetchTodo("/farmacia_data?select=viaje");
@@ -3546,17 +3561,11 @@ async function cargarViajesParaCruce(){
             .filter(v => v !== null && v !== undefined)
             .sort((a, b) => a - b);
 
-        viajes.forEach(function(v){
-            const option = document.createElement("option");
-            option.value = String(v);
-            option.textContent = String(v);
-            cmbViajeCruce.appendChild(option);
-        });
-
-        _viajesCruceCargados = true;
+        llenarSelectViajes(cmbViajeCruce, viajes);
 
     }catch(e){
         console.error(e);
+        _viajesCruceCargados = false;
     }
 
 }
