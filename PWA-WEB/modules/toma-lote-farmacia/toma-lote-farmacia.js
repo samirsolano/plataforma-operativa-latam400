@@ -638,10 +638,19 @@ archivoReemplazarViaje.addEventListener("change", async function(e){
 
         }
 
-        const confirmado = confirm(
-            "¿Reemplazar los datos del viaje " + viaje + " con este archivo (" +
-            filasNormalizadas.length + " filas)?"
-        );
+        const confirmado = await confirmarFarmacia({
+            titulo: "Reemplazar viaje " + viaje,
+            textoAceptar: "Reemplazar",
+            mensajeHtml:
+                "Se reemplazará la plantilla de este viaje con el archivo:" +
+                "<ul>" +
+                    "<li><strong>" + escaparHtmlFarmacia(archivo.name) + "</strong></li>" +
+                    "<li>" + filasNormalizadas.length + " códigos</li>" +
+                "</ul>" +
+                "<div class=\"modal-confirmar-aviso\">" +
+                    "Los ajustes de Ctd. Atendida de este viaje se pierden. Las lecturas, la OC Portal y el Stock SAP se mantienen." +
+                "</div>"
+        });
 
         if(!confirmado){
             archivoReemplazarViaje.value = "";
@@ -857,10 +866,20 @@ document.getElementById("tblViajes").addEventListener("click", async function(e)
 
         cerrarMenusAcciones(null);
 
-        const confirmado = confirm(
-            "¿Eliminar por completo el viaje " + viaje + "? Esto borra todos sus códigos, OC, lecturas, " +
-            "stock físico y su estado (en todas las pestañas). No se puede deshacer."
-        );
+        const confirmado = await confirmarFarmacia({
+            titulo: "Eliminar viaje " + viaje,
+            textoAceptar: "Eliminar viaje",
+            mensajeHtml:
+                "Se borrará todo lo del viaje en todas las pestañas:" +
+                "<ul>" +
+                    "<li>Plantilla, lecturas y estado</li>" +
+                    "<li>OC Portal, canal y Data Final de sus OC</li>" +
+                    "<li>Stock Físico SAP</li>" +
+                "</ul>" +
+                "<div class=\"modal-confirmar-aviso\">" +
+                    "No se guarda en la Base de Datos y no se puede deshacer." +
+                "</div>"
+        });
 
         if(!confirmado){
             return;
@@ -880,11 +899,15 @@ document.getElementById("tblViajes").addEventListener("click", async function(e)
             const ocsDelViaje = [...new Set((filasDelViaje || []).map(f => f.orden_compra))]
                 .filter(v => v !== null && v !== undefined);
 
+            // Igual que "Guardar en Base de Datos": también se borran el
+            // Canal de sus OC y el registro de Data Final generada. Si
+            // quedaran, al volver a cargar esa OC en otro viaje parecería
+            // que ya tiene su Data Final (y dejaría finalizar sin ella).
             if(ocsDelViaje.length){
-                await supabaseFetch(
-                    "/oc_portal_cliente?oc=in.(" + ocsDelViaje.join(",") + ")",
-                    { method: "DELETE" }
-                );
+                const listaOcs = ocsDelViaje.join(",");
+                await supabaseFetch("/oc_portal_cliente?oc=in.(" + listaOcs + ")", { method: "DELETE" });
+                await supabaseFetch("/oc_canal?oc=in.(" + listaOcs + ")", { method: "DELETE" });
+                await supabaseFetch("/data_final_generada?oc=in.(" + listaOcs + ")", { method: "DELETE" });
             }
 
             await supabaseFetch("/farmacia_lecturas?viaje=eq." + viaje, { method: "DELETE" });
@@ -2102,7 +2125,29 @@ document.getElementById("tblResumenCodigo").addEventListener("click", async func
         const id = botonEliminar.dataset.id;
         const viaje = botonEliminar.dataset.viaje;
 
-        if(!confirm("¿Eliminar esta lectura? Esta acción no se puede deshacer.")){
+        // Detalle de la lectura desde su fila: Cantidad, Lote, F.V., Registrado por.
+        const celdas = botonEliminar.closest("tr").cells;
+        const detalleLectura = celdas.length >= 4
+            ? "<ul>" +
+                "<li>Lote: <strong>" + escaparHtmlFarmacia(celdas[1].textContent) + "</strong></li>" +
+                "<li>Cajas: " + escaparHtmlFarmacia(celdas[0].textContent) + "</li>" +
+                "<li>F.V.: " + escaparHtmlFarmacia(celdas[2].textContent) +
+                " · Registrado por: " + escaparHtmlFarmacia(celdas[3].textContent) + "</li>" +
+              "</ul>"
+            : "";
+
+        const confirmadoLectura = await confirmarFarmacia({
+            titulo: "Eliminar lectura",
+            textoAceptar: "Eliminar lectura",
+            mensajeHtml:
+                "Se eliminará esta lectura" + (viaje ? " del viaje " + escaparHtmlFarmacia(viaje) : "") + ":" +
+                detalleLectura +
+                "<div class=\"modal-confirmar-aviso\">" +
+                    "No se puede deshacer. Si el viaje estaba Cerrado o Finalizado, puede volver a Activo." +
+                "</div>"
+        });
+
+        if(!confirmadoLectura){
             return;
         }
 
@@ -2748,10 +2793,17 @@ archivoOcPortal.addEventListener("change", async function(e){
 
         if(existentes && existentes.length){
 
-            const confirmado = confirm(
-                "Ya hay datos cargados para la OC " + ocSeleccionada +
-                ". ¿Deseas reemplazarlos con este archivo (" + filasNormalizadas.length + " filas)?"
-            );
+            const confirmado = await confirmarFarmacia({
+                titulo: "Reemplazar OC " + ocSeleccionada,
+                textoAceptar: "Reemplazar",
+                mensajeHtml:
+                    "Esta OC ya tiene datos cargados. Se reemplazarán con el archivo:" +
+                    "<ul>" +
+                        "<li><strong>" + escaparHtmlFarmacia(archivo.name) + "</strong></li>" +
+                        "<li>" + filasNormalizadas.length + " líneas</li>" +
+                    "</ul>" +
+                    "<div class=\"modal-confirmar-aviso\">Las líneas actuales de esta OC se borran.</div>"
+            });
 
             if(!confirmado){
                 nombreArchivoOc.textContent = "-";
@@ -3553,10 +3605,17 @@ archivoStock.addEventListener("change", async function(e){
 
         if(existentes && existentes.length){
 
-            const confirmado = confirm(
-                "Ya hay stock físico cargado para el Viaje " + viajeSeleccionado +
-                ". ¿Deseas reemplazarlo con este archivo (" + filasNormalizadas.length + " filas)?"
-            );
+            const confirmado = await confirmarFarmacia({
+                titulo: "Reemplazar Stock SAP del viaje " + viajeSeleccionado,
+                textoAceptar: "Reemplazar",
+                mensajeHtml:
+                    "Este viaje ya tiene Stock Físico SAP cargado. Se reemplazará con el archivo:" +
+                    "<ul>" +
+                        "<li><strong>" + escaparHtmlFarmacia(archivo.name) + "</strong></li>" +
+                        "<li>" + filasNormalizadas.length + " filas</li>" +
+                    "</ul>" +
+                    "<div class=\"modal-confirmar-aviso\">El stock actual de este viaje se borra.</div>"
+            });
 
             if(!confirmado){
                 nombreArchivoStock.textContent = "-";
@@ -4074,7 +4133,7 @@ async function generarDataFinal(){
         ]);
 
         if(!lecturasFilas || !lecturasFilas.length){
-            tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">Esa OC todavía no tiene lecturas escaneadas.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">Esa OC todavía no tiene lecturas registradas.</td></tr>`;
             _ultimaDataFinal = [];
             return;
         }
@@ -4415,11 +4474,11 @@ async function buscarCruceLotesSap(){
             });
 
             if(lotesConProblema.length){
-                observaciones.push(lotesConProblema.length + " lote(s) de SAP no coinciden con lo escaneado");
+                observaciones.push(lotesConProblema.length + " lote(s) de SAP no coinciden con lo registrado");
             }
 
             if(g.ctdSap !== g.ctdPistoleada){
-                observaciones.push("Cantidad no coincide (SAP " + g.ctdSap + " vs pistoleado " + g.ctdPistoleada + ")");
+                observaciones.push("Cantidad no coincide (SAP " + g.ctdSap + " vs registrado " + g.ctdPistoleada + ")");
             }
 
             const lotesSapUnicos = [...new Set(g.filasSap.map(f => f.lote).filter(Boolean))];
@@ -4860,7 +4919,7 @@ function calcularCruceLotesSnapshot(stockFilas, lecturasFilas){
         const lotesConProblema = g.filasSap.filter(f => f.lote && !g.lotesFisicos.has(String(f.lote).trim()));
 
         if(lotesConProblema.length){
-            observaciones.push(lotesConProblema.length + " lote(s) de SAP no coinciden con lo escaneado");
+            observaciones.push(lotesConProblema.length + " lote(s) de SAP no coinciden con lo registrado");
         }
 
         if(g.ctdSap !== g.ctdFisico){

@@ -260,7 +260,7 @@
 
                     <p class="nota-modulo">
                         Busca por viaje, OC, código, lote y/o estado para revisar lo que
-                        escanearon los auxiliares y ver la foto de evidencia de cada caja.
+                        registraron los auxiliares y ver la foto de evidencia de cada caja.
                     </p>
 
                     <div class="filtros-lecturas filtros-lecturas-6">
@@ -855,16 +855,10 @@
                     </div>
 
                     <p class="nota-modulo">
-                        Solo aparecen las OC que ya están completas: cruzadas exacto contra
-                        "Cruce de Información" (sin exceder ni faltar) y sin ninguna
-                        observación en el Resumen por Código de "Lecturas y Evidencias" (más
-                        de 3 lotes, vida útil, diferencia de cantidad). Selecciona la OC. Se toma
-                        lo escaneado en "Lecturas y Evidencias" para esa OC, se busca el código
-                        en "MARA Alicorp" para obtener su EAN, y con ese EAN se busca en
-                        "OC Portal Cliente" el Código Inkafarma (o Inretail/QS) real (el SKU).
-                        La cantidad escaneada (en cajas) se convierte a unidades con el factor de
-                        MARA Alicorp, y se arma el reporte final agrupado por SKU y Lote: No. OC,
-                        SKU, Cantidad (Unidades), No. Lote y Fecha Vto.
+                        Solo aparecen las OC listas: en cada código de SAP, la Registrada es igual a la
+                        Atendida, no pasa de la OC del cliente y no tiene observaciones (lotes, vida útil).<br>
+                        El SKU sale de la OC del cliente (vía el EAN de MARA) y la cantidad va en unidades
+                        (cajas × factor), agrupada por SKU y Lote.
                     </p>
 
                     <div class="filtros-mara">
@@ -902,7 +896,7 @@
 
                             <tr>
                                 <td colspan="5" class="sin-datos">
-                                    Selecciona el Viaje y la OC, y presiona "Generar Data Final".
+                                    Selecciona la OC y presiona "Generar Data Final".
                                 </td>
                             </tr>
 
@@ -927,14 +921,11 @@
                     </h2>
 
                     <p class="nota-modulo">
-                        Compara, por Código, el Lote y la cantidad que registra "Stock Físico
-                        SAP" (en cajas/bultos) contra lo realmente escaneado en
-                        "Lecturas y Evidencias" — lo físico es lo que vale. "Con
-                        observaciones": la cantidad no coincide, o algún Lote de SAP no aparece
-                        entre los Lotes escaneados de ese código — ese es el Lote que hay que
-                        cambiar en SAP. Haz clic en una fila para ver el detalle por Ubicación,
-                        con el Lote a cambiar, el/los Lote(s) físico(s) y la F.V. — la F.V. sale
-                        de lo escaneado en Lecturas, no del export de SAP (solo informativa).
+                        Compara por código el lote y las cajas de Stock Físico SAP contra lo registrado
+                        en Lecturas; lo físico es lo que vale.<br>
+                        <strong>Con observaciones:</strong> la cantidad no coincide o un lote de SAP no está
+                        entre los registrados (ese lote hay que cambiarlo en SAP). Haz clic en una fila para
+                        ver el detalle por ubicación.
                     </p>
 
                     <div class="filtros-lecturas">
@@ -979,7 +970,7 @@
                                 <th>Código</th>
                                 <th>Descripción</th>
                                 <th>Ctd. SAP (Cajas)</th>
-                                <th>Ctd. Pistoleada (Cajas)</th>
+                                <th>Ctd. Registrada (Cajas)</th>
                                 <th>Lotes SAP</th>
                                 <th>Estado</th>
 
