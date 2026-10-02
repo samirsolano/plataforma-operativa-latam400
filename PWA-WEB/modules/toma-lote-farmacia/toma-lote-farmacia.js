@@ -355,6 +355,56 @@ function normalizarFilaFarmacia(filaOriginal, archivo, cargadoPor){
 
 }
 
+// Todo código de la plantilla SAP tiene que existir en MARA Alicorp
+// (de ahí sale su EAN para cruzarlo con la OC del cliente, su factor y
+// su TVU). Si falta alguno, no se sube nada del archivo: se avisa qué
+// códigos hay que registrar primero en "MARA Alicorp".
+async function validarCodigosEnMara(filasNormalizadas){
+
+    const codigosArchivo = [...new Set(filasNormalizadas.map(f => String(f.codigo || "").trim()).filter(Boolean))];
+
+    const maraFilas = await supabaseFetchTodo("/mara_alicorp?select=codigo");
+    const codigosMara = new Set((maraFilas || []).map(m => String(m.codigo || "").trim()));
+
+    const faltantes = codigosArchivo.filter(c => !codigosMara.has(c)).sort();
+
+    if(!faltantes.length){
+        return true;
+    }
+
+    const descripcionPorCodigo = {};
+
+    filasNormalizadas.forEach(function(f){
+        const c = String(f.codigo || "").trim();
+        if(c && !descripcionPorCodigo[c]){
+            descripcionPorCodigo[c] = f.descripcion || "";
+        }
+    });
+
+    await confirmarFarmacia({
+        titulo: faltantes.length === 1
+            ? "Falta 1 código en la MARA Alicorp"
+            : "Faltan " + faltantes.length + " códigos en la MARA Alicorp",
+        textoAceptar: "Entendido",
+        soloAceptar: true,
+        mensajeHtml:
+            "No se subió nada del archivo. Estos códigos no están registrados en la MARA Alicorp:" +
+            "<ul>" +
+                faltantes.map(c =>
+                    "<li><strong>" + escaparHtmlFarmacia(c) + "</strong>" +
+                    (descripcionPorCodigo[c] ? " — " + escaparHtmlFarmacia(descripcionPorCodigo[c]) : "") +
+                    "</li>"
+                ).join("") +
+            "</ul>" +
+            "<div class=\"modal-confirmar-aviso\">" +
+                "Regístralos primero en \"MARA Alicorp\" y vuelve a subir la plantilla." +
+            "</div>"
+    });
+
+    return false;
+
+}
+
 async function guardarEnBloques(tabla, filas){
 
     const TAMANO_BLOQUE = 200;
@@ -403,6 +453,12 @@ archivoFarmacia.addEventListener("change", async function(e){
 
         if(!filasNormalizadas.length){
             mostrarToast("No se encontraron filas válidas en el archivo (revisa columnas VIAJE y CODIGO/SKU).", "error");
+            nombreArchivo.textContent = "-";
+            archivoFarmacia.value = "";
+            return;
+        }
+
+        if(!(await validarCodigosEnMara(filasNormalizadas))){
             nombreArchivo.textContent = "-";
             archivoFarmacia.value = "";
             return;
@@ -558,6 +614,11 @@ archivoReemplazarViaje.addEventListener("change", async function(e){
 
         if(!filasNormalizadas.length){
             mostrarToast("No se encontraron filas válidas en el archivo (revisa columnas VIAJE y CODIGO/SKU).", "error");
+            archivoReemplazarViaje.value = "";
+            return;
+        }
+
+        if(!(await validarCodigosEnMara(filasNormalizadas))){
             archivoReemplazarViaje.value = "";
             return;
         }
@@ -1043,6 +1104,11 @@ async function cargarResumenExistente(){
         );
 
         if(!filas || !filas.length){
+            // Ya no queda ningún viaje (se guardó o eliminó el
+            // último): se limpia la tabla para que no quede el viejo.
+            document.getElementById("totalRegistros").textContent = "0";
+            document.getElementById("totalViajes").textContent = "0";
+            cargarViajesReales([]);
             return;
         }
 
@@ -1245,6 +1311,120 @@ function cantidadAtendida(f){
     return Number(f.cantidad || 0);
 }
 
+// ========================================
+// CRUCE SAP vs OC DEL CLIENTE (regla única)
+// ========================================
+// Para UNA OC: cada código programado en SAP (farmacia_data) se busca
+// en la OC del cliente (oc_portal_cliente), vía el EAN de MARA
+// Alicorp. La usan Cruce de Información, los requisitos de Finalizado,
+// Data Final y el Excel de la Base de Datos, para que todos sigan la
+// misma regla:
+// - La OC puede pedir MÁS de lo que se manda (ej: OC 3000, se programa
+//   1000 y se atiende 950): no es problema.
+// - Lo único malo es PASARSE de la OC (no se puede mandar media caja,
+//   así que el tope es el múltiplo entero de cajas que entra en la OC).
+// - Códigos que la OC trae pero no se programaron en SAP: se ignoran.
+// - Códigos programados en SAP que NO están en la OC: observación.
+//
+// dataFilasOc: filas de farmacia_data de esa OC.
+// ocPortalFilasOc: filas de oc_portal_cliente de esa OC.
+// maraFilas: mara_alicorp (ean, codigo, descripcion, factor_unidad_alm).
+// cajasPorCodigo: { codigo: cajas registradas en esa OC }.
+function cruzarCodigosSapConOc(dataFilasOc, ocPortalFilasOc, maraFilas, cajasPorCodigo){
+
+    const maraPorEan = {};
+    const maraPorCodigo = {};
+
+    (maraFilas || []).forEach(function(m){
+        if(m.ean){
+            maraPorEan[String(m.ean).trim()] = m;
+        }
+        const c = String(m.codigo || "").trim();
+        if(c && !maraPorCodigo[c]){
+            maraPorCodigo[c] = m;
+        }
+    });
+
+    const programados = {};
+
+    (dataFilasOc || []).forEach(function(f){
+        const c = String(f.codigo || "").trim();
+        if(!c){
+            return;
+        }
+        if(!programados[c]){
+            programados[c] = { codigo: c, descripcion: f.descripcion || "", atendida: 0 };
+        }
+        programados[c].atendida += cantidadAtendida(f);
+    });
+
+    // Unidades que pide la OC por código (sumando sus líneas).
+    const ocPorCodigo = {};
+
+    (ocPortalFilasOc || []).forEach(function(row){
+        const ean = String(row.ean || "").trim();
+        const mara = maraPorEan[ean];
+        if(!mara){
+            return;
+        }
+        const c = String(mara.codigo || "").trim();
+        if(!programados[c]){
+            return; // está en la OC pero no se programó en SAP: se ignora
+        }
+        if(!ocPorCodigo[c]){
+            ocPorCodigo[c] = { ean: ean, unidades: 0, descripcion: row.descripcion_producto || "" };
+        }
+        ocPorCodigo[c].unidades += Number(row.cantidad_sku_solicitada || 0);
+    });
+
+    return Object.values(programados).map(function(g){
+
+        const mara = maraPorCodigo[g.codigo] || null;
+        const enOc = ocPorCodigo[g.codigo] || null;
+        const factor = mara ? (Number(mara.factor_unidad_alm) || null) : null;
+        const cajas = Number((cajasPorCodigo || {})[g.codigo] || 0);
+        const unidades = (factor && factor > 0) ? Math.round(cajas * factor) : null;
+
+        let estadoTexto;
+        let estadoClase;
+
+        if(!mara){
+            estadoTexto = "Sin MARA Alicorp";
+            estadoClase = "advertencia";
+        }else if(!enOc){
+            estadoTexto = "No está en la OC del cliente";
+            estadoClase = "advertencia";
+        }else if(!factor || factor <= 0){
+            estadoTexto = "Sin factor";
+            estadoClase = "advertencia";
+        }else if(cajas > Math.floor(enOc.unidades / factor)){
+            estadoTexto = "Excede la OC";
+            estadoClase = "pendiente";
+        }else{
+            estadoTexto = "Completo";
+            estadoClase = "activado";
+        }
+
+        return {
+            codigo: g.codigo,
+            descripcion: (mara && mara.descripcion) || g.descripcion || (enOc && enOc.descripcion) || "",
+            ean: enOc ? enOc.ean : (mara && mara.ean ? String(mara.ean).trim() : ""),
+            solicitadoOc: enOc ? enOc.unidades : null,
+            factor: factor,
+            atendida: g.atendida,
+            cajas: cajas,
+            unidades: unidades,
+            estadoTexto: estadoTexto,
+            estadoClase: estadoClase,
+            ok: estadoClase === "activado"
+        };
+
+    }).sort(function(a, b){
+        return String(a.codigo).localeCompare(String(b.codigo));
+    });
+
+}
+
 function mesesEntre(desde, hasta){
 
     let meses = (hasta.getFullYear() - desde.getFullYear()) * 12 + (hasta.getMonth() - desde.getMonth());
@@ -1384,14 +1564,9 @@ async function evaluarRequisitosViaje(viaje){
 
     const razones = [];
 
-    const [dataFilas, lecturasFilas, ocPortalFilas, maraFilas, stockFilas, dataFinalFilas] = await Promise.all([
-        supabaseFetchTodo("/farmacia_data?select=orden_compra,codigo,cantidad,cantidad_atendida&viaje=eq." + viaje),
-        supabaseFetchTodo("/farmacia_lecturas?select=oc,codigo,lote,fv,cantidad_cajas&viaje=eq." + viaje),
-        supabaseFetchTodo("/oc_portal_cliente?select=oc,ean,cantidad_sku_solicitada"),
-        supabaseFetchTodo("/mara_alicorp?select=ean,codigo,factor_unidad_alm,tvu"),
-        supabaseFetchTodo("/stock_fisico_sap?select=oc,producto,lote,cantidad_embalada&viaje=eq." + viaje),
-        supabaseFetchTodo("/data_final_generada?select=oc")
-    ]);
+    const dataFilas = await supabaseFetchTodo(
+        "/farmacia_data?select=orden_compra,codigo,descripcion,cantidad,cantidad_atendida&viaje=eq." + viaje
+    );
 
     const ocsDelViaje = [...new Set(
         (dataFilas || []).map(f => f.orden_compra).filter(v => v !== null && v !== undefined)
@@ -1400,6 +1575,18 @@ async function evaluarRequisitosViaje(viaje){
     if(!ocsDelViaje.length){
         return { listo: false, razones: ["El viaje no tiene OC cargadas."] };
     }
+
+    // Solo las OC de este viaje (no toda la tabla), para que no se
+    // vuelva lento a medida que se cargan más OC.
+    const listaOcs = ocsDelViaje.join(",");
+
+    const [lecturasFilas, ocPortalFilas, maraFilas, stockFilas, dataFinalFilas] = await Promise.all([
+        supabaseFetchTodo("/farmacia_lecturas?select=oc,codigo,lote,fv,cantidad_cajas&viaje=eq." + viaje),
+        supabaseFetchTodo("/oc_portal_cliente?select=oc,ean,cantidad_sku_solicitada,descripcion_producto&oc=in.(" + listaOcs + ")"),
+        supabaseFetchTodo("/mara_alicorp?select=ean,codigo,descripcion,factor_unidad_alm,tvu"),
+        supabaseFetchTodo("/stock_fisico_sap?select=oc,producto,lote,cantidad_embalada&viaje=eq." + viaje),
+        supabaseFetchTodo("/data_final_generada?select=oc&oc=in.(" + listaOcs + ")")
+    ]);
 
     const tvuPorCodigo = {};
 
@@ -1488,26 +1675,6 @@ async function evaluarRequisitosViaje(viaje){
 
     // ---- 3. Cruce de Información sin problemas, por cada OC ----
 
-    const maraPorEan = {};
-
-    (maraFilas || []).forEach(function(m){
-        if(m.ean){
-            maraPorEan[String(m.ean).trim()] = m;
-        }
-    });
-
-    const codigosSapPorOc = {};
-
-    (dataFilas || []).forEach(function(f){
-        if(!f.codigo || f.orden_compra === null || f.orden_compra === undefined){
-            return;
-        }
-        if(!codigosSapPorOc[f.orden_compra]){
-            codigosSapPorOc[f.orden_compra] = new Set();
-        }
-        codigosSapPorOc[f.orden_compra].add(String(f.codigo).trim());
-    });
-
     const escaneadoCajasPorOcCodigo = {};
 
     (lecturasFilas || []).forEach(function(l){
@@ -1524,33 +1691,24 @@ async function evaluarRequisitosViaje(viaje){
             return; // ya se avisó en el punto 2
         }
 
-        const codigosSap = codigosSapPorOc[oc] || new Set();
+        const cajasPorCodigo = {};
 
-        (ocPortalFilas || []).filter(row => row.oc === oc).forEach(function(row){
-
-            const ean = String(row.ean || "").trim();
-            const mara = maraPorEan[ean] || null;
-            const codigo = mara ? String(mara.codigo || "").trim() : null;
-
-            if(!codigo || !codigosSap.has(codigo)){
-                return;
+        Object.keys(escaneadoCajasPorOcCodigo).forEach(function(clave){
+            const partes = clave.split("|");
+            if(String(partes[0]) === String(oc)){
+                cajasPorCodigo[partes[1]] = escaneadoCajasPorOcCodigo[clave];
             }
+        });
 
-            const factor = mara ? Number(mara.factor_unidad_alm) : null;
-            const solicitado = Number(row.cantidad_sku_solicitada || 0);
-
-            if(!factor || factor <= 0){
-                razones.push("Cruce OC " + oc + " código " + codigo + ": sin factor de MARA Alicorp.");
-                return;
+        cruzarCodigosSapConOc(
+            (dataFilas || []).filter(f => f.orden_compra === oc),
+            (ocPortalFilas || []).filter(row => row.oc === oc),
+            maraFilas,
+            cajasPorCodigo
+        ).forEach(function(c){
+            if(!c.ok){
+                razones.push("Cruce OC " + oc + " código " + c.codigo + ": " + c.estadoTexto + ".");
             }
-
-            const escaneadoCajas = escaneadoCajasPorOcCodigo[oc + "|" + codigo] || 0;
-            const cajasMaxSinExceder = Math.floor(solicitado / factor);
-
-            if(escaneadoCajas > cajasMaxSinExceder){
-                razones.push("Cruce OC " + oc + " código " + codigo + ": excede lo solicitado.");
-            }
-
         });
 
     });
@@ -2718,212 +2876,143 @@ document.getElementById("btnBuscarOcPortal").addEventListener("click", buscarOcP
 // MARA ALICORP
 // ========================================
 // Acá "codigo" coincide directo con el CODIGO/SKU que se usa en el
-// resto del módulo. Reusa mostrarToast, sesion, guardarEnBloques,
-// sinTildes y supabaseFetchTodo (definidos arriba).
+// resto del módulo. Ya no hay carga masiva: los códigos se registran
+// y eliminan uno por uno. El EAN debe ser EAN-13 (13 dígitos) y no se
+// puede repetir, porque es la llave para cruzar con la OC del cliente.
 
-document.getElementById("btnDescargarPlantillaAlicorp").addEventListener("click", function(){
+// ---- Registrar UN código en MARA Alicorp ----
 
-    const encabezados = [
-        "codigo", "Decripción de material", "Código EAN/UPC", "Factor Unid. de Alm.",
-        "Und. de almacenamiento", "TVU"
-    ];
+function errorRegistrarMara(mensaje){
+    const caja = document.getElementById("registrarMaraError");
+    caja.textContent = mensaje || "";
+    caja.classList.toggle("oculto", !mensaje);
+}
 
-    const filasEjemplo = [
-        [8321091, "SHAMPOO REPARADOR AMARAS 12FCO 400ML", "7750243073837", 12, "CJA", 24],
-        [8301104, "CEP DENTO GALAXY NIÑOS 14UND 6DSP", "7751851007931", 84, "CJA", 24]
-    ];
+function abrirModalRegistrarMara(){
+    ["nuevoMaraCodigo", "nuevoMaraDescripcion", "nuevoMaraEan", "nuevoMaraFactor", "nuevoMaraTvu"]
+        .forEach(id => document.getElementById(id).value = "");
+    document.getElementById("nuevoMaraUnidad").value = "CJA";
+    errorRegistrarMara("");
+    document.getElementById("modalRegistrarMara").classList.remove("oculto");
+    document.getElementById("nuevoMaraCodigo").focus();
+}
 
-    const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filasEjemplo]);
-    const libro = XLSX.utils.book_new();
+function cerrarModalRegistrarMara(){
+    document.getElementById("modalRegistrarMara").classList.add("oculto");
+}
 
-    XLSX.utils.book_append_sheet(libro, hoja, "MARA ALICORP");
+document.getElementById("btnAbrirRegistrarMara").addEventListener("click", abrirModalRegistrarMara);
+document.getElementById("btnCancelarRegistrarMara").addEventListener("click", cerrarModalRegistrarMara);
+document.getElementById("modalRegistrarMaraFondo").addEventListener("click", cerrarModalRegistrarMara);
 
-    XLSX.writeFile(libro, "PLANTILLA_MARA_ALICORP.xlsx");
-
+document.getElementById("modalRegistrarMara").addEventListener("keydown", function(e){
+    if(e.key === "Escape"){
+        cerrarModalRegistrarMara();
+    }
+    if(e.key === "Enter"){
+        agregarCodigoMara();
+    }
 });
 
-const archivoAlicorp = document.getElementById("archivoAlicorp");
-const nombreArchivoAlicorp = document.getElementById("nombreArchivoAlicorp");
-const fechaArchivoAlicorp = document.getElementById("fechaArchivoAlicorp");
+async function agregarCodigoMara(){
 
-async function leerFilasAlicorpExcel(archivo){
+    const boton = document.getElementById("btnAgregarMaraCodigo");
 
-    const buffer = await archivo.arrayBuffer();
-    const libro = XLSX.read(buffer, { type: "array" });
-
-    const hoja = libro.Sheets[libro.SheetNames[0]];
-
-    return XLSX.utils.sheet_to_json(hoja, { defval: "" });
-
-}
-
-// El nombre exacto de las columnas de descripción/EAN/factor/unidad
-// varía según cómo lo exporten (p.ej. "Decripción" sin la "s"), así
-// que se aceptan varios nombres candidatos por campo. Solo "codigo"
-// es realmente obligatorio.
-function valorPorCandidatos(mapaFila, candidatos){
-
-    for(let i = 0; i < candidatos.length; i++){
-        if(mapaFila[candidatos[i]] !== undefined){
-            return mapaFila[candidatos[i]];
-        }
-    }
-
-    return "";
-
-}
-
-function validarFormatoAlicorp(filasCrudas){
-
-    if(!filasCrudas.length){
-        return "El archivo está vacío.";
-    }
-
-    const columnasArchivo = Object.keys(filasCrudas[0]).map(c => sinTildes(c).trim().toLowerCase());
-
-    if(!columnasArchivo.includes("codigo")){
-        return "Este archivo no tiene el formato del maestro Alicorp. Falta la columna: CODIGO.";
-    }
-
-    const candidatosDescripcion = ["descripcion de material", "decripcion de material", "descripcion"];
-
-    if(!candidatosDescripcion.some(c => columnasArchivo.includes(c))){
-        return "Este archivo no tiene el formato del maestro Alicorp. Falta la columna de descripción del material.";
-    }
-
-    return null;
-
-}
-
-function normalizarFilaAlicorp(filaOriginal, archivo, cargadoPor){
-
-    const mapaFila = {};
-
-    Object.keys(filaOriginal).forEach(function(clave){
-        mapaFila[sinTildes(clave).trim().toLowerCase()] = filaOriginal[clave];
-    });
-
-    function texto(candidatos){
-        const v = valorPorCandidatos(mapaFila, candidatos);
-        return (v === undefined || v === null) ? "" : String(v).trim();
-    }
-
-    function num(candidatos){
-        const v = valorPorCandidatos(mapaFila, candidatos);
-        const n = Number(v);
-        return (v === "" || v === undefined || isNaN(n)) ? null : n;
-    }
-
-    return {
-        codigo: texto(["codigo"]),
-        descripcion: texto(["descripcion de material", "decripcion de material", "descripcion"]),
-        ean: texto(["codigo ean/upc", "ean/upc", "ean"]),
-        factor_unidad_alm: num(["factor unid. de alm.", "factor unid de alm", "factor unidad de almacenamiento"]),
-        unidad_almacenamiento: texto(["und. de almacenamiento", "und de almacenamiento", "unidad de almacenamiento"]),
-        tvu: num(["tvu"]),
-        archivo_origen: archivo,
-        cargado_por: cargadoPor
-    };
-
-}
-
-archivoAlicorp.addEventListener("change", async function(e){
-
-    const archivo = e.target.files[0];
-
-    if(!archivo){
+    if(boton.disabled){
         return;
     }
 
-    nombreArchivoAlicorp.textContent = "Leyendo " + archivo.name + "...";
+    const codigo = document.getElementById("nuevoMaraCodigo").value.trim();
+    const descripcion = document.getElementById("nuevoMaraDescripcion").value.trim();
+    const ean = document.getElementById("nuevoMaraEan").value.trim();
+    const factor = Number(document.getElementById("nuevoMaraFactor").value);
+    const unidad = document.getElementById("nuevoMaraUnidad").value.trim();
+    const tvuTexto = document.getElementById("nuevoMaraTvu").value.trim();
+    const tvu = tvuTexto === "" ? null : Number(tvuTexto);
+
+    if(!codigo || !descripcion || !ean){
+        errorRegistrarMara("Completa Código, Descripción y EAN/UPC.");
+        return;
+    }
+
+    if(!/^\d{13}$/.test(ean)){
+        errorRegistrarMara("El EAN debe tener exactamente 13 dígitos (tiene " + ean.length + ").");
+        return;
+    }
+
+    if(!factor || factor <= 0 || !Number.isInteger(factor)){
+        errorRegistrarMara("El Factor Unid. Alm. debe ser un número entero mayor a 0.");
+        return;
+    }
+
+    if(tvu !== null && (!tvu || tvu <= 0)){
+        errorRegistrarMara("El TVU debe ser un número mayor a 0 (o déjalo vacío).");
+        return;
+    }
+
+    errorRegistrarMara("");
+    boton.disabled = true;
 
     try{
 
-        const filasCrudas = await leerFilasAlicorpExcel(archivo);
+        const [porCodigo, porEan] = await Promise.all([
+            supabaseFetch("/mara_alicorp?select=codigo&codigo=eq." + encodeURIComponent(codigo) + "&limit=1"),
+            supabaseFetch("/mara_alicorp?select=codigo&ean=eq." + encodeURIComponent(ean) + "&limit=1")
+        ]);
 
-        const errorFormato = validarFormatoAlicorp(filasCrudas);
-
-        if(errorFormato){
-            mostrarToast(errorFormato, "error");
-            nombreArchivoAlicorp.textContent = "-";
-            archivoAlicorp.value = "";
+        if(porCodigo && porCodigo.length){
+            errorRegistrarMara("El código " + codigo + " ya está en la MARA Alicorp.");
             return;
         }
 
-        const cargadoPor = (sesion && (sesion.nombre_completo || sesion.usuario)) || "";
-
-        const filasNormalizadas = filasCrudas
-            .map(f => normalizarFilaAlicorp(f, archivo.name, cargadoPor))
-            .filter(f => f.codigo && f.descripcion);
-
-        if(!filasNormalizadas.length){
-            mostrarToast("No se encontraron filas válidas en el archivo (revisa las columnas CODIGO y DESCRIPCION).", "error");
-            nombreArchivoAlicorp.textContent = "-";
-            archivoAlicorp.value = "";
+        if(porEan && porEan.length){
+            errorRegistrarMara("El EAN " + ean + " ya está registrado con el código " + porEan[0].codigo + ".");
             return;
         }
 
-        const existentes = await supabaseFetch("/mara_alicorp?select=id&limit=1");
+        await supabaseFetch("/mara_alicorp", {
+            method: "POST",
+            body: JSON.stringify({
+                codigo: codigo,
+                descripcion: descripcion,
+                ean: ean,
+                factor_unidad_alm: factor,
+                unidad_almacenamiento: unidad,
+                tvu: tvu,
+                archivo_origen: "Registro manual",
+                cargado_por: (sesion && (sesion.nombre_completo || sesion.usuario)) || ""
+            })
+        });
 
-        if(existentes && existentes.length){
+        cerrarModalRegistrarMara();
+        mostrarToast("Código " + codigo + " registrado en la MARA Alicorp.", "exito");
 
-            const confirmado = confirm(
-                "Ya hay un maestro Alicorp cargado. ¿Deseas reemplazarlo con este archivo (" +
-                filasNormalizadas.length + " filas)?"
-            );
+        document.getElementById("filtroCodigoAlicorp").value = codigo;
+        document.getElementById("filtroDescripcionAlicorp").value = "";
 
-            if(!confirmado){
-                nombreArchivoAlicorp.textContent = "-";
-                archivoAlicorp.value = "";
-                return;
-            }
-
-            await supabaseFetch("/mara_alicorp?id=gt.0", { method: "DELETE" });
-
-        }
-
-        nombreArchivoAlicorp.textContent = "Guardando " + archivo.name + "...";
-
-        await guardarEnBloques("mara_alicorp", filasNormalizadas);
-
-        nombreArchivoAlicorp.textContent = archivo.name;
-        fechaArchivoAlicorp.textContent = new Date().toLocaleDateString("es-PE");
-
-        document.getElementById("totalRegistrosAlicorp").textContent =
-            filasNormalizadas.length.toLocaleString("es-PE");
-
-        mostrarToast("Maestro Alicorp cargado: " + filasNormalizadas.length + " filas.", "exito");
-
+        cargarResumenExistenteAlicorp();
+        buscarAlicorp();
         _ocsDataFinalCargadas = false;
 
     }catch(err){
-
         console.error(err);
-        mostrarToast("No se pudo cargar el archivo: " + err.message, "error");
-        nombreArchivoAlicorp.textContent = "-";
-        archivoAlicorp.value = "";
-
+        errorRegistrarMara("No se pudo registrar el código: " + err.message);
+    }finally{
+        boton.disabled = false;
     }
 
-});
+}
+
+document.getElementById("btnAgregarMaraCodigo").addEventListener("click", agregarCodigoMara);
 
 async function cargarResumenExistenteAlicorp(){
 
     try{
 
-        const filas = await supabaseFetchTodo(
-            "/mara_alicorp?select=id,archivo_origen,created_at&order=created_at.desc"
-        );
-
-        if(!filas || !filas.length){
-            return;
-        }
+        const filas = await supabaseFetchTodo("/mara_alicorp?select=id");
 
         document.getElementById("totalRegistrosAlicorp").textContent =
-            filas.length.toLocaleString("es-PE");
-
-        nombreArchivoAlicorp.textContent = filas[0].archivo_origen || "-";
-        fechaArchivoAlicorp.textContent = new Date(filas[0].created_at).toLocaleDateString("es-PE");
+            (filas || []).length.toLocaleString("es-PE");
 
     }catch(e){
         console.error(e);
@@ -2937,11 +3026,11 @@ async function buscarAlicorp(){
     const descripcion = document.getElementById("filtroDescripcionAlicorp").value.trim();
 
     const tbody = document.getElementById("tblAlicorp");
-    tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">Cargando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Cargando...</td></tr>`;
 
     try{
 
-        let ruta = "/mara_alicorp?select=codigo,descripcion,ean,factor_unidad_alm,unidad_almacenamiento,tvu&order=descripcion.asc";
+        let ruta = "/mara_alicorp?select=id,codigo,descripcion,ean,factor_unidad_alm,unidad_almacenamiento,tvu&order=descripcion.asc";
 
         if(codigo){
             ruta += "&codigo=ilike.*" + encodeURIComponent(codigo) + "*";
@@ -2956,7 +3045,7 @@ async function buscarAlicorp(){
         tbody.innerHTML = "";
 
         if(!filas || !filas.length){
-            tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se encontraron materiales con esos filtros.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">No se encontraron materiales con esos filtros.</td></tr>`;
             return;
         }
 
@@ -2965,12 +3054,13 @@ async function buscarAlicorp(){
             const tr = document.createElement("tr");
 
             tr.innerHTML = `
-                <td>${f.codigo || "-"}</td>
-                <td>${f.descripcion || "-"}</td>
-                <td>${f.ean || "-"}</td>
+                <td>${escaparHtmlFarmacia(f.codigo || "-")}</td>
+                <td>${escaparHtmlFarmacia(f.descripcion || "-")}</td>
+                <td>${escaparHtmlFarmacia(f.ean || "-")}</td>
                 <td>${f.factor_unidad_alm || "-"}</td>
-                <td>${f.unidad_almacenamiento || "-"}</td>
+                <td>${escaparHtmlFarmacia(f.unidad_almacenamiento || "-")}</td>
                 <td>${f.tvu || "-"}</td>
+                <td><button class="btn-eliminar-mara" data-id="${f.id}" data-codigo="${escaparHtmlFarmacia(f.codigo || "")}" data-descripcion="${escaparHtmlFarmacia(f.descripcion || "")}">Eliminar</button></td>
             `;
 
             tbody.appendChild(tr);
@@ -2980,13 +3070,86 @@ async function buscarAlicorp(){
     }catch(e){
 
         console.error(e);
-        tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se pudo cargar el maestro Alicorp.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">No se pudo cargar el maestro Alicorp.</td></tr>`;
 
     }
 
 }
 
 document.getElementById("btnBuscarAlicorp").addEventListener("click", buscarAlicorp);
+
+// ---- Eliminar UN código de MARA Alicorp ----
+// No se deja eliminar un código que está en un viaje cargado: ese viaje
+// quedaría sin EAN/factor/TVU y su cruce saldría "Sin MARA Alicorp".
+
+document.getElementById("tblAlicorp").addEventListener("click", async function(e){
+
+    const boton = e.target.closest(".btn-eliminar-mara");
+
+    if(!boton){
+        return;
+    }
+
+    const id = boton.dataset.id;
+    const codigo = boton.dataset.codigo;
+    const descripcion = boton.dataset.descripcion;
+
+    boton.disabled = true;
+
+    try{
+
+        const usos = await supabaseFetchTodo(
+            "/farmacia_data?select=viaje&codigo=eq." + encodeURIComponent(codigo)
+        );
+
+        const viajesQueLoUsan = [...new Set((usos || []).map(u => u.viaje))];
+
+        if(viajesQueLoUsan.length){
+            await confirmarFarmacia({
+                titulo: "No se puede eliminar el código " + codigo,
+                textoAceptar: "Entendido",
+                soloAceptar: true,
+                mensajeHtml:
+                    "Este código está en " + (viajesQueLoUsan.length === 1 ? "el viaje" : "los viajes") +
+                    " <strong>" + viajesQueLoUsan.map(v => escaparHtmlFarmacia(v)).join(", ") + "</strong>." +
+                    "<div class=\"modal-confirmar-aviso\" style=\"margin-top:12px\">" +
+                        "Primero guarda o elimina " + (viajesQueLoUsan.length === 1 ? "ese viaje" : "esos viajes") +
+                        "; si no, se quedarían sin datos de MARA para el cruce." +
+                    "</div>"
+            });
+            return;
+        }
+
+        const confirmado = await confirmarFarmacia({
+            titulo: "Eliminar código " + codigo,
+            textoAceptar: "Eliminar",
+            mensajeHtml:
+                "Se eliminará de la MARA Alicorp:" +
+                "<ul><li><strong>" + escaparHtmlFarmacia(codigo) + "</strong>" +
+                (descripcion ? " — " + escaparHtmlFarmacia(descripcion) : "") + "</li></ul>" +
+                "<div class=\"modal-confirmar-aviso\">No se puede deshacer; para volver a usarlo hay que registrarlo de nuevo.</div>"
+        });
+
+        if(!confirmado){
+            return;
+        }
+
+        await supabaseFetch("/mara_alicorp?id=eq." + id, { method: "DELETE" });
+
+        mostrarToast("Código " + codigo + " eliminado de la MARA Alicorp.", "exito");
+
+        cargarResumenExistenteAlicorp();
+        buscarAlicorp();
+        _ocsDataFinalCargadas = false;
+
+    }catch(err){
+        console.error(err);
+        mostrarToast("No se pudo eliminar el código: " + err.message, "error");
+    }finally{
+        boton.disabled = false;
+    }
+
+});
 
 // ========================================
 // STOCK FÍSICO SAP
@@ -3635,7 +3798,7 @@ async function calcularCruce(){
                 "/farmacia_lecturas?select=codigo,cantidad_cajas&viaje=eq." + viaje + "&oc=eq." + oc
             ),
             supabaseFetchTodo(
-                "/farmacia_data?select=codigo&viaje=eq." + viaje + "&orden_compra=eq." + oc
+                "/farmacia_data?select=codigo,descripcion,cantidad,cantidad_atendida&viaje=eq." + viaje + "&orden_compra=eq." + oc
             )
         ]);
 
@@ -3643,20 +3806,6 @@ async function calcularCruce(){
             tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Esa OC todavía no tiene datos cargados en "OC Portal Cliente".</td></tr>`;
             return;
         }
-
-        // Solo se cruzan los códigos que realmente se solicitaron en
-        // SAP (lo que se sube primero en "1. Carga y Viajes"): la OC
-        // Portal Cliente trae MUCHAS líneas que no son parte de este
-        // envío puntual, y esas no deben aparecer en el cruce.
-        const codigosSap = new Set((dataFilas || []).map(f => String(f.codigo || "").trim()).filter(Boolean));
-
-        const maraPorEan = {};
-
-        (maraAlicorpFilas || []).forEach(function(m){
-            if(m.ean){
-                maraPorEan[String(m.ean).trim()] = m;
-            }
-        });
 
         const escaneadoCajasPorCodigo = {};
 
@@ -3667,86 +3816,19 @@ async function calcularCruce(){
             escaneadoCajasPorCodigo[l.codigo] = (escaneadoCajasPorCodigo[l.codigo] || 0) + Number(l.cantidad_cajas || 0);
         });
 
-        // La OC pide en UNIDADES; lo escaneado se registra en CAJAS.
-        // Se convierte lo escaneado a unidades (cajas × factor) para
-        // compararlo directo contra lo que pide la OC. El problema es
-        // escanear MÁS unidades de las que pide la OC — si todavía
-        // falta, solo está pendiente (no es un error).
-        const filas = ocPortalFilas.filter(function(row){
+        // Una fila por cada código programado en SAP para esta OC
+        // (regla en cruzarCodigosSapConOc): los que la OC trae pero no
+        // se programaron no aparecen; los programados que no están en
+        // la OC salen como observación.
+        const prioridad = { "pendiente": 0, "advertencia": 1, "disponible": 2, "activado": 3 };
 
-            const ean = String(row.ean || "").trim();
-            const mara = maraPorEan[ean] || null;
-            const codigo = mara ? String(mara.codigo || "").trim() : null;
-
-            return codigo && codigosSap.has(codigo);
-
-        }).map(function(row){
-
-            const ean = String(row.ean || "").trim();
-            const mara = maraPorEan[ean] || null;
-            const codigo = mara ? mara.codigo : null;
-            const factor = mara ? Number(mara.factor_unidad_alm) : null;
-
-            const solicitado = Number(row.cantidad_sku_solicitada || 0);
-            const escaneadoCajas = codigo ? (escaneadoCajasPorCodigo[codigo] || 0) : 0;
-            const escaneadoUnidades = (factor && factor > 0) ? Math.round(escaneadoCajas * factor) : null;
-
-            let estadoTexto;
-            let estadoClase;
-
-            if(!codigo){
-                estadoTexto = "Sin MARA Alicorp";
-                estadoClase = "advertencia";
-            }else if(escaneadoUnidades === null){
-                estadoTexto = "Sin factor";
-                estadoClase = "advertencia";
-            }else{
-
-                // No siempre lo solicitado es múltiplo exacto del factor
-                // (ej: pide 2110 unidades con factor 84 → 25 cajas son
-                // 2100, y 26 cajas ya son 2184, más de lo pedido). No
-                // se puede escanear una caja "a medias", así que lo
-                // máximo que se puede llegar sin pasarse es el múltiplo
-                // entero de cajas más cercano por debajo — eso ya
-                // cuenta como completo.
-                const cajasMaxSinExceder = Math.floor(solicitado / factor);
-
-                if(escaneadoCajas > cajasMaxSinExceder){
-                    estadoTexto = "Excede lo solicitado";
-                    estadoClase = "pendiente";
-                }else{
-                    // Escaneado <= solicitado: está bien (no importa
-                    // si es justo lo solicitado o menos), cuenta como
-                    // Completo. El único problema es exceder.
-                    estadoTexto = "Completo";
-                    estadoClase = "activado";
-                }
-
-            }
-
-            return {
-                ean: ean || "-",
-                codigo: codigo || "-",
-                descripcion: (mara && mara.descripcion) || row.descripcion_producto || "-",
-                solicitado: solicitado,
-                factor: factor,
-                escaneadoCajas: escaneadoCajas,
-                escaneadoUnidades: escaneadoUnidades,
-                estadoTexto: estadoTexto,
-                estadoClase: estadoClase
-            };
-
-        }).sort(function(a, b){
-
-            const prioridad = { "pendiente": 0, "advertencia": 1, "disponible": 2, "activado": 3 };
-            return prioridad[a.estadoClase] - prioridad[b.estadoClase];
-
-        });
+        const filas = cruzarCodigosSapConOc(dataFilas, ocPortalFilas, maraAlicorpFilas, escaneadoCajasPorCodigo)
+            .sort((a, b) => prioridad[a.estadoClase] - prioridad[b.estadoClase]);
 
         tbody.innerHTML = "";
 
         if(!filas.length){
-            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Ninguna línea de la OC Portal coincide con los códigos solicitados en "Carga y Viajes" para este Viaje/OC.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Este Viaje/OC no tiene códigos programados en "Carga y Viajes".</td></tr>`;
             return;
         }
 
@@ -3755,13 +3837,13 @@ async function calcularCruce(){
             const tr = document.createElement("tr");
 
             tr.innerHTML = `
-                <td>${f.ean}</td>
-                <td>${f.codigo}</td>
-                <td>${f.descripcion}</td>
-                <td>${formatearNumeroFarmacia(f.solicitado)}</td>
+                <td>${escaparHtmlFarmacia(f.ean || "-")}</td>
+                <td>${escaparHtmlFarmacia(f.codigo)}</td>
+                <td>${escaparHtmlFarmacia(f.descripcion || "-")}</td>
+                <td>${f.solicitadoOc === null ? "-" : formatearNumeroFarmacia(f.solicitadoOc)}</td>
                 <td>${f.factor || "-"}</td>
-                <td>${formatearNumeroFarmacia(f.escaneadoCajas)}</td>
-                <td>${f.escaneadoUnidades === null ? "-" : formatearNumeroFarmacia(f.escaneadoUnidades)}</td>
+                <td>${formatearNumeroFarmacia(f.cajas)}</td>
+                <td>${f.unidades === null ? "-" : formatearNumeroFarmacia(f.unidades)}</td>
                 <td><span class="estado ${f.estadoClase}">${f.estadoTexto}</span></td>
             `;
 
@@ -3795,12 +3877,10 @@ let _ocsDataFinalCargadas = false;
 let _viajePorOcDataFinal = {};
 let _ultimaDataFinal = [];
 
-// Solo se ofrecen las OC ya "completas": cruzadas exacto (ni exceden
-// ni les falta, igual que "6. Cruce de Información") y sin ninguna
-// observación por código (más de 3 lotes, vida útil <= mitad del
-// TVU) — mismos criterios que Cruce y Resumen por Código, pero
-// evaluados acá para decidir si la OC ya está lista para el reporte
-// final.
+// Solo se ofrecen las OC ya "completas" (ver regla dentro de la
+// función): mismos criterios que Cruce de Información y Resumen por
+// Código, evaluados acá para decidir si la OC ya está lista para el
+// reporte final.
 async function cargarOcsCompletasParaDataFinal(){
 
     if(_ocsDataFinalCargadas){
@@ -3814,20 +3894,15 @@ async function cargarOcsCompletasParaDataFinal(){
 
     try{
 
-        const [dataFilas, ocPortalFilas, alicorpFilas, lecturasFilas] = await Promise.all([
-            supabaseFetchTodo("/farmacia_data?select=viaje,orden_compra,codigo"),
-            supabaseFetchTodo("/oc_portal_cliente?select=oc,ean,cantidad_sku_solicitada"),
-            supabaseFetchTodo("/mara_alicorp?select=ean,codigo,factor_unidad_alm,tvu"),
+        const [dataFilas, alicorpFilas, lecturasFilas] = await Promise.all([
+            supabaseFetchTodo("/farmacia_data?select=viaje,orden_compra,codigo,descripcion,cantidad,cantidad_atendida"),
+            supabaseFetchTodo("/mara_alicorp?select=ean,codigo,descripcion,factor_unidad_alm,tvu"),
             supabaseFetchTodo("/farmacia_lecturas?select=viaje,oc,codigo,lote,fv,cantidad_cajas")
         ]);
 
-        const maraPorEan = {};
         const tvuPorCodigo = {};
 
         (alicorpFilas || []).forEach(function(m){
-            if(m.ean){
-                maraPorEan[String(m.ean).trim()] = m;
-            }
             if(m.codigo && m.tvu){
                 tvuPorCodigo[String(m.codigo).trim()] = Number(m.tvu);
             }
@@ -3840,10 +3915,20 @@ async function cargarOcsCompletasParaDataFinal(){
                 return;
             }
             if(!infoPorOc[f.orden_compra]){
-                infoPorOc[f.orden_compra] = { viaje: f.viaje, codigosSap: new Set() };
+                infoPorOc[f.orden_compra] = { viaje: f.viaje, filas: [] };
             }
-            infoPorOc[f.orden_compra].codigosSap.add(String(f.codigo).trim());
+            infoPorOc[f.orden_compra].filas.push(f);
         });
+
+        // Solo las líneas de OC Portal de las OC que hoy tienen viaje
+        // cargado (no toda la tabla).
+        const ocsConViaje = Object.keys(infoPorOc);
+
+        const ocPortalFilas = ocsConViaje.length
+            ? await supabaseFetchTodo(
+                "/oc_portal_cliente?select=oc,ean,cantidad_sku_solicitada,descripcion_producto&oc=in.(" + ocsConViaje.join(",") + ")"
+            )
+            : [];
 
         const lecturasPorOcCodigo = {};
 
@@ -3859,55 +3944,42 @@ async function cargarOcsCompletasParaDataFinal(){
             lecturasPorOcCodigo[clave].lotes.push(l);
         });
 
-        const lineasPorOc = {};
-
-        (ocPortalFilas || []).forEach(function(row){
-
-            const info = infoPorOc[row.oc];
-            if(!info){
-                return;
-            }
-
-            const ean = String(row.ean || "").trim();
-            const mara = maraPorEan[ean] || null;
-            const codigo = mara ? String(mara.codigo || "").trim() : null;
-
-            if(!codigo || !info.codigosSap.has(codigo)){
-                return;
-            }
-
-            if(!lineasPorOc[row.oc]){
-                lineasPorOc[row.oc] = [];
-            }
-
-            lineasPorOc[row.oc].push({
-                codigo: codigo,
-                solicitado: Number(row.cantidad_sku_solicitada || 0),
-                factor: Number(mara.factor_unidad_alm) || null
-            });
-
-        });
-
         const hoy = new Date();
         _viajePorOcDataFinal = {};
 
-        const ocsCompletas = Object.keys(lineasPorOc).filter(function(ocStr){
+        // Una OC está lista para Data Final cuando, en CADA código
+        // programado en SAP: el cruce con la OC del cliente está OK
+        // (está en la OC y no se pasa de ella), la Ctd. Registrada es
+        // igual a la Ctd. Atendida, y no tiene observaciones de lotes
+        // (más de 3) ni de vida útil. La OC puede pedir más de lo que
+        // se manda; eso no es problema.
+        const ocsCompletas = ocsConViaje.filter(function(ocStr){
 
             const oc = Number(ocStr);
-            const lineas = lineasPorOc[ocStr];
+            const ocPortalDeOc = (ocPortalFilas || []).filter(row => String(row.oc) === ocStr);
 
-            const completa = lineas.length > 0 && lineas.every(function(linea){
+            if(!ocPortalDeOc.length){
+                return false;
+            }
 
-                if(!linea.factor || linea.factor <= 0){
+            const cajasPorCodigo = {};
+
+            Object.keys(lecturasPorOcCodigo).forEach(function(clave){
+                const partes = clave.split("|");
+                if(partes[0] === ocStr){
+                    cajasPorCodigo[partes[1]] = lecturasPorOcCodigo[clave].cajas;
+                }
+            });
+
+            const cruce = cruzarCodigosSapConOc(infoPorOc[ocStr].filas, ocPortalDeOc, alicorpFilas, cajasPorCodigo);
+
+            const completa = cruce.length > 0 && cruce.every(function(linea){
+
+                if(!linea.ok || linea.cajas !== linea.atendida){
                     return false;
                 }
 
                 const datosLectura = lecturasPorOcCodigo[oc + "|" + linea.codigo] || { cajas: 0, lotes: [] };
-                const cajasMaxSinExceder = Math.floor(linea.solicitado / linea.factor);
-
-                if(datosLectura.cajas !== cajasMaxSinExceder){
-                    return false;
-                }
 
                 const lotesUnicos = [...new Set(datosLectura.lotes.map(l => l.lote).filter(Boolean))];
 
@@ -4642,15 +4714,11 @@ function calcularResumenCodigoSnapshot(dataFilas, lecturasFilas, tvuPorCodigo){
 
 // Mismo cálculo que "Cruce de Información" (calcularCruce), para
 // todas las OC del viaje.
-function calcularCruceSnapshot(ocs, dataFilas, lecturasFilas, ocPortalFilas, maraPorEan){
+function calcularCruceSnapshot(ocs, dataFilas, lecturasFilas, ocPortalFilas, maraFilas){
 
     const filas = [];
 
     ocs.forEach(function(oc){
-
-        const codigosSap = new Set(
-            dataFilas.filter(f => f.orden_compra === oc).map(f => String(f.codigo || "").trim()).filter(Boolean)
-        );
 
         const cajasPorCodigo = {};
 
@@ -4660,35 +4728,17 @@ function calcularCruceSnapshot(ocs, dataFilas, lecturasFilas, ocPortalFilas, mar
             }
         });
 
-        ocPortalFilas.filter(r => r.oc === oc).forEach(function(row){
-
-            const ean = String(row.ean || "").trim();
-            const mara = maraPorEan[ean] || null;
-            const codigo = mara ? String(mara.codigo || "").trim() : null;
-
-            if(!codigo || !codigosSap.has(codigo)){
-                return;
-            }
-
-            const factor = Number(mara.factor_unidad_alm) || null;
-            const solicitado = Number(row.cantidad_sku_solicitada || 0);
-            const cajas = cajasPorCodigo[codigo] || 0;
-            const unidades = (factor && factor > 0) ? Math.round(cajas * factor) : null;
-
-            let estado;
-            if(unidades === null){
-                estado = "Sin factor";
-            }else if(cajas > Math.floor(solicitado / factor)){
-                estado = "Excede lo solicitado";
-            }else{
-                estado = "Completo";
-            }
-
+        cruzarCodigosSapConOc(
+            dataFilas.filter(f => f.orden_compra === oc),
+            ocPortalFilas.filter(r => r.oc === oc),
+            maraFilas,
+            cajasPorCodigo
+        ).forEach(function(c){
             filas.push([
-                oc, ean, codigo, mara.descripcion || row.descripcion_producto || "",
-                solicitado, factor || "", cajas, unidades === null ? "" : unidades, estado
+                oc, c.ean, c.codigo, c.descripcion,
+                c.solicitadoOc === null ? "" : c.solicitadoOc, c.factor || "",
+                c.cajas, c.unidades === null ? "" : c.unidades, c.estadoTexto
             ]);
-
         });
 
     });
@@ -4899,7 +4949,7 @@ async function armarSnapshotViaje(viaje){
             ["Estado", estado],
             ["OC", ocs.join(", ")],
             ["Cantidad de OC", ocs.length],
-            ["Códigos", codigosViaje.size],
+            ["Códigos", dataFilas.length],
             ["Ctd. Programada", totalProgramada],
             ["Ctd. Atendida", totalAtendida],
             ["Ctd. Registrada", totalRegistrada],
@@ -4985,7 +5035,7 @@ async function armarSnapshotViaje(viaje){
         hojaSnapshot("Cruce de Información",
             ["OC", "EAN", "Código", "Descripción", "Solicitado (Unidades)", "Factor",
              "Registrado (Cajas)", "Registrado (Unidades)", "Estado"],
-            calcularCruceSnapshot(ocs, dataFilas, lecturas, ocPortal, maraPorEan)
+            calcularCruceSnapshot(ocs, dataFilas, lecturas, ocPortal, alicorp)
         ),
 
         hojaSnapshot("Data Final",
@@ -5007,7 +5057,7 @@ async function armarSnapshotViaje(viaje){
             fecha_cita: fechaCita,
             ocs: ocs.join(", "),
             total_ocs: ocs.length,
-            total_codigos: codigosViaje.size,
+            total_codigos: dataFilas.length,
             cantidad_programada: totalProgramada,
             cantidad_atendida: totalAtendida,
             cantidad_registrada: totalRegistrada,
@@ -5021,14 +5071,68 @@ async function armarSnapshotViaje(viaje){
 
 }
 
+// Modal propio de confirmación (en vez del confirm() del navegador).
+// Resuelve true si se acepta y false si se cancela (botón, fondo o Esc).
+function confirmarFarmacia(opciones){
+
+    const modal = document.getElementById("modalConfirmar");
+    const btnAceptar = document.getElementById("btnConfirmarAceptar");
+    const btnCancelar = document.getElementById("btnConfirmarCancelar");
+    const fondo = document.getElementById("modalConfirmarFondo");
+
+    document.getElementById("confirmarTitulo").textContent = opciones.titulo || "Confirmar";
+    document.getElementById("confirmarMensaje").innerHTML = opciones.mensajeHtml || "";
+    btnAceptar.textContent = opciones.textoAceptar || "Aceptar";
+
+    // soloAceptar: aviso con un solo botón (sin Cancelar).
+    btnCancelar.style.display = opciones.soloAceptar ? "none" : "";
+
+    modal.classList.remove("oculto");
+    setTimeout(function(){ (opciones.soloAceptar ? btnAceptar : btnCancelar).focus(); }, 50);
+
+    return new Promise(function(resolve){
+
+        function cerrar(valor){
+            modal.classList.add("oculto");
+            btnAceptar.removeEventListener("click", alAceptar);
+            btnCancelar.removeEventListener("click", alCancelar);
+            fondo.removeEventListener("click", alCancelar);
+            document.removeEventListener("keydown", alTecla);
+            resolve(valor);
+        }
+
+        function alAceptar(){ cerrar(true); }
+        function alCancelar(){ cerrar(false); }
+        function alTecla(e){
+            if(e.key === "Escape"){ alCancelar(); }
+        }
+
+        btnAceptar.addEventListener("click", alAceptar);
+        btnCancelar.addEventListener("click", alCancelar);
+        fondo.addEventListener("click", alCancelar);
+        document.addEventListener("keydown", alTecla);
+
+    });
+
+}
+
 async function guardarViajeEnBaseDatos(viaje, boton){
 
-    const confirmado = confirm(
-        "¿Guardar el viaje " + viaje + " en la Base de Datos?\n\n" +
-        "Se guarda toda su información (plantilla, lecturas, OC Portal, stock SAP, cruces y data final) " +
-        "y luego se BORRA de todos los módulos de trabajo y de Viajes Generados. " +
-        "Después solo se podrá consultar y descargar desde la pestaña \"Base de Datos\"."
-    );
+    const confirmado = await confirmarFarmacia({
+        titulo: "Guardar viaje " + viaje,
+        textoAceptar: "Guardar en Base de Datos",
+        mensajeHtml:
+            "Se guardará toda la información del viaje:" +
+            "<ul>" +
+                "<li>Plantilla, lecturas y fotos</li>" +
+                "<li>OC Portal, MARA y Stock SAP</li>" +
+                "<li>Cruces y Data Final</li>" +
+            "</ul>" +
+            "<div class=\"modal-confirmar-aviso\">" +
+                "Luego se borrará de todos los módulos y de Viajes Generados. " +
+                "Solo se podrá consultar y descargar desde \"Base de Datos\"." +
+            "</div>"
+    });
 
     if(!confirmado){
         return;
@@ -5125,6 +5229,13 @@ async function guardarViajeEnBaseDatos(viaje, boton){
         await supabaseFetch("/stock_fisico_sap?viaje=eq." + viaje, { method: "DELETE" });
         await supabaseFetch("/farmacia_data?viaje=eq." + viaje, { method: "DELETE" });
         await supabaseFetch("/farmacia_viajes_activados?viaje=eq." + viaje, { method: "DELETE" });
+
+        // Se quita la fila de inmediato; la tabla completa se recarga
+        // abajo (eso tarda más porque recalcula el estado de cada viaje).
+        const botonMenuViaje = document.querySelector('#tblViajes .btn-menu-acciones[data-viaje="' + viaje + '"]');
+        if(botonMenuViaje){
+            botonMenuViaje.closest("tr").remove();
+        }
 
         mostrarToast("Viaje " + viaje + " guardado en la Base de Datos y retirado de los módulos.", "exito");
 

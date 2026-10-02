@@ -130,6 +130,8 @@
                         Esto es solo para viajes NUEVOS — si algún viaje del archivo ya está cargado,
                         se rechaza. Para reemplazar un viaje ya cargado, usa "Reemplazar" en el menú ⋮
                         de "VIAJES GENERADOS" (solo disponible si el viaje está Desactivado).
+                        Todos los códigos deben estar registrados en "MARA Alicorp"; si falta alguno,
+                        no se sube nada y se avisa cuáles faltan.
                     </p>
 
                     <div class="data-modulado">
@@ -512,62 +514,20 @@
                     <div class="card-header-flex">
 
                         <h2>
-                            CARGAR MARA ALICORP
+                            MARA ALICORP
                         </h2>
 
-                        <button id="btnDescargarPlantillaAlicorp" class="btn-secundario">
-                            ⬇ Descargar Plantilla
+                        <button id="btnAbrirRegistrarMara" class="btn-secundario">
+                            + Registrar código
                         </button>
 
                     </div>
 
                     <p class="nota-modulo">
-                        Sube el Excel del maestro Alicorp con las columnas: CODIGO, DECRIPCION DE
-                        MATERIAL, CODIGO EAN/UPC, FACTOR UNID. DE ALM., UND. DE ALMACENAMIENTO, TVU
-                        (meses). Aquí el CODIGO coincide directo con el CODIGO/SKU que se usa en
-                        el resto del módulo. Al subir un archivo nuevo se reemplaza por completo
-                        el maestro actual.
+                        Los códigos se registran y eliminan uno por uno. El código es el mismo de SAP
+                        y el EAN debe tener 13 dígitos y no repetirse.<br>
+                        Códigos registrados: <strong id="totalRegistrosAlicorp">-</strong>
                     </p>
-
-                    <div class="data-modulado">
-
-                        <div class="upload-box">
-
-                            <input
-                                type="file"
-                                id="archivoAlicorp"
-                            >
-
-                        </div>
-
-                        <div class="detalle-archivo">
-
-                            <p>
-                                Archivo:
-                                <span id="nombreArchivoAlicorp">-</span>
-                            </p>
-
-                            <p>
-                                Fecha:
-                                <span id="fechaArchivoAlicorp">-</span>
-                            </p>
-
-                            <p>
-                                Registros:
-                                <span id="totalRegistrosAlicorp">-</span>
-                            </p>
-
-                        </div>
-
-                        <div class="estado-ok">
-
-                            <h3>✓ Procesado correctamente</h3>
-
-                            <p>El maestro Alicorp quedó disponible para consulta.</p>
-
-                        </div>
-
-                    </div>
 
                 </div>
 
@@ -607,6 +567,7 @@
                                 <th>Factor Unid. Alm.</th>
                                 <th>Und. Almacenamiento</th>
                                 <th>TVU (meses)</th>
+                                <th>Acción</th>
 
                             </tr>
 
@@ -615,7 +576,7 @@
                         <tbody id="tblAlicorp">
 
                             <tr>
-                                <td colspan="6" class="sin-datos">
+                                <td colspan="7" class="sin-datos">
                                     Cargando maestro Alicorp...
                                 </td>
                             </tr>
@@ -811,15 +772,9 @@
                     </h2>
 
                     <p class="nota-modulo">
-                        Selecciona el Viaje y la OC. Se toma cada línea de "OC Portal Cliente"
-                        de esa OC, se busca su EAN en "MARA Alicorp" para obtener el código real
-                        y el factor (unidades por caja), y se convierte lo escaneado en
-                        "Lecturas y Evidencias" (que está en cajas) a unidades para compararlo
-                        contra lo que pide la OC (que está en unidades). Solo se muestran los
-                        códigos que también están solicitados en "Carga y Viajes" (SAP) para
-                        ese Viaje/OC; el resto de líneas de la OC Portal se ignora. El problema es
-                        cuando se escanea MÁS de lo que pide la OC; si aún falta, solo está
-                        pendiente.
+                        Solo aparecen los códigos programados en SAP para ese Viaje/OC; lo demás de la OC se ignora.<br>
+                        Lo registrado (cajas × factor de MARA) se compara contra las unidades de la OC del cliente.<br>
+                        <strong>Observación:</strong> si lo registrado pasa de la OC, o si un código de SAP no está en la OC.
                     </p>
 
                     <div class="filtros-mara">
@@ -855,8 +810,8 @@
                                 <th>Descripción</th>
                                 <th>Solicitado (OC, Unidades)</th>
                                 <th>Factor</th>
-                                <th>Escaneado (Cajas)</th>
-                                <th>Escaneado (Unidades)</th>
+                                <th>Registrado (Cajas)</th>
+                                <th>Registrado (Unidades)</th>
                                 <th>Estado</th>
 
                             </tr>
@@ -1147,6 +1102,86 @@
 
             <button class="modal-foto-cerrar" id="btnCerrarModalFoto">✕</button>
             <img id="modalFotoImg" src="" alt="Evidencia">
+
+        </div>
+
+    </div>
+
+    <!-- MODAL REGISTRAR CÓDIGO EN MARA ALICORP -->
+
+    <div class="modal-ajuste oculto" id="modalRegistrarMara">
+
+        <div class="modal-ajuste-fondo" id="modalRegistrarMaraFondo"></div>
+
+        <div class="modal-ajuste-caja">
+
+            <h3>Registrar código en MARA Alicorp</h3>
+
+            <p class="modal-ajuste-ayuda">
+                Agrega un solo código sin reemplazar el maestro. Los campos con * son obligatorios.
+            </p>
+
+            <div class="form-modal-mara">
+
+                <div>
+                    <label for="nuevoMaraCodigo">Código *</label>
+                    <input type="text" id="nuevoMaraCodigo" placeholder="Ej: 8321091">
+                </div>
+
+                <div>
+                    <label for="nuevoMaraEan">EAN-13 *</label>
+                    <input type="text" id="nuevoMaraEan" inputmode="numeric" maxlength="13" placeholder="Ej: 7750243073837">
+                </div>
+
+                <div class="form-modal-completo">
+                    <label for="nuevoMaraDescripcion">Descripción *</label>
+                    <input type="text" id="nuevoMaraDescripcion" placeholder="Ej: SHAMPOO REPARADOR AMARAS 12FCO 400ML">
+                </div>
+
+                <div>
+                    <label for="nuevoMaraFactor">Factor Unid. Alm. *</label>
+                    <input type="number" id="nuevoMaraFactor" min="1" step="1" placeholder="Ej: 12">
+                </div>
+
+                <div>
+                    <label for="nuevoMaraUnidad">Und. Almacenamiento</label>
+                    <input type="text" id="nuevoMaraUnidad" value="CJA">
+                </div>
+
+                <div>
+                    <label for="nuevoMaraTvu">TVU (meses)</label>
+                    <input type="number" id="nuevoMaraTvu" min="1" step="1" placeholder="Ej: 24">
+                </div>
+
+            </div>
+
+            <div class="modal-ajuste-error oculto" id="registrarMaraError"></div>
+
+            <div class="modal-ajuste-botones">
+                <button type="button" class="btn-secundario" id="btnCancelarRegistrarMara">Cancelar</button>
+                <button type="button" class="btn-primario" id="btnAgregarMaraCodigo">Registrar código</button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- MODAL CONFIRMAR (reemplaza el confirm() del navegador) -->
+
+    <div class="modal-ajuste oculto" id="modalConfirmar">
+
+        <div class="modal-ajuste-fondo" id="modalConfirmarFondo"></div>
+
+        <div class="modal-ajuste-caja">
+
+            <h3 id="confirmarTitulo">Confirmar</h3>
+
+            <div class="modal-confirmar-mensaje" id="confirmarMensaje"></div>
+
+            <div class="modal-ajuste-botones">
+                <button type="button" class="btn-secundario" id="btnConfirmarCancelar">Cancelar</button>
+                <button type="button" class="btn-primario" id="btnConfirmarAceptar">Aceptar</button>
+            </div>
 
         </div>
 

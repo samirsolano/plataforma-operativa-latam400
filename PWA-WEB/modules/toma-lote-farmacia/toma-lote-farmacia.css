@@ -801,6 +801,22 @@ select{
     margin-bottom:20px;
 }
 
+.botones-header{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.form-modal-mara{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0 12px;
+}
+
+.form-modal-mara .form-modal-completo{
+    grid-column:1 / -1;
+}
+
 .filtros-mara label{
     display:block;
     margin-bottom:8px;
@@ -859,7 +875,8 @@ select{
     margin-left:4px;
 }
 
-.btn-eliminar-lectura{
+.btn-eliminar-lectura,
+.btn-eliminar-mara{
     background:#fdecea;
     color:#c0392b;
     border:none;
@@ -870,7 +887,8 @@ select{
     cursor:pointer;
 }
 
-.btn-eliminar-lectura:hover{
+.btn-eliminar-lectura:hover,
+.btn-eliminar-mara:hover{
     background:#fbd0d0;
 }
 
@@ -1062,6 +1080,31 @@ select{
 .btn-primario:disabled{
     opacity:.6;
     cursor:default;
+}
+
+.modal-confirmar-mensaje{
+    font-size:13.5px;
+    color:#374151;
+    line-height:1.5;
+    margin-bottom:18px;
+}
+
+.modal-confirmar-mensaje ul{
+    margin:10px 0;
+    padding-left:18px;
+}
+
+.modal-confirmar-mensaje li{
+    margin-bottom:4px;
+}
+
+.modal-confirmar-aviso{
+    background:#fef2f2;
+    color:#b91c1c;
+    border-radius:8px;
+    padding:8px 10px;
+    font-size:12.5px;
+    font-weight:600;
 }
 
 .detalle-ajuste{
