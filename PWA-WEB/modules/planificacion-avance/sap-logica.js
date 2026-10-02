@@ -54,7 +54,11 @@ async function procesarArchivoSAP(archivo){
 
     const fila = datos[i];
 
-    if(!fila || fila.length === 0){
+    // Filas vacías (con defval:"" SheetJS las devuelve como ["", "", ...],
+    // no como []): antes se insertaban como un registro basura con
+    // id_registro "____" y todos los campos vacíos. Sin N° de tarea
+    // (columna A) no hay tarea que cargar.
+    if(!fila || String(fila[0] === undefined || fila[0] === null ? "" : fila[0]).trim() === ""){
       continue;
     }
 
@@ -103,12 +107,14 @@ async function procesarArchivoSAP(archivo){
 
   }
 
-  await insertarSupabaseLoteSAP(registros);
+  const nuevos = await insertarSupabaseLoteSAP(registros);
 
+  // "cargados" = filas realmente nuevas; las que ya existían
+  // (mismo id_registro) se ignoran en Supabase.
   return {
-    filas: datos.length - 1,
+    filas: registros.length,
     columnas: (datos[0] || []).length,
-    cargados: registros.length
+    cargados: nuevos
   };
 
 }
@@ -121,21 +127,24 @@ async function insertarSupabaseLoteSAP(registros){
 
   const TAMANO_LOTE = 500;
 
-  let procesados = 0;
+  let nuevos = 0;
 
   for(let i = 0; i < registros.length; i += TAMANO_LOTE){
 
     const lote = registros.slice(i, i + TAMANO_LOTE);
 
+    // return=representation + select=id: Supabase devuelve solo las
+    // filas que sí insertó (las duplicadas ignoradas no vuelven), así
+    // se puede informar cuántas eran nuevas de verdad.
     const respuesta = await fetch(
-      SUPABASE_URL_PLANIF + "/tareas_almacen_sap?on_conflict=id_registro",
+      SUPABASE_URL_PLANIF + "/tareas_almacen_sap?on_conflict=id_registro&select=id",
       {
         method: "POST",
         headers: {
           apikey: SUPABASE_KEY_PLANIF,
           Authorization: "Bearer " + SUPABASE_KEY_PLANIF,
           "Content-Type": "application/json",
-          Prefer: "resolution=ignore-duplicates"
+          Prefer: "resolution=ignore-duplicates,return=representation"
         },
         body: JSON.stringify(lote)
       }
@@ -148,11 +157,13 @@ async function insertarSupabaseLoteSAP(registros){
       );
     }
 
-    procesados += lote.length;
+    const insertadas = await respuesta.json().catch(function(){ return []; });
+
+    nuevos += Array.isArray(insertadas) ? insertadas.length : 0;
 
   }
 
-  return procesados;
+  return nuevos;
 
 }
 

@@ -49,14 +49,26 @@ function esFechaTurnoActivo(fecha, turno){
     return fecha === activo.fecha && normalizarTurnoPlanif(turno) === activo.turno;
 }
 
+// Copia lo que está en los campos FECHA/TURNO del sidebar a
+// fechaSeleccionada/turnoSeleccionado. Los guardados leen la fecha
+// directo del campo, así que el guard tiene que mirar lo mismo — si
+// no, se podía abrir el módulo en el turno activo, cambiar la fecha
+// del sidebar y guardar sobre otro día sin que el guard lo notara.
+function sincronizarFechaTurnoSidebar(){
+    fechaSeleccionada = document.getElementById("fecha").value;
+    turnoSeleccionado = normalizarTurnoPlanif(document.getElementById("turno").value);
+    actualizarNotaTurnoActivo();
+}
+
 /**
  * Guard para cualquier acción que GUARDE/MODIFIQUE datos de
- * Planificación. Usa fechaSeleccionada/turnoSeleccionado (lo que el
- * usuario tiene elegido en el sidebar en este momento). Devuelve
- * `true` si la acción debe bloquearse (y ya mostró el aviso), `false`
- * si puede continuar.
+ * Planificación. Usa la fecha/turno elegidos en el sidebar en este
+ * momento. Devuelve `true` si la acción debe bloquearse (y ya mostró
+ * el aviso), `false` si puede continuar.
  */
 function bloquearSiNoEsTurnoActivo(){
+
+    sincronizarFechaTurnoSidebar();
 
     if(esFechaTurnoActivo(fechaSeleccionada, turnoSeleccionado)){
         return false;
@@ -65,11 +77,28 @@ function bloquearSiNoEsTurnoActivo(){
     const activo = obtenerFechaTurnoActivo();
     const nombreTurno = activo.turno === "DIA" ? "DÍA" : "NOCHE";
 
-    mostrarAlertaModal(
+    // Caso típico: la página se abrió antes del cambio de turno (ej. a
+    // las 18:50 queda en DÍA) y a las 19:10 se intenta guardar la
+    // NOCHE. En vez de solo bloquear, se ofrece pasar al turno activo
+    // con un clic (recarga el módulo con esa fecha/turno; lo que se
+    // haya editado en pantalla para el turno anterior se descarta).
+    mostrarConfirmModal(
         "Solo puedes planificar o modificar el turno que está corriendo ahora mismo: " +
         nombreTurno + " del " + activo.fecha + ". " +
-        "Estás viendo " + fechaSeleccionada + " / " + turnoSeleccionado + ", que aquí es solo de consulta.",
-        "warning"
+        "Estás viendo " + fechaSeleccionada + " / " + turnoSeleccionado + ", que aquí es solo de consulta.\n\n" +
+        "¿Quieres pasar al turno " + nombreTurno + " del " + activo.fecha + "? (Revisa tus cambios y vuelve a guardar.)",
+        function(){
+            document.getElementById("fecha").value = activo.fecha;
+            document.getElementById("turno").value = activo.turno;
+            _fechaTurnoSidebarPrevio = { fecha: activo.fecha, turno: activo.turno };
+            if(window.moduloActual && window.botonActual){
+                recargarModuloActual();
+            }else{
+                sincronizarFechaTurnoSidebar();
+            }
+        },
+        null,
+        { titulo: "Turno no activo", textoAceptar: "Ir al turno activo", textoCancelar: "Solo consultar" }
     );
 
     return true;
@@ -153,8 +182,7 @@ function abrirModulo(modulo, boton){
     window.moduloPrevio = window.moduloActual || null;
     window.botonPrevio = window.botonActual || null;
 
-    fechaSeleccionada = document.getElementById("fecha").value;
-    turnoSeleccionado = normalizarTurnoPlanif(document.getElementById("turno").value);
+    sincronizarFechaTurnoSidebar();
 
     if(fechaSeleccionada === ""){
         mostrarAlertaModal("Seleccione una fecha antes de continuar.", "warning");
@@ -227,6 +255,124 @@ function abrirModulo(modulo, boton){
     window.botonActual = boton;
 
 }
+
+// =====================================================================
+// CAMBIO DE FECHA/TURNO EN EL SIDEBAR — recarga el módulo abierto con
+// la nueva fecha/turno (antes la tabla seguía mostrando el día anterior
+// mientras el sidebar ya decía otro). Si hay cambios sin guardar en
+// Recursos o Replanificación, pregunta antes de descartarlos.
+// =====================================================================
+
+let _fechaTurnoSidebarPrevio = {
+    fecha: document.getElementById("fecha").value,
+    turno: document.getElementById("turno").value
+};
+
+function hayCambiosSinGuardarPlanificacion(){
+
+    if(window.moduloActual === "recursos" && typeof recursosData !== "undefined"){
+        return recursosData.some(function(r){ return r._modificado; });
+    }
+
+    if(window.moduloActual === "replanificacion" && typeof rpData !== "undefined"){
+        return rpData.some(function(r){ return r._modificado; });
+    }
+
+    return false;
+
+}
+
+function recargarModuloActual(){
+
+    const previo = window.moduloPrevio;
+    const botonPrevio = window.botonPrevio;
+
+    abrirModulo(window.moduloActual, window.botonActual);
+
+    // abrirModulo registra el mismo módulo como "previo"; se restaura
+    // el real para que "Volver" siga funcionando.
+    window.moduloPrevio = previo;
+    window.botonPrevio = botonPrevio;
+
+}
+
+function onCambioFechaTurnoSidebar(){
+
+    const campoFecha = document.getElementById("fecha");
+    const campoTurno = document.getElementById("turno");
+
+    // Módulos que no dependen de la fecha/turno del sidebar: no se recargan
+    const independientes = ["sap", "dialogodiario", "productividad"];
+
+    if(!window.moduloActual || !window.botonActual || independientes.indexOf(window.moduloActual) !== -1){
+        _fechaTurnoSidebarPrevio = { fecha: campoFecha.value, turno: campoTurno.value };
+        return;
+    }
+
+    if(hayCambiosSinGuardarPlanificacion()){
+
+        const nuevo = { fecha: campoFecha.value, turno: campoTurno.value };
+
+        // Se vuelve al valor anterior mientras el usuario decide
+        campoFecha.value = _fechaTurnoSidebarPrevio.fecha;
+        campoTurno.value = _fechaTurnoSidebarPrevio.turno;
+        actualizarNotaTurnoActivo();
+
+        mostrarConfirmModal(
+            "Tienes cambios sin guardar en este módulo. Si cambias de fecha/turno se perderán. ¿Continuar?",
+            function(){
+                campoFecha.value = nuevo.fecha;
+                campoTurno.value = nuevo.turno;
+                _fechaTurnoSidebarPrevio = nuevo;
+                recargarModuloActual();
+            },
+            null,
+            { textoAceptar: "Sí, cambiar", textoCancelar: "Cancelar" }
+        );
+
+        return;
+
+    }
+
+    _fechaTurnoSidebarPrevio = { fecha: campoFecha.value, turno: campoTurno.value };
+    recargarModuloActual();
+
+}
+
+document.getElementById("fecha").addEventListener("change", onCambioFechaTurnoSidebar);
+document.getElementById("turno").addEventListener("change", onCambioFechaTurnoSidebar);
+
+// Aviso visible en el sidebar cuando lo elegido NO es el turno que está
+// corriendo (se revisa cada minuto: a las 07:00/19:00 el turno activo
+// cambia aunque nadie toque la página).
+function actualizarNotaTurnoActivo(){
+
+    const nota = document.getElementById("notaTurnoActivo");
+    if(!nota) return;
+
+    const fecha = document.getElementById("fecha").value;
+    const turno = document.getElementById("turno").value;
+
+    if(!fecha || esFechaTurnoActivo(fecha, turno)){
+        nota.style.color = "#9aa5b1";
+        nota.style.fontWeight = "";
+        nota.textContent = "Puedes ver cualquier fecha/turno, pero solo se puede planificar o modificar el que está corriendo ahora mismo.";
+        return;
+    }
+
+    const activo = obtenerFechaTurnoActivo();
+
+    nota.style.color = "#fff3b0";
+    nota.style.fontWeight = "700";
+    nota.textContent = "⚠️ Solo consulta. El turno activo ahora es " +
+        (activo.turno === "DIA" ? "DÍA" : "NOCHE") + " del " + activo.fecha + ".";
+
+}
+
+document.getElementById("fecha").addEventListener("change", actualizarNotaTurnoActivo);
+document.getElementById("turno").addEventListener("change", actualizarNotaTurnoActivo);
+setInterval(actualizarNotaTurnoActivo, 60000);
+actualizarNotaTurnoActivo();
 
 /**
  * Botón "Volver" (usado en Hora x Hora): regresa al módulo que estaba

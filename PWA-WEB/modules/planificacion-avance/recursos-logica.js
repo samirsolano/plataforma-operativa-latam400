@@ -92,9 +92,33 @@ function construirFilaRecurso(colaborador, turnoRow, supervisorActual){
             ? String(turnoRow.usuario_turno).split(",").map(u => u.trim()).filter(u => u !== "")
             : [],
         desde_hora: turnoRow ? (turnoRow.desde_hora || "") : "",
-        activo: turnoRow ? !!turnoRow.activo : false
+        activo: turnoRow ? !!turnoRow.activo : false,
+        prestado_a: null
     };
 
+}
+
+// Fila de alguien del equipo que en este turno ya está asignado a OTRO
+// supervisor (normalmente como APOYO). Se muestra bloqueada y no entra
+// al guardado: antes aparecía como "inactivo" y al guardar se pisaba su
+// fila de turno (activo=false), sacándolo del equipo que lo recibió.
+function construirFilaPrestado(colaborador, turnoRowOtro){
+
+    const fila = construirFilaRecurso(colaborador, null, colaborador.supervisor);
+
+    fila.prestado_a = turnoRowOtro.supervisor_efectivo || "otro supervisor";
+    fila.funcion = turnoRowOtro.funcion || fila.funcion;
+
+    return fila;
+
+}
+
+// "HH:MM" en 24 horas. toLocaleTimeString("es-PE") devuelve
+// "06:45 p. m.", que quedaba guardado así en historial_usuario_turno
+// (mezclado con "18:45" de los apoyos) y ordenaba mal por hora.
+function horaActualHHMM(){
+    const ahora = new Date();
+    return String(ahora.getHours()).padStart(2, "0") + ":" + String(ahora.getMinutes()).padStart(2, "0");
 }
 
 // ---------------------------------------------------------
@@ -175,6 +199,29 @@ async function obtenerRecursosTurno(fecha, turno, supervisor){
     const idsEquipo = {};
     equipo.forEach(c => { idsEquipo[c.id] = true; });
 
+    // Gente del equipo que en este turno está asignada a otro supervisor
+    const idsSinFilaPropia = equipo.filter(c => !mapaTurno[c.id]).map(c => c.id);
+
+    const mapaPrestados = {};
+
+    if(idsSinFilaPropia.length > 0){
+
+        const filasOtros = await rgGet(
+            "turno_colaboradores",
+            "colaborador_id=in.(" + idsSinFilaPropia.join(",") + ")" +
+            "&fecha=eq." + encodeURIComponent(fecha) +
+            "&turno=eq." + encodeURIComponent(turno) +
+            "&select=*"
+        );
+
+        filasOtros.forEach(r => {
+            if(r.supervisor_efectivo && r.supervisor_efectivo !== supervisor){
+                mapaPrestados[r.colaborador_id] = r;
+            }
+        });
+
+    }
+
     const idsApoyoFaltantes = turnoRegistros
         .filter(r => r.tipo === "APOYO" && !idsEquipo[r.colaborador_id])
         .map(r => r.colaborador_id);
@@ -191,7 +238,11 @@ async function obtenerRecursosTurno(fecha, turno, supervisor){
     const resultado = [];
 
     equipo.forEach(c => {
-        resultado.push(construirFilaRecurso(c, mapaTurno[c.id], supervisor));
+        resultado.push(
+            mapaPrestados[c.id]
+                ? construirFilaPrestado(c, mapaPrestados[c.id])
+                : construirFilaRecurso(c, mapaTurno[c.id], supervisor)
+        );
     });
 
     colaboradoresApoyo.forEach(c => {
@@ -376,6 +427,26 @@ async function guardarPlanificacionRecursosBatch(fecha, turno, supervisor, cambi
     const filaPorColaborador = {};
     existentesLote.forEach(row => { filaPorColaborador[row.colaborador_id] = row; });
 
+    // Seguro extra: si mientras esta pantalla estaba abierta OTRO
+    // supervisor tomó a alguien de la lista (ej. como apoyo), su fila
+    // de turno ya no es de este supervisor — no se toca.
+    const omitidosOtroSupervisor = [];
+
+    cambios = cambios.filter(function(item){
+
+        const fila = filaPorColaborador[item.colaborador_id];
+        const supervisorEsperado = item.supervisor_efectivo || supervisor;
+
+        if(fila && fila.supervisor_efectivo && fila.supervisor_efectivo !== supervisorEsperado){
+            omitidosOtroSupervisor.push(item.colaborador_id);
+            delete filaPorColaborador[item.colaborador_id];
+            return false;
+        }
+
+        return true;
+
+    });
+
     const itemsNuevos = cambios.filter(item => !filaPorColaborador[item.colaborador_id]);
     const itemsExistentes = cambios.filter(item => !!filaPorColaborador[item.colaborador_id]);
 
@@ -448,9 +519,15 @@ async function guardarPlanificacionRecursosBatch(fecha, turno, supervisor, cambi
     // 3d. Ficha maestra de "colaboradores" (función + usuario fijo):
     //     también en paralelo. Si alguna falla (ej. RLS), no tumba las
     //     demás — se reporta igual que antes en erroresMaestra.
-    if(cambios.length > 0){
+    //     Solo para gente del EQUIPO PROPIO que se tocó en pantalla: un
+    //     APOYO hace otra función solo por este turno y no debe
+    //     cambiarle la ficha maestra (antes se pisaba la de todos en
+    //     cada guardado, incluidos los apoyos de otros supervisores).
+    const cambiosMaestra = cambios.filter(item => item.tipo !== "APOYO" && item.modificado);
 
-        const resultadosMaestra = await Promise.allSettled(cambios.map(function(item){
+    if(cambiosMaestra.length > 0){
+
+        const resultadosMaestra = await Promise.allSettled(cambiosMaestra.map(function(item){
 
             return rgPatch("colaboradores", "id=eq." + item.colaborador_id, {
                 funcion: item.funcion || null,
@@ -465,7 +542,7 @@ async function guardarPlanificacionRecursosBatch(fecha, turno, supervisor, cambi
 
                 errorespatchMaestra.push(
                     "No se pudo actualizar la ficha maestra de colaborador_id " +
-                    cambios[i].colaborador_id + ": " + resultado.reason.message
+                    cambiosMaestra[i].colaborador_id + ": " + resultado.reason.message
                 );
 
             }
@@ -477,7 +554,7 @@ async function guardarPlanificacionRecursosBatch(fecha, turno, supervisor, cambi
     // 3e. Historial: juntar TODOS los usuarios nuevos de TODO el lote
     //     y mandarlos en UN SOLO POST (antes: 1 POST por cada usuario
     //     agregado, de cada persona, uno por uno).
-    const horaAhora = new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+    const horaAhora = horaActualHHMM();
     const registrosHistorial = [];
 
     cambios.forEach(function(item){
@@ -504,14 +581,33 @@ async function guardarPlanificacionRecursosBatch(fecha, turno, supervisor, cambi
 
     });
 
+    // El turno YA quedó guardado arriba: si solo falla el historial no
+    // se reporta como "error al guardar" (antes salía error, el usuario
+    // reintentaba y "ahora sí daba", pero lo había grabado la 1ra vez).
     if(registrosHistorial.length > 0){
-        await rgPost("historial_usuario_turno", registrosHistorial);
+        try{
+            await rgPost("historial_usuario_turno", registrosHistorial);
+        }catch(e){
+            console.error("No se pudo registrar el historial de usuarios:", e);
+            errorespatchMaestra.push("Historial de usuarios no registrado: " + e.message);
+        }
+    }
+
+    // Recargar la tabla es solo para refrescar la vista: si falla, lo
+    // guardado ya está grabado y no debe mostrarse como error.
+    let datosRecargados = null;
+
+    try{
+        datosRecargados = await obtenerRecursosTurno(fecha, turno, supervisor);
+    }catch(e){
+        console.error("Guardado OK, pero no se pudo recargar la tabla:", e);
     }
 
     return {
         conflicto: false,
-        datos: await obtenerRecursosTurno(fecha, turno, supervisor),
-        erroresMaestra: errorespatchMaestra
+        datos: datosRecargados,
+        erroresMaestra: errorespatchMaestra,
+        omitidosOtroSupervisor: omitidosOtroSupervisor
     };
 
 }

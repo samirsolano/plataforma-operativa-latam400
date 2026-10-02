@@ -31,31 +31,35 @@ function dashHorasTurno(turno){
 //  -1              -> el turno todavía no empieza (todo es proyección)
 //  horas.length-1  -> el turno ya terminó por completo (todo es real)
 //  0..length-2     -> el turno está en curso, esa es la hora actual
+//
+// Se compara contra el inicio/fin real del turno (rangoTurnoPlanif):
+// la "fecha" del turno NOCHE es el día en que EMPIEZA (19:00) y sigue
+// corriendo hasta las 07:00 del día siguiente. Antes se comparaba la
+// fecha contra el día calendario de hoy, y el turno NOCHE salía mal:
+// a las 02:00 el turno en curso (fecha de ayer) aparecía como
+// terminado, y el de hoy (que aún no empieza) aparecía "en curso".
 function dashIndiceHoraActual(fecha, turno, horas){
 
   const ahora = new Date();
-  const hoyStr = ahora.getFullYear() + "-" +
-    String(ahora.getMonth() + 1).padStart(2, "0") + "-" +
-    String(ahora.getDate()).padStart(2, "0");
+  const rango = rangoTurnoPlanif(fecha, turno);
 
-  if(fecha < hoyStr) return horas.length - 1; // fecha ya pasada: turno completo
-  if(fecha > hoyStr) return -1;               // fecha futura: nada ha ocurrido
+  if(ahora < rango.inicio) return -1;               // todavía no empieza
+  if(ahora >= rango.fin) return horas.length - 1;   // ya terminó completo
 
-  // Es hoy: compara la hora actual contra las horas del turno
-  const horaAhora = ahora.getHours();
-  const idx = horas.indexOf(horaAhora);
+  const idx = horas.indexOf(ahora.getHours());
 
-  if(idx !== -1) return idx;
+  return idx !== -1 ? idx : -1;
 
-  if(turno === "NOCHE"){
-    // Turno NOCHE (19h-6h): si la hora actual cae en horario diurno (7-18),
-    // el turno de esta madrugada ya terminó por completo.
-    return (horaAhora >= 7 && horaAhora <= 18) ? horas.length - 1 : -1;
-  }
+}
 
-  // Turno DÍA (7h-18h): si ya pasamos las 18h, el turno terminó completo;
-  // si es antes de las 7h, todavía no empieza.
-  return horaAhora > 18 ? horas.length - 1 : -1;
+// true solo mientras el turno está corriendo ahora mismo (para la
+// línea "HORA ACTUAL" del gráfico).
+function dashTurnoEnCurso(fecha, turno){
+
+  const ahora = new Date();
+  const rango = rangoTurnoPlanif(fecha, turno);
+
+  return ahora >= rango.inicio && ahora < rango.fin;
 
 }
 
@@ -171,14 +175,19 @@ function dashProcesarProceso(filasCrudas, nombreProceso, horas, indiceActual, ca
 
 // ---------------------------------------------------------
 // Planificación del día por canal (columna "GESTIÓN" del
-// Excel de SAP, guardada en planificacion_diaria.gestion)
+// Excel de SAP, guardada en planificacion_diaria.gestion).
+// Solo los viajes marcados como PLANIFICADO — mismo criterio que la
+// meta de Hora x Hora y la necesidad de Planificación Recursos. Antes
+// sumaba TODO lo importado desde Drive (incluso los viajes que no se
+// seleccionaron), y el objetivo/restante del Dashboard salía inflado.
 // ---------------------------------------------------------
 async function dashPlanificacionCanales(fecha, turno){
 
   const filas = await planifFetch(
     "/planificacion_diaria?select=gestion,peso_tn" +
     "&fecha=eq." + encodeURIComponent(fecha) +
-    "&turno=eq." + encodeURIComponent(turno)
+    "&turno=eq." + encodeURIComponent(turno) +
+    "&estado_planificacion=eq.PLANIFICADO"
   ) || [];
 
   const mapa = {};
@@ -235,15 +244,11 @@ async function obtenerDashboard(fecha, turno){
   const horas = dashHorasTurno(turno);
   const indiceActual = dashIndiceHoraActual(fecha, turno, horas);
 
-  // "HORA ACTUAL" (la línea roja punteada) solo debe marcarse cuando la
-  // fecha elegida es realmente HOY — indiceActual también se usa para
-  // fechas pasadas (así el turno completo se pinta como "real", no como
-  // proyección), pero eso NO significa que estemos "en vivo" ese día.
-  const ahoraEsHoy = new Date();
-  const hoyStr = ahoraEsHoy.getFullYear() + "-" +
-    String(ahoraEsHoy.getMonth() + 1).padStart(2, "0") + "-" +
-    String(ahoraEsHoy.getDate()).padStart(2, "0");
-  const esHoy = (fecha === hoyStr);
+  // "HORA ACTUAL" (la línea roja punteada) solo debe marcarse cuando el
+  // turno elegido está corriendo ahora mismo — indiceActual también se
+  // usa para turnos ya terminados (así se pintan como "real", no como
+  // proyección), pero eso NO significa que estemos "en vivo".
+  const esHoy = dashTurnoEnCurso(fecha, turno);
 
   const [plan, filasCrudas, personas, comentarios] = await Promise.all([
     dashPlanificacionCanales(fecha, turno),

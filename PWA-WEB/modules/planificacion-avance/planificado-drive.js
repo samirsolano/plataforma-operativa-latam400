@@ -140,26 +140,27 @@ function cargarTabla(datos){
 
         html += `
 
-        <tr class="${checked ? "fila-seleccionada" : ""}" data-gestion="${item.gestion || ""}">
+        <tr class="${checked ? "fila-seleccionada" : ""}" data-gestion="${escapeAttr(item.gestion || "")}">
 
             <td style="text-align:center">
                 <input
                     type="checkbox"
                     class="chkViaje"
                     id="chk_${index}"
-                    data-fo="${item.fo_real}"
+                    data-id="${item.id}"
+                    data-fo="${escapeAttr(item.fo_real)}"
                     data-peso="${item.peso_tn}"
                     ${checked ? "checked" : ""}
                     onchange="actualizarSeleccion()"
                 >
             </td>
 
-            <td>${item.gestion || ""}</td>
+            <td>${escapeAttr(item.gestion || "")}</td>
             <td>${item.fecha_cita || ""}</td>
             <td>${hora}</td>
-            <td>${item.fo_real || ""}</td>
-            <td>${item.cliente || ""}</td>
-            <td>${item.transportista || ""}</td>
+            <td>${escapeAttr(item.fo_real || "")}</td>
+            <td>${escapeAttr(item.cliente || "")}</td>
+            <td>${escapeAttr(item.transportista || "")}</td>
 
             <td style="text-align:right;">
                 ${Number(item.peso_tn || 0).toFixed(2)}
@@ -219,7 +220,7 @@ function poblarFiltroGestionPlanificado(datos){
     )).sort();
 
     select.innerHTML = '<option value="">Gestión (todas)</option>' +
-        gestiones.map(function(g){ return `<option value="${g}">${g}</option>`; }).join("");
+        gestiones.map(function(g){ return `<option value="${escapeAttr(g)}">${escapeAttr(g)}</option>`; }).join("");
 
     select.value = gestiones.includes(seleccionActual) ? seleccionActual : "";
 
@@ -245,6 +246,10 @@ function aplicarFiltrosPlanificado(){
 
     });
 
+    // El check de "todos" se refiere a las filas visibles: al cambiar
+    // el filtro ya no aplica.
+    document.getElementById("checkTodos").checked = false;
+
 }
 
 // ============================================
@@ -257,9 +262,16 @@ function seleccionarTodos(){
 
     document.querySelectorAll(".chkViaje").forEach(function(chk){
 
-        chk.checked = estado;
-
         const fila = chk.closest("tr");
+
+        // Solo las filas visibles con el filtro actual (Gestión/buscador):
+        // antes "seleccionar todos" marcaba también los viajes ocultos
+        // por el filtro y se guardaban sin que el usuario los viera.
+        if(fila.style.display === "none"){
+            return;
+        }
+
+        chk.checked = estado;
 
         if(estado){
             fila.classList.add("fila-seleccionada");
@@ -319,6 +331,7 @@ function obtenerSeleccionados(){
         if(chk.checked){
 
             seleccionados.push({
+                id: Number(chk.dataset.id),
                 fo: chk.dataset.fo,
                 peso: Number(chk.dataset.peso) || 0
             });
@@ -398,7 +411,7 @@ async function guardarPlanificacionUI(){
         boton.disabled = false;
         boton.innerHTML = "💾 Guardar Planificación";
 
-        mostrarToast("❌ Error al guardar la planificación", true);
+        mostrarAlertaModal("No se pudo guardar la planificación: " + (error.message || error), "error");
 
     }
 

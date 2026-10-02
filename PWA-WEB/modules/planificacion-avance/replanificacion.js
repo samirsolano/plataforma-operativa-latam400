@@ -59,7 +59,7 @@ async function cargarReplanificacion(silencioso){
 
         rpData = resultado.filas.map(function(f){
             f._modificado = false;
-            f._funcionActualOriginal = f.funcion_actual;
+            f._funcionEfectivaOriginal = funcionEfectivaDe(f);
             return f;
         });
 
@@ -240,7 +240,7 @@ function renderTablaPrincipal(){
                 <td>${item.funcion_inicio || "-"}</td>
                 <td>
                     <select class="rp-select-funcion" onchange="cambiarFuncionActual(${index}, this.value)">
-                        ${opcionesFuncion(item.funcion_actual)}
+                        ${opcionesFuncion(funcionEfectivaDe(item))}
                     </select>
                 </td>
                 <td>${item.usuario || "-"}</td>
@@ -258,7 +258,7 @@ function cambiarFuncionActual(index, nuevaFuncion){
     const item = rpData[index];
 
     item.funcion_actual = nuevaFuncion;
-    item._modificado = nuevaFuncion !== (item._funcionActualOriginal || "");
+    item._modificado = funcionEfectivaDe(item) !== item._funcionEfectivaOriginal;
 
     renderReplanificacion();
 
@@ -321,7 +321,26 @@ function guardarReplanificacionUnaFila(index){
 
                 await guardarReplanificacionFila(item.turno_colaborador_id, item.funcion_actual, observacion);
                 item._modificado = false;
-                cargarReplanificacion();
+                item._funcionEfectivaOriginal = funcionEfectivaDe(item);
+
+                // Recarga desde Supabase pero conserva lo que el usuario
+                // todavía no guardó en OTRAS filas (antes se perdía todo
+                // al guardar una sola fila).
+                const pendientes = {};
+                rpData.forEach(function(f){
+                    if(f._modificado) pendientes[f.turno_colaborador_id] = f.funcion_actual;
+                });
+
+                await cargarReplanificacion(true);
+
+                rpData.forEach(function(f){
+                    if(Object.prototype.hasOwnProperty.call(pendientes, f.turno_colaborador_id)){
+                        f.funcion_actual = pendientes[f.turno_colaborador_id];
+                        f._modificado = funcionEfectivaDe(f) !== f._funcionEfectivaOriginal;
+                    }
+                });
+
+                renderReplanificacion();
 
             }catch(error){
                 mostrarAlertaModal("No se pudo guardar el cambio: " + error.message, "error");
@@ -373,7 +392,7 @@ function guardarReplanificacionTodo(){
 
                 rpData = resultado.filas.map(function(f){
                     f._modificado = false;
-                    f._funcionActualOriginal = f.funcion_actual;
+                    f._funcionEfectivaOriginal = funcionEfectivaDe(f);
                     return f;
                 });
 
@@ -429,14 +448,31 @@ function renderHistorial(){
 
 function descargarCambiosReplanificacion(){
 
-    let csv = "DNI,Colaborador,Funcion inicio,Funcion actual,Usuario,Estado\n";
+    // Mismo criterio que la tabla: la función "actual" es la efectiva
+    // (si no hubo replanificación, es la de inicio). Antes una fila sin
+    // cambios salía como "Replanificado" con la función actual vacía.
+    // Celdas entre comillas (usuarios "A,B" partían la columna) y BOM
+    // para que Excel muestre bien las tildes (EXTRACCIÓN).
+    const celda = function(valor){
+        return '"' + String(valor === null || valor === undefined ? "" : valor).replace(/"/g, '""') + '"';
+    };
+
+    let csv = ["DNI", "Colaborador", "Funcion inicio", "Funcion actual", "Usuario", "Estado"].map(celda).join(",") + "\r\n";
 
     rpData.forEach(function(item){
-        const estado = item.funcion_actual !== item.funcion_inicio ? "Replanificado" : "Sin cambios";
-        csv += `${item.dni},"${(item.nombre_completo || "").toUpperCase()}",${item.funcion_inicio},${item.funcion_actual},${item.usuario},${estado}\n`;
+        const efectiva = funcionEfectivaDe(item);
+        const estado = efectiva !== item.funcion_inicio ? "Replanificado" : "Sin cambios";
+        csv += [
+            item.dni,
+            (item.nombre_completo || "").toUpperCase(),
+            item.funcion_inicio,
+            efectiva,
+            item.usuario,
+            estado
+        ].map(celda).join(",") + "\r\n";
     });
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const enlace = document.createElement("a");
     enlace.href = url;

@@ -72,6 +72,18 @@ async function subirArchivoSAP(){
     return;
   }
 
+  // La pantalla dice "solo .xlsx/.xls, máximo 50 MB" pero arrastrando
+  // un archivo se podía saltar el filtro del explorador.
+  if(!/\.xlsx?$/i.test(archivo.name)){
+    mostrarAlertaModal("El archivo debe ser Excel (.xlsx o .xls).", "warning");
+    return;
+  }
+
+  if(archivo.size > 50 * 1024 * 1024){
+    mostrarAlertaModal("El archivo supera el tamaño máximo permitido (50 MB).", "warning");
+    return;
+  }
+
   sapBtnSubir.disabled = true;
   sapBtnSubir.textContent = "Subiendo...";
 
@@ -80,9 +92,10 @@ async function subirArchivoSAP(){
     const r = await procesarArchivoSAP(archivo);
 
     mostrarAlertaModal(
-      "Filas: " + r.filas +
+      "Filas leídas: " + r.filas +
       "\nColumnas: " + r.columnas +
-      "\nCargados: " + r.cargados,
+      "\nNuevas cargadas: " + r.cargados +
+      "\nYa existían (omitidas): " + (r.filas - r.cargados),
       "success"
     );
 

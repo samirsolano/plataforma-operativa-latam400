@@ -93,25 +93,24 @@ async function cargarHoraXHora(){
 
   try{
 
-    const data = await obtenerHoraXHora(fecha, turno);
+    // Las 4 consultas son independientes: se piden en paralelo (antes
+    // iban una tras otra y la pantalla tardaba la suma de todas). Solo
+    // la de Hora x Hora es obligatoria; las demás caen a un valor vacío.
+    const [data, metas, comentarios, despachadas] = await Promise.all([
+      obtenerHoraXHora(fecha, turno),
+      obtenerMetasPlanificadasHxh(fecha, turno).catch(function(){ return {}; }),
+      obtenerComentariosHxh(fecha, turno).catch(function(){ return {}; }),
+      obtenerTnlDespachadasL400(fecha, turno).catch(function(){ return null; })
+    ]);
 
-    try{
-      window.hxhMetasPlanificadas = await obtenerMetasPlanificadasHxh(fecha, turno);
-    }catch(e){
-      window.hxhMetasPlanificadas = {};
+    // Si mientras cargaba se cambió la fecha/turno, esta respuesta ya no aplica
+    if(fecha !== document.getElementById("hxhFecha").value || turno !== document.getElementById("hxhTurno").value){
+      return;
     }
 
-    try{
-      window.hxhComentarios = await obtenerComentariosHxh(fecha, turno);
-    }catch(e){
-      window.hxhComentarios = {};
-    }
-
-    try{
-      window.hxhTnlDespachadas = await obtenerTnlDespachadasL400(fecha, turno);
-    }catch(e){
-      window.hxhTnlDespachadas = null;
-    }
+    window.hxhMetasPlanificadas = metas;
+    window.hxhComentarios = comentarios;
+    window.hxhTnlDespachadas = despachadas;
 
     renderHoraXHora(data, fecha, turno);
 

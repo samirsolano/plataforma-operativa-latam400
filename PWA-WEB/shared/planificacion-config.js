@@ -7,6 +7,36 @@
 const SUPABASE_URL_PLANIF = "https://iaitqquphjohgsmelhcj.supabase.co/rest/v1";
 const SUPABASE_KEY_PLANIF = "sb_publishable_rvEz02miPj1MrBVgLd_auw_FlyrVscs";
 
+// Fallas momentáneas (sin internet un instante, Supabase saturado,
+// "statement timeout") hacían que guardar/cargar diera error y al
+// segundo intento funcionara. Ahora se reintenta solo, hasta 2 veces,
+// cuando la operación se puede repetir sin duplicar datos: lecturas,
+// PATCH, DELETE y RPC. Un POST (inserción) NO se reintenta, porque si
+// la primera vez sí llegó a grabarse se duplicarían filas.
+const PLANIF_REINTENTOS = 2;
+
+function esErrorTransitorioPlanif(status, detalle){
+    return status === 0 || status === 408 || status === 429 || status >= 500 ||
+        String(detalle || "").indexOf("57014") !== -1; // statement timeout
+}
+
+// Convierte la respuesta de error de Supabase en un mensaje legible
+function mensajeErrorPlanif(status, detalle){
+
+    let mensaje = detalle;
+
+    try{
+        const json = JSON.parse(detalle);
+        mensaje = json.message || json.hint || detalle;
+        if(json.code === "57014") mensaje = "La base de datos tardó demasiado en responder (timeout). Intenta de nuevo en unos segundos.";
+    }catch(e){ /* no era JSON */ }
+
+    if(status === 0) mensaje = "Sin conexión con el servidor. Revisa tu internet e intenta de nuevo.";
+
+    return mensaje || ("Error al conectar con Supabase (HTTP " + status + ")");
+
+}
+
 async function planifFetch(ruta, opciones = {}){
 
     const headers = Object.assign(
@@ -18,18 +48,43 @@ async function planifFetch(ruta, opciones = {}){
         opciones.headers || {}
     );
 
-    const respuesta = await fetch(
-        SUPABASE_URL_PLANIF + ruta,
-        Object.assign({}, opciones, { headers })
-    );
+    const metodo = String(opciones.method || "GET").toUpperCase();
+    const repetible = metodo !== "POST" || ruta.indexOf("/rpc/") === 0;
 
-    if(!respuesta.ok){
-        const detalle = await respuesta.text();
-        throw new Error(detalle || "Error al conectar con Supabase");
+    for(let intento = 0; ; intento++){
+
+        let status = 0;
+        let detalle = "";
+
+        try{
+
+            const respuesta = await fetch(
+                SUPABASE_URL_PLANIF + ruta,
+                Object.assign({}, opciones, { headers })
+            );
+
+            const texto = await respuesta.text();
+
+            if(respuesta.ok){
+                return texto ? JSON.parse(texto) : null;
+            }
+
+            status = respuesta.status;
+            detalle = texto;
+
+        }catch(errorRed){
+            status = 0;
+            detalle = errorRed && errorRed.message;
+        }
+
+        if(repetible && intento < PLANIF_REINTENTOS && esErrorTransitorioPlanif(status, detalle)){
+            await new Promise(function(r){ setTimeout(r, 700 * (intento + 1)); });
+            continue;
+        }
+
+        throw new Error(mensajeErrorPlanif(status, detalle));
+
     }
-
-    const texto = await respuesta.text();
-    return texto ? JSON.parse(texto) : null;
 
 }
 
@@ -69,6 +124,22 @@ function obtenerFechaTurnoActivo(){
     ayer.setDate(ayer.getDate() - 1);
 
     return { fecha: formatearFecha(ayer), turno: "NOCHE" };
+
+}
+
+// Inicio y fin reales (Date local) de un turno, con el mismo criterio
+// de arriba: DÍA = fecha 07:00 → fecha 19:00; NOCHE = fecha 19:00 →
+// fecha+1 07:00 (la "fecha" del turno noche es el día en que empieza).
+function rangoTurnoPlanif(fecha, turno){
+
+    const partes = String(fecha).split("-").map(Number);
+    const esNoche = normalizarTurnoPlanif(turno) === "NOCHE";
+
+    const inicio = new Date(partes[0], partes[1] - 1, partes[2], esNoche ? 19 : 7, 0, 0);
+    const fin = new Date(inicio.getTime());
+    fin.setHours(fin.getHours() + 12);
+
+    return { inicio: inicio, fin: fin };
 
 }
 
@@ -393,66 +464,55 @@ async function marcarPreparado(id){
 
 }
 
-async function limpiarEstadoPlanificacion(fecha, turno){
-
-    await planifFetch(
-        "/planificacion_diaria" +
-        "?fecha=eq." + encodeURIComponent(fecha) +
-        "&turno=eq." + encodeURIComponent(turno),
-        {
-            method: "PATCH",
-            headers: { "Prefer": "return=representation" },
-            body: JSON.stringify({ estado_planificacion: null })
-        }
-    );
-
-}
-
-async function actualizarEstadoPlanificacion(fecha, turno, fo, peso){
-
-    const datos = await planifFetch(
-        "/planificacion_diaria" +
-        "?fecha=eq." + encodeURIComponent(fecha) +
-        "&turno=eq." + encodeURIComponent(turno) +
-        "&fo_real=eq." + encodeURIComponent(fo) +
-        "&peso_tn=eq." + peso,
-        {
-            method: "PATCH",
-            headers: { "Prefer": "return=representation" },
-            body: JSON.stringify({ estado_planificacion: "PLANIFICADO" })
-        }
-    );
-
-    if(!Array.isArray(datos) || datos.length === 0){
-        throw new Error("No se actualizó ningún registro para FO " + fo);
-    }
-
-    return datos;
-
-}
-
+// Marca como PLANIFICADO exactamente las filas elegidas (por id) y
+// desmarca el resto de la fecha/turno. Antes se buscaba cada viaje
+// por FO + peso_tn exacto (comparar decimales con "eq" puede no
+// encontrar la fila) en un PATCH por viaje, y si alguno fallaba solo
+// se escribía en la consola: la pantalla decía "Guardado exitoso"
+// aunque ese viaje quedara sin planificar.
 async function guardarEstadoPlanificacion(fecha, turno, seleccionados){
 
     turno = normalizarTurnoPlanif(turno);
 
-    await limpiarEstadoPlanificacion(fecha, turno);
+    const ids = seleccionados
+        .map(function(item){ return Number(item.id); })
+        .filter(function(id){ return id > 0; });
 
-    const errores = [];
+    const filtroTurno =
+        "?fecha=eq." + encodeURIComponent(fecha) +
+        "&turno=eq." + encodeURIComponent(turno);
 
-    for(const item of seleccionados){
+    if(ids.length > 0){
 
-        try{
-            await actualizarEstadoPlanificacion(fecha, turno, item.fo, item.peso);
-        }catch(e){
-            console.error("Error actualizando FO " + item.fo + ": " + e.message);
-            errores.push({ fo: item.fo, error: e.message });
+        const marcados = await planifFetch(
+            "/planificacion_diaria" + filtroTurno + "&id=in.(" + ids.join(",") + ")",
+            {
+                method: "PATCH",
+                headers: { "Prefer": "return=representation" },
+                body: JSON.stringify({ estado_planificacion: "PLANIFICADO" })
+            }
+        );
+
+        const cantidad = Array.isArray(marcados) ? marcados.length : 0;
+
+        if(cantidad !== ids.length){
+            throw new Error(
+                "Solo se pudieron marcar " + cantidad + " de " + ids.length +
+                " viajes. Actualiza la tabla e inténtalo de nuevo."
+            );
         }
 
     }
 
-    if(errores.length > 0){
-        console.error("Viajes que no se pudieron marcar:", errores);
-    }
+    await planifFetch(
+        "/planificacion_diaria" + filtroTurno +
+        (ids.length > 0 ? "&id=not.in.(" + ids.join(",") + ")" : ""),
+        {
+            method: "PATCH",
+            headers: { "Prefer": "return=minimal" },
+            body: JSON.stringify({ estado_planificacion: null })
+        }
+    );
 
     return obtenerPlanificacionSupabase(fecha, turno);
 

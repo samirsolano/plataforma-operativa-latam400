@@ -21,11 +21,13 @@ function abrirDashboard(){
   document.getElementById("modDashboard").style.display = "block";
 
   // Precarga con la fecha/turno ya seleccionados en el sidebar,
-  // pero quedan editables independientemente desde aquí.
+  // pero quedan editables independientemente desde aquí. (Antes la
+  // fecha solo se copiaba la primera vez y el turno siempre — al
+  // volver a abrir con otro día quedaba fecha vieja + turno nuevo.)
   const campoFecha = document.getElementById("dashFecha");
   const campoTurno = document.getElementById("dashTurno");
 
-  if(!campoFecha.value){
+  if(fechaSeleccionada){
     campoFecha.value = fechaSeleccionada;
   }
 
@@ -62,6 +64,11 @@ async function cargarDashboard(){
 
   try{
     const data = await obtenerDashboard(ft.fecha, ft.turno);
+
+    // Respuesta de una fecha/turno que ya no es la elegida: se descarta
+    const vigente = dashFechaTurnoActual();
+    if(vigente.fecha !== ft.fecha || vigente.turno !== ft.turno) return;
+
     renderDashboard(data);
   }catch(err){
     mostrarAlertaModal("No se pudo cargar el Dashboard: " + (err.message || err), "error");

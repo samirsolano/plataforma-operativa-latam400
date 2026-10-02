@@ -5,6 +5,7 @@ let supervisorRecursos = "";
 let listaSupervisoresGlobal = [];
 let colaboradorApoyoSeleccionado = null;
 let timerBusquedaApoyo = null;
+let consultaRecursosActual = 0;
 
 // Evita que nombres/usuarios con comillas, & u otros caracteres
 // rompan el HTML del atributo data-* y dejen el botón sin funcionar.
@@ -100,7 +101,7 @@ async function cargarRecursos(){
 
     }catch(error){
         console.error(error);
-        mostrarToast("❌ Error al cargar supervisores", true);
+        mostrarAlertaModal("No se pudieron cargar los supervisores: " + (error.message || error), "error");
     }
 
 }
@@ -156,9 +157,16 @@ async function cargarTablaRecursos(){
     document.getElementById("prTablaBody").innerHTML =
         `<tr><td colspan="10" style="text-align:center;padding:30px;color:#777;">Cargando colaboradores...</td></tr>`;
 
+    // Si se cambia de supervisor/fecha antes de que llegue la respuesta
+    // anterior, esa respuesta vieja se descarta (si no, podía pintar el
+    // equipo de otro supervisor y guardarse sobre el seleccionado).
+    const consulta = ++consultaRecursosActual;
+
     try{
 
         const datos = await obtenerRecursosTurno(fecha, turno, supervisorRecursos);
+
+        if(consulta !== consultaRecursosActual) return;
 
         recursosData = datos;
         renderTablaRecursos();
@@ -170,7 +178,7 @@ async function cargarTablaRecursos(){
         document.getElementById("prTablaBody").innerHTML =
             `<tr><td colspan="10" style="text-align:center;padding:30px;color:#C62828;">Error al cargar datos.</td></tr>`;
 
-        mostrarToast("❌ Error al cargar colaboradores", true);
+        mostrarAlertaModal("No se pudieron cargar los colaboradores: " + (error.message || error), "error");
 
     }
 
@@ -268,6 +276,21 @@ function renderTablaRecursos(){
 
             const esApoyo = item.tipo === "APOYO";
 
+            if(item.prestado_a){
+                return `
+                <tr class="pr-inactivo" title="En este turno está asignado a ${escapeAttr(item.prestado_a)}; se gestiona desde ese supervisor.">
+                    <td style="text-align:center;"><input type="checkbox" disabled></td>
+                    <td><span class="pr-badge-tipo pr-badge-apoyo">Prestado</span></td>
+                    <td>${escapeAttr(item.dni)}</td>
+                    <td>${escapeAttr((item.nombre_completo || "").toUpperCase())}</td>
+                    <td>${escapeAttr(item.puesto || "-")}</td>
+                    <td>${escapeAttr(item.supervisor)}</td>
+                    <td colspan="3" style="color:#8a5a00;">Asignado en este turno a <b>${escapeAttr(item.prestado_a)}</b>${item.funcion ? " · " + escapeAttr(item.funcion) : ""}</td>
+                    <td></td>
+                </tr>
+            `;
+            }
+
             return `
                 <tr class="${item.activo ? "" : "pr-inactivo"} ${item._modificado ? "pr-fila-pendiente" : ""}">
                     <td style="text-align:center;">
@@ -289,7 +312,7 @@ function renderTablaRecursos(){
                         </select>
                     </td>
                     <td>
-                        <input type="text" class="pr-input-usuariofijo" value="${item.usuario_fijo || ""}"
+                        <input type="text" class="pr-input-usuariofijo" value="${escapeAttr(item.usuario_fijo || "")}"
                             placeholder="-"
                             onchange="actualizarUsuarioFijoPendiente(${item.colaborador_id}, this.value)">
                     </td>
@@ -316,7 +339,8 @@ function actualizarStatsRecursos(){
 
     const total = equipo.length;
     const activosEquipo = equipo.filter(r => r.activo).length;
-    const inactivos = total - activosEquipo;
+    const prestados = equipo.filter(r => r.prestado_a).length;
+    const inactivos = total - activosEquipo - prestados;
 
     const activosTotal = recursosData.filter(r => r.activo).length;
 
@@ -383,7 +407,7 @@ function toggleActivoPendiente(colaboradorId, checkbox){
 
 function activarTodosPendiente(){
 
-    obtenerFilasFiltradas().forEach(item => {
+    obtenerFilasFiltradas().filter(item => !item.prestado_a).forEach(item => {
         item.activo = true;
         item._modificado = true;
     });
@@ -394,7 +418,7 @@ function activarTodosPendiente(){
 
 function desactivarTodosPendiente(){
 
-    obtenerFilasFiltradas().forEach(item => {
+    obtenerFilasFiltradas().filter(item => !item.prestado_a).forEach(item => {
         item.activo = false;
         item._modificado = true;
     });
@@ -489,9 +513,13 @@ async function guardarPlanificacionRecursos(forzar){
     boton.disabled = true;
     boton.innerHTML = "⏳ Guardando...";
 
-    const cambios = recursosData.map(item => ({
+    // Los prestados a otro supervisor no se guardan desde aquí: su fila
+    // de turno es del supervisor que los recibió.
+    const cambios = recursosData.filter(item => !item.prestado_a).map(item => ({
         colaborador_id: item.colaborador_id,
         supervisor_efectivo: item.supervisor_efectivo,
+        tipo: item.tipo,
+        modificado: !!item._modificado,
         activo: item.activo,
         funcion: item.funcion,
         usuario_fijo: item.usuario_fijo,
@@ -521,15 +549,30 @@ async function guardarPlanificacionRecursos(forzar){
 
         if(resultado.erroresMaestra && resultado.erroresMaestra.length > 0){
             console.error("Errores al actualizar ficha maestra:", resultado.erroresMaestra);
-            mostrarToast("⚠️ Turno guardado, pero " + resultado.erroresMaestra.length + " ficha(s) maestra no se actualizaron. Ver consola.", true);
+            mostrarAlertaModal(
+                "La planificación del turno SÍ se guardó, pero hubo detalles secundarios que no se registraron:\n\n" +
+                resultado.erroresMaestra.join("\n"),
+                "warning"
+            );
+        } else if(resultado.omitidosOtroSupervisor && resultado.omitidosOtroSupervisor.length > 0){
+            mostrarAlertaModal(
+                "Planificación guardada. " + resultado.omitidosOtroSupervisor.length +
+                " colaborador(es) no se modificaron porque, mientras tenías la pantalla abierta, otro supervisor los asignó a su turno.",
+                "warning"
+            );
         } else {
             mostrarToast("✅ Planificación guardada");
         }
 
-        recursosData = resultado.datos;
-        recursosData.forEach(item => { item._modificado = false; });
-
-        renderTablaRecursos();
+        if(resultado.datos){
+            recursosData = resultado.datos;
+            recursosData.forEach(item => { item._modificado = false; });
+            renderTablaRecursos();
+        }else{
+            // Se guardó, pero la recarga falló: se vuelve a pedir la tabla
+            recursosData.forEach(item => { item._modificado = false; });
+            cargarTablaRecursos();
+        }
 
     }catch(error){
 
@@ -538,7 +581,7 @@ async function guardarPlanificacionRecursos(forzar){
         boton.disabled = false;
         boton.innerHTML = "💾 Guardar Planificación";
 
-        mostrarToast("❌ Error al guardar la planificación", true);
+        mostrarAlertaModal("No se pudo guardar la planificación: " + (error.message || error), "error");
 
     }
 
@@ -701,7 +744,7 @@ async function confirmarAgregarApoyo(forzar){
 
     }catch(error){
         console.error(error);
-        mostrarToast("❌ Error al agregar apoyo", true);
+        mostrarAlertaModal("No se pudo agregar el apoyo: " + (error.message || error), "error");
     }
 
 }
@@ -787,7 +830,7 @@ async function confirmarRegistrarColaborador(){
 
     }catch(error){
         console.error(error);
-        mostrarToast("❌ Error al registrar colaborador", true);
+        mostrarAlertaModal("No se pudo registrar el colaborador: " + (error.message || error), "error");
     }
 
 }
@@ -816,7 +859,7 @@ function eliminarColaborador(colaboradorId, nombre){
 
             }catch(error){
                 console.error(error);
-                mostrarToast("❌ Error al eliminar colaborador", true);
+                mostrarAlertaModal("No se pudo eliminar el colaborador: " + (error.message || error), "error");
             }
 
         },
@@ -843,7 +886,7 @@ function exportarExcel(){
     ];
 
     const filas = recursosData.map(item => [
-        item.tipo === "APOYO" ? "Apoyo" : "Normal",
+        item.prestado_a ? "Prestado a " + item.prestado_a : (item.tipo === "APOYO" ? "Apoyo" : "Normal"),
         item.dni,
         (item.nombre_completo || "").toUpperCase(),
         item.puesto || "",
