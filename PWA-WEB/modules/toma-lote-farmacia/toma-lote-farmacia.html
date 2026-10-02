@@ -60,6 +60,11 @@
 
             <nav class="menu">
 
+                <div class="menu-seccion">Seguimiento</div>
+
+                <a href="#" class="tab-link" data-tab="tabAvance">Avance de Viajes</a>
+
+                <div class="menu-separador"></div>
                 <div class="menu-seccion">Despacho</div>
 
                 <a href="#" class="tab-link" data-tab="tabLecturas">Lecturas y Evidencias</a>
@@ -103,6 +108,50 @@
                 </div>
 
             </header>
+
+            <!-- ============================================ -->
+            <!-- AVANCE DE VIAJES -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabAvance">
+
+                <div class="card">
+
+                    <div class="card-header-flex">
+
+                        <h2>
+                            AVANCE DE VIAJES
+                        </h2>
+
+                        <div class="botones-header">
+
+                            <div class="av-selector">
+                                <button type="button" class="av-vista activo" data-vista="viaje">Por viaje</button>
+                                <button type="button" class="av-vista" data-vista="oc">Por OC</button>
+                            </div>
+
+                            <button id="btnActualizarAvance" class="btn-secundario">
+                                ⟳ Actualizar
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                    <p class="nota-modulo">
+                        <strong>Por viaje:</strong> en qué paso está cada viaje. <strong>Por OC:</strong> la
+                        recolección de cada OC (Ctd. Registrada vs Atendida) para cerrarla apenas termine.
+                        Una OC sale <strong>Detenida</strong> si no está completa y lleva 10 minutos sin lecturas.
+                        <span id="avanceActualizado"></span>
+                    </p>
+
+                    <div id="avanceContenido">
+                        <p class="sin-datos">Cargando avance...</p>
+                    </div>
+
+                </div>
+
+            </div>
 
             <!-- ============================================ -->
             <!-- TAB 1: CARGA Y VIAJES -->

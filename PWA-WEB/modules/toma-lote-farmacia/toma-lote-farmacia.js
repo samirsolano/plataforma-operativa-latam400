@@ -241,6 +241,10 @@ document.querySelectorAll(".tab-link").forEach(function(link){
             buscarViajesGuardados();
         }
 
+        if(link.dataset.tab === "tabAvance"){
+            actualizarAvance();
+        }
+
     });
 
 });
@@ -5424,4 +5428,588 @@ document.getElementById("tblViajesGuardados").addEventListener("click", function
     if(boton){
         descargarViajeGuardado(boton.dataset.viaje, boton);
     }
+});
+
+// ========================================
+// AVANCE DE VIAJES
+// ========================================
+// Dos resúmenes de los viajes cargados (los que todavía no se guardaron
+// en la Base de Datos):
+// - "Por viaje": matriz de semáforos con los 6 pasos de cada viaje.
+// - "Por OC": la recolección de cada OC (Ctd. Registrada vs Atendida),
+//   para poder cerrar una OC apenas termina sin esperar al resto.
+// Se trae todo en una consulta por tabla (no viaje por viaje) y se
+// calcula con las mismas reglas que el resto del módulo
+// (cantidadAtendida, cruzarCodigosSapConOc, vida útil, lotes). Solo se
+// actualiza al abrir la pestaña o con el botón "Actualizar".
+
+const MINUTOS_OC_DETENIDA = 10;
+
+const PASOS_AVANCE = [
+    { clave: "registro", corto: "Registro", icono: "R" },
+    { clave: "ocPortal", corto: "OC Portal", icono: "O" },
+    { clave: "cruce", corto: "Cruce", icono: "C" },
+    { clave: "stock", corto: "Stock SAP", icono: "S" },
+    { clave: "lotes", corto: "Lotes", icono: "L" },
+    { clave: "dataFinal", corto: "Data Final", icono: "D" }
+];
+
+const TEXTO_ESTADO_VIAJE = { activo: "Activo", desactivado: "Desactivado", cerrado: "Cerrado", finalizado: "Finalizado" };
+const CLASE_ESTADO_VIAJE = { activo: "activado", desactivado: "advertencia", cerrado: "cerrado", finalizado: "disponible" };
+
+const ESTADOS_OC_AVANCE = {
+    cerrada: { texto: "Cerrada", clase: "activado" },
+    lista: { texto: "Lista para cerrar", clase: "activado" },
+    observacion: { texto: "Con observación", clase: "pendiente" },
+    detenida: { texto: "Detenida", clase: "detenida" },
+    recolectando: { texto: "Recolectando", clase: "recolectando" },
+    sin_iniciar: { texto: "Sin iniciar", clase: "disponible" }
+};
+
+let _vistaAvance = "viaje";
+let _avanceViajes = [];
+let _viajesAvanceAbiertos = new Set();
+
+function horaCorta(iso){
+    return new Date(iso).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+}
+
+function combinarPasos(estados){
+    if(estados.some(e => e === "ob")){
+        return "ob";
+    }
+    return estados.length && estados.every(e => e === "ok") ? "ok" : "pe";
+}
+
+function calcularAvanceOc(viaje, oc, dataOc, lecturasOc, portalOc, stockOc, maraFilas, tvuPorCodigo, ocsConDataFinal, ahora){
+
+    // ---- Recolección por código ----
+    const porCodigo = {};
+
+    dataOc.forEach(function(f){
+        const c = String(f.codigo || "").trim();
+        if(!c){
+            return;
+        }
+        if(!porCodigo[c]){
+            porCodigo[c] = { codigo: c, atendida: 0, registrada: 0, lotes: [] };
+        }
+        porCodigo[c].atendida += cantidadAtendida(f);
+    });
+
+    const cajasPorCodigo = {};
+
+    lecturasOc.forEach(function(l){
+        const c = String(l.codigo || "").trim();
+        cajasPorCodigo[c] = (cajasPorCodigo[c] || 0) + Number(l.cantidad_cajas || 0);
+        if(porCodigo[c]){
+            porCodigo[c].registrada += Number(l.cantidad_cajas || 0);
+            porCodigo[c].lotes.push(l);
+        }
+    });
+
+    const codigos = Object.values(porCodigo);
+    const observaciones = [];
+    const faltantes = [];
+    let atendidaTotal = 0;
+    let registradaUtil = 0;
+    let completos = 0;
+
+    codigos.forEach(function(g){
+
+        atendidaTotal += g.atendida;
+        registradaUtil += Math.min(g.registrada, g.atendida);
+
+        if(g.registrada >= g.atendida){
+            completos++;
+        }else{
+            faltantes.push({ codigo: g.codigo, cajas: g.atendida - g.registrada });
+        }
+
+        if(g.registrada > g.atendida){
+            observaciones.push(g.codigo + ": registrada (" + g.registrada + ") supera la atendida (" + g.atendida + ")");
+        }
+
+        const lotesUnicos = [...new Set(g.lotes.map(l => l.lote).filter(Boolean))];
+
+        if(lotesUnicos.length > 3){
+            observaciones.push(g.codigo + ": " + lotesUnicos.length + " lotes (máx. 3)");
+        }
+
+        const tvu = tvuPorCodigo[g.codigo];
+
+        if(tvu && g.lotes.some(function(l){
+            const fv = completarFvConLote(l.fv, l.lote, tvu);
+            return fv ? mesesEntre(ahora, new Date(fv + "T00:00:00")) <= (tvu / 2) : false;
+        })){
+            observaciones.push(g.codigo + ": vida útil corta");
+        }
+
+    });
+
+    let ultima = null;
+
+    lecturasOc.forEach(function(l){
+        if(l.created_at && (!ultima || l.created_at > ultima.created_at)){
+            ultima = l;
+        }
+    });
+
+    const pasos = {};
+
+    pasos.registro = observaciones.length ? "ob" : (completos === codigos.length ? "ok" : "pe");
+    pasos.ocPortal = portalOc.length ? "ok" : "pe";
+
+    // ---- Cruce con la OC del cliente (misma regla que Cruce de Información) ----
+    if(!portalOc.length){
+        pasos.cruce = "pe";
+    }else{
+        const malos = cruzarCodigosSapConOc(dataOc, portalOc, maraFilas, cajasPorCodigo).filter(c => !c.ok);
+        malos.forEach(c => observaciones.push(c.codigo + ": " + c.estadoTexto));
+        pasos.cruce = malos.length ? "ob" : "ok";
+    }
+
+    // ---- Stock SAP y Cruce de Lotes de esta OC ----
+    pasos.stock = stockOc.length ? "ok" : "pe";
+
+    if(!stockOc.length){
+        pasos.lotes = "pe";
+    }else{
+
+        const sapPorCodigo = {};
+
+        stockOc.forEach(function(s){
+            if(!s.producto){
+                return;
+            }
+            if(!sapPorCodigo[s.producto]){
+                sapPorCodigo[s.producto] = { cajas: 0, filas: [] };
+            }
+            sapPorCodigo[s.producto].cajas += Number(s.cantidad_embalada || 0);
+            sapPorCodigo[s.producto].filas.push(s);
+        });
+
+        let hayProblema = false;
+
+        Object.keys(sapPorCodigo).forEach(function(codigo){
+            const g = sapPorCodigo[codigo];
+            const lotesRegistrados = new Set(lecturasOc.filter(l => l.codigo === codigo && l.lote).map(l => String(l.lote).trim()));
+            if(g.cajas !== (cajasPorCodigo[codigo] || 0)){
+                hayProblema = true;
+                observaciones.push(codigo + ": SAP " + g.cajas + " cj vs registrado " + (cajasPorCodigo[codigo] || 0));
+            }
+            if(g.filas.some(s => s.lote && !lotesRegistrados.has(String(s.lote).trim()))){
+                hayProblema = true;
+                observaciones.push(codigo + ": lote de SAP no coincide (cambiar en SAP)");
+            }
+        });
+
+        pasos.lotes = hayProblema ? "ob" : "ok";
+
+    }
+
+    pasos.dataFinal = ocsConDataFinal.has(oc) ? "ok" : "pe";
+
+    // ---- Estado de la OC ----
+    let estado;
+
+    if(PASOS_AVANCE.every(p => pasos[p.clave] === "ok")){
+        estado = "cerrada";
+    }else if(pasos.registro === "ok"){
+        estado = "lista";
+    }else if(pasos.registro === "ob"){
+        estado = "observacion";
+    }else if(!ultima){
+        estado = "sin_iniciar";
+    }else if((ahora - new Date(ultima.created_at)) / 60000 > MINUTOS_OC_DETENIDA){
+        estado = "detenida";
+    }else{
+        estado = "recolectando";
+    }
+
+    return {
+        viaje: viaje,
+        oc: oc,
+        codigos: codigos.length,
+        completos: completos,
+        atendida: atendidaTotal,
+        registradaUtil: registradaUtil,
+        pct: atendidaTotal > 0 ? Math.round(registradaUtil * 100 / atendidaTotal) : 100,
+        ultima: ultima,
+        minutosSinLectura: ultima ? Math.floor((ahora - new Date(ultima.created_at)) / 60000) : null,
+        faltantes: faltantes.sort((a, b) => b.cajas - a.cajas),
+        observaciones: observaciones,
+        pasos: pasos,
+        estado: estado
+    };
+
+}
+
+async function cargarAvanceViajes(){
+
+    const [dataFilas, estadosFilas, lecturasFilas, maraFilas, stockFilas] = await Promise.all([
+        supabaseFetchTodo("/farmacia_data?select=viaje,orden_compra,codigo,descripcion,cantidad,cantidad_atendida,fecha_cita"),
+        supabaseFetchTodo("/farmacia_viajes_activados?select=viaje,estado"),
+        supabaseFetchTodo("/farmacia_lecturas?select=viaje,oc,codigo,lote,fv,cantidad_cajas,escaneado_por,created_at"),
+        supabaseFetchTodo("/mara_alicorp?select=ean,codigo,descripcion,factor_unidad_alm,tvu"),
+        supabaseFetchTodo("/stock_fisico_sap?select=viaje,oc,producto,lote,cantidad_embalada")
+    ]);
+
+    const todasOcs = [...new Set((dataFilas || []).map(f => f.orden_compra).filter(v => v !== null && v !== undefined))];
+
+    const [portalFilas, dataFinalFilas] = todasOcs.length
+        ? await Promise.all([
+            supabaseFetchTodo("/oc_portal_cliente?select=oc,ean,cantidad_sku_solicitada,descripcion_producto&oc=in.(" + todasOcs.join(",") + ")"),
+            supabaseFetchTodo("/data_final_generada?select=oc&oc=in.(" + todasOcs.join(",") + ")")
+        ])
+        : [[], []];
+
+    const tvuPorCodigo = {};
+
+    (maraFilas || []).forEach(function(m){
+        if(m.codigo && m.tvu){
+            tvuPorCodigo[String(m.codigo).trim()] = Number(m.tvu);
+        }
+    });
+
+    const estadoPorViaje = new Map((estadosFilas || []).map(f => [f.viaje, f.estado || "desactivado"]));
+    const ocsConDataFinal = new Set((dataFinalFilas || []).map(f => f.oc));
+    const ahora = new Date();
+
+    const viajes = [...new Set((dataFilas || []).map(f => f.viaje).filter(v => v !== null && v !== undefined))]
+        .sort((a, b) => a - b);
+
+    return viajes.map(function(viaje){
+
+        const dataViaje = dataFilas.filter(f => f.viaje === viaje);
+        const ocs = [...new Set(dataViaje.map(f => f.orden_compra).filter(v => v !== null && v !== undefined))].sort((a, b) => a - b);
+
+        const ocsAvance = ocs.map(oc => calcularAvanceOc(
+            viaje,
+            oc,
+            dataViaje.filter(f => f.orden_compra === oc),
+            (lecturasFilas || []).filter(l => l.viaje === viaje && l.oc === oc),
+            (portalFilas || []).filter(p => p.oc === oc),
+            (stockFilas || []).filter(s => s.viaje === viaje && s.oc === oc),
+            maraFilas,
+            tvuPorCodigo,
+            ocsConDataFinal,
+            ahora
+        ));
+
+        const pasos = {};
+
+        PASOS_AVANCE.forEach(function(p){
+            pasos[p.clave] = combinarPasos(ocsAvance.map(o => o.pasos[p.clave]));
+        });
+
+        const atendida = ocsAvance.reduce((s, o) => s + o.atendida, 0);
+        const registrada = ocsAvance.reduce((s, o) => s + o.registradaUtil, 0);
+
+        // Lo que falta, en una línea por OC.
+        const pendientes = [];
+
+        ocsAvance.forEach(function(o){
+
+            const partes = [];
+
+            if(o.faltantes.length){
+                partes.push("faltan " + o.faltantes.reduce((s, f) => s + f.cajas, 0) + " cajas (" + o.faltantes.length + " códigos)");
+            }
+            if(o.observaciones.length){
+                partes.push(o.observaciones.join(" · "));
+            }
+            if(o.pasos.ocPortal === "pe"){
+                partes.push("falta OC Portal");
+            }
+            if(o.pasos.stock === "pe" && o.pasos.registro === "ok"){
+                partes.push("falta Stock SAP");
+            }
+            if(o.pasos.dataFinal === "pe" && o.estado === "lista"){
+                partes.push("falta Data Final");
+            }
+
+            if(partes.length){
+                pendientes.push("OC " + o.oc + ": " + partes.join(" · "));
+            }
+
+        });
+
+        return {
+            viaje: viaje,
+            fechaCita: (dataViaje.find(f => f.fecha_cita) || {}).fecha_cita || null,
+            estado: estadoPorViaje.get(viaje) || "desactivado",
+            codigos: dataViaje.length,
+            ocs: ocsAvance,
+            pasos: pasos,
+            pasosOk: PASOS_AVANCE.filter(p => pasos[p.clave] === "ok").length,
+            pct: atendida > 0 ? Math.round(registrada * 100 / atendida) : 100,
+            atendida: atendida,
+            registrada: registrada,
+            pendientes: pendientes,
+            completo: ocsAvance.length > 0 && ocsAvance.every(o => o.estado === "cerrada")
+        };
+
+    });
+
+}
+
+function htmlPasoAvance(estado, textoPendiente){
+    if(estado === "ok"){
+        return '<span class="av-paso ok" title="Listo">✓</span>';
+    }
+    if(estado === "ob"){
+        return '<span class="av-paso ob" title="Con observación">!</span>';
+    }
+    return textoPendiente
+        ? '<span class="av-paso-pct">' + textoPendiente + '</span>'
+        : '<span class="av-paso pe" title="Pendiente"></span>';
+}
+
+function htmlLeyendaAvance(){
+    return '<div class="av-leyenda">' +
+        '<span><span class="av-paso ok">✓</span>Listo</span>' +
+        '<span><span class="av-paso ob">!</span>Con observación</span>' +
+        '<span><span class="av-paso pe"></span>Pendiente</span>' +
+    '</div>';
+}
+
+function renderAvancePorViaje(viajes){
+
+    const filas = viajes.map(function(v){
+
+        const colorBarra = v.pasosOk === PASOS_AVANCE.length ? "av-verde"
+            : (PASOS_AVANCE.some(p => v.pasos[p.clave] === "ob") ? "av-rojo" : "av-azul");
+
+        return `
+            <tr class="av-fila-viaje" data-viaje="${v.viaje}" title="Ver sus OC">
+                <td>
+                    <strong>${v.viaje}</strong>
+                    <div class="av-sub">Cita ${v.fechaCita || "-"} · ${v.ocs.length} OC · ${v.codigos} códigos</div>
+                    <div class="av-barra"><i class="${colorBarra}" style="width:${Math.round(v.pasosOk * 100 / PASOS_AVANCE.length)}%"></i></div>
+                </td>
+                ${PASOS_AVANCE.map(p => "<td>" + htmlPasoAvance(
+                    v.pasos[p.clave],
+                    p.clave === "registro" && v.pasos.registro === "pe" ? v.pct + "%" : ""
+                ) + "</td>").join("")}
+                <td><span class="estado ${CLASE_ESTADO_VIAJE[v.estado] || "disponible"}">${TEXTO_ESTADO_VIAJE[v.estado] || v.estado}</span></td>
+            </tr>
+        `;
+
+    }).join("");
+
+    const conPendientes = viajes.filter(v => v.pendientes.length);
+
+    const falta = conPendientes.length
+        ? '<div class="av-falta"><strong>Qué falta</strong>' +
+            conPendientes.map(v => "<div><b>" + v.viaje + "</b> · " + v.pendientes.map(escaparHtmlFarmacia).join(" | ") + "</div>").join("") +
+          '</div>'
+        : "";
+
+    return `
+        <table class="av-tabla">
+            <thead>
+                <tr>
+                    <th>Viaje</th>
+                    ${PASOS_AVANCE.map(p => "<th>" + p.corto + "</th>").join("")}
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>${filas}</tbody>
+        </table>
+        ${falta}
+        ${htmlLeyendaAvance()}
+    `;
+
+}
+
+function htmlOcAvance(o){
+
+    const estado = ESTADOS_OC_AVANCE[o.estado];
+
+    const colorBarra = o.estado === "cerrada" || o.estado === "lista" ? "av-verde"
+        : (o.estado === "observacion" || o.estado === "detenida" ? "av-rojo" : "av-azul");
+
+    let detalle = o.completos + "/" + o.codigos + " códigos · " +
+        formatearNumeroFarmacia(o.registradaUtil) + "/" + formatearNumeroFarmacia(o.atendida) + " cajas";
+
+    if(o.ultima){
+        detalle += " · " + escaparHtmlFarmacia(o.ultima.escaneado_por || "-") + " · " + horaCorta(o.ultima.created_at);
+        if(o.estado === "detenida"){
+            detalle += " (hace " + o.minutosSinLectura + " min)";
+        }
+    }else{
+        detalle += " · sin lecturas";
+    }
+
+    const faltan = o.faltantes.length
+        ? '<div class="av-oc-faltan">Faltan: ' +
+            o.faltantes.slice(0, 5).map(f => escaparHtmlFarmacia(f.codigo) + " (" + f.cajas + " cj)").join(" · ") +
+            (o.faltantes.length > 5 ? " · y " + (o.faltantes.length - 5) + " más" : "") +
+          '</div>'
+        : "";
+
+    const obs = o.observaciones.length
+        ? '<div class="av-oc-obs">⚠ ' + o.observaciones.map(escaparHtmlFarmacia).join(" · ") + '</div>'
+        : "";
+
+    // Solo visual: cuando la recolección de la OC ya terminó se muestran
+    // sus pasos de cierre y cuál es el siguiente pendiente (como texto;
+    // esta pestaña no ejecuta ni abre nada).
+    let acciones = "";
+
+    if(o.estado === "lista" || o.estado === "cerrada"){
+
+        acciones += '<div class="av-cierre">' +
+            PASOS_AVANCE.slice(1).map(p => htmlPasoAvance(o.pasos[p.clave]).replace("<span ", '<span title="' + p.corto + '" ')).join("") +
+        '</div>';
+
+        const siguiente = PASOS_AVANCE.slice(1).find(p => o.pasos[p.clave] !== "ok");
+
+        if(siguiente){
+            acciones += '<div class="av-siguiente">Sigue: ' + siguiente.corto + '</div>';
+        }
+
+    }
+
+    return `
+        <div class="av-oc">
+            <div>
+                <div class="av-oc-nombre">OC ${o.oc}</div>
+                <div class="av-sub">${o.codigos} códigos</div>
+            </div>
+            <div>
+                <div class="av-progreso">
+                    <div class="av-barra"><i class="${colorBarra}" style="width:${o.pct}%"></i></div>
+                    <strong>${o.pct}%</strong>
+                </div>
+                <div class="av-oc-detalle">${detalle}</div>
+                ${faltan}
+                ${obs}
+            </div>
+            <div class="av-oc-acciones">
+                <span class="estado ${estado.clase}">${estado.texto}</span>
+                ${acciones}
+            </div>
+        </div>
+    `;
+
+}
+
+function renderAvancePorOc(viajes){
+
+    return viajes.map(function(v){
+
+        const plegado = v.completo && !_viajesAvanceAbiertos.has(v.viaje);
+        const cerradas = v.ocs.filter(o => o.estado === "cerrada").length;
+        const colorBarra = v.pct === 100 ? "av-verde" : (v.ocs.some(o => o.estado === "observacion" || o.estado === "detenida") ? "av-rojo" : "av-azul");
+
+        return `
+            <div class="av-viaje" id="avViaje${v.viaje}">
+                <div class="av-viaje-cab plegable" data-viaje="${v.viaje}">
+                    <div>
+                        <span class="av-viaje-titulo">Viaje ${v.viaje}</span>
+                        <span class="av-sub"> · Cita ${v.fechaCita || "-"} · ${v.ocs.length} OC · ${v.codigos} códigos · ${cerradas} de ${v.ocs.length} OC cerradas</span>
+                    </div>
+                    <div>
+                        <span class="estado ${CLASE_ESTADO_VIAJE[v.estado] || "disponible"}">${TEXTO_ESTADO_VIAJE[v.estado] || v.estado}</span>
+                        <span class="av-sub">${plegado ? "▸" : "▾"}</span>
+                    </div>
+                </div>
+                ${plegado ? "" : `
+                    <div class="av-progreso">
+                        <div class="av-barra"><i class="${colorBarra}" style="width:${v.pct}%"></i></div>
+                        <strong>${v.pct}%</strong>
+                        <span class="av-sub">${formatearNumeroFarmacia(v.registrada)} / ${formatearNumeroFarmacia(v.atendida)} cajas</span>
+                    </div>
+                    ${v.ocs.map(htmlOcAvance).join("")}
+                `}
+            </div>
+        `;
+
+    }).join("") + htmlLeyendaAvance();
+
+}
+
+function renderAvance(){
+
+    const contenedor = document.getElementById("avanceContenido");
+
+    document.querySelectorAll(".av-vista").forEach(b => b.classList.toggle("activo", b.dataset.vista === _vistaAvance));
+
+    if(!_avanceViajes.length){
+        contenedor.innerHTML = '<p class="sin-datos">No hay viajes cargados. Los viajes guardados se consultan en "Base de Datos".</p>';
+        return;
+    }
+
+    contenedor.innerHTML = _vistaAvance === "viaje"
+        ? renderAvancePorViaje(_avanceViajes)
+        : renderAvancePorOc(_avanceViajes);
+
+}
+
+async function actualizarAvance(){
+
+    const boton = document.getElementById("btnActualizarAvance");
+    boton.disabled = true;
+
+    if(!_avanceViajes.length){
+        document.getElementById("avanceContenido").innerHTML = '<p class="sin-datos">Cargando avance...</p>';
+    }
+
+    try{
+        _avanceViajes = await cargarAvanceViajes();
+        renderAvance();
+        document.getElementById("avanceActualizado").textContent =
+            " Última actualización: " + horaCorta(new Date().toISOString());
+    }catch(e){
+        console.error(e);
+        document.getElementById("avanceContenido").innerHTML = '<p class="sin-datos">No se pudo cargar el avance.</p>';
+    }finally{
+        boton.disabled = false;
+    }
+
+}
+
+document.getElementById("btnActualizarAvance").addEventListener("click", actualizarAvance);
+
+document.querySelectorAll(".av-vista").forEach(function(boton){
+    boton.addEventListener("click", function(){
+        _vistaAvance = boton.dataset.vista;
+        renderAvance();
+    });
+});
+
+document.getElementById("avanceContenido").addEventListener("click", function(e){
+
+    // Clic en un viaje de la matriz: abre la vista "Por OC" en ese viaje.
+    const filaViaje = e.target.closest(".av-fila-viaje");
+
+    if(filaViaje){
+        const viaje = Number(filaViaje.dataset.viaje);
+        _vistaAvance = "oc";
+        _viajesAvanceAbiertos.add(viaje);
+        renderAvance();
+        const tarjeta = document.getElementById("avViaje" + viaje);
+        if(tarjeta){
+            tarjeta.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        return;
+    }
+
+    // Clic en la cabecera de un viaje (vista Por OC): plegar / desplegar.
+    const cabecera = e.target.closest(".av-viaje-cab.plegable");
+
+    if(cabecera){
+        const viaje = Number(cabecera.dataset.viaje);
+        const viajeDatos = _avanceViajes.find(v => v.viaje === viaje);
+        const plegadoAhora = viajeDatos && viajeDatos.completo && !_viajesAvanceAbiertos.has(viaje);
+        if(plegadoAhora){
+            _viajesAvanceAbiertos.add(viaje);
+        }else if(viajeDatos && viajeDatos.completo){
+            _viajesAvanceAbiertos.delete(viaje);
+        }
+        renderAvance();
+    }
+
 });
