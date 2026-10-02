@@ -493,25 +493,54 @@ async function guardarPlanificacionRecursosBatch(fecha, turno, supervisor, cambi
             : [];
     });
 
-    if(itemsExistentes.length > 0){
+    // Solo se manda lo que REALMENTE cambió respecto a lo grabado, y de
+    // a pocas filas a la vez. Antes se hacía un PATCH por cada persona
+    // (≈24 a la vez) con todos los campos aunque nada hubiera cambiado;
+    // cada cambio de usuario hace que la base recalcule el auxiliar en
+    // tareas_almacen_sap (tabla de ~1 millón de filas), y tantas a la
+    // vez terminaban en "statement timeout".
+    const patchesTurno = [];
 
-        const resultadosPatchTurno = await Promise.all(itemsExistentes.map(function(item){
+    itemsExistentes.forEach(function(item){
 
-            const usuariosNuevos = (item.usuarios || [])
-                .map(x => String(x).trim())
-                .filter(x => x !== "");
+        const filaVieja = filaPorColaborador[item.colaborador_id];
 
-            return rgPatch("turno_colaboradores", "id=eq." + filaPorColaborador[item.colaborador_id].id, {
-                activo: !!item.activo,
-                funcion: item.funcion || null,
-                usuario_turno: usuariosNuevos.length > 0 ? usuariosNuevos.join(",") : null,
-                usuario_fijo: item.usuario_fijo || null
-            });
+        const usuariosNuevos = (item.usuarios || [])
+            .map(x => String(x).trim())
+            .filter(x => x !== "");
 
+        const deseado = {
+            activo: !!item.activo,
+            funcion: item.funcion || null,
+            usuario_turno: usuariosNuevos.length > 0 ? usuariosNuevos.join(",") : null,
+            usuario_fijo: item.usuario_fijo || null
+        };
+
+        const cambiosFila = {};
+
+        Object.keys(deseado).forEach(function(campo){
+            const antes = campo === "activo" ? !!filaVieja[campo] : (filaVieja[campo] || null);
+            if(antes !== deseado[campo]) cambiosFila[campo] = deseado[campo];
+        });
+
+        if(Object.keys(cambiosFila).length > 0){
+            patchesTurno.push({ colaborador_id: item.colaborador_id, id: filaVieja.id, payload: cambiosFila });
+        }
+
+    });
+
+    const PATCHES_SIMULTANEOS = 3;
+
+    for(let i = 0; i < patchesTurno.length; i += PATCHES_SIMULTANEOS){
+
+        const grupo = patchesTurno.slice(i, i + PATCHES_SIMULTANEOS);
+
+        const resultados = await Promise.all(grupo.map(function(p){
+            return rgPatch("turno_colaboradores", "id=eq." + p.id, p.payload);
         }));
 
-        itemsExistentes.forEach(function(item, i){
-            filaPorColaborador[item.colaborador_id] = resultadosPatchTurno[i][0];
+        grupo.forEach(function(p, j){
+            filaPorColaborador[p.colaborador_id] = resultados[j][0];
         });
 
     }
@@ -527,27 +556,61 @@ async function guardarPlanificacionRecursosBatch(fecha, turno, supervisor, cambi
 
     if(cambiosMaestra.length > 0){
 
-        const resultadosMaestra = await Promise.allSettled(cambiosMaestra.map(function(item){
+        // Igual que arriba: solo los campos que difieren de la ficha
+        // actual, y de a pocas fichas a la vez.
+        let fichasActuales = [];
 
-            return rgPatch("colaboradores", "id=eq." + item.colaborador_id, {
-                funcion: item.funcion || null,
-                usuario_fijo: item.usuario_fijo || null
-            });
+        try{
+            fichasActuales = await rgGet(
+                "colaboradores",
+                "id=in.(" + cambiosMaestra.map(c => c.colaborador_id).join(",") + ")&select=id,funcion,usuario_fijo"
+            );
+        }catch(e){
+            errorespatchMaestra.push("No se pudo leer la ficha maestra: " + e.message);
+        }
 
-        }));
+        const fichaPorId = {};
+        fichasActuales.forEach(f => { fichaPorId[f.id] = f; });
 
-        resultadosMaestra.forEach(function(resultado, i){
+        const patchesMaestra = [];
 
-            if(resultado.status === "rejected"){
+        cambiosMaestra.forEach(function(item){
 
-                errorespatchMaestra.push(
-                    "No se pudo actualizar la ficha maestra de colaborador_id " +
-                    cambiosMaestra[i].colaborador_id + ": " + resultado.reason.message
-                );
+            const ficha = fichaPorId[item.colaborador_id];
+            if(!ficha) return;
 
+            const payload = {};
+            if((ficha.funcion || null) !== (item.funcion || null)) payload.funcion = item.funcion || null;
+            if((ficha.usuario_fijo || null) !== (item.usuario_fijo || null)) payload.usuario_fijo = item.usuario_fijo || null;
+
+            if(Object.keys(payload).length > 0){
+                patchesMaestra.push({ colaborador_id: item.colaborador_id, payload: payload });
             }
 
         });
+
+        for(let i = 0; i < patchesMaestra.length; i += 3){
+
+            const grupo = patchesMaestra.slice(i, i + 3);
+
+            const resultadosMaestra = await Promise.allSettled(grupo.map(function(p){
+                return rgPatch("colaboradores", "id=eq." + p.colaborador_id, p.payload);
+            }));
+
+            resultadosMaestra.forEach(function(resultado, j){
+
+                if(resultado.status === "rejected"){
+
+                    errorespatchMaestra.push(
+                        "No se pudo actualizar la ficha maestra de colaborador_id " +
+                        grupo[j].colaborador_id + ": " + resultado.reason.message
+                    );
+
+                }
+
+            });
+
+        }
 
     }
 
