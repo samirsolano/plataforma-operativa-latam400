@@ -205,15 +205,22 @@ async function cargarRosterColaboradoresPasillo(){
 // de desplazarse por una lista larga.
 function buscarEnRosterColaboradoresPasillo(texto){
 
-    const termino = String(texto || "").trim().toLowerCase();
+    // Cada palabra se busca por separado (sin tildes ni comas), así
+    // "samir solano" encuentra "SOLANO VELITA, SAMIR SMITH JESUS".
+    function normalizar(s){
+        return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/,/g, " ").toLowerCase();
+    }
 
-    if(termino.length < 2){
+    const palabras = normalizar(texto).split(/\s+/).filter(Boolean);
+
+    if(palabras.join("").length < 2){
         return [];
     }
 
     return _rosterColaboradoresPasillo
         .filter(function(c){
-            return c.nombre.toLowerCase().includes(termino) || c.dni.includes(termino);
+            const nombre = normalizar(c.nombre);
+            return palabras.every(function(p){ return nombre.includes(p) || c.dni.includes(p); });
         })
         .slice(0, 8);
 
