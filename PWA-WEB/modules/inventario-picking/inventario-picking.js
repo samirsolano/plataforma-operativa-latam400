@@ -247,7 +247,9 @@ async function asignarColaboradorPasillo(pasillo, dni, nombre){
                 semana: SEMANA,
                 colaborador: nombre || null,
                 colaborador_dni: dni || null,
-                estado: actual.estado || null,
+                // estado es NOT NULL en la tabla — un pasillo nuevo
+                // arranca como "en_proceso", igual que en Centro de Proyectos.
+                estado: actual.estado || "en_proceso",
                 hora_inicio: actual.hora_inicio || null,
                 hora_fin: actual.hora_fin || null
             })
