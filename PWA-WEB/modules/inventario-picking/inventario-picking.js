@@ -157,7 +157,33 @@ function semanaActual(fecha){
 
 const SEMANA = semanaActual();
 
-document.getElementById("semanaTextoAsignacion").textContent = SEMANA.split("-W")[1];
+// Turno DÍA 07:00–19:00, NOCHE 19:00–07:00 (mismo criterio que
+// Planificación): entre 00:00 y 07:00 sigue siendo la noche que
+// empezó ayer, así que el día mostrado es el de ayer.
+function textoTurnoActual(){
+
+    const ahora = new Date();
+    const hora = ahora.getHours();
+    const esDia = hora >= 7 && hora < 19;
+    const fecha = new Date(ahora);
+
+    if(hora < 7){
+        fecha.setDate(fecha.getDate() - 1);
+    }
+
+    const dia = fecha.toLocaleDateString("es-PE", { weekday: "long", day: "2-digit", month: "2-digit" });
+
+    return dia.charAt(0).toUpperCase() + dia.slice(1) +
+        " — Turno " + (esDia ? "DÍA (07:00 – 19:00)" : "NOCHE (19:00 – 07:00)");
+
+}
+
+function pintarTurnoAsignacion(){
+    document.getElementById("turnoTextoAsignacion").textContent = textoTurnoActual();
+}
+
+pintarTurnoAsignacion();
+setInterval(pintarTurnoAsignacion, 60000);
 document.getElementById("semanaTextoDiscrepancias").textContent = SEMANA.split("-W")[1];
 document.getElementById("semanaTextoReconteo").textContent = SEMANA.split("-W")[1];
 document.getElementById("semanaTextoRech").textContent = SEMANA.split("-W")[1];
@@ -361,15 +387,15 @@ document.addEventListener("click", function(e){
 
 });
 
-// "29/09 14:53" — la semana ya está en el título, el año sobra.
+// Solo la hora ("14:53").
 function formatearHoraPasillo(iso){
 
     if(!iso){
         return "-";
     }
 
-    return new Date(iso).toLocaleString("es-PE", {
-        day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false
+    return new Date(iso).toLocaleTimeString("es-PE", {
+        hour: "2-digit", minute: "2-digit", hour12: false
     });
 
 }
