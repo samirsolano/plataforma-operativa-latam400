@@ -361,17 +361,51 @@ document.addEventListener("click", function(e){
 
 });
 
+// "29/09 14:53" — la semana ya está en el título, el año sobra.
+function formatearHoraPasillo(iso){
+
+    if(!iso){
+        return "-";
+    }
+
+    return new Date(iso).toLocaleString("es-PE", {
+        day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false
+    });
+
+}
+
+// Duración entre hora_inicio y hora_fin ("1h 25m"). Si todavía no
+// terminó, cuenta hasta ahora y lo marca "en curso".
+function tiempoPasillo(inicioIso, finIso){
+
+    if(!inicioIso){
+        return "-";
+    }
+
+    const fin = finIso ? new Date(finIso) : new Date();
+    const minutos = Math.max(0, Math.round((fin - new Date(inicioIso)) / 60000));
+    const horas = Math.floor(minutos / 60);
+    const texto = horas >= 24
+        ? Math.floor(horas / 24) + "d " + (horas % 24) + "h"
+        : horas >= 1
+            ? horas + "h " + (minutos % 60) + "m"
+            : minutos + "m";
+
+    return finIso ? "<b>" + texto + "</b>" : texto + " <small>(en curso)</small>";
+
+}
+
 async function cargarAsignacion(){
 
     const tbody = document.getElementById("tblAsignacion");
-    tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">Cargando pasillos...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Cargando pasillos...</td></tr>`;
 
     try{
 
         const [ubicacionesFilas, conteoFilas, pasillosFilas] = await Promise.all([
             supabaseFetchTodo("/picking_ubicaciones?select=pasillo"),
             supabaseFetchTodo("/picking_conteos?select=pasillo&semana=eq." + SEMANA + "&es_reconteo=eq.false"),
-            supabaseFetch("/picking_pasillos?select=pasillo,colaborador,colaborador_dni,estado&semana=eq." + SEMANA).catch(function(e){
+            supabaseFetch("/picking_pasillos?select=pasillo,colaborador,colaborador_dni,estado,hora_inicio,hora_fin&semana=eq." + SEMANA).catch(function(e){
                 console.error(e);
                 return [];
             }),
@@ -393,8 +427,12 @@ async function cargarAsignacion(){
         const colaboradorPorPasillo = {};
         const dniPorPasillo = {};
         const cerradoPorPasillo = {};
+        const horaInicioPorPasillo = {};
+        const horaFinPorPasillo = {};
 
         (pasillosFilas || []).forEach(function(a){
+            if(a.hora_inicio){ horaInicioPorPasillo[a.pasillo] = a.hora_inicio; }
+            if(a.hora_fin){ horaFinPorPasillo[a.pasillo] = a.hora_fin; }
             if(a.colaborador){ colaboradorPorPasillo[a.pasillo] = a.colaborador; }
             if(a.colaborador_dni){ dniPorPasillo[a.pasillo] = a.colaborador_dni; }
             if(a.estado === "cerrado"){ cerradoPorPasillo[a.pasillo] = true; }
@@ -405,7 +443,7 @@ async function cargarAsignacion(){
         tbody.innerHTML = "";
 
         if(!pasillos.length){
-            tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">Carga las Ubicaciones de Picking para ver los pasillos.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">Carga las Ubicaciones de Picking para ver los pasillos.</td></tr>`;
             document.getElementById("kpiTotalPasillos").textContent = "0";
             document.getElementById("kpiAsignados").textContent = "0";
             document.getElementById("kpiCompletados").textContent = "0";
@@ -469,6 +507,9 @@ async function cargarAsignacion(){
                     <span class="barraAvanceMini"><span class="barraAvanceMiniRelleno" style="width:${porcentaje}%;"></span></span>
                     ${porcentaje}% (${registrado}/${total})
                 </td>
+                <td class="celda-hora">${formatearHoraPasillo(horaInicioPorPasillo[p])}</td>
+                <td class="celda-hora">${formatearHoraPasillo(horaFinPorPasillo[p])}</td>
+                <td class="celda-hora">${tiempoPasillo(horaInicioPorPasillo[p], horaFinPorPasillo[p])}</td>
                 <td><span class="badge-estado-asig ${estado}">${estadoTexto}</span></td>
             `;
 
@@ -484,7 +525,7 @@ async function cargarAsignacion(){
     }catch(e){
 
         console.error(e);
-        tbody.innerHTML = `<tr><td colspan="4" class="sin-datos">No se pudo cargar la asignación de pasillos.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="sin-datos">No se pudo cargar la asignación de pasillos.</td></tr>`;
 
     }
 
