@@ -428,26 +428,63 @@ async function cargarAsignacion(){
 
     try{
 
-        const [ubicacionesFilas, conteoFilas, pasillosFilas] = await Promise.all([
-            supabaseFetchTodo("/picking_ubicaciones?select=pasillo"),
-            supabaseFetchTodo("/picking_conteos?select=pasillo&semana=eq." + SEMANA + "&es_reconteo=eq.false"),
+        const [ubicacionesFilas, conteoFilas, pasillosFilas, sapFilas] = await Promise.all([
+            supabaseFetchTodo("/picking_ubicaciones?select=pasillo,ubicacion"),
+            supabaseFetchTodo("/picking_conteos?select=pasillo,ubicacion_escaneada&semana=eq." + SEMANA + "&es_reconteo=eq.false"),
             supabaseFetch("/picking_pasillos?select=pasillo,colaborador,colaborador_dni,estado,hora_inicio,hora_fin&semana=eq." + SEMANA).catch(function(e){
                 console.error(e);
                 return [];
             }),
+            supabaseFetchTodo("/picking_sap_stock?select=ubicacion"),
             cargarRosterColaboradoresPasillo()
         ]);
 
+        // El avance se mide contra las ubicaciones LLENAS (las que traen
+        // stock en el saldo SAP), no contra las 52 del pasillo — las
+        // vacías no hay que contarlas. Sin saldo SAP cargado se usan
+        // todas las ubicaciones, como antes.
+        const ubicacionesLlenas = new Set(
+            (sapFilas || []).map(function(f){ return normalizarTextoAuditoria(f.ubicacion); })
+        );
+        const haySaldoSap = ubicacionesLlenas.size > 0;
+
         const totalPorPasillo = {};
+        const pasilloPorUbicacion = {};
 
         (ubicacionesFilas || []).forEach(function(f){
-            totalPorPasillo[f.pasillo] = (totalPorPasillo[f.pasillo] || 0) + 1;
+
+            if(!(f.pasillo in totalPorPasillo)){
+                totalPorPasillo[f.pasillo] = 0;
+            }
+
+            const u = normalizarTextoAuditoria(f.ubicacion);
+
+            if(!haySaldoSap || ubicacionesLlenas.has(u)){
+                totalPorPasillo[f.pasillo]++;
+                pasilloPorUbicacion[u] = f.pasillo;
+            }
+
         });
 
-        const registradoPorPasillo = {};
+        // Ubicaciones llenas ya contadas (una vez cada una, aunque se
+        // haya registrado más de una vez).
+        const contadasPorPasillo = {};
 
         (conteoFilas || []).forEach(function(f){
-            registradoPorPasillo[f.pasillo] = (registradoPorPasillo[f.pasillo] || 0) + 1;
+
+            const u = normalizarTextoAuditoria(f.ubicacion_escaneada);
+            const p = pasilloPorUbicacion[u];
+
+            if(p === undefined){
+                return;
+            }
+
+            if(!contadasPorPasillo[p]){
+                contadasPorPasillo[p] = new Set();
+            }
+
+            contadasPorPasillo[p].add(u);
+
         });
 
         const colaboradorPorPasillo = {};
@@ -480,16 +517,21 @@ async function cargarAsignacion(){
         let enProceso = 0;
         let completados = 0;
         let sumaPorcentajes = 0;
+        let pasillosConStock = 0;
 
         pasillos.forEach(function(p){
 
             const colaborador = colaboradorPorPasillo[p] || "";
             const dniAsignado = dniPorPasillo[p] || "";
             const total = totalPorPasillo[p] || 0;
-            const registrado = Math.min(registradoPorPasillo[p] || 0, total);
+            const registrado = contadasPorPasillo[p] ? contadasPorPasillo[p].size : 0;
             const porcentaje = total > 0 ? Math.round((registrado / total) * 100) : 0;
 
-            sumaPorcentajes += porcentaje;
+            // Un pasillo sin ninguna ubicación llena no entra al promedio.
+            if(total > 0){
+                sumaPorcentajes += porcentaje;
+                pasillosConStock++;
+            }
 
             let estado = "sin-asignar";
             let estadoTexto = "Sin iniciar";
@@ -531,7 +573,7 @@ async function cargarAsignacion(){
                 </td>
                 <td>
                     <span class="barraAvanceMini"><span class="barraAvanceMiniRelleno" style="width:${porcentaje}%;"></span></span>
-                    ${porcentaje}% (${registrado}/${total})
+                    ${total > 0 ? porcentaje + "% (" + registrado + "/" + total + ")" : "Sin stock SAP"}
                 </td>
                 <td class="celda-hora">${formatearHoraPasillo(horaInicioPorPasillo[p])}</td>
                 <td class="celda-hora">${formatearHoraPasillo(horaFinPorPasillo[p])}</td>
@@ -546,7 +588,7 @@ async function cargarAsignacion(){
         document.getElementById("kpiTotalPasillos").textContent = pasillos.length;
         document.getElementById("kpiAsignados").textContent = enProceso;
         document.getElementById("kpiCompletados").textContent = completados;
-        document.getElementById("kpiAvanceGeneral").textContent = Math.round(sumaPorcentajes / pasillos.length) + "%";
+        document.getElementById("kpiAvanceGeneral").textContent = (pasillosConStock ? Math.round(sumaPorcentajes / pasillosConStock) : 0) + "%";
 
     }catch(e){
 
