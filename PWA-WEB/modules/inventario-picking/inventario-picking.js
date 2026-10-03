@@ -2068,7 +2068,7 @@ async function cargarReporte(){
 
     try{
 
-        const [{ auditadas, sapFilas }, maraFilas, pasillosFilas, observacionesFilas] = await Promise.all([
+        const [{ auditadas, sapFilas }, maraFilas, pasillosFilas, observacionesFilas, ubicacionesFilas, rechSapFilas, rechConteoFilas] = await Promise.all([
             obtenerDatosAuditoria(),
             supabaseFetchTodo("/picking_mara?select=sku,unidad_base"),
             supabaseFetch("/picking_pasillos?select=pasillo,colaborador,hora_inicio,hora_fin,estado&semana=eq." + SEMANA).catch(function(e){
@@ -2076,6 +2076,12 @@ async function cargarReporte(){
                 return [];
             }),
             supabaseFetchTodo("/picking_reporte_observaciones?select=ubicacion,sku,observacion&semana=eq." + SEMANA).catch(function(e){
+                console.error(e);
+                return [];
+            }),
+            supabaseFetchTodo("/picking_ubicaciones?select=pasillo"),
+            supabaseFetchTodo("/picking_sap_stock?select=ubicacion,sku,stock&tipo_almacen=eq.RECH"),
+            supabaseFetchTodo("/picking_rech_conteos?select=ubicacion_escaneada,sku,conteo_total&semana=eq." + SEMANA + "&order=creado_en.desc").catch(function(e){
                 console.error(e);
                 return [];
             })
@@ -2088,35 +2094,101 @@ async function cargarReporte(){
             _observacionesReporte[clave] = o.observacion || "";
         });
 
-        // ERU: por ubicación (código Y cantidad correctos).
-        const contadas = auditadas.filter(f => !f.vacia);
-        const cuadradasUbicacion = contadas.filter(f => !f.tieneDiferencia);
+        // ERU: por ubicación (código Y cantidad correctos). El universo
+        // es fijo, no sale del saldo: RECH = 15 ubicaciones, pasillo 01
+        // = 39, y cada uno de los demás pasillos armados = 52. Cuadrada
+        // = su último conteo coincide con SAP (incluye una vacía bien
+        // declarada donde SAP no espera nada). Sin contar = no cuadra.
+        const UBICACIONES_RECH = 15;
+        const UBICACIONES_PASILLO_01 = 39;
+        const UBICACIONES_POR_PASILLO = 52;
 
-        document.getElementById("repUbicacionesContadas").textContent = contadas.length;
-        document.getElementById("repUbicacionesCuadradas").textContent = cuadradasUbicacion.length;
-        document.getElementById("repEru").textContent = contadas.length > 0
-            ? (Math.round((cuadradasUbicacion.length / contadas.length) * 10000) / 100).toFixed(2) + "%"
+        const pasillosArmados = Array.from(new Set(
+            (ubicacionesFilas || []).map(function(f){ return Number(f.pasillo); })
+        )).filter(function(p){ return !isNaN(p); });
+
+        const totalUbicacionesPorPasillo = {};
+
+        pasillosArmados.forEach(function(p){
+            totalUbicacionesPorPasillo[p] = p === 1 ? UBICACIONES_PASILLO_01 : UBICACIONES_POR_PASILLO;
+        });
+
+        const cuadradasPorPasillo = {};
+
+        auditadas.forEach(function(f){
+            const p = Number(f.pasillo);
+            if(f.tieneDiferencia || !(p in totalUbicacionesPorPasillo)){ return; }
+            cuadradasPorPasillo[p] = (cuadradasPorPasillo[p] || 0) + 1;
+        });
+
+        // RECH: una ubicación cuadra si todos sus productos (SAP y
+        // contados) coinciden y se contó al menos uno.
+        const rechPorUbicacion = {};
+
+        (rechSapFilas || []).forEach(function(f){
+            if(!f.sku){ return; }
+            const u = normalizarTextoAuditoria(f.ubicacion);
+            const clave = String(f.sku).trim();
+            rechPorUbicacion[u] = rechPorUbicacion[u] || { sap: {}, contado: {} };
+            rechPorUbicacion[u].sap[clave] = (rechPorUbicacion[u].sap[clave] || 0) + Number(f.stock || 0);
+        });
+
+        const rechVistos = {};
+
+        (rechConteoFilas || []).forEach(function(f){
+            if(!f.sku){ return; }
+            const u = normalizarTextoAuditoria(f.ubicacion_escaneada);
+            const clave = String(f.sku).trim();
+            // Viene ordenado por creado_en desc: el primero es el vigente.
+            if(rechVistos[u + "||" + clave]){ return; }
+            rechVistos[u + "||" + clave] = true;
+            rechPorUbicacion[u] = rechPorUbicacion[u] || { sap: {}, contado: {} };
+            rechPorUbicacion[u].contado[clave] = Number(f.conteo_total || 0);
+        });
+
+        const cuadradasRech = Object.values(rechPorUbicacion).filter(function(r){
+            const skus = new Set([...Object.keys(r.sap), ...Object.keys(r.contado)]);
+            return Object.keys(r.contado).length > 0 &&
+                [...skus].every(function(s){ return (r.sap[s] || 0) === (r.contado[s] ?? -1); });
+        }).length;
+
+        const totalUbicaciones = UBICACIONES_RECH + pasillosArmados.reduce(function(s, p){
+            return s + totalUbicacionesPorPasillo[p];
+        }, 0);
+
+        const totalCuadradas = Math.min(cuadradasRech, UBICACIONES_RECH) + pasillosArmados.reduce(function(s, p){
+            return s + Math.min(cuadradasPorPasillo[p] || 0, totalUbicacionesPorPasillo[p]);
+        }, 0);
+
+        document.getElementById("repUbicacionesContadas").textContent = totalUbicaciones;
+        document.getElementById("repUbicacionesCuadradas").textContent = totalCuadradas;
+        document.getElementById("repEru").textContent = totalUbicaciones > 0
+            ? (Math.round((totalCuadradas / totalUbicaciones) * 10000) / 100).toFixed(2) + "%"
             : "-";
 
         // ERI: por código (SKU) — total contado vs total SAP, sumando
         // en toda la semana (un mismo código puede estar en varias
-        // ubicaciones).
+        // ubicaciones). "Códigos Contados" es el universo del saldo
+        // SAP cargado: todos sus códigos, sin duplicados. Un código del
+        // saldo que todavía no se contó cuenta como contado 0 (no cuadra).
         const contadoPorSku = {};
 
         auditadas.forEach(function(f){
-            if(!f.sku){ return; }
-            contadoPorSku[f.sku] = (contadoPorSku[f.sku] || 0) + Number(f.conteo_total || 0);
+            const sku = String(f.sku || "").trim();
+            if(!sku){ return; }
+            contadoPorSku[sku] = (contadoPorSku[sku] || 0) + Number(f.conteo_total || 0);
         });
 
         const sapPorSku = {};
 
         (sapFilas || []).forEach(function(f){
-            if(!f.sku){ return; }
-            sapPorSku[f.sku] = (sapPorSku[f.sku] || 0) + Number(f.stock || 0);
+            const sku = String(f.sku || "").trim();
+            if(!sku){ return; }
+            sapPorSku[sku] = (sapPorSku[sku] || 0) + Number(f.stock || 0);
         });
 
-        const skusContados = Object.keys(contadoPorSku);
-        const skusCuadrados = skusContados.filter(function(sku){ return contadoPorSku[sku] === (sapPorSku[sku] || 0); });
+        const skusContados = Object.keys(sapPorSku);
+        const skusCuadrados = skusContados.filter(function(sku){ return (contadoPorSku[sku] || 0) === sapPorSku[sku]; });
 
         document.getElementById("repCodigosContados").textContent = skusContados.length;
         document.getElementById("repCodigosCuadrados").textContent = skusCuadrados.length;
