@@ -273,9 +273,15 @@ async function asignarColaboradorPasillo(pasillo, dni, nombre){
                 semana: SEMANA,
                 colaborador: nombre || null,
                 colaborador_dni: dni || null,
-                // estado es NOT NULL en la tabla — un pasillo nuevo
-                // arranca como "en_proceso", igual que en Centro de Proyectos.
-                estado: actual.estado || "en_proceso",
+                // estado es NOT NULL en la tabla, pero asignar un
+                // colaborador NO es lo mismo que empezar a contar —
+                // "en_proceso" lo pone reclamarPasillo() en Centro de
+                // Proyectos recién cuando el auxiliar entra de verdad
+                // (y ahí también se marca hora_inicio). Mientras tanto
+                // queda "asignado", que no es ni "completado" ni
+                // "cerrado" así que Centro de Proyectos lo sigue
+                // mandando a la pantalla de conteo normal.
+                estado: actual.estado || "asignado",
                 hora_inicio: actual.hora_inicio || null,
                 hora_fin: actual.hora_fin || null
             })
@@ -544,10 +550,14 @@ async function cargarAsignacion(){
                 estado = "completado";
                 estadoTexto = "Completado";
                 completados++;
-            }else if(porcentaje > 0 || colaborador){
+            }else if(horaInicioPorPasillo[p]){
+                // "En proceso" solo cuenta desde que el auxiliar entra
+                // de verdad a contar (eso es lo que marca hora_inicio,
+                // en reclamarPasillo() de Centro de Proyectos) — estar
+                // asignado todavía no es estar en proceso.
                 estado = "en-proceso";
-                estadoTexto = colaborador ? "En proceso" : "Sin iniciar";
-                if(colaborador){ enProceso++; }
+                estadoTexto = "En proceso";
+                enProceso++;
             }
 
             const tr = document.createElement("tr");
