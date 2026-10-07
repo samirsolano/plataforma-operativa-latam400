@@ -11,9 +11,9 @@
 
 const CLAVE_SESION = "latam400_sesion";
 
-// Cierre de sesión por inactividad: 5 minutos sin ningún movimiento
+// Cierre de sesión por inactividad: 30 minutos sin ningún movimiento
 // de mouse/teclado/touch en la página.
-const TIEMPO_INACTIVIDAD_MS = 5 * 60 * 1000;
+const TIEMPO_INACTIVIDAD_MS = 30 * 60 * 1000;
 
 function guardarSesion(usuario){
 
