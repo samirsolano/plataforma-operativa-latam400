@@ -3836,6 +3836,85 @@ cmbViajeCruce.addEventListener("change", async function(){
 
 });
 
+// Para UNA OC de un viaje: lista de motivos por los que su "2.
+// Lecturas y Evidencias" todavía no está al 100% sin observaciones
+// (mismos criterios que Resumen por Código). Vacía = listo.
+function pendientesLecturasOc(dataFilas, lecturasFilas, maraFilas){
+
+    const tvuPorCodigo = {};
+
+    (maraFilas || []).forEach(function(m){
+        if(m.codigo && m.tvu){
+            tvuPorCodigo[String(m.codigo).trim()] = Number(m.tvu);
+        }
+    });
+
+    const porCodigo = {};
+
+    (dataFilas || []).forEach(function(f){
+        if(!f.codigo){
+            return;
+        }
+        if(!porCodigo[f.codigo]){
+            porCodigo[f.codigo] = { atendida: 0, registrada: 0, lotes: [] };
+        }
+        porCodigo[f.codigo].atendida += cantidadAtendida(f);
+    });
+
+    (lecturasFilas || []).forEach(function(l){
+        if(!l.codigo || !porCodigo[l.codigo]){
+            return;
+        }
+        porCodigo[l.codigo].registrada += Number(l.cantidad_cajas || 0);
+        porCodigo[l.codigo].lotes.push(l);
+    });
+
+    const hoy = new Date();
+    const pendientes = [];
+
+    Object.keys(porCodigo).sort().forEach(function(codigo){
+
+        const g = porCodigo[codigo];
+
+        if(g.registrada < g.atendida){
+            pendientes.push("Código " + codigo + ": registradas " + g.registrada + " de " + g.atendida + " cajas.");
+            return;
+        }
+
+        if(g.registrada > g.atendida){
+            pendientes.push("Código " + codigo + ": la Ctd. Registrada supera la Ctd. Atendida.");
+        }
+
+        const lotesUnicos = [...new Set(g.lotes.map(l => l.lote).filter(Boolean))];
+
+        if(lotesUnicos.length > 3){
+            pendientes.push("Código " + codigo + ": más de 3 lotes.");
+        }
+
+        const tvu = tvuPorCodigo[String(codigo).trim()];
+
+        if(tvu){
+
+            const vidaInsuficiente = g.lotes.some(function(l){
+                const fv = completarFvConLote(l.fv, l.lote, tvu);
+                if(!fv){
+                    return false;
+                }
+                return mesesEntre(hoy, new Date(fv + "T00:00:00")) <= (tvu / 2);
+            });
+
+            if(vidaInsuficiente){
+                pendientes.push("Código " + codigo + ": vida útil restante menor o igual a la mitad del TVU.");
+            }
+
+        }
+
+    });
+
+    return pendientes;
+
+}
+
 async function calcularCruce(){
 
     const viaje = Number(cmbViajeCruce.value);
@@ -3856,9 +3935,9 @@ async function calcularCruce(){
             supabaseFetchTodo(
                 "/oc_portal_cliente?select=ean,codigo_proveedor,descripcion_producto,posicion,cantidad_sku_solicitada&oc=eq." + oc
             ),
-            supabaseFetchTodo("/mara_alicorp?select=ean,codigo,descripcion,factor_unidad_alm"),
+            supabaseFetchTodo("/mara_alicorp?select=ean,codigo,descripcion,factor_unidad_alm,tvu"),
             supabaseFetchTodo(
-                "/farmacia_lecturas?select=codigo,cantidad_cajas&viaje=eq." + viaje + "&oc=eq." + oc
+                "/farmacia_lecturas?select=codigo,lote,fv,cantidad_cajas&viaje=eq." + viaje + "&oc=eq." + oc
             ),
             supabaseFetchTodo(
                 "/farmacia_data?select=codigo,descripcion,cantidad,cantidad_atendida&viaje=eq." + viaje + "&orden_compra=eq." + oc
@@ -3867,6 +3946,23 @@ async function calcularCruce(){
 
         if(!ocPortalFilas || !ocPortalFilas.length){
             tbody.innerHTML = `<tr><td colspan="8" class="sin-datos">Esa OC todavía no tiene datos cargados en "OC Portal Cliente".</td></tr>`;
+            return;
+        }
+
+        // El cruce solo se hace cuando "2. Lecturas y Evidencias" de
+        // esta OC está al 100% y sin observaciones; si no, con 0 cajas
+        // registradas todo saldría "Completo" (nada se pasa de la OC).
+        const pendientesLecturas = pendientesLecturasOc(dataFilas, lecturasFilas, maraAlicorpFilas);
+
+        if(pendientesLecturas.length){
+            tbody.innerHTML = `
+                <tr><td colspan="8" class="sin-datos">
+                    <b>Todavía no se puede hacer el cruce.</b><br>
+                    Primero "2. Lecturas y Evidencias" de esta OC debe estar al 100% y sin observaciones:
+                    <ul style="text-align:left;margin:8px auto 0;display:inline-block">
+                        ${pendientesLecturas.map(p => `<li>${escaparHtmlFarmacia(p)}</li>`).join("")}
+                    </ul>
+                </td></tr>`;
             return;
         }
 
