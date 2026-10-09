@@ -5657,7 +5657,9 @@ function calcularAvanceOc(viaje, oc, dataOc, lecturasOc, portalOc, stockOc, mara
     pasos.ocPortal = portalOc.length ? "ok" : "pe";
 
     // ---- Cruce con la OC del cliente (misma regla que Cruce de Información) ----
-    if(!portalOc.length){
+    // Como en Cruce de Información, solo se cruza cuando el Registro
+    // está al 100% y sin observaciones; antes queda Pendiente.
+    if(!portalOc.length || pasos.registro !== "ok"){
         pasos.cruce = "pe";
     }else{
         const malos = cruzarCodigosSapConOc(dataOc, portalOc, maraFilas, cajasPorCodigo).filter(c => !c.ok);
