@@ -2075,7 +2075,7 @@ document.getElementById("btnActualizarRech").addEventListener("click", cargarRec
 
 // ========================================
 // TAB 7: REPORTE — mismo formato del reporte que se manda por correo:
-// Códigos/ERI, Ubicaciones/ERU, inicio de cada pasillo, y diferencias
+// Códigos/ERI, Ubicaciones/ERU y diferencias
 // contra SAP. No incluye la columna "Observación" del correo (esa se
 // escribe a mano cruzando viajes y HU de planta, datos que no existen
 // en esta plataforma).
@@ -2088,21 +2088,15 @@ let _observacionesReporte = {};
 
 async function cargarReporte(){
 
-    const tblInicio = document.getElementById("tblReporteInicio");
     const tblDiferencias = document.getElementById("tblReporteDiferencias");
 
-    tblInicio.innerHTML = `<tr><td colspan="5" class="sin-datos">Cargando...</td></tr>`;
     tblDiferencias.innerHTML = `<tr><td colspan="9" class="sin-datos">Cargando...</td></tr>`;
 
     try{
 
-        const [{ auditadas, sapFilas }, maraFilas, pasillosFilas, observacionesFilas, ubicacionesFilas, rechSapFilas] = await Promise.all([
+        const [{ auditadas, sapFilas }, maraFilas, observacionesFilas, ubicacionesFilas, rechSapFilas] = await Promise.all([
             obtenerDatosAuditoria(),
             supabaseFetchTodo("/picking_mara?select=sku,unidad_base"),
-            supabaseFetch("/picking_pasillos?select=pasillo,colaborador,hora_inicio,hora_fin,estado&semana=eq." + SEMANA).catch(function(e){
-                console.error(e);
-                return [];
-            }),
             supabaseFetchTodo("/picking_reporte_observaciones?select=ubicacion,sku,observacion&semana=eq." + SEMANA).catch(function(e){
                 console.error(e);
                 return [];
@@ -2248,30 +2242,9 @@ async function cargarReporte(){
         _paginaActualReporte = 1;
         pintarReporteDiferencias();
 
-        const pasillosOrdenados = (pasillosFilas || []).slice().sort(function(a, b){ return a.pasillo - b.pasillo; });
-
-        if(!pasillosOrdenados.length){
-            tblInicio.innerHTML = `<tr><td colspan="5" class="sin-datos">Sin pasillos iniciados esta semana.</td></tr>`;
-        }else{
-
-            tblInicio.innerHTML = pasillosOrdenados.map(function(p){
-                return `
-                    <tr>
-                        <td>${String(p.pasillo).padStart(2, "0")}</td>
-                        <td>${p.colaborador || "-"}</td>
-                        <td>${p.hora_inicio ? new Date(p.hora_inicio).toLocaleString("es-PE") : "-"}</td>
-                        <td>${p.hora_fin ? new Date(p.hora_fin).toLocaleString("es-PE") : "-"}</td>
-                        <td>${p.estado || "-"}</td>
-                    </tr>
-                `;
-            }).join("");
-
-        }
-
     }catch(e){
 
         console.error(e);
-        tblInicio.innerHTML = `<tr><td colspan="5" class="sin-datos">No se pudo cargar.</td></tr>`;
         tblDiferencias.innerHTML = `<tr><td colspan="9" class="sin-datos">No se pudo cargar.</td></tr>`;
 
     }
