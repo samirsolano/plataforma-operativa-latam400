@@ -273,9 +273,10 @@ async function asignarColaboradorPasillo(pasillo, dni, nombre){
                 semana: SEMANA,
                 colaborador: nombre || null,
                 colaborador_dni: dni || null,
-                // estado es NOT NULL en la tabla — un pasillo nuevo
-                // arranca como "en_proceso", igual que en Centro de Proyectos.
-                estado: actual.estado || "en_proceso",
+                // estado es NOT NULL en la tabla — un pasillo nuevo queda
+                // "asignado"; pasa a "en_proceso" (y marca hora_inicio)
+                // cuando el auxiliar entra en Centro de Proyectos.
+                estado: actual.estado || "asignado",
                 hora_inicio: actual.hora_inicio || null,
                 hora_fin: actual.hora_fin || null
             })
@@ -430,7 +431,7 @@ async function cargarAsignacion(){
 
         const [ubicacionesFilas, conteoFilas, pasillosFilas, sapFilas] = await Promise.all([
             supabaseFetchTodo("/picking_ubicaciones?select=pasillo,ubicacion"),
-            supabaseFetchTodo("/picking_conteos?select=pasillo,ubicacion_escaneada&semana=eq." + SEMANA + "&es_reconteo=eq.false"),
+            supabaseFetchTodo("/picking_conteos?select=pasillo,ubicacion_escaneada,creado_en&semana=eq." + SEMANA + "&es_reconteo=eq.false"),
             supabaseFetch("/picking_pasillos?select=pasillo,colaborador,colaborador_dni,estado,hora_inicio,hora_fin&semana=eq." + SEMANA).catch(function(e){
                 console.error(e);
                 return [];
@@ -493,7 +494,22 @@ async function cargarAsignacion(){
         const horaInicioPorPasillo = {};
         const horaFinPorPasillo = {};
 
+        // Si la fila no tiene hora_inicio (versiones viejas de Centro de
+        // Proyectos no la marcaban en pasillos pre-asignados), se usa la
+        // hora del primer conteo del pasillo.
+        const primerConteoPorPasillo = {};
+
+        (conteoFilas || []).forEach(function(f){
+            const p = Number(f.pasillo);
+            if(f.creado_en && (!primerConteoPorPasillo[p] || f.creado_en < primerConteoPorPasillo[p])){
+                primerConteoPorPasillo[p] = f.creado_en;
+            }
+        });
+
+        const estadoGuardadoPorPasillo = {};
+
         (pasillosFilas || []).forEach(function(a){
+            estadoGuardadoPorPasillo[a.pasillo] = a.estado;
             if(a.hora_inicio){ horaInicioPorPasillo[a.pasillo] = a.hora_inicio; }
             if(a.hora_fin){ horaFinPorPasillo[a.pasillo] = a.hora_fin; }
             if(a.colaborador){ colaboradorPorPasillo[a.pasillo] = a.colaborador; }
@@ -527,6 +543,10 @@ async function cargarAsignacion(){
             const registrado = contadasPorPasillo[p] ? contadasPorPasillo[p].size : 0;
             const porcentaje = total > 0 ? Math.round((registrado / total) * 100) : 0;
 
+            if(!horaInicioPorPasillo[p] && primerConteoPorPasillo[p]){
+                horaInicioPorPasillo[p] = primerConteoPorPasillo[p];
+            }
+
             // Un pasillo sin ninguna ubicación llena no entra al promedio.
             if(total > 0){
                 sumaPorcentajes += porcentaje;
@@ -544,10 +564,18 @@ async function cargarAsignacion(){
                 estado = "completado";
                 estadoTexto = "Completado";
                 completados++;
-            }else if(porcentaje > 0 || colaborador){
+            }else if(horaInicioPorPasillo[p] || registrado > 0 || estadoGuardadoPorPasillo[p] === "completado"){
+                // "En proceso" solo cuando el auxiliar ya entró a su
+                // pasillo en Centro de Proyectos (eso marca la hora de
+                // inicio) o ya registró algo.
                 estado = "en-proceso";
-                estadoTexto = colaborador ? "En proceso" : "Sin iniciar";
-                if(colaborador){ enProceso++; }
+                estadoTexto = "En proceso";
+                enProceso++;
+            }else if(colaborador){
+                // Asignado desde acá, pero el auxiliar todavía no entró.
+                estado = "asignado";
+                estadoTexto = "Asignado";
+                enProceso++;
             }
 
             const tr = document.createElement("tr");
