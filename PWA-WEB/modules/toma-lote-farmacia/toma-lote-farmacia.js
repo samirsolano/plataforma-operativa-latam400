@@ -4756,6 +4756,7 @@ function refrescarCachesViajesFarmacia(){
     _ocsDataFinalCargadas = false;
     _viajesStockCargados = false;
     _viajesCruceLotesCargados = false;
+    _ocsParaSubirCargadas = false;
 
 }
 
