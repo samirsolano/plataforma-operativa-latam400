@@ -98,6 +98,12 @@ body{
     font-weight:bold;
 }
 
+.menu hr{
+    border:none;
+    border-top:1px solid rgba(255,255,255,.2);
+    margin:20px 0;
+}
+
 /* Grupo con submenú (Facturación) */
 
 .menu .flecha{
@@ -157,6 +163,12 @@ body{
 
 .vista{
     flex-direction:column;
+}
+
+/* Que la vista crezca con su contenido y el scroll lo haga .contenido
+   (si no, flex encoge la tabla y la corta). */
+.vista > *{
+    flex-shrink:0;
 }
 
 .vista-header{
@@ -221,6 +233,7 @@ body{
 
 .cv-btn-subir{
     display:inline-block;
+    border:none;
     padding:10px 16px;
     border-radius:10px;
     background:#FC000D;
@@ -282,17 +295,118 @@ body{
     color:#16a34a;
 }
 
+.cv-btn-ultimo{
+    display:block;
+    margin-top:8px;
+    padding:0;
+    border:none;
+    background:none;
+    color:#1a73e8;
+    font-size:12px;
+    text-align:left;
+    text-decoration:underline;
+    cursor:pointer;
+}
+
+/* Procesar viajes (arriba, al lado del título) */
+
+.cv-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+}
+
+.cv-header-procesar{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:6px;
+    flex-shrink:0;
+}
+
+.cv-header-procesar span{
+    max-width:260px;
+    text-align:right;
+    color:#6b7280;
+    font-size:12px;
+}
+
+.cv-btn-procesar-todo{
+    padding:12px 22px;
+    border:none;
+    border-radius:10px;
+    background:#16a34a;
+    color:white;
+    font-size:15px;
+    font-weight:bold;
+    cursor:pointer;
+    white-space:nowrap;
+}
+
+.cv-btn-procesar-todo:hover:not(:disabled){
+    background:#12813b;
+}
+
+.cv-btn-procesar-todo:disabled{
+    background:#d1d5db;
+    color:#6b7280;
+    cursor:not-allowed;
+}
+
+.cv-btn-copiar{
+    padding:10px 16px;
+    border:none;
+    border-radius:10px;
+    background:#16a34a;
+    color:white;
+    font-size:14px;
+    font-weight:bold;
+    cursor:pointer;
+    white-space:nowrap;
+}
+
+.cv-btn-copiar:hover{
+    background:#12813b;
+}
+
+.cv-clic{
+    cursor:pointer;
+    transition:.2s;
+}
+
+.cv-clic:hover{
+    box-shadow:0 2px 8px rgba(0,0,0,.12);
+    transform:translateY(-1px);
+}
+
+.cv-modal.cv-modal-chico{
+    width:420px;
+}
+
+.cv-modal.cv-modal-chico textarea{
+    height:360px;
+    font-size:14px;
+    line-height:1.5;
+    background:#f9fafb;
+}
+
 .cv-tabla-header{
     display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
+    flex-direction:column;
+    align-items:flex-start;
     margin-bottom:12px;
 }
 
 .cv-tabla-header h2{
     color:#1f2937;
     font-size:19px;
+}
+
+.cv-tabla-header p{
+    margin-top:4px;
+    color:#6b7280;
+    font-size:13px;
 }
 
 .cv-etiqueta-ejemplo{
@@ -343,6 +457,61 @@ body{
     color:white;
 }
 
+/* Viajes procesados: un bloque por gestión (nombre, encabezados, datos) */
+
+.cv-grupo{
+    margin-bottom:22px;
+}
+
+.cv-grupo-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:8px;
+    padding:10px 14px;
+    border-left:4px solid #FC000D;
+    border-radius:8px;
+    background:#fde8e9;
+}
+
+.cv-grupo-header h3{
+    color:#b0000a;
+    font-size:15px;
+    letter-spacing:.3px;
+}
+
+.cv-grupo-header h3 span{
+    margin-left:8px;
+    font-weight:normal;
+    font-size:12px;
+    color:#6b7280;
+    letter-spacing:0;
+}
+
+.cv-grupo-header .cv-btn-drive{
+    padding:7px 12px;
+    font-size:13px;
+    border-radius:8px;
+}
+
+.cv-btn-procesar{
+    padding:7px 12px;
+    border:none;
+    border-radius:8px;
+    background:#16a34a;
+    color:white;
+    font-size:13px;
+    font-weight:bold;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:.2s;
+}
+
+.cv-btn-procesar:hover{
+    background:#12813b;
+}
+
 .cv-tabla-contenedor{
     overflow-x:auto;
     border:1px solid #e5e7eb;
@@ -353,7 +522,16 @@ body{
     width:100%;
     border-collapse:collapse;
     font-size:14px;
+    table-layout:fixed;
 }
+
+/* Mismo ancho de columnas en todas las gestiones, para que queden alineadas */
+.cv-tabla th:nth-child(1){ width:14%; }
+.cv-tabla th:nth-child(2){ width:16%; }
+.cv-tabla th:nth-child(3){ width:18%; }
+.cv-tabla th:nth-child(4){ width:12%; }
+.cv-tabla th:nth-child(5){ width:20%; }
+.cv-tabla th:nth-child(6){ width:20%; }
 
 .cv-tabla th{
     background:#1f2937;
@@ -370,8 +548,76 @@ body{
     white-space:nowrap;
 }
 
-.cv-tabla tbody tr:nth-child(even){
+.cv-tabla tbody tr:nth-child(odd){
     background:#f9fafb;
+}
+
+/* Ventana para pegar viajes de SAP */
+
+.cv-modal-overlay{
+    position:fixed;
+    top:0; left:0; right:0; bottom:0;
+    background:rgba(0,0,0,.45);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:2000;
+}
+
+.cv-modal{
+    background:white;
+    border-radius:14px;
+    padding:24px;
+    width:720px;
+    max-width:94vw;
+    box-shadow:0 10px 40px rgba(0,0,0,.25);
+}
+
+.cv-modal h3{
+    color:#1f2937;
+    margin-bottom:6px;
+}
+
+.cv-modal p{
+    color:#6b7280;
+    font-size:13px;
+    margin-bottom:12px;
+}
+
+.cv-modal textarea{
+    width:100%;
+    height:300px;
+    padding:12px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+    font-family:Consolas, "Courier New", monospace;
+    font-size:12px;
+    white-space:pre;
+    resize:vertical;
+}
+
+.cv-contador{
+    display:block;
+    margin-top:6px;
+    font-size:12px;
+    color:#6b7280;
+}
+
+.cv-modal-acciones{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:14px;
+}
+
+.cv-btn-secundario{
+    padding:10px 16px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+    background:white;
+    color:#374151;
+    font-size:14px;
+    cursor:pointer;
 }
 
 .modulo-en-construccion{

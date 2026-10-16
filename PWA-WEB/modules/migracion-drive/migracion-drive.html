@@ -77,6 +77,16 @@
                 🚚 Despacho
             </button>
 
+            <hr>
+
+            <button id="btnBaseDatos" onclick="abrirVista('base-datos', this)">
+                🗄️ Base de Datos
+            </button>
+
+            <button id="btnReportes" onclick="abrirVista('reportes', this)">
+                📊 Reportes
+            </button>
+
         </nav>
 
     </aside>
@@ -111,9 +121,16 @@
 
         <div id="vistaCargarViaje" class="vista" style="display:none;">
 
-            <div class="vista-header">
-                <h1>🧾 Facturación › Cargar Viaje</h1>
-                <p>Sube los viajes, quédate solo con los nuevos y complétalos con Monitor de Guías y VL06F.</p>
+            <div class="vista-header cv-header">
+                <div>
+                    <h1>🧾 Facturación › Cargar Viaje</h1>
+                    <p>Sube los viajes, quédate solo con los nuevos y complétalos con Monitor de Guías y VL06F.</p>
+                </div>
+                <!-- Se activa cuando ya se subieron Monitor de Guías y VL06F -->
+                <div class="cv-header-procesar">
+                    <button class="cv-btn-procesar-todo" id="cvBtnProcesarViajes" disabled onclick="procesarViajesNuevos()">⚙️ Procesar viajes</button>
+                    <span id="cvProcesarTexto">Sube el Monitor de Guías y el VL06F para procesar.</span>
+                </div>
             </div>
 
             <!-- Por ahora es solo la visual: los botones no procesan nada todavía. -->
@@ -123,16 +140,16 @@
                 <div class="cv-paso">
                     <div class="cv-paso-numero">1</div>
                     <h3>Cruce de Viajes</h3>
-                    <p>Sube los FOs. Se cruzan con la base de datos y solo quedan los viajes nuevos.</p>
-                    <label class="cv-btn-subir">
-                        📤 Subir viajes (FOs)
-                        <input type="file" accept=".xlsx,.xls,.csv" onchange="mostrarArchivoCargarViaje(this, 'cvArchivoViajes')">
-                    </label>
-                    <span class="cv-archivo" id="cvArchivoViajes">Ningún archivo seleccionado</span>
+                    <p>Copia los viajes de SAP y pégalos. Se cruzan con la base de datos y solo quedan los viajes nuevos.</p>
+                    <button class="cv-btn-subir" onclick="abrirPegarViajes()">
+                        📋 Pegar viajes de SAP
+                    </button>
+                    <span class="cv-archivo" id="cvArchivoViajes">Todavía no se pegaron viajes</span>
+                    <button class="cv-btn-ultimo" id="cvBtnUltimoCruce" style="display:none;" onclick="verUltimoCruce()"></button>
                     <div class="cv-resumen">
-                        <div><b>120</b><span>Subidos</span></div>
-                        <div><b>95</b><span>Ya existían</span></div>
-                        <div class="cv-nuevos"><b>25</b><span>Nuevos</span></div>
+                        <div><b id="cvTotalPegados">—</b><span>Pegados</span></div>
+                        <div class="cv-clic" title="Ver viajes que ya existían" onclick="abrirModalViajes('existian')"><b id="cvTotalExistian">—</b><span>Ya existían</span></div>
+                        <div class="cv-nuevos cv-clic" title="Ver y copiar viajes nuevos" onclick="abrirModalViajes('nuevos')"><b id="cvTotalNuevos">—</b><span>Nuevos</span></div>
                     </div>
                 </div>
 
@@ -160,60 +177,167 @@
 
             </div>
 
-            <div class="cv-tabla-header">
-                <h2>Viajes nuevos <span class="cv-etiqueta-ejemplo">EJEMPLO</span></h2>
-                <button class="cv-btn-drive" onclick="subirAlDriveCargarViaje()">☁️ Subir masivo al Drive</button>
-            </div>
+            <!-- Resultado de Procesar viajes: aparece al tocar el botón -->
 
-            <div class="cv-tabla-contenedor">
-                <table class="cv-tabla">
-                    <thead>
-                        <tr>
-                            <th>Viaje</th>
-                            <th>Destino</th>
-                            <th>Cliente</th>
-                            <th>Peso (TNL)</th>
-                            <th>Transporte</th>
-                            <th>Gestión</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>FO-0000001</td>
-                            <td>LIMA</td>
-                            <td>CLIENTE A</td>
-                            <td>12.50</td>
-                            <td>TRANSPORTES A</td>
-                            <td>CANAL MODERNO</td>
-                            <td class="cv-celda-accion">
-                                <button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000001')">☁️ Subir al Drive</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>FO-0000002</td>
-                            <td>AREQUIPA</td>
-                            <td>CLIENTE B</td>
-                            <td>8.20</td>
-                            <td>TRANSPORTES B</td>
-                            <td>CANAL MODERNO</td>
-                            <td class="cv-celda-accion">
-                                <button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000002')">☁️ Subir al Drive</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>FO-0000003</td>
-                            <td>TRUJILLO</td>
-                            <td>CLIENTE C</td>
-                            <td>15.00</td>
-                            <td>TRANSPORTES C</td>
-                            <td>CANAL MODERNO</td>
-                            <td class="cv-celda-accion">
-                                <button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000003')">☁️ Subir al Drive</button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <!-- Resultado de Procesar viajes (con ejemplo visible mientras se arma) -->
+
+            <div id="cvViajesProcesados">
+
+                <div class="cv-tabla-header">
+                    <h2>Viajes nuevos procesados <span class="cv-etiqueta-ejemplo">EJEMPLO</span></h2>
+                    <p>Viajes nuevos completados con la información del Monitor de Guías y el VL06F.</p>
+                </div>
+
+                <div class="cv-grupo">
+
+                    <div class="cv-grupo-header">
+                        <h3>CANAL MODERNO <span>3 viajes</span></h3>
+                        <button class="cv-btn-procesar" onclick="procesarViajeCargarViaje(null, 'CANAL MODERNO')">⚙️ Procesar masivo</button>
+                    </div>
+
+                    <div class="cv-tabla-contenedor">
+                        <table class="cv-tabla">
+                            <thead>
+                                <tr>
+                                    <th>Viaje</th>
+                                    <th>Destino</th>
+                                    <th>Cliente</th>
+                                    <th>Peso (TNL)</th>
+                                    <th>Transporte</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>FO-0000001</td>
+                                    <td>LIMA</td>
+                                    <td>CLIENTE A</td>
+                                    <td>12.50</td>
+                                    <td>TRANSPORTES A</td>
+                                    <td class="cv-celda-accion"><button class="cv-btn-procesar" onclick="procesarViajeCargarViaje('FO-0000001')">⚙️ Procesar viaje</button></td>
+                                </tr>
+                                <tr>
+                                    <td>FO-0000002</td>
+                                    <td>AREQUIPA</td>
+                                    <td>CLIENTE B</td>
+                                    <td>8.20</td>
+                                    <td>TRANSPORTES B</td>
+                                    <td class="cv-celda-accion"><button class="cv-btn-procesar" onclick="procesarViajeCargarViaje('FO-0000002')">⚙️ Procesar viaje</button></td>
+                                </tr>
+                                <tr>
+                                    <td>FO-0000003</td>
+                                    <td>TRUJILLO</td>
+                                    <td>CLIENTE C</td>
+                                    <td>15.00</td>
+                                    <td>TRANSPORTES C</td>
+                                    <td class="cv-celda-accion"><button class="cv-btn-procesar" onclick="procesarViajeCargarViaje('FO-0000003')">⚙️ Procesar viaje</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+                <div class="cv-grupo">
+
+                    <div class="cv-grupo-header">
+                        <h3>REPARTO LOCAL <span>3 viajes</span></h3>
+                        <button class="cv-btn-drive" onclick="subirAlDriveCargarViaje(null, 'REPARTO LOCAL')">☁️ Subir masivo</button>
+                    </div>
+
+                    <div class="cv-tabla-contenedor">
+                        <table class="cv-tabla">
+                            <thead>
+                                <tr>
+                                    <th>Viaje</th>
+                                    <th>Destino</th>
+                                    <th>Cliente</th>
+                                    <th>Peso (TNL)</th>
+                                    <th>Transporte</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>FO-0000004</td>
+                                    <td>LIMA - ATE</td>
+                                    <td>CLIENTE D</td>
+                                    <td>3.40</td>
+                                    <td>TRANSPORTES D</td>
+                                    <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000004')">☁️ Subir viaje</button></td>
+                                </tr>
+                                <tr>
+                                    <td>FO-0000005</td>
+                                    <td>LIMA - SURCO</td>
+                                    <td>CLIENTE E</td>
+                                    <td>2.10</td>
+                                    <td>TRANSPORTES D</td>
+                                    <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000005')">☁️ Subir viaje</button></td>
+                                </tr>
+                                <tr>
+                                    <td>FO-0000006</td>
+                                    <td>CALLAO</td>
+                                    <td>CLIENTE F</td>
+                                    <td>4.75</td>
+                                    <td>TRANSPORTES E</td>
+                                    <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000006')">☁️ Subir viaje</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+                <div class="cv-grupo">
+
+                    <div class="cv-grupo-header">
+                        <h3>LARGA DISTANCIA <span>3 viajes</span></h3>
+                        <button class="cv-btn-drive" onclick="subirAlDriveCargarViaje(null, 'LARGA DISTANCIA')">☁️ Subir masivo</button>
+                    </div>
+
+                    <div class="cv-tabla-contenedor">
+                        <table class="cv-tabla">
+                            <thead>
+                                <tr>
+                                    <th>Viaje</th>
+                                    <th>Destino</th>
+                                    <th>Cliente</th>
+                                    <th>Peso (TNL)</th>
+                                    <th>Transporte</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>FO-0000007</td>
+                                    <td>PIURA</td>
+                                    <td>CLIENTE G</td>
+                                    <td>22.00</td>
+                                    <td>TRANSPORTES F</td>
+                                    <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000007')">☁️ Subir viaje</button></td>
+                                </tr>
+                                <tr>
+                                    <td>FO-0000008</td>
+                                    <td>CUSCO</td>
+                                    <td>CLIENTE H</td>
+                                    <td>18.30</td>
+                                    <td>TRANSPORTES G</td>
+                                    <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000008')">☁️ Subir viaje</button></td>
+                                </tr>
+                                <tr>
+                                    <td>FO-0000009</td>
+                                    <td>TACNA</td>
+                                    <td>CLIENTE I</td>
+                                    <td>20.60</td>
+                                    <td>TRANSPORTES F</td>
+                                    <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000009')">☁️ Subir viaje</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -268,7 +392,57 @@
             </div>
         </div>
 
+        <div id="vistaBaseDatos" class="vista" style="display:none;">
+            <div class="vista-header">
+                <h1>🗄️ Base de Datos</h1>
+                <p>Toda la información de los viajes juntada en un solo lugar.</p>
+            </div>
+            <div class="modulo-en-construccion">
+                <h2>En construcción</h2>
+                <p>Aquí se juntará la información de Status Pendiente, Facturación, Monitor y Despacho de cada viaje.</p>
+            </div>
+        </div>
+
+        <div id="vistaReportes" class="vista" style="display:none;">
+            <div class="vista-header">
+                <h1>📊 Reportes</h1>
+            </div>
+            <div class="modulo-en-construccion">
+                <h2>En construcción</h2>
+                <p>Aquí irán los reportes armados a partir de la Base de Datos.</p>
+            </div>
+        </div>
+
     </main>
+
+    <!-- ===================== VENTANA VER/COPIAR VIAJES (resultado del cruce) ===================== -->
+
+    <div class="cv-modal-overlay" id="cvModalViajes" style="display:none;" onclick="if(event.target === this) cerrarModalViajes()">
+        <div class="cv-modal cv-modal-chico">
+            <h3 id="cvModalViajesTitulo"></h3>
+            <p id="cvModalViajesTexto"></p>
+            <textarea id="cvModalViajesLista" readonly onfocus="this.select()"></textarea>
+            <div class="cv-modal-acciones">
+                <button class="cv-btn-secundario" onclick="cerrarModalViajes()">Cerrar</button>
+                <button class="cv-btn-copiar" id="cvBtnCopiarModal" onclick="copiarViajesModal()">📋 Copiar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== VENTANA PEGAR VIAJES (Cruce de Viajes) ===================== -->
+
+    <div class="cv-modal-overlay" id="cvModalPegar" style="display:none;">
+        <div class="cv-modal">
+            <h3>📋 Pegar viajes de SAP</h3>
+            <p>Pega solo los números de viaje, uno por línea. En SAP selecciona la columna de viajes, cópiala (Ctrl + C) y pégala aquí (Ctrl + V).</p>
+            <textarea id="cvTextoPegado" placeholder="Ejemplo:&#10;1000012345&#10;1000012346&#10;1000012347" oninput="contarViajesPegados()"></textarea>
+            <span class="cv-contador" id="cvContadorViajes">0 viajes</span>
+            <div class="cv-modal-acciones">
+                <button class="cv-btn-secundario" onclick="cerrarPegarViajes()">Cancelar</button>
+                <button class="cv-btn-subir" onclick="cruzarViajesPegados()">🔀 Cruzar viajes</button>
+            </div>
+        </div>
+    </div>
 
 </div>
 
