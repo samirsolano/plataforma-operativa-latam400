@@ -25,7 +25,9 @@ const VISTAS_MIGRACION_DRIVE = {
     "contabilizados": "vistaContabilizados",
     "control-activos": "vistaControlActivos",
     "monitor": "vistaMonitor",
-    "despacho": "vistaDespacho"
+    "despacho": "vistaDespacho",
+    "base-datos": "vistaBaseDatos",
+    "reportes": "vistaReportes"
 };
 
 function alternarSubmenu(idSubmenu, boton){

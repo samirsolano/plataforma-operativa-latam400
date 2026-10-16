@@ -77,6 +77,16 @@
                 🚚 Despacho
             </button>
 
+            <hr>
+
+            <button id="btnBaseDatos" onclick="abrirVista('base-datos', this)">
+                🗄️ Base de Datos
+            </button>
+
+            <button id="btnReportes" onclick="abrirVista('reportes', this)">
+                📊 Reportes
+            </button>
+
         </nav>
 
     </aside>
@@ -265,6 +275,27 @@
             <div class="modulo-en-construccion">
                 <h2>En construcción</h2>
                 <p>Aquí irá la hoja de Despacho migrada desde Drive.</p>
+            </div>
+        </div>
+
+        <div id="vistaBaseDatos" class="vista" style="display:none;">
+            <div class="vista-header">
+                <h1>🗄️ Base de Datos</h1>
+                <p>Toda la información de los viajes juntada en un solo lugar.</p>
+            </div>
+            <div class="modulo-en-construccion">
+                <h2>En construcción</h2>
+                <p>Aquí se juntará la información de Status Pendiente, Facturación, Monitor y Despacho de cada viaje.</p>
+            </div>
+        </div>
+
+        <div id="vistaReportes" class="vista" style="display:none;">
+            <div class="vista-header">
+                <h1>📊 Reportes</h1>
+            </div>
+            <div class="modulo-en-construccion">
+                <h2>En construcción</h2>
+                <p>Aquí irán los reportes armados a partir de la Base de Datos.</p>
             </div>
         </div>
 
