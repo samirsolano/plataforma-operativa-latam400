@@ -70,10 +70,16 @@ function mostrarArchivoCargarViaje(input, idEtiqueta){
 
 }
 
-// Sin viaje = "Subir masivo" (todos los viajes nuevos de la tabla).
-function subirAlDriveCargarViaje(viaje){
+// Canal Moderno se procesa viaje por viaje; Reparto Local y Larga
+// Distancia se suben por gestión completa (botón al pie de cada grupo).
+function procesarViajeCargarViaje(viaje){
+    alert("Procesar viaje (" + viaje + ") todavía no está disponible: por ahora es solo la vista de ejemplo.");
+}
 
-    const destino = viaje ? "el viaje " + viaje : "todos los viajes nuevos";
+// Sin gestión = "Subir masivo" (todos los viajes nuevos de la tabla).
+function subirAlDriveCargarViaje(gestion){
+
+    const destino = gestion ? "los viajes de " + gestion : "todos los viajes nuevos";
 
     alert("Subir al Drive (" + destino + ") todavía no está disponible: por ahora es solo la vista de ejemplo.");
 

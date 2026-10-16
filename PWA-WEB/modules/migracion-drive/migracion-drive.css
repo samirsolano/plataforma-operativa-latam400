@@ -349,6 +349,44 @@ body{
     color:white;
 }
 
+.cv-fila-gestion td{
+    background:#fde8e9;
+    color:#b0000a;
+    font-weight:bold;
+    letter-spacing:.3px;
+    border-top:2px solid #FC000D;
+}
+
+.cv-fila-gestion span{
+    margin-left:8px;
+    font-weight:normal;
+    font-size:12px;
+    color:#6b7280;
+    letter-spacing:0;
+}
+
+.cv-fila-subir td{
+    text-align:right;
+    background:white;
+}
+
+.cv-btn-procesar{
+    padding:7px 12px;
+    border:none;
+    border-radius:8px;
+    background:#16a34a;
+    color:white;
+    font-size:13px;
+    font-weight:bold;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:.2s;
+}
+
+.cv-btn-procesar:hover{
+    background:#12813b;
+}
+
 .cv-tabla-contenedor{
     overflow-x:auto;
     border:1px solid #e5e7eb;
@@ -376,7 +414,7 @@ body{
     white-space:nowrap;
 }
 
-.cv-tabla tbody tr:nth-child(even){
+.cv-tabla tbody tr:nth-child(odd):not(.cv-fila-subir){
     background:#f9fafb;
 }
 
