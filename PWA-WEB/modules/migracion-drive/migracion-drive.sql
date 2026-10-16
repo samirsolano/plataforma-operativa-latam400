@@ -49,8 +49,7 @@
 -- para cada entrega, en este orden de prioridad:
 --
 --   1. Regla CLIENTE: el nombre del cliente destinatario es igual a
---      "cliente" → esa gestión. Si "procesar" es false, la entrega NO
---      se sube al Drive (en la plantilla se eliminaba; acá se marca).
+--      "cliente" → esa gestión y esa acción.
 --   2. Destino que empieza con "LIMA - LIMA" o "CALLAO":
 --        Organización ventas 1012        → RL AS
 --        Organización ventas 1010 / 1011 → RL CMP
@@ -60,7 +59,13 @@
 --      cubre "ÁNCASH - HUARAZ").
 --   5. Si nada coincide → LARGA DISTANCIA.
 --
--- La gestión del viaje es la de su primera entrega. Los textos se
+-- ACCIÓN (qué botón lleva el viaje en Cargar Viaje):
+--   PROCESAR → los clientes que en la plantilla tienen PROCESAR = NO
+--              (casi todo Canal Moderno): no se suben directo al Drive,
+--              llevan "Procesar viaje".
+--   SUBIR    → todo lo demás: "Subir viaje".
+--
+-- La gestión y la acción del viaje son las de su primera entrega. Los textos se
 -- comparan "limpios": en mayúsculas, sin espacios dobles ni al
 -- inicio/fin (igual que LimpiarTexto en la plantilla), por eso acá se
 -- guardan ya así.
@@ -73,7 +78,8 @@ create table if not exists public.md_reglas_gestion (
     cliente text,
     destino text,
     gestion text not null,
-    procesar boolean not null default true,
+    accion text not null default 'SUBIR'
+        check (accion in ('PROCESAR', 'SUBIR')),
     actualizado_en timestamptz not null default now(),
 
     unique nulls not distinct (tipo_regla, cliente, destino)
@@ -82,45 +88,45 @@ create table if not exists public.md_reglas_gestion (
 
 -- Reglas actuales de la plantilla (hoja DATADRIVE). Si una regla ya
 -- existe no se toca, así no se pisan cambios hechos después.
-insert into public.md_reglas_gestion (tipo_regla, cliente, destino, gestion, procesar)
+insert into public.md_reglas_gestion (tipo_regla, cliente, destino, gestion, accion)
 values
-    ('CLIENTE', 'ALICORP LIMPIEZA', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'CENCOSUD RETAIL PERU S.A.', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'HIPERMERCADOS METRO S.A.', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'HOMECENTERS PERUANOS S.A.', null, 'CANAL MODERNO', true),
-    ('CLIENTE', 'INRETAIL PHARMA S.A', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'INRETAIL PHARMA S.A.', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'INTRADEVCO', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'MAKRO', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'MAKRO SUPERMAYORISTA S.A.', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'MAYORSA S.A. - PUNTA HERMOSA', null, 'CANAL MODERNO', true),
-    ('CLIENTE', 'TOTTUS ORIENTE - HUACHIPA (SECOS)', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'SOLUCIONES', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'SUPERMERCADOS PERUANOS S.A.', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'SUPERMERCADOS PERUANOS S.A. (ALMACENAJE)', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'SUPERMERCADOS PERUANOS S.A. (FC)', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'TIENDAS DEL MEJORAMIENTO DEL HOGAR', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'SODIMAC PERU ORIENTE S.A.C.', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'TOTTUS - HUACHIPA (SECOS)', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'TOTTUS - HUACHIPA (SECOS) ALICORP', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'TOTTUS - HUACHIPA (SECOS) ITDC', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'TOTTUS - HUACHIPA (SECOS) SOLUCIONES', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'TOTTUS ALICORP LIMPIEZA', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'TOTTUS INTRADEVCO', null, 'CANAL MODERNO', false),
-    ('CLIENTE', 'CD ALICORP CUSCO', null, 'TRASLADO', true),
-    ('CLIENTE', 'CD ALICORP HUACHIPA', null, 'TRASLADO', true),
-    ('CLIENTE', 'CD ALICORP RANSA', null, 'TRASLADO', true),
-    ('CLIENTE', 'CD DETERGENTES LURÍN', null, 'TRASLADO', true),
-    ('CLIENTE', 'CD DETERGENTES LURÍN ( PNC )', null, 'TRASLADO', true),
-    ('CLIENTE', 'CD INTRACAN-FEM', null, 'TRASLADO', true),
-    ('CLIENTE', 'CD PLANTA ALICORP COPSA', null, 'TRASLADO', true),
-    ('CLIENTE', 'PLANTA CD ALICORP DET Y JAB', null, 'TRASLADO', true),
-    ('CLIENTE', 'PLANTA CD ALICORP VICTORIA AQP', null, 'TRASLADO', true),
-    ('CLIENTE', 'DISTRIBUIDORA CUNZA S.A.', null, 'DEX', true),
-    ('DESTINO', null, 'ÁNCASH', 'N/S CHICO', true),
-    ('DESTINO', null, 'AYACUCHO', 'N/S CHICO', true),
-    ('DESTINO', null, 'ICA', 'N/S CHICO', true),
-    ('TIPO_DESTINO', null, 'LIMA PROVINCIA', 'N/S CHICO', true)
+    ('CLIENTE', 'ALICORP LIMPIEZA', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'CENCOSUD RETAIL PERU S.A.', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'HIPERMERCADOS METRO S.A.', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'HOMECENTERS PERUANOS S.A.', null, 'CANAL MODERNO', 'SUBIR'),
+    ('CLIENTE', 'INRETAIL PHARMA S.A', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'INRETAIL PHARMA S.A.', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'INTRADEVCO', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'MAKRO', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'MAKRO SUPERMAYORISTA S.A.', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'MAYORSA S.A. - PUNTA HERMOSA', null, 'CANAL MODERNO', 'SUBIR'),
+    ('CLIENTE', 'TOTTUS ORIENTE - HUACHIPA (SECOS)', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'SOLUCIONES', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'SUPERMERCADOS PERUANOS S.A.', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'SUPERMERCADOS PERUANOS S.A. (ALMACENAJE)', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'SUPERMERCADOS PERUANOS S.A. (FC)', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'TIENDAS DEL MEJORAMIENTO DEL HOGAR', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'SODIMAC PERU ORIENTE S.A.C.', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'TOTTUS - HUACHIPA (SECOS)', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'TOTTUS - HUACHIPA (SECOS) ALICORP', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'TOTTUS - HUACHIPA (SECOS) ITDC', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'TOTTUS - HUACHIPA (SECOS) SOLUCIONES', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'TOTTUS ALICORP LIMPIEZA', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'TOTTUS INTRADEVCO', null, 'CANAL MODERNO', 'PROCESAR'),
+    ('CLIENTE', 'CD ALICORP CUSCO', null, 'TRASLADO', 'SUBIR'),
+    ('CLIENTE', 'CD ALICORP HUACHIPA', null, 'TRASLADO', 'SUBIR'),
+    ('CLIENTE', 'CD ALICORP RANSA', null, 'TRASLADO', 'SUBIR'),
+    ('CLIENTE', 'CD DETERGENTES LURÍN', null, 'TRASLADO', 'SUBIR'),
+    ('CLIENTE', 'CD DETERGENTES LURÍN ( PNC )', null, 'TRASLADO', 'SUBIR'),
+    ('CLIENTE', 'CD INTRACAN-FEM', null, 'TRASLADO', 'SUBIR'),
+    ('CLIENTE', 'CD PLANTA ALICORP COPSA', null, 'TRASLADO', 'SUBIR'),
+    ('CLIENTE', 'PLANTA CD ALICORP DET Y JAB', null, 'TRASLADO', 'SUBIR'),
+    ('CLIENTE', 'PLANTA CD ALICORP VICTORIA AQP', null, 'TRASLADO', 'SUBIR'),
+    ('CLIENTE', 'DISTRIBUIDORA CUNZA S.A.', null, 'DEX', 'SUBIR'),
+    ('DESTINO', null, 'ÁNCASH', 'N/S CHICO', 'SUBIR'),
+    ('DESTINO', null, 'AYACUCHO', 'N/S CHICO', 'SUBIR'),
+    ('DESTINO', null, 'ICA', 'N/S CHICO', 'SUBIR'),
+    ('TIPO_DESTINO', null, 'LIMA PROVINCIA', 'N/S CHICO', 'SUBIR')
 on conflict (tipo_regla, cliente, destino) do nothing;
 
 -- ========================================
@@ -165,9 +171,10 @@ create table if not exists public.md_viajes (
     -- DISTANCIA... (ver md_reglas_gestion; sin lista fija para que una
     -- gestión nueva no obligue a cambiar la tabla)
     gestion text,
-    -- false = el cliente tiene PROCESAR = NO (no se sube directo al
-    -- Drive; en Cargar Viaje va con "Procesar viaje")
-    procesar boolean not null default true,
+    -- PROCESAR ("Procesar viaje") o SUBIR ("Subir viaje"), ver
+    -- md_reglas_gestion
+    accion text not null default 'SUBIR'
+        check (accion in ('PROCESAR', 'SUBIR')),
     destino text,
     cliente text,
     peso_tn numeric(12, 3),
@@ -214,7 +221,8 @@ create table if not exists public.md_entregas (
 
     -- Gestión calculada para esta entrega (ver md_reglas_gestion)
     gestion text,
-    procesar boolean not null default true,
+    accion text not null default 'SUBIR'
+        check (accion in ('PROCESAR', 'SUBIR')),
 
     -- VL06F (iguales en todas las líneas de la entrega)
     documento_modelo text,
@@ -290,7 +298,8 @@ create policy "md_entregas_anon" on public.md_entregas for all to anon using (tr
 -- En una base nueva no hace nada.
 
 alter table public.md_viajes drop constraint if exists md_viajes_gestion_check;
-alter table public.md_viajes add column if not exists procesar boolean not null default true;
+alter table public.md_viajes add column if not exists accion text not null default 'SUBIR'
+    check (accion in ('PROCESAR', 'SUBIR'));
 
 alter table public.md_entregas add column if not exists serie_guia text;
 alter table public.md_entregas add column if not exists correlativo_guia text;
@@ -301,7 +310,8 @@ alter table public.md_entregas add column if not exists nombre_conductor text;
 alter table public.md_entregas add column if not exists cliente_codigo text;
 alter table public.md_entregas add column if not exists cliente_nombre text;
 alter table public.md_entregas add column if not exists gestion text;
-alter table public.md_entregas add column if not exists procesar boolean not null default true;
+alter table public.md_entregas add column if not exists accion text not null default 'SUBIR'
+    check (accion in ('PROCESAR', 'SUBIR'));
 
 -- md_rutas_gestion se reemplazó por md_reglas_gestion (la gestión no
 -- depende de la ruta). Nunca tuvo datos: se elimina.
