@@ -482,25 +482,33 @@ function actualizarBotonProcesar(){
 // ========================================
 // 4. GESTIÓN (md_reglas_gestion)
 // ========================================
-// Misma prioridad que la plantilla: 1. cliente, 2. Lima - Lima/Callao
+// Misma prioridad que la plantilla: 1. cliente (por nombre, o por
+// código de destinatario: plantas de Alicorp), 2. Lima - Lima/Callao
 // por organización de ventas (RL AS / RL CMP), 3. Lima provincia,
 // 4. destino (empieza con), 5. LARGA DISTANCIA. La acción (PROCESAR /
-// SUBIR) solo la define la regla de cliente.
+// SUBIR) solo la define la regla de cliente. "nombre" viene de la
+// regla DESTINATARIO (ej. CD ALICORP AREQUIPA en vez de "Prd
+// Terminado 01").
 
-function calcularGestion(reglas, cliente, destino, organizacion){
+function calcularGestion(reglas, cliente, destinatarioCodigo, destino, organizacion){
 
     cliente = limpiarTexto(cliente);
     destino = limpiarTexto(destino);
+    const codigo = textoCodigo(destinatarioCodigo);
     const org = Number(organizacion);
 
-    const reglaCliente = reglas.find(function(r){
-        return r.tipo_regla === "CLIENTE" && limpiarTexto(r.cliente) === cliente;
-    });
+    const reglaCliente =
+        reglas.find(function(r){
+            return r.tipo_regla === "CLIENTE" && limpiarTexto(r.cliente) === cliente;
+        }) ||
+        reglas.find(function(r){
+            return r.tipo_regla === "DESTINATARIO" && codigo !== "" && textoCodigo(r.destinatario_codigo) === codigo;
+        });
 
     const accion = reglaCliente ? reglaCliente.accion : "SUBIR";
 
     if(reglaCliente && reglaCliente.gestion){
-        return { gestion: reglaCliente.gestion, accion: accion };
+        return { gestion: reglaCliente.gestion, accion: accion, nombre: reglaCliente.nombre || null };
     }
 
     const esLimaLima = destino.indexOf("LIMA - LIMA") === 0;
@@ -603,9 +611,16 @@ function armarViajes(reglas){
 
         // El cliente sale del Monitor GRE (como en la plantilla); si el
         // archivo no trae esa columna, del destinatario del VL06F.
-        const clienteNombre = m["Nombre Cliente Destinatario"] || (v && v.destinatario_nombre) || null;
-        const destino = v ? v.lugar_destinatario : null;
-        const g = calcularGestion(reglas, clienteNombre, destino, v ? v.organizacion_ventas : null);
+        const clienteMonitor = m["Nombre Cliente Destinatario"] || null;
+        const destinatarioCodigo = textoCodigo(m["Código Cliente Destinatario"]) || (v && v.destinatario_codigo) || null;
+        const g = calcularGestion(
+            reglas,
+            clienteMonitor || (v && v.destinatario_nombre),
+            destinatarioCodigo,
+            v ? v.lugar_destinatario : null,
+            v ? v.organizacion_ventas : null
+        );
+        const clienteNombre = clienteMonitor || g.nombre || (v && v.destinatario_nombre) || null;
 
         return Object.assign({
             entrega: e.entrega,
@@ -726,7 +741,7 @@ async function procesarViajesNuevos(){
 
     try{
 
-        const reglas = await supabaseFetch("/md_reglas_gestion?select=tipo_regla,cliente,destino,gestion,accion");
+        const reglas = await supabaseFetch("/md_reglas_gestion?select=tipo_regla,cliente,destino,destinatario_codigo,nombre,gestion,accion");
         const resultado = armarViajes(reglas || []);
 
         if(resultado.viajes.length === 0){
