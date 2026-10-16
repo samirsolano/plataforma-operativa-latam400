@@ -85,8 +85,8 @@ function actualizarBotonProcesar(){
     document.getElementById("cvBtnProcesarViajes").disabled = faltan.length > 0;
 
     document.getElementById("cvProcesarTexto").textContent = faltan.length > 0
-        ? "Sube " + faltan.join(" y ") + " para poder procesar los viajes nuevos."
-        : "Listo: ya están el Monitor de Guías y el VL06F. Procesa para ver los viajes nuevos con su información.";
+        ? "Sube " + faltan.join(" y ") + " para procesar."
+        : "Listo para procesar los viajes nuevos.";
 
 }
 
@@ -157,6 +157,9 @@ function cruzarViajesPegados(){
     mostrarResultadoCruce(viajes.length, nuevos, existian);
     guardarUltimoCruce(viajes.length, nuevos, existian);
 
+    // Al terminar el cruce se abren directo los viajes nuevos.
+    abrirModalViajes("nuevos");
+
 }
 
 // ========================================
@@ -217,12 +220,15 @@ function verUltimoCruce(){
 
     if(cruce){
         mostrarResultadoCruce(cruce.totalPegados, cruce.nuevos, cruce.existian);
+        abrirModalViajes("nuevos");
     }
 
 }
 
 mostrarBotonUltimoCruce();
 
+// Actualiza los contadores del paso 1 y guarda el resultado para la
+// ventana de viajes (tarjetas Nuevos / Ya existían).
 function mostrarResultadoCruce(totalPegados, nuevos, existian){
 
     document.getElementById("cvArchivoViajes").textContent =
@@ -232,18 +238,7 @@ function mostrarResultadoCruce(totalPegados, nuevos, existian){
     document.getElementById("cvTotalExistian").textContent = existian.length;
     document.getElementById("cvTotalNuevos").textContent = nuevos.length;
 
-    document.getElementById("cvResultadoTexto").textContent =
-        textoCantidadViajes(nuevos.length) + " nuevos de " + totalPegados + " pegados. " +
-        "Cópialos para sacar de SAP el Monitor de Guías y el VL06F solo de estos viajes.";
-
-    document.getElementById("cvBtnVerExistian").textContent =
-        "Ver " + textoCantidadViajes(existian.length) + " que ya existían";
-
     window.resultadoCruce = { nuevos: nuevos, existian: existian };
-
-    const resultado = document.getElementById("cvResultadoCruce");
-    resultado.style.display = "block";
-    resultado.scrollIntoView({ behavior: "smooth", block: "start" });
 
 }
 

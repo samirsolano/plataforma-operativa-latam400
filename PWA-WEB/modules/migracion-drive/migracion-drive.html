@@ -121,9 +121,16 @@
 
         <div id="vistaCargarViaje" class="vista" style="display:none;">
 
-            <div class="vista-header">
-                <h1>🧾 Facturación › Cargar Viaje</h1>
-                <p>Sube los viajes, quédate solo con los nuevos y complétalos con Monitor de Guías y VL06F.</p>
+            <div class="vista-header cv-header">
+                <div>
+                    <h1>🧾 Facturación › Cargar Viaje</h1>
+                    <p>Sube los viajes, quédate solo con los nuevos y complétalos con Monitor de Guías y VL06F.</p>
+                </div>
+                <!-- Se activa cuando ya se subieron Monitor de Guías y VL06F -->
+                <div class="cv-header-procesar">
+                    <button class="cv-btn-procesar-todo" id="cvBtnProcesarViajes" disabled onclick="procesarViajesNuevos()">⚙️ Procesar viajes</button>
+                    <span id="cvProcesarTexto">Sube el Monitor de Guías y el VL06F para procesar.</span>
+                </div>
             </div>
 
             <!-- Por ahora es solo la visual: los botones no procesan nada todavía. -->
@@ -168,30 +175,6 @@
                     <span class="cv-archivo" id="cvArchivoVl06f">Ningún archivo seleccionado</span>
                 </div>
 
-            </div>
-
-            <!-- Resultado del cruce: aparece al tocar "Cruzar viajes" -->
-
-            <div class="cv-resultado" id="cvResultadoCruce" style="display:none;">
-
-                <div class="cv-resultado-header">
-                    <div>
-                        <h2>✅ Viajes nuevos <span class="cv-etiqueta-ejemplo">EJEMPLO</span></h2>
-                        <p id="cvResultadoTexto"></p>
-                    </div>
-                    <div class="cv-resultado-acciones">
-                        <button class="cv-btn-copiar" onclick="abrirModalViajes('nuevos')">📋 Ver y copiar viajes nuevos</button>
-                        <button class="cv-btn-secundario" id="cvBtnVerExistian" onclick="abrirModalViajes('existian')"></button>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Procesar viajes: se activa cuando ya se subieron Monitor de Guías y VL06F -->
-
-            <div class="cv-procesar">
-                <p id="cvProcesarTexto">Sube el Monitor de Guías y el VL06F para poder procesar los viajes nuevos.</p>
-                <button class="cv-btn-procesar-todo" id="cvBtnProcesarViajes" disabled onclick="procesarViajesNuevos()">⚙️ Procesar viajes</button>
             </div>
 
             <!-- Resultado de Procesar viajes: aparece al tocar el botón -->

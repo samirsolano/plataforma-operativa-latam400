@@ -308,23 +308,28 @@ body{
     cursor:pointer;
 }
 
-/* Procesar viajes */
+/* Procesar viajes (arriba, al lado del título) */
 
-.cv-procesar{
+.cv-header{
     display:flex;
-    align-items:center;
+    align-items:flex-start;
     justify-content:space-between;
-    gap:12px;
-    margin-bottom:28px;
-    padding:16px 20px;
-    border:1px dashed #d1d5db;
-    border-radius:14px;
-    background:#f9fafb;
+    gap:16px;
 }
 
-.cv-procesar p{
+.cv-header-procesar{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:6px;
+    flex-shrink:0;
+}
+
+.cv-header-procesar span{
+    max-width:260px;
+    text-align:right;
     color:#6b7280;
-    font-size:14px;
+    font-size:12px;
 }
 
 .cv-btn-procesar-todo{
@@ -349,35 +354,6 @@ body{
     cursor:not-allowed;
 }
 
-/* Resultado del cruce */
-
-.cv-resultado{
-    scroll-margin-top:20px;
-    margin-bottom:28px;
-    padding:20px;
-    border:1px solid #16a34a;
-    border-radius:14px;
-    background:#f0fdf4;
-}
-
-.cv-resultado-header{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
-}
-
-.cv-resultado-header h2{
-    color:#14532d;
-    font-size:19px;
-}
-
-.cv-resultado-header p{
-    margin-top:4px;
-    color:#166534;
-    font-size:13px;
-}
-
 .cv-btn-copiar{
     padding:10px 16px;
     border:none;
@@ -394,13 +370,6 @@ body{
     background:#12813b;
 }
 
-.cv-resultado-acciones{
-    display:flex;
-    flex-direction:column;
-    align-items:stretch;
-    gap:8px;
-}
-
 .cv-clic{
     cursor:pointer;
     transition:.2s;
@@ -411,11 +380,11 @@ body{
     transform:translateY(-1px);
 }
 
-.cv-modal-chico{
+.cv-modal.cv-modal-chico{
     width:420px;
 }
 
-.cv-modal-chico textarea{
+.cv-modal.cv-modal-chico textarea{
     height:360px;
     font-size:14px;
     line-height:1.5;
