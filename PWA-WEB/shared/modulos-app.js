@@ -56,21 +56,6 @@ const MODULOS_APP = [
         ]
     },
 
-    {
-        key: "migracion-drive",
-        nombre: "Proyecto Migración de Drive",
-        submodulos: [
-            { key: "status-pendiente", nombre: "Status Pendiente" },
-            { key: "facturacion", nombre: "Facturación" },
-            { key: "facturacion-cargar-viaje", nombre: "Facturación › Cargar Viaje" },
-            { key: "facturacion-registro-ut", nombre: "Facturación › Registro de UT" },
-            { key: "facturacion-contabilizados", nombre: "Facturación › Contabilizados / Seguimiento Guiado Entregado" },
-            { key: "facturacion-control-activos", nombre: "Facturación › Control de Activos" },
-            { key: "monitor", nombre: "Monitor" },
-            { key: "despacho", nombre: "Despacho" }
-        ]
-    },
-
     { key: "reconocimiento", nombre: "Reconocimiento", submodulos: [] },
     { key: "skill-matrix", nombre: "Skill Matrix", submodulos: [] },
     { key: "usuarios", nombre: "Usuarios", submodulos: [] },

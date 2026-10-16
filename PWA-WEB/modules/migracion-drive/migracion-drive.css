@@ -170,6 +170,188 @@ body{
     font-size:24px;
 }
 
+.vista-header p{
+    margin-top:6px;
+    color:#6b7280;
+    font-size:14px;
+}
+
+/* ================ CARGAR VIAJE ================ */
+
+.cv-pasos{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:16px;
+    margin-bottom:28px;
+}
+
+.cv-paso{
+    position:relative;
+    padding:20px;
+    border:1px solid #e5e7eb;
+    border-radius:14px;
+    background:#f9fafb;
+}
+
+.cv-paso-numero{
+    width:30px;
+    height:30px;
+    border-radius:50%;
+    background:#FC000D;
+    color:white;
+    font-weight:bold;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin-bottom:10px;
+}
+
+.cv-paso h3{
+    color:#1f2937;
+    font-size:17px;
+    margin-bottom:6px;
+}
+
+.cv-paso p{
+    color:#6b7280;
+    font-size:13px;
+    line-height:1.4;
+    margin-bottom:14px;
+}
+
+.cv-btn-subir{
+    display:inline-block;
+    padding:10px 16px;
+    border-radius:10px;
+    background:#FC000D;
+    color:white;
+    font-size:14px;
+    font-weight:bold;
+    cursor:pointer;
+    transition:.2s;
+}
+
+.cv-btn-subir:hover{
+    background:#d4000b;
+}
+
+.cv-btn-subir input{
+    display:none;
+}
+
+.cv-archivo{
+    display:block;
+    margin-top:8px;
+    font-size:12px;
+    color:#9ca3af;
+    word-break:break-all;
+}
+
+.cv-resumen{
+    display:flex;
+    gap:8px;
+    margin-top:14px;
+}
+
+.cv-resumen div{
+    flex:1;
+    padding:8px;
+    border-radius:8px;
+    background:white;
+    border:1px solid #e5e7eb;
+    text-align:center;
+}
+
+.cv-resumen b{
+    display:block;
+    font-size:18px;
+    color:#1f2937;
+}
+
+.cv-resumen span{
+    font-size:11px;
+    color:#6b7280;
+}
+
+.cv-resumen .cv-nuevos{
+    border-color:#16a34a;
+    background:#f0fdf4;
+}
+
+.cv-resumen .cv-nuevos b{
+    color:#16a34a;
+}
+
+.cv-tabla-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:12px;
+}
+
+.cv-tabla-header h2{
+    color:#1f2937;
+    font-size:19px;
+}
+
+.cv-etiqueta-ejemplo{
+    margin-left:8px;
+    padding:3px 8px;
+    border-radius:6px;
+    background:#fef3c7;
+    color:#92400e;
+    font-size:11px;
+    vertical-align:middle;
+}
+
+.cv-btn-drive{
+    padding:11px 18px;
+    border:none;
+    border-radius:10px;
+    background:#1a73e8;
+    color:white;
+    font-size:14px;
+    font-weight:bold;
+    cursor:pointer;
+    transition:.2s;
+}
+
+.cv-btn-drive:hover{
+    background:#1557b0;
+}
+
+.cv-tabla-contenedor{
+    overflow-x:auto;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+}
+
+.cv-tabla{
+    width:100%;
+    border-collapse:collapse;
+    font-size:14px;
+}
+
+.cv-tabla th{
+    background:#1f2937;
+    color:white;
+    text-align:left;
+    padding:12px;
+    white-space:nowrap;
+}
+
+.cv-tabla td{
+    padding:11px 12px;
+    border-top:1px solid #e5e7eb;
+    color:#374151;
+    white-space:nowrap;
+}
+
+.cv-tabla tbody tr:nth-child(even){
+    background:#f9fafb;
+}
+
 .modulo-en-construccion{
     display:flex;
     flex-direction:column;
@@ -201,6 +383,10 @@ body{
     .contenido{
         height:auto;
         min-height:60vh;
+    }
+
+    .cv-pasos{
+        grid-template-columns:1fr;
     }
 
 }
