@@ -362,10 +362,9 @@ body{
 
 .cv-resultado-header{
     display:flex;
-    align-items:flex-start;
+    align-items:center;
     justify-content:space-between;
     gap:12px;
-    margin-bottom:14px;
 }
 
 .cv-resultado-header h2{
@@ -395,41 +394,32 @@ body{
     background:#12813b;
 }
 
-.cv-lista-viajes{
+.cv-resultado-acciones{
     display:flex;
-    flex-wrap:wrap;
-    gap:6px;
-    max-height:200px;
-    overflow-y:auto;
+    flex-direction:column;
+    align-items:stretch;
+    gap:8px;
 }
 
-.cv-lista-viajes span{
-    padding:5px 10px;
-    border-radius:8px;
-    background:white;
-    border:1px solid #bbf7d0;
-    color:#14532d;
-    font-family:Consolas, "Courier New", monospace;
-    font-size:13px;
-}
-
-.cv-existian{
-    margin-top:14px;
-}
-
-.cv-existian summary{
+.cv-clic{
     cursor:pointer;
-    color:#6b7280;
-    font-size:13px;
+    transition:.2s;
 }
 
-.cv-lista-existian{
-    margin-top:10px;
+.cv-clic:hover{
+    box-shadow:0 2px 8px rgba(0,0,0,.12);
+    transform:translateY(-1px);
 }
 
-.cv-lista-existian span{
-    border-color:#e5e7eb;
-    color:#9ca3af;
+.cv-modal-chico{
+    width:420px;
+}
+
+.cv-modal-chico textarea{
+    height:360px;
+    font-size:14px;
+    line-height:1.5;
+    background:#f9fafb;
 }
 
 .cv-tabla-header{

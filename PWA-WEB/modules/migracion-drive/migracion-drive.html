@@ -141,8 +141,8 @@
                     <button class="cv-btn-ultimo" id="cvBtnUltimoCruce" style="display:none;" onclick="verUltimoCruce()"></button>
                     <div class="cv-resumen">
                         <div><b id="cvTotalPegados">—</b><span>Pegados</span></div>
-                        <div><b id="cvTotalExistian">—</b><span>Ya existían</span></div>
-                        <div class="cv-nuevos"><b id="cvTotalNuevos">—</b><span>Nuevos</span></div>
+                        <div class="cv-clic" title="Ver viajes que ya existían" onclick="abrirModalViajes('existian')"><b id="cvTotalExistian">—</b><span>Ya existían</span></div>
+                        <div class="cv-nuevos cv-clic" title="Ver y copiar viajes nuevos" onclick="abrirModalViajes('nuevos')"><b id="cvTotalNuevos">—</b><span>Nuevos</span></div>
                     </div>
                 </div>
 
@@ -179,15 +179,11 @@
                         <h2>✅ Viajes nuevos <span class="cv-etiqueta-ejemplo">EJEMPLO</span></h2>
                         <p id="cvResultadoTexto"></p>
                     </div>
-                    <button class="cv-btn-copiar" onclick="copiarViajesNuevos(this)">📋 Copiar viajes nuevos</button>
+                    <div class="cv-resultado-acciones">
+                        <button class="cv-btn-copiar" onclick="abrirModalViajes('nuevos')">📋 Ver y copiar viajes nuevos</button>
+                        <button class="cv-btn-secundario" id="cvBtnVerExistian" onclick="abrirModalViajes('existian')"></button>
+                    </div>
                 </div>
-
-                <div class="cv-lista-viajes" id="cvListaNuevos"></div>
-
-                <details class="cv-existian">
-                    <summary id="cvResumenExistian">Ver viajes que ya existían</summary>
-                    <div class="cv-lista-viajes cv-lista-existian" id="cvListaExistian"></div>
-                </details>
 
             </div>
 
@@ -388,6 +384,20 @@
         </div>
 
     </main>
+
+    <!-- ===================== VENTANA VER/COPIAR VIAJES (resultado del cruce) ===================== -->
+
+    <div class="cv-modal-overlay" id="cvModalViajes" style="display:none;" onclick="if(event.target === this) cerrarModalViajes()">
+        <div class="cv-modal cv-modal-chico">
+            <h3 id="cvModalViajesTitulo"></h3>
+            <p id="cvModalViajesTexto"></p>
+            <textarea id="cvModalViajesLista" readonly onfocus="this.select()"></textarea>
+            <div class="cv-modal-acciones">
+                <button class="cv-btn-secundario" onclick="cerrarModalViajes()">Cerrar</button>
+                <button class="cv-btn-copiar" id="cvBtnCopiarModal" onclick="copiarViajesModal()">📋 Copiar</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ===================== VENTANA PEGAR VIAJES (Cruce de Viajes) ===================== -->
 

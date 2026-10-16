@@ -236,13 +236,10 @@ function mostrarResultadoCruce(totalPegados, nuevos, existian){
         textoCantidadViajes(nuevos.length) + " nuevos de " + totalPegados + " pegados. " +
         "Cópialos para sacar de SAP el Monitor de Guías y el VL06F solo de estos viajes.";
 
-    document.getElementById("cvResumenExistian").textContent =
+    document.getElementById("cvBtnVerExistian").textContent =
         "Ver " + textoCantidadViajes(existian.length) + " que ya existían";
 
-    pintarListaViajes("cvListaNuevos", nuevos);
-    pintarListaViajes("cvListaExistian", existian);
-
-    window.viajesNuevosCruce = nuevos;
+    window.resultadoCruce = { nuevos: nuevos, existian: existian };
 
     const resultado = document.getElementById("cvResultadoCruce");
     resultado.style.display = "block";
@@ -250,30 +247,65 @@ function mostrarResultadoCruce(totalPegados, nuevos, existian){
 
 }
 
-function pintarListaViajes(idContenedor, viajes){
+// Ventana con los viajes uno debajo del otro, listos para copiar y
+// pegar en SAP. tipo: "nuevos" o "existian".
+function abrirModalViajes(tipo){
 
-    const contenedor = document.getElementById(idContenedor);
-    contenedor.innerHTML = "";
+    const cruce = window.resultadoCruce;
 
-    viajes.forEach(function(viaje){
-        const chip = document.createElement("span");
-        chip.textContent = viaje;
-        contenedor.appendChild(chip);
-    });
+    if(!cruce){
+        alert("Todavía no hay un cruce de viajes. Pega los viajes y toca Cruzar viajes.");
+        return;
+    }
+
+    const viajes = cruce[tipo];
+    const esNuevos = tipo === "nuevos";
+
+    document.getElementById("cvModalViajesTitulo").textContent =
+        esNuevos ? "✅ Viajes nuevos" : "Viajes que ya existían";
+
+    document.getElementById("cvModalViajesTexto").textContent =
+        textoCantidadViajes(viajes.length) +
+        (esNuevos ? ", uno por línea. Cópialos y pégalos en SAP." : ", uno por línea.");
+
+    document.getElementById("cvModalViajesLista").value = viajes.join("\n");
+    document.getElementById("cvBtnCopiarModal").textContent = "📋 Copiar";
+    document.getElementById("cvModalViajes").style.display = "flex";
 
 }
 
-// Copia los viajes nuevos uno por línea, listos para pegar en SAP.
-function copiarViajesNuevos(boton){
+function cerrarModalViajes(){
+    document.getElementById("cvModalViajes").style.display = "none";
+}
 
-    const texto = (window.viajesNuevosCruce || []).join("\n");
+// Si el portapapeles del navegador no responde, igual quedan
+// seleccionados para copiarlos con Ctrl + C.
+function copiarViajesModal(){
 
-    navigator.clipboard.writeText(texto).then(function(){
+    const lista = document.getElementById("cvModalViajesLista");
+    const boton = document.getElementById("cvBtnCopiarModal");
+
+    lista.focus();
+    lista.select();
+
+    function avisarCopiado(){
         boton.textContent = "✅ Copiados";
-        setTimeout(function(){ boton.textContent = "📋 Copiar viajes nuevos"; }, 2000);
-    }).catch(function(){
-        alert("No se pudo copiar automáticamente. Selecciona los viajes de la lista y cópialos a mano.");
-    });
+        setTimeout(function(){ boton.textContent = "📋 Copiar"; }, 2000);
+    }
+
+    function copiarSeleccion(){
+        if(document.execCommand("copy")){
+            avisarCopiado();
+        }else{
+            alert("No se pudo copiar solo: los viajes ya quedaron seleccionados, cópialos con Ctrl + C.");
+        }
+    }
+
+    if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(lista.value).then(avisarCopiado).catch(copiarSeleccion);
+    }else{
+        copiarSeleccion();
+    }
 
 }
 
