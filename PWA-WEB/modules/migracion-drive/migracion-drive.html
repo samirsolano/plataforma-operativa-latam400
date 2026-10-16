@@ -139,9 +139,9 @@
                     </button>
                     <span class="cv-archivo" id="cvArchivoViajes">Todavía no se pegaron viajes</span>
                     <div class="cv-resumen">
-                        <div><b>120</b><span>Subidos</span></div>
-                        <div><b>95</b><span>Ya existían</span></div>
-                        <div class="cv-nuevos"><b>25</b><span>Nuevos</span></div>
+                        <div><b id="cvTotalPegados">—</b><span>Pegados</span></div>
+                        <div><b id="cvTotalExistian">—</b><span>Ya existían</span></div>
+                        <div class="cv-nuevos"><b id="cvTotalNuevos">—</b><span>Nuevos</span></div>
                     </div>
                 </div>
 
@@ -169,8 +169,30 @@
 
             </div>
 
+            <!-- Resultado del cruce: aparece al tocar "Cruzar viajes" -->
+
+            <div class="cv-resultado" id="cvResultadoCruce" style="display:none;">
+
+                <div class="cv-resultado-header">
+                    <div>
+                        <h2>✅ Viajes nuevos <span class="cv-etiqueta-ejemplo">EJEMPLO</span></h2>
+                        <p id="cvResultadoTexto"></p>
+                    </div>
+                    <button class="cv-btn-copiar" onclick="copiarViajesNuevos(this)">📋 Copiar viajes nuevos</button>
+                </div>
+
+                <div class="cv-lista-viajes" id="cvListaNuevos"></div>
+
+                <details class="cv-existian">
+                    <summary id="cvResumenExistian">Ver viajes que ya existían</summary>
+                    <div class="cv-lista-viajes cv-lista-existian" id="cvListaExistian"></div>
+                </details>
+
+            </div>
+
             <div class="cv-tabla-header">
-                <h2>Viajes nuevos <span class="cv-etiqueta-ejemplo">EJEMPLO</span></h2>
+                <h2>Viajes listos para procesar <span class="cv-etiqueta-ejemplo">EJEMPLO</span></h2>
+                <p>Viajes nuevos ya completados con Monitor de Guías y VL06F.</p>
             </div>
 
             <div class="cv-tabla-contenedor">

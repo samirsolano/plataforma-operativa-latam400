@@ -112,21 +112,74 @@ function contarViajesPegados(){
 
 function cruzarViajesPegados(){
 
-    const cantidad = viajesPegados().unicos.length;
+    const viajes = viajesPegados().unicos;
 
-    if(cantidad === 0){
+    if(viajes.length === 0){
         alert("Pega primero los viajes copiados de SAP.");
         return;
     }
 
-    document.getElementById("cvArchivoViajes").textContent =
-        "📋 " + textoCantidadViajes(cantidad) + " pegados";
+    // Por ahora solo visual: todavía no hay tabla de viajes contra la
+    // cual cruzar, así que se SIMULA que 1 de cada 4 ya existía.
+    const existian = viajes.filter(function(v, i){ return i % 4 === 3; });
+    const nuevos = viajes.filter(function(v, i){ return i % 4 !== 3; });
 
     cerrarPegarViajes();
+    mostrarResultadoCruce(viajes.length, nuevos, existian);
 
-    // Por ahora solo visual: el cruce real con la base de datos se arma
-    // cuando esté definida la tabla de viajes.
-    alert("Se pegaron " + textoCantidadViajes(cantidad) + ". El cruce con la base de datos todavía no está disponible: por ahora es solo la vista de ejemplo.");
+}
+
+function mostrarResultadoCruce(totalPegados, nuevos, existian){
+
+    document.getElementById("cvArchivoViajes").textContent =
+        "📋 " + textoCantidadViajes(totalPegados) + " pegados";
+
+    document.getElementById("cvTotalPegados").textContent = totalPegados;
+    document.getElementById("cvTotalExistian").textContent = existian.length;
+    document.getElementById("cvTotalNuevos").textContent = nuevos.length;
+
+    document.getElementById("cvResultadoTexto").textContent =
+        textoCantidadViajes(nuevos.length) + " nuevos de " + totalPegados + " pegados. " +
+        "Cópialos para sacar de SAP el Monitor de Guías y el VL06F solo de estos viajes.";
+
+    document.getElementById("cvResumenExistian").textContent =
+        "Ver " + textoCantidadViajes(existian.length) + " que ya existían";
+
+    pintarListaViajes("cvListaNuevos", nuevos);
+    pintarListaViajes("cvListaExistian", existian);
+
+    window.viajesNuevosCruce = nuevos;
+
+    const resultado = document.getElementById("cvResultadoCruce");
+    resultado.style.display = "block";
+    resultado.scrollIntoView({ behavior: "smooth", block: "start" });
+
+}
+
+function pintarListaViajes(idContenedor, viajes){
+
+    const contenedor = document.getElementById(idContenedor);
+    contenedor.innerHTML = "";
+
+    viajes.forEach(function(viaje){
+        const chip = document.createElement("span");
+        chip.textContent = viaje;
+        contenedor.appendChild(chip);
+    });
+
+}
+
+// Copia los viajes nuevos uno por línea, listos para pegar en SAP.
+function copiarViajesNuevos(boton){
+
+    const texto = (window.viajesNuevosCruce || []).join("\n");
+
+    navigator.clipboard.writeText(texto).then(function(){
+        boton.textContent = "✅ Copiados";
+        setTimeout(function(){ boton.textContent = "📋 Copiar viajes nuevos"; }, 2000);
+    }).catch(function(){
+        alert("No se pudo copiar automáticamente. Selecciona los viajes de la lista y cópialos a mano.");
+    });
 
 }
 
