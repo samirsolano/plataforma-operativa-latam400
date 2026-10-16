@@ -133,7 +133,7 @@
                 <div class="cv-paso">
                     <div class="cv-paso-numero">1</div>
                     <h3>Cruce de Viajes</h3>
-                    <p>Copia las líneas de SAP y pégalas. Se cruzan con la base de datos y solo quedan los viajes nuevos.</p>
+                    <p>Copia los viajes de SAP y pégalos. Se cruzan con la base de datos y solo quedan los viajes nuevos.</p>
                     <button class="cv-btn-subir" onclick="abrirPegarViajes()">
                         📋 Pegar viajes de SAP
                     </button>
@@ -358,9 +358,9 @@
     <div class="cv-modal-overlay" id="cvModalPegar" style="display:none;">
         <div class="cv-modal">
             <h3>📋 Pegar viajes de SAP</h3>
-            <p>En SAP selecciona las líneas, cópialas (Ctrl + C) y pégalas aquí (Ctrl + V), con o sin la fila de encabezados.</p>
-            <textarea id="cvTextoPegado" placeholder="Pega aquí las líneas copiadas de SAP..." oninput="contarLineasPegadas()"></textarea>
-            <span class="cv-contador" id="cvContadorLineas">0 líneas</span>
+            <p>Pega solo los números de viaje, uno por línea. En SAP selecciona la columna de viajes, cópiala (Ctrl + C) y pégala aquí (Ctrl + V).</p>
+            <textarea id="cvTextoPegado" placeholder="Ejemplo:&#10;1000012345&#10;1000012346&#10;1000012347" oninput="contarViajesPegados()"></textarea>
+            <span class="cv-contador" id="cvContadorViajes">0 viajes</span>
             <div class="cv-modal-acciones">
                 <button class="cv-btn-secundario" onclick="cerrarPegarViajes()">Cancelar</button>
                 <button class="cv-btn-subir" onclick="cruzarViajesPegados()">🔀 Cruzar viajes</button>

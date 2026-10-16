@@ -70,14 +70,23 @@ function mostrarArchivoCargarViaje(input, idEtiqueta){
 
 }
 
-// Cruce de Viajes: las líneas se copian de SAP y se pegan en una
-// ventana (llegan separadas por tabulación, como desde Excel), en vez
-// de exportar un Excel y subirlo.
+// Cruce de Viajes: se pegan solo los números de viaje copiados de SAP,
+// uno por línea (en vez de exportar un Excel y subirlo). Se quitan
+// líneas vacías y viajes repetidos.
 
-function lineasPegadas(){
-    return document.getElementById("cvTextoPegado").value
+function viajesPegados(){
+
+    const viajes = document.getElementById("cvTextoPegado").value
         .split(/\r?\n/)
-        .filter(function(linea){ return linea.trim() !== ""; });
+        .map(function(linea){ return linea.trim(); })
+        .filter(function(linea){ return linea !== ""; });
+
+    return { total: viajes.length, unicos: Array.from(new Set(viajes)) };
+
+}
+
+function textoCantidadViajes(cantidad){
+    return cantidad + (cantidad === 1 ? " viaje" : " viajes");
 }
 
 function abrirPegarViajes(){
@@ -89,29 +98,35 @@ function cerrarPegarViajes(){
     document.getElementById("cvModalPegar").style.display = "none";
 }
 
-function contarLineasPegadas(){
-    const cantidad = lineasPegadas().length;
-    document.getElementById("cvContadorLineas").textContent =
-        cantidad + (cantidad === 1 ? " línea" : " líneas");
+function contarViajesPegados(){
+
+    const pegados = viajesPegados();
+    const repetidos = pegados.total - pegados.unicos.length;
+
+    document.getElementById("cvContadorViajes").textContent =
+        textoCantidadViajes(pegados.unicos.length) +
+        (repetidos === 1 ? " (1 repetido no se cuenta)" : "") +
+        (repetidos > 1 ? " (" + repetidos + " repetidos no se cuentan)" : "");
+
 }
 
 function cruzarViajesPegados(){
 
-    const cantidad = lineasPegadas().length;
+    const cantidad = viajesPegados().unicos.length;
 
     if(cantidad === 0){
-        alert("Pega primero las líneas copiadas de SAP.");
+        alert("Pega primero los viajes copiados de SAP.");
         return;
     }
 
     document.getElementById("cvArchivoViajes").textContent =
-        "📋 " + cantidad + (cantidad === 1 ? " línea pegada" : " líneas pegadas");
+        "📋 " + textoCantidadViajes(cantidad) + " pegados";
 
     cerrarPegarViajes();
 
     // Por ahora solo visual: el cruce real con la base de datos se arma
-    // cuando esté definida la tabla y las columnas que trae SAP.
-    alert("Se pegaron " + cantidad + " líneas. El cruce con la base de datos todavía no está disponible: por ahora es solo la vista de ejemplo.");
+    // cuando esté definida la tabla de viajes.
+    alert("Se pegaron " + textoCantidadViajes(cantidad) + ". El cruce con la base de datos todavía no está disponible: por ahora es solo la vista de ejemplo.");
 
 }
 
