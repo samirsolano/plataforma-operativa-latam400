@@ -209,6 +209,8 @@ create table if not exists public.md_viajes (
     cliente text,
     peso_tn numeric(12, 3),
     cantidad_entregas integer,
+    -- Materiales distintos del viaje en el VL06F
+    cantidad_skus integer,
 
     -- NUEVO: recién cruzado, falta Monitor GRE / VL06F
     -- PENDIENTE: procesado, pero alguna entrega no estaba en el VL06F
@@ -221,6 +223,37 @@ create table if not exists public.md_viajes (
     actualizado_en timestamptz not null default now()
 
 );
+
+-- ========================================
+-- STATUS PENDIENTE (data principal)
+-- ========================================
+-- "Subir viaje" en Cargar Viaje pasa el viaje a estado SUBIDO: desde
+-- ahí aparece en la vista Status Pendiente (reemplaza a la hoja STATUS
+-- PENDIENTE del Drive), con los mismos status. Arrancan en rojo:
+--   status          POR LANZAR  (luego EN PROCESO / CONFIRMADO)
+--   status_modulado PENDIENTE   (luego EN PROCESO / CERRADO)
+--   status_despacho PENDIENTE
+--   status_ut       PENDIENTE
+-- Sin lista fija de valores: los irán cambiando Monitor, Despacho y
+-- Registro de UT.
+
+alter table public.md_viajes add column if not exists cantidad_skus integer;
+alter table public.md_viajes add column if not exists fecha_subida timestamptz;
+alter table public.md_viajes add column if not exists subido_por text;
+alter table public.md_viajes add column if not exists fase text;
+alter table public.md_viajes add column if not exists fecha_cita date;
+alter table public.md_viajes add column if not exists hora_cita time;
+alter table public.md_viajes add column if not exists status text;
+alter table public.md_viajes add column if not exists status_modulado text;
+alter table public.md_viajes add column if not exists status_despacho text;
+alter table public.md_viajes add column if not exists fecha_registro_ut timestamptz;
+alter table public.md_viajes add column if not exists estadia_ut text;
+alter table public.md_viajes add column if not exists status_ut text;
+
+-- Status Pendiente filtra los SUBIDO por fecha de subida.
+create index if not exists idx_md_viajes_subida
+    on public.md_viajes (fecha_subida desc)
+    where estado = 'SUBIDO';
 
 -- Estados con nombre propio para poder sumar PENDIENTE si la tabla ya
 -- existía con la primera lista.

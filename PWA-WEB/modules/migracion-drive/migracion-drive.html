@@ -110,13 +110,23 @@
         <!-- ================= VISTAS ================= -->
 
         <div id="vistaStatusPendiente" class="vista" style="display:none;">
-            <div class="vista-header">
-                <h1>📋 Status Pendiente</h1>
+
+            <div class="vista-header cv-header">
+                <div>
+                    <h1>📋 Status Pendiente</h1>
+                    <p>Viajes subidos desde Cargar Viaje (reemplaza la hoja STATUS PENDIENTE del Drive).</p>
+                </div>
+                <div class="sp-filtros">
+                    <label>Subidos desde
+                        <input type="date" id="spDesde" onchange="cargarStatusPendiente()">
+                    </label>
+                    <input type="search" id="spBuscar" placeholder="Buscar viaje, cliente o transportista" oninput="pintarStatusPendiente()">
+                    <button class="cv-btn-subir" onclick="cargarStatusPendiente()">🔄 Actualizar</button>
+                </div>
             </div>
-            <div class="modulo-en-construccion">
-                <h2>En construcción</h2>
-                <p>Aquí irá la hoja STATUS PENDIENTE migrada desde Drive.</p>
-            </div>
+
+            <div id="spContenido" class="cv-vacio">Cargando...</div>
+
         </div>
 
         <div id="vistaCargarViaje" class="vista" style="display:none;">
@@ -296,6 +306,7 @@
 <script src="../../shared/auth.js"></script>
 <script src="migracion-drive.js"></script>
 <script src="cargar-viaje.js"></script>
+<script src="status-pendiente.js"></script>
 
 </body>
 

@@ -583,6 +583,21 @@ body{
     background:#e00000;
 }
 
+.cv-estado-subido{
+    background:#1a73e8;
+}
+
+.cv-btn-drive:disabled,
+.cv-btn-drive-fila:disabled{
+    opacity:.6;
+    cursor:default;
+}
+
+.cv-btn-drive-fila:disabled:hover{
+    background:white;
+    color:#1a73e8;
+}
+
 .cv-tabla th{
     background:#1f2937;
     color:white;
@@ -669,6 +684,109 @@ body{
     font-size:14px;
     cursor:pointer;
 }
+
+/* ================ STATUS PENDIENTE ================ */
+
+.sp-filtros{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.sp-filtros label{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    color:#6b7280;
+    font-size:12px;
+}
+
+.sp-filtros input{
+    padding:9px 10px;
+    border:1px solid #d1d5db;
+    border-radius:8px;
+    font-size:13px;
+}
+
+.sp-filtros input[type="search"]{
+    width:260px;
+}
+
+.sp-resumen{
+    margin-bottom:10px;
+    color:#6b7280;
+    font-size:13px;
+}
+
+.sp-contenedor{
+    overflow:auto;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+}
+
+.sp-tabla{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12px;
+    white-space:nowrap;
+}
+
+.sp-tabla th{
+    position:sticky;
+    top:0;
+    padding:9px 8px;
+    background:#1f2937;
+    color:white;
+    font-size:11px;
+    text-align:center;
+}
+
+.sp-tabla td{
+    padding:5px 8px;
+    border-top:1px solid #e5e7eb;
+    color:#374151;
+    text-align:center;
+}
+
+.sp-tabla td.sp-izq{
+    text-align:left;
+}
+
+.sp-tabla td.sp-num{
+    text-align:right;
+}
+
+.sp-gestion{
+    font-weight:bold;
+    color:#1f2937;
+}
+
+.sp-total td{
+    background:#f3f4f6;
+    font-weight:bold;
+    color:#1f2937;
+}
+
+.sp-suma td{
+    background:#1f2937;
+    color:white;
+    font-weight:bold;
+}
+
+/* Mismos colores que la hoja del Drive */
+.sp-status{
+    display:block;
+    padding:3px 6px;
+    font-size:10px;
+    font-weight:bold;
+    color:white;
+    background:#9ca3af;
+}
+
+.sp-rojo{ background:#e00000; }
+.sp-verde{ background:#16a34a; }
+.sp-amarillo{ background:#facc15; color:#1f2937; }
 
 .modulo-en-construccion{
     display:flex;

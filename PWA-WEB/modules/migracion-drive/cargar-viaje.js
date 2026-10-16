@@ -577,7 +577,8 @@ function resumirVl06f(entregasBuscadas){
                 cantidad_lineas: 0,
                 cantidad_cja: 0,
                 cantidad_pqt: 0,
-                cantidad_und: 0
+                cantidad_und: 0,
+                materiales: new Set()
             };
         }
 
@@ -587,6 +588,7 @@ function resumirVl06f(entregasBuscadas){
 
         r.peso_kg += numero(f["Peso total"]);
         r.cantidad_lineas += 1;
+        if(f["Material"] !== null && f["Material"] !== undefined) r.materiales.add(textoCodigo(f["Material"]));
 
         if(unidad === "CJA") r.cantidad_cja += cantidad;
         if(unidad === "PQT") r.cantidad_pqt += cantidad;
@@ -682,6 +684,7 @@ function armarViajes(reglas){
                 peso_kg: 0,
                 cantidad_entregas: 0,
                 entregas_sin_vl06f: 0,
+                skus: new Set(),
                 base_con_vl06f: e.tiene_vl06f,
                 estado: "PROCESADO"
             };
@@ -691,6 +694,7 @@ function armarViajes(reglas){
         v.peso_kg += e.peso_kg || 0;
         v.cantidad_entregas += 1;
         if(!e.tiene_vl06f) v.entregas_sin_vl06f += 1;
+        if(resumen[e.entrega]) resumen[e.entrega].materiales.forEach(function(m){ v.skus.add(m); });
 
         // Si la primera entrega no estaba en el VL06F (sin destino ni
         // organización, su gestión no vale), manda la primera que sí.
@@ -708,6 +712,7 @@ function armarViajes(reglas){
     const viajes = Object.keys(porViaje).map(function(fo){
         const v = porViaje[fo];
         v.peso_tn = redondear(v.peso_kg / 1000, 3);
+        v.cantidad_skus = v.skus.size;
         // Con entregas sin VL06F el viaje queda PENDIENTE: vuelve a salir
         // como nuevo en el próximo cruce para completarlo.
         v.estado = v.entregas_sin_vl06f > 0 ? "PENDIENTE" : "PROCESADO";
@@ -769,6 +774,7 @@ async function procesarViajesNuevos(){
                 cliente: v.cliente,
                 peso_tn: v.peso_tn,
                 cantidad_entregas: v.cantidad_entregas,
+                cantidad_skus: v.cantidad_skus,
                 estado: v.estado,
                 actualizado_en: ahora
             };
@@ -781,6 +787,7 @@ async function procesarViajesNuevos(){
             return fila;
         }));
 
+        cargaViaje.resultado = resultado;
         pintarViajesProcesados(resultado);
 
     }catch(error){
@@ -806,7 +813,8 @@ function escaparHtml(texto){
         .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function pintarViajesProcesados(resultado){
+// sinMover: true al repintar después de Subir viaje (no salta la pantalla).
+function pintarViajesProcesados(resultado, sinMover){
 
     const contenedor = document.getElementById("cvViajesProcesados");
     const grupos = {};
@@ -820,6 +828,7 @@ function pintarViajesProcesados(resultado){
         return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b);
     });
 
+    const subidos = resultado.viajes.filter(function(v){ return v.estado === "SUBIDO"; }).length;
     const pesoTotal = resultado.viajes.reduce(function(s, v){ return s + v.peso_tn; }, 0);
     const sinVl06f = resultado.entregas.filter(function(e){ return !e.tiene_vl06f; }).length;
 
@@ -828,7 +837,8 @@ function pintarViajesProcesados(resultado){
             '<h2>Viajes nuevos procesados</h2>' +
             '<p>' + textoCantidadViajes(resultado.viajes.length) + ' · ' +
                 resultado.entregas.length + ' entregas · ' + redondear(pesoTotal, 2) + ' TN. ' +
-                'Ya quedaron guardados en la Base de Datos.</p>' +
+                'Ya quedaron guardados en la Base de Datos' +
+                (subidos ? ' · ' + subidos + ' subidos a Status Pendiente' : '') + '.</p>' +
         '</div>';
 
     const avisos = [];
@@ -861,6 +871,7 @@ function pintarViajesProcesados(resultado){
 
         const viajes = grupos[gestion];
         const todosProcesar = viajes.every(function(v){ return v.accion === "PROCESAR"; });
+        const faltanSubir = viajes.some(function(v){ return v.accion === "SUBIR" && v.estado !== "SUBIDO"; });
         const gestionJs = escaparHtml(JSON.stringify(gestion));
 
         html +=
@@ -869,7 +880,9 @@ function pintarViajesProcesados(resultado){
                     '<h3>' + escaparHtml(gestion) + ' <span>' + textoCantidadViajes(viajes.length) + '</span></h3>' +
                     (todosProcesar
                         ? '<button class="cv-btn-procesar" onclick="procesarViajeCargarViaje(null, ' + gestionJs + ')">⚙️ Procesar masivo</button>'
-                        : '<button class="cv-btn-drive" onclick="subirAlDriveCargarViaje(null, ' + gestionJs + ')">☁️ Subir masivo</button>') +
+                        : '<button class="cv-btn-drive" ' + (faltanSubir ? '' : 'disabled ') +
+                            'onclick="subirAlDriveCargarViaje(null, ' + gestionJs + ')">' +
+                            (faltanSubir ? '☁️ Subir masivo' : '✅ Todo subido') + '</button>') +
                 '</div>' +
                 '<div class="cv-tabla-contenedor">' +
                     '<table class="cv-tabla">' +
@@ -882,11 +895,14 @@ function pintarViajesProcesados(resultado){
         viajes.forEach(function(v){
 
             const foJs = escaparHtml(JSON.stringify(v.fo));
-            const estado = v.estado === "PENDIENTE"
-                ? '<span class="cv-estado cv-estado-pendiente" title="' + v.entregas_sin_vl06f +
-                    ' de ' + v.cantidad_entregas + ' entregas sin VL06F">PENDIENTE · ' +
-                    v.entregas_sin_vl06f + ' sin VL06F</span>'
-                : '<span class="cv-estado cv-estado-ok">PROCESADO</span>';
+            const estado =
+                v.estado === "SUBIDO"
+                    ? '<span class="cv-estado cv-estado-subido">SUBIDO</span>'
+                : v.estado === "PENDIENTE"
+                    ? '<span class="cv-estado cv-estado-pendiente" title="' + v.entregas_sin_vl06f +
+                        ' de ' + v.cantidad_entregas + ' entregas sin VL06F">PENDIENTE · ' +
+                        v.entregas_sin_vl06f + ' sin VL06F</span>'
+                    : '<span class="cv-estado cv-estado-ok">PROCESADO</span>';
 
             html +=
                 '<tr>' +
@@ -899,6 +915,8 @@ function pintarViajesProcesados(resultado){
                     '<td class="cv-celda-accion">' +
                         (v.accion === "PROCESAR"
                             ? '<button class="cv-btn-procesar" onclick="procesarViajeCargarViaje(' + foJs + ')">⚙️ Procesar viaje</button>'
+                        : v.estado === "SUBIDO"
+                            ? '<button class="cv-btn-drive-fila" disabled>✅ Subido</button>'
                             : '<button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje(' + foJs + ')">☁️ Subir viaje</button>') +
                     '</td>' +
                 '</tr>';
@@ -910,11 +928,14 @@ function pintarViajesProcesados(resultado){
     });
 
     contenedor.innerHTML = html;
-    contenedor.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    if(!sinMover){
+        contenedor.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
 
 }
 
-// Todavía no definido qué hace cada uno (subir al Drive / procesar).
+// Todavía no definido qué hace "Procesar viaje" (Canal Moderno).
 function procesarViajeCargarViaje(viaje, gestion){
 
     const destino = viaje ? "el viaje " + viaje : "todos los viajes de " + gestion;
@@ -923,11 +944,84 @@ function procesarViajeCargarViaje(viaje, gestion){
 
 }
 
-function subirAlDriveCargarViaje(viaje, gestion){
+// ========================================
+// SUBIR VIAJE → data principal (Status Pendiente)
+// ========================================
+// Pasa el viaje a estado SUBIDO con los status iniciales de la hoja
+// STATUS PENDIENTE (todos en rojo). Solo toca los que todavía no
+// estaban subidos, así no se pisan status que ya se hayan avanzado.
+// Sin viaje = "Subir masivo" de la gestión (solo los de acción SUBIR).
 
-    const destino = viaje ? "el viaje " + viaje : "todos los viajes de " + gestion;
+async function subirAlDriveCargarViaje(viaje, gestion){
 
-    alert("Subir al Drive " + destino + " todavía no está disponible.");
+    const resultado = cargaViaje.resultado;
+
+    if(!resultado){
+        return;
+    }
+
+    const elegidos = resultado.viajes.filter(function(v){
+        if(v.accion !== "SUBIR" || v.estado === "SUBIDO") return false;
+        return viaje ? v.fo === viaje : v.gestion === gestion;
+    });
+
+    if(elegidos.length === 0){
+        alert("No hay viajes por subir.");
+        return;
+    }
+
+    const pendientes = elegidos.filter(function(v){ return v.estado === "PENDIENTE"; });
+
+    if(pendientes.length && !confirm(
+        (pendientes.length === 1
+            ? "El viaje " + pendientes[0].fo + " está PENDIENTE"
+            : pendientes.length + " viajes están PENDIENTE") +
+        " (le faltan entregas del VL06F: su peso está incompleto). ¿Subirlo igual a Status Pendiente?"
+    )){
+        return;
+    }
+
+    const lista = elegidos.map(function(v){ return '"' + v.fo + '"'; }).join(",");
+
+    try{
+
+        const subidos = await supabaseFetch(
+            "/md_viajes?fo=in.(" + encodeURIComponent(lista) + ")&estado=neq.SUBIDO",
+            {
+                method: "PATCH",
+                headers: { "Prefer": "return=representation" },
+                body: JSON.stringify({
+                    estado: "SUBIDO",
+                    fecha_subida: new Date().toISOString(),
+                    subido_por: sesion ? sesion.nombre_completo : null,
+                    status: "POR LANZAR",
+                    status_modulado: "PENDIENTE",
+                    status_despacho: "PENDIENTE",
+                    status_ut: "PENDIENTE",
+                    actualizado_en: new Date().toISOString()
+                })
+            }
+        );
+
+        const confirmados = new Set((subidos || []).map(function(v){ return v.fo; }));
+
+        resultado.viajes.forEach(function(v){
+            if(confirmados.has(v.fo)) v.estado = "SUBIDO";
+        });
+
+        pintarViajesProcesados(resultado, true);
+
+        if(confirmados.size < elegidos.length){
+            alert("Se subieron " + confirmados.size + " de " + elegidos.length +
+                " viajes. Los demás ya estaban subidos o no se encontraron: actualiza Status Pendiente para revisarlos.");
+        }
+
+    }catch(error){
+
+        console.error(error);
+        alert("No se pudo subir: " + (error.message || error));
+
+    }
 
 }
 
