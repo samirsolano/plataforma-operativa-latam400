@@ -90,7 +90,7 @@ function actualizarBotonProcesar(){
 
 }
 
-// Por ahora solo visual: muestra la tabla de ejemplo de abajo.
+// Por ahora solo visual: lleva a la tabla de ejemplo de abajo.
 function procesarViajesNuevos(){
 
     const tabla = document.getElementById("cvViajesProcesados");
@@ -226,6 +226,27 @@ function verUltimoCruce(){
 }
 
 mostrarBotonUltimoCruce();
+
+// Mientras se arma el proyecto la pantalla arranca con un cruce de
+// EJEMPLO cargado (contadores y ventana de la tarjeta Nuevos), así se
+// ve completa sin tener que pegar viajes.
+(function cargarCruceEjemplo(){
+
+    const viajes = [];
+
+    for(let i = 1; i <= 40; i++){
+        viajes.push(String(1000012000 + i));
+    }
+
+    mostrarResultadoCruce(
+        viajes.length,
+        viajes.filter(function(v, i){ return i % 4 !== 3; }),
+        viajes.filter(function(v, i){ return i % 4 === 3; })
+    );
+
+    document.getElementById("cvArchivoViajes").textContent = "📋 Ejemplo: 40 viajes pegados";
+
+})();
 
 // Actualiza los contadores del paso 1 y guarda el resultado para la
 // ventana de viajes (tarjetas Nuevos / Ya existían).
