@@ -172,7 +172,6 @@
 
             <div class="cv-tabla-header">
                 <h2>Viajes nuevos <span class="cv-etiqueta-ejemplo">EJEMPLO</span></h2>
-                <button class="cv-btn-drive" onclick="subirAlDriveCargarViaje()">☁️ Subir masivo al Drive</button>
             </div>
 
             <div class="cv-tabla-contenedor">
@@ -189,7 +188,8 @@
                     </thead>
                     <tbody>
                         <tr class="cv-fila-gestion">
-                            <td colspan="6">CANAL MODERNO <span>3 viajes</span></td>
+                            <td colspan="5">CANAL MODERNO <span>3 viajes</span></td>
+                            <td class="cv-celda-accion"><button class="cv-btn-procesar" onclick="procesarViajeCargarViaje(null, 'CANAL MODERNO')">⚙️ Procesar masivo</button></td>
                         </tr>
                         <tr>
                             <td>FO-0000001</td>
@@ -218,7 +218,8 @@
                     </tbody>
                     <tbody>
                         <tr class="cv-fila-gestion">
-                            <td colspan="6">REPARTO LOCAL <span>3 viajes</span></td>
+                            <td colspan="5">REPARTO LOCAL <span>3 viajes</span></td>
+                            <td class="cv-celda-accion"><button class="cv-btn-drive" onclick="subirAlDriveCargarViaje(null, 'REPARTO LOCAL')">☁️ Subir masivo</button></td>
                         </tr>
                         <tr>
                             <td>FO-0000004</td>
@@ -226,7 +227,7 @@
                             <td>CLIENTE D</td>
                             <td>3.40</td>
                             <td>TRANSPORTES D</td>
-                            <td class="cv-celda-accion"></td>
+                            <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000004')">☁️ Subir viaje</button></td>
                         </tr>
                         <tr>
                             <td>FO-0000005</td>
@@ -234,7 +235,7 @@
                             <td>CLIENTE E</td>
                             <td>2.10</td>
                             <td>TRANSPORTES D</td>
-                            <td class="cv-celda-accion"></td>
+                            <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000005')">☁️ Subir viaje</button></td>
                         </tr>
                         <tr>
                             <td>FO-0000006</td>
@@ -242,17 +243,13 @@
                             <td>CLIENTE F</td>
                             <td>4.75</td>
                             <td>TRANSPORTES E</td>
-                            <td class="cv-celda-accion"></td>
-                        </tr>
-                        <tr class="cv-fila-subir">
-                            <td colspan="6">
-                                <button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('REPARTO LOCAL')">☁️ Subir viajes</button>
-                            </td>
+                            <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000006')">☁️ Subir viaje</button></td>
                         </tr>
                     </tbody>
                     <tbody>
                         <tr class="cv-fila-gestion">
-                            <td colspan="6">LARGA DISTANCIA <span>3 viajes</span></td>
+                            <td colspan="5">LARGA DISTANCIA <span>3 viajes</span></td>
+                            <td class="cv-celda-accion"><button class="cv-btn-drive" onclick="subirAlDriveCargarViaje(null, 'LARGA DISTANCIA')">☁️ Subir masivo</button></td>
                         </tr>
                         <tr>
                             <td>FO-0000007</td>
@@ -260,7 +257,7 @@
                             <td>CLIENTE G</td>
                             <td>22.00</td>
                             <td>TRANSPORTES F</td>
-                            <td class="cv-celda-accion"></td>
+                            <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000007')">☁️ Subir viaje</button></td>
                         </tr>
                         <tr>
                             <td>FO-0000008</td>
@@ -268,7 +265,7 @@
                             <td>CLIENTE H</td>
                             <td>18.30</td>
                             <td>TRANSPORTES G</td>
-                            <td class="cv-celda-accion"></td>
+                            <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000008')">☁️ Subir viaje</button></td>
                         </tr>
                         <tr>
                             <td>FO-0000009</td>
@@ -276,12 +273,7 @@
                             <td>CLIENTE I</td>
                             <td>20.60</td>
                             <td>TRANSPORTES F</td>
-                            <td class="cv-celda-accion"></td>
-                        </tr>
-                        <tr class="cv-fila-subir">
-                            <td colspan="6">
-                                <button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('LARGA DISTANCIA')">☁️ Subir viajes</button>
-                            </td>
+                            <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000009')">☁️ Subir viaje</button></td>
                         </tr>
                     </tbody>
                 </table>
