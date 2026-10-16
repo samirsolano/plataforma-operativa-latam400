@@ -45,9 +45,29 @@
                 📋 Status Pendiente
             </button>
 
-            <button id="btnFacturacion" onclick="abrirVista('facturacion', this)">
-                🧾 Facturación
+            <button id="btnFacturacion" class="menu-grupo" onclick="alternarSubmenu('submenuFacturacion', this)">
+                🧾 Facturación <span class="flecha">▸</span>
             </button>
+
+            <div id="submenuFacturacion" class="submenu" style="display:none;">
+
+                <button id="btnCargarViaje" onclick="abrirVista('cargar-viaje', this)">
+                    Cargar Viaje
+                </button>
+
+                <button id="btnRegistroUt" onclick="abrirVista('registro-ut', this)">
+                    Registro de UT
+                </button>
+
+                <button id="btnContabilizados" onclick="abrirVista('contabilizados', this)">
+                    Contabilizados / Seguimiento Guiado Entregado
+                </button>
+
+                <button id="btnControlActivos" onclick="abrirVista('control-activos', this)">
+                    Control de Activos
+                </button>
+
+            </div>
 
             <button id="btnMonitor" onclick="abrirVista('monitor', this)">
                 🖥️ Monitor
@@ -89,13 +109,43 @@
             </div>
         </div>
 
-        <div id="vistaFacturacion" class="vista" style="display:none;">
+        <div id="vistaCargarViaje" class="vista" style="display:none;">
             <div class="vista-header">
-                <h1>🧾 Facturación</h1>
+                <h1>🧾 Facturación › Cargar Viaje</h1>
             </div>
             <div class="modulo-en-construccion">
                 <h2>En construcción</h2>
-                <p>Aquí irá la hoja de Facturación migrada desde Drive.</p>
+                <p>Aquí irá la carga de viajes de Facturación.</p>
+            </div>
+        </div>
+
+        <div id="vistaRegistroUt" class="vista" style="display:none;">
+            <div class="vista-header">
+                <h1>🧾 Facturación › Registro de UT</h1>
+            </div>
+            <div class="modulo-en-construccion">
+                <h2>En construcción</h2>
+                <p>Aquí irá el registro de UT de Facturación.</p>
+            </div>
+        </div>
+
+        <div id="vistaContabilizados" class="vista" style="display:none;">
+            <div class="vista-header">
+                <h1>🧾 Facturación › Contabilizados / Seguimiento Guiado Entregado</h1>
+            </div>
+            <div class="modulo-en-construccion">
+                <h2>En construcción</h2>
+                <p>Aquí irá el seguimiento de contabilizados y guías entregadas.</p>
+            </div>
+        </div>
+
+        <div id="vistaControlActivos" class="vista" style="display:none;">
+            <div class="vista-header">
+                <h1>🧾 Facturación › Control de Activos</h1>
+            </div>
+            <div class="modulo-en-construccion">
+                <h2>En construcción</h2>
+                <p>Aquí irá el control de activos de Facturación.</p>
             </div>
         </div>
 

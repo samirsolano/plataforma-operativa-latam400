@@ -98,6 +98,33 @@ body{
     font-weight:bold;
 }
 
+/* Grupo con submenú (Facturación) */
+
+.menu .flecha{
+    float:right;
+    transition:transform .2s;
+}
+
+.menu .menu-grupo.abierto{
+    background:rgba(255,255,255,.12);
+}
+
+.menu .menu-grupo.abierto .flecha{
+    transform:rotate(90deg);
+}
+
+.submenu{
+    margin:-4px 0 10px 14px;
+    padding-left:10px;
+    border-left:2px solid rgba(255,255,255,.35);
+}
+
+.submenu button{
+    padding:10px 12px;
+    margin-bottom:6px;
+    font-size:14px;
+}
+
 /* ================ CONTENIDO ================ */
 
 .contenido{
