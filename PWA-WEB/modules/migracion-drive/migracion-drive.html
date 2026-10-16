@@ -133,12 +133,11 @@
                 <div class="cv-paso">
                     <div class="cv-paso-numero">1</div>
                     <h3>Cruce de Viajes</h3>
-                    <p>Sube los FOs. Se cruzan con la base de datos y solo quedan los viajes nuevos.</p>
-                    <label class="cv-btn-subir">
-                        📤 Subir viajes (FOs)
-                        <input type="file" accept=".xlsx,.xls,.csv" onchange="mostrarArchivoCargarViaje(this, 'cvArchivoViajes')">
-                    </label>
-                    <span class="cv-archivo" id="cvArchivoViajes">Ningún archivo seleccionado</span>
+                    <p>Copia las líneas de SAP y pégalas. Se cruzan con la base de datos y solo quedan los viajes nuevos.</p>
+                    <button class="cv-btn-subir" onclick="abrirPegarViajes()">
+                        📋 Pegar viajes de SAP
+                    </button>
+                    <span class="cv-archivo" id="cvArchivoViajes">Todavía no se pegaron viajes</span>
                     <div class="cv-resumen">
                         <div><b>120</b><span>Subidos</span></div>
                         <div><b>95</b><span>Ya existían</span></div>
@@ -353,6 +352,21 @@
         </div>
 
     </main>
+
+    <!-- ===================== VENTANA PEGAR VIAJES (Cruce de Viajes) ===================== -->
+
+    <div class="cv-modal-overlay" id="cvModalPegar" style="display:none;">
+        <div class="cv-modal">
+            <h3>📋 Pegar viajes de SAP</h3>
+            <p>En SAP selecciona las líneas, cópialas (Ctrl + C) y pégalas aquí (Ctrl + V), con o sin la fila de encabezados.</p>
+            <textarea id="cvTextoPegado" placeholder="Pega aquí las líneas copiadas de SAP..." oninput="contarLineasPegadas()"></textarea>
+            <span class="cv-contador" id="cvContadorLineas">0 líneas</span>
+            <div class="cv-modal-acciones">
+                <button class="cv-btn-secundario" onclick="cerrarPegarViajes()">Cancelar</button>
+                <button class="cv-btn-subir" onclick="cruzarViajesPegados()">🔀 Cruzar viajes</button>
+            </div>
+        </div>
+    </div>
 
 </div>
 

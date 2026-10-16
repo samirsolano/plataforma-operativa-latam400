@@ -233,6 +233,7 @@ body{
 
 .cv-btn-subir{
     display:inline-block;
+    border:none;
     padding:10px 16px;
     border-radius:10px;
     background:#FC000D;
@@ -425,6 +426,74 @@ body{
 
 .cv-tabla tbody tr:nth-child(odd){
     background:#f9fafb;
+}
+
+/* Ventana para pegar viajes de SAP */
+
+.cv-modal-overlay{
+    position:fixed;
+    top:0; left:0; right:0; bottom:0;
+    background:rgba(0,0,0,.45);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:2000;
+}
+
+.cv-modal{
+    background:white;
+    border-radius:14px;
+    padding:24px;
+    width:720px;
+    max-width:94vw;
+    box-shadow:0 10px 40px rgba(0,0,0,.25);
+}
+
+.cv-modal h3{
+    color:#1f2937;
+    margin-bottom:6px;
+}
+
+.cv-modal p{
+    color:#6b7280;
+    font-size:13px;
+    margin-bottom:12px;
+}
+
+.cv-modal textarea{
+    width:100%;
+    height:320px;
+    padding:12px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+    font-family:Consolas, "Courier New", monospace;
+    font-size:12px;
+    white-space:pre;
+    resize:vertical;
+}
+
+.cv-contador{
+    display:block;
+    margin-top:6px;
+    font-size:12px;
+    color:#6b7280;
+}
+
+.cv-modal-acciones{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:14px;
+}
+
+.cv-btn-secundario{
+    padding:10px 16px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+    background:white;
+    color:#374151;
+    font-size:14px;
+    cursor:pointer;
 }
 
 .modulo-en-construccion{
