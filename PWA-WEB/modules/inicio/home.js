@@ -60,6 +60,13 @@ if(sesion){
 
     });
 
+    // Proyecto Migración de Drive: por ahora solo Administrador (no
+    // pasa por permisos_rol, ver modules/migracion-drive).
+    if(sesion.rol !== "Administrador"){
+        document.getElementById("linkMigracionDrive").style.display = "none";
+        document.getElementById("cardMigracionDrive").style.display = "none";
+    }
+
 }
 
 const btnPerfil = document.getElementById("btnPerfil");
