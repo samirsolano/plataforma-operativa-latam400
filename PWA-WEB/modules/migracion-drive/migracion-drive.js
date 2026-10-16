@@ -68,6 +68,35 @@ function mostrarArchivoCargarViaje(input, idEtiqueta){
     document.getElementById(idEtiqueta).textContent =
         archivo ? "📄 " + archivo.name : "Ningún archivo seleccionado";
 
+    actualizarBotonProcesar();
+
+}
+
+// "Procesar viajes" se activa recién cuando están los dos reportes.
+function actualizarBotonProcesar(){
+
+    const monitor = document.querySelector("input[onchange*='cvArchivoMonitor']").files.length > 0;
+    const vl06f = document.querySelector("input[onchange*='cvArchivoVl06f']").files.length > 0;
+
+    const faltan = [];
+    if(!monitor) faltan.push("el Monitor de Guías");
+    if(!vl06f) faltan.push("el VL06F");
+
+    document.getElementById("cvBtnProcesarViajes").disabled = faltan.length > 0;
+
+    document.getElementById("cvProcesarTexto").textContent = faltan.length > 0
+        ? "Sube " + faltan.join(" y ") + " para poder procesar los viajes nuevos."
+        : "Listo: ya están el Monitor de Guías y el VL06F. Procesa para ver los viajes nuevos con su información.";
+
+}
+
+// Por ahora solo visual: muestra la tabla de ejemplo de abajo.
+function procesarViajesNuevos(){
+
+    const tabla = document.getElementById("cvViajesProcesados");
+    tabla.style.display = "block";
+    tabla.scrollIntoView({ behavior: "smooth", block: "start" });
+
 }
 
 // Cruce de Viajes: se pegan solo los números de viaje copiados de SAP,
@@ -126,8 +155,73 @@ function cruzarViajesPegados(){
 
     cerrarPegarViajes();
     mostrarResultadoCruce(viajes.length, nuevos, existian);
+    guardarUltimoCruce(viajes.length, nuevos, existian);
 
 }
+
+// ========================================
+// ÚLTIMO CRUCE (por si se cierra la página o no se copiaron los viajes)
+// ========================================
+// Se guarda en este navegador (localStorage). Cuando exista la base de
+// datos, los viajes nuevos quedarán ahí como "pendientes" y esto ya no
+// hará falta.
+
+const CLAVE_ULTIMO_CRUCE = "migracion_drive_ultimo_cruce";
+
+function guardarUltimoCruce(totalPegados, nuevos, existian){
+
+    try{
+        localStorage.setItem(CLAVE_ULTIMO_CRUCE, JSON.stringify({
+            fecha: new Date().toISOString(),
+            totalPegados: totalPegados,
+            nuevos: nuevos,
+            existian: existian
+        }));
+    }catch(e){ /* sin almacenamiento: solo no se recuerda */ }
+
+    mostrarBotonUltimoCruce();
+
+}
+
+function leerUltimoCruce(){
+    try{
+        return JSON.parse(localStorage.getItem(CLAVE_ULTIMO_CRUCE));
+    }catch(e){
+        return null;
+    }
+}
+
+function mostrarBotonUltimoCruce(){
+
+    const cruce = leerUltimoCruce();
+    const boton = document.getElementById("cvBtnUltimoCruce");
+
+    if(!cruce){
+        boton.style.display = "none";
+        return;
+    }
+
+    const fecha = new Date(cruce.fecha);
+
+    boton.textContent =
+        "🕘 Ver último cruce (" + fecha.toLocaleDateString() + " " +
+        fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
+        " · " + textoCantidadViajes(cruce.nuevos.length) + " nuevos)";
+    boton.style.display = "block";
+
+}
+
+function verUltimoCruce(){
+
+    const cruce = leerUltimoCruce();
+
+    if(cruce){
+        mostrarResultadoCruce(cruce.totalPegados, cruce.nuevos, cruce.existian);
+    }
+
+}
+
+mostrarBotonUltimoCruce();
 
 function mostrarResultadoCruce(totalPegados, nuevos, existian){
 
