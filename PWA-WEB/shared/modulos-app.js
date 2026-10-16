@@ -56,6 +56,17 @@ const MODULOS_APP = [
         ]
     },
 
+    {
+        key: "migracion-drive",
+        nombre: "Proyecto Migración de Drive",
+        submodulos: [
+            { key: "status-pendiente", nombre: "Status Pendiente" },
+            { key: "facturacion", nombre: "Facturación" },
+            { key: "monitor", nombre: "Monitor" },
+            { key: "despacho", nombre: "Despacho" }
+        ]
+    },
+
     { key: "reconocimiento", nombre: "Reconocimiento", submodulos: [] },
     { key: "skill-matrix", nombre: "Skill Matrix", submodulos: [] },
     { key: "usuarios", nombre: "Usuarios", submodulos: [] },

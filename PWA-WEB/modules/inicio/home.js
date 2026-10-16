@@ -31,6 +31,9 @@ if(sesion){
         linkPlanificacionAvance: "planificacion-avance",
         cardPlanificacionAvance: "planificacion-avance",
 
+        linkMigracionDrive: "migracion-drive",
+        cardMigracionDrive: "migracion-drive",
+
         linkReconocimiento: "reconocimiento",
         cardReconocimiento: "reconocimiento",
 
