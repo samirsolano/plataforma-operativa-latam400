@@ -240,7 +240,6 @@ create table if not exists public.md_viajes (
 alter table public.md_viajes add column if not exists cantidad_skus integer;
 alter table public.md_viajes add column if not exists fecha_subida timestamptz;
 alter table public.md_viajes add column if not exists subido_por text;
-alter table public.md_viajes add column if not exists fase text;
 alter table public.md_viajes add column if not exists fecha_cita date;
 alter table public.md_viajes add column if not exists hora_cita time;
 alter table public.md_viajes add column if not exists status text;

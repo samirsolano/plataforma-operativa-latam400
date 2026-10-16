@@ -38,7 +38,7 @@ async function cargarStatusPendiente(){
     try{
 
         const viajes = await supabaseFetch(
-            "/md_viajes?select=fo,gestion,fecha_subida,fecha_cita,hora_cita,fase,cliente," +
+            "/md_viajes?select=fo,gestion,fecha_subida,fecha_cita,hora_cita,cliente," +
             "transportista_nombre,status,status_modulado,status_despacho,fecha_registro_ut," +
             "estadia_ut,status_ut,cantidad_skus,peso_tn" +
             "&estado=eq.SUBIDO" +
@@ -131,7 +131,7 @@ function pintarStatusPendiente(){
         '<div class="sp-resumen">' + textoCantidadViajes(viajes.length) + ' subidos</div>' +
         '<div class="sp-contenedor"><table class="sp-tabla"><thead><tr>' +
             '<th>GESTIÓN</th><th>FECHA</th><th>FECHA DE CITA</th><th>HORA DE CITA</th>' +
-            '<th>FO REAL</th><th>FASE</th><th>CLIENTE</th><th>TRANSPORTISTA</th>' +
+            '<th>FO REAL</th><th>CLIENTE</th><th>TRANSPORTISTA</th>' +
             '<th>STATUS</th><th>ESTATUS DE MODULADO</th><th>STATUS DE DESPACHO</th>' +
             '<th>FECHA Y HORA DE REGISTRO UT</th><th>ESTADÍA UT</th><th>STATUS UT</th>' +
             '<th>CANTIDAD SKU\'S</th><th>PESO TN</th>' +
@@ -153,7 +153,6 @@ function pintarStatusPendiente(){
                     '<td>' + fechaSp(v.fecha_cita) + '</td>' +
                     '<td>' + (v.hora_cita ? escaparHtml(String(v.hora_cita).slice(0, 5)) : "-") + '</td>' +
                     '<td>' + escaparHtml(v.fo) + '</td>' +
-                    '<td>' + (v.fase ? escaparHtml(v.fase) : "-") + '</td>' +
                     '<td class="sp-izq">' + escaparHtml(v.cliente) + '</td>' +
                     '<td class="sp-izq">' + escaparHtml(v.transportista_nombre) + '</td>' +
                     '<td>' + celdaStatus(v.status) + '</td>' +
@@ -172,7 +171,7 @@ function pintarStatusPendiente(){
 
         html +=
             '<tr class="sp-total">' +
-                '<td class="sp-izq" colspan="15">Total ' + escaparHtml(gestion) + '</td>' +
+                '<td class="sp-izq" colspan="14">Total ' + escaparHtml(gestion) + '</td>' +
                 '<td class="sp-num">' + subtotal.toFixed(3) + '</td>' +
             '</tr>';
 
@@ -180,7 +179,7 @@ function pintarStatusPendiente(){
 
     html +=
         '<tr class="sp-suma">' +
-            '<td class="sp-izq" colspan="15">Suma total</td>' +
+            '<td class="sp-izq" colspan="14">Suma total</td>' +
             '<td class="sp-num">' + total.toFixed(3) + '</td>' +
         '</tr>' +
         '</tbody></table></div>';
