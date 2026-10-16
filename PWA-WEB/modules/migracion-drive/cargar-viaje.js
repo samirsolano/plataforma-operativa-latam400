@@ -708,6 +708,9 @@ function armarViajes(reglas){
     const viajes = Object.keys(porViaje).map(function(fo){
         const v = porViaje[fo];
         v.peso_tn = redondear(v.peso_kg / 1000, 3);
+        // Con entregas sin VL06F el viaje queda PENDIENTE: vuelve a salir
+        // como nuevo en el próximo cruce para completarlo.
+        v.estado = v.entregas_sin_vl06f > 0 ? "PENDIENTE" : "PROCESADO";
         return v;
     });
 
@@ -838,9 +841,16 @@ function pintarViajesProcesados(resultado){
             resultado.sinMonitor.map(escaparHtml).join(", ") + ".");
     }
 
+    const pendientes = resultado.viajes.filter(function(v){ return v.estado === "PENDIENTE"; }).length;
+
     if(sinVl06f){
-        avisos.push("<b>" + sinVl06f + (sinVl06f === 1 ? " entrega no aparece" : " entregas no aparecen") +
-            " en el VL06F</b>: se guardaron sin peso ni destino (marcadas con ⚠️).");
+        avisos.push("<b>" + textoCantidadViajes(pendientes) + " en PENDIENTE</b>: " +
+            sinVl06f + (sinVl06f === 1 ? " entrega no aparece" : " entregas no aparecen") +
+            " en el VL06F (sin peso ni destino). En el próximo cruce " +
+            (pendientes === 1 ? "vuelve" : "vuelven") +
+            " a salir como " + (pendientes === 1 ? "nuevo" : "nuevos") +
+            ": sube un VL06F que traiga esas entregas para " +
+            (pendientes === 1 ? "completarlo." : "completarlos."));
     }
 
     if(avisos.length){
@@ -865,24 +875,27 @@ function pintarViajesProcesados(resultado){
                     '<table class="cv-tabla">' +
                         '<thead><tr>' +
                             '<th>Viaje</th><th>Destino</th><th>Cliente</th>' +
-                            '<th>Peso (TNL)</th><th>Transporte</th><th></th>' +
+                            '<th>Peso (TNL)</th><th>Transporte</th><th>Estado</th><th></th>' +
                         '</tr></thead>' +
                         '<tbody>';
 
         viajes.forEach(function(v){
 
             const foJs = escaparHtml(JSON.stringify(v.fo));
-            const alerta = v.entregas_sin_vl06f
-                ? ' <span title="' + v.entregas_sin_vl06f + ' entrega(s) sin VL06F">⚠️</span>'
-                : '';
+            const estado = v.estado === "PENDIENTE"
+                ? '<span class="cv-estado cv-estado-pendiente" title="' + v.entregas_sin_vl06f +
+                    ' de ' + v.cantidad_entregas + ' entregas sin VL06F">PENDIENTE · ' +
+                    v.entregas_sin_vl06f + ' sin VL06F</span>'
+                : '<span class="cv-estado cv-estado-ok">PROCESADO</span>';
 
             html +=
                 '<tr>' +
-                    '<td>' + escaparHtml(v.fo) + alerta + '</td>' +
+                    '<td>' + escaparHtml(v.fo) + '</td>' +
                     '<td>' + escaparHtml(v.destino) + '</td>' +
                     '<td>' + escaparHtml(v.cliente) + '</td>' +
                     '<td>' + v.peso_tn.toFixed(2) + '</td>' +
                     '<td>' + escaparHtml(v.transportista_nombre) + '</td>' +
+                    '<td>' + estado + '</td>' +
                     '<td class="cv-celda-accion">' +
                         (v.accion === "PROCESAR"
                             ? '<button class="cv-btn-procesar" onclick="procesarViajeCargarViaje(' + foJs + ')">⚙️ Procesar viaje</button>'

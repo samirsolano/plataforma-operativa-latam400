@@ -211,14 +211,22 @@ create table if not exists public.md_viajes (
     cantidad_entregas integer,
 
     -- NUEVO: recién cruzado, falta Monitor GRE / VL06F
-    -- PROCESADO: ya tiene sus datos (aparece en la tabla por gestión)
+    -- PENDIENTE: procesado, pero alguna entrega no estaba en el VL06F
+    --            (sin peso/destino). Vuelve a salir como nuevo en el
+    --            siguiente cruce para completarlo.
+    -- PROCESADO: ya tiene todos sus datos
     -- SUBIDO: ya se subió / procesó desde Cargar Viaje
-    estado text not null default 'NUEVO'
-        check (estado in ('NUEVO', 'PROCESADO', 'SUBIDO')),
+    estado text not null default 'NUEVO',
 
     actualizado_en timestamptz not null default now()
 
 );
+
+-- Estados con nombre propio para poder sumar PENDIENTE si la tabla ya
+-- existía con la primera lista.
+alter table public.md_viajes drop constraint if exists md_viajes_estado_check;
+alter table public.md_viajes add constraint md_viajes_estado_check
+    check (estado in ('NUEVO', 'PENDIENTE', 'PROCESADO', 'SUBIDO'));
 
 create index if not exists idx_md_viajes_fecha_carga
     on public.md_viajes (fecha_carga desc);
@@ -285,7 +293,9 @@ create index if not exists idx_md_entregas_fo
 -- FUNCIÓN DEL CRUCE: ¿cuáles de estos viajes ya existen?
 -- ========================================
 -- La pantalla manda solo los viajes pegados (ej. 200) y recibe los que
--- ya están en md_viajes. Nunca se descarga la tabla completa.
+-- ya están en md_viajes. Nunca se descarga la tabla completa. Los
+-- PENDIENTE no cuentan como existentes: vuelven a salir como nuevos
+-- para completarlos con un VL06F que traiga las entregas que faltaban.
 
 create or replace function public.md_viajes_existentes(p_viajes text[])
 returns setof text
@@ -294,7 +304,8 @@ stable
 as $$
     select v.fo
     from public.md_viajes v
-    where v.fo = any (p_viajes);
+    where v.fo = any (p_viajes)
+      and v.estado <> 'PENDIENTE';
 $$;
 
 grant execute on function public.md_viajes_existentes(text[]) to anon;

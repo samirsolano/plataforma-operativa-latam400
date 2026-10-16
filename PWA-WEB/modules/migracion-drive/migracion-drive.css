@@ -555,12 +555,33 @@ body{
 }
 
 /* Mismo ancho de columnas en todas las gestiones, para que queden alineadas */
-.cv-tabla th:nth-child(1){ width:14%; }
-.cv-tabla th:nth-child(2){ width:16%; }
-.cv-tabla th:nth-child(3){ width:18%; }
-.cv-tabla th:nth-child(4){ width:12%; }
-.cv-tabla th:nth-child(5){ width:20%; }
-.cv-tabla th:nth-child(6){ width:20%; }
+.cv-tabla th:nth-child(1){ width:12%; }
+.cv-tabla th:nth-child(2){ width:14%; }
+.cv-tabla th:nth-child(3){ width:17%; }
+.cv-tabla th:nth-child(4){ width:9%; }
+.cv-tabla th:nth-child(5){ width:17%; }
+.cv-tabla th:nth-child(6){ width:14%; }
+.cv-tabla th:nth-child(7){ width:17%; }
+
+/* Mismos colores que la hoja STATUS PENDIENTE del Drive:
+   rojo = PENDIENTE, verde = listo (como CONFIRMADO / CERRADO). */
+.cv-estado{
+    display:inline-block;
+    padding:4px 9px;
+    border-radius:5px;
+    color:white;
+    font-size:11px;
+    font-weight:bold;
+    letter-spacing:.3px;
+}
+
+.cv-estado-ok{
+    background:#16a34a;
+}
+
+.cv-estado-pendiente{
+    background:#e00000;
+}
 
 .cv-tabla th{
     background:#1f2937;
