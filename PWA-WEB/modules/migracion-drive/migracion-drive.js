@@ -68,6 +68,11 @@ function mostrarArchivoCargarViaje(input, idEtiqueta){
 
 }
 
-function subirAlDriveCargarViaje(){
-    alert("Subir al Drive todavía no está disponible: por ahora es solo la vista de ejemplo.");
+// Sin viaje = "Subir masivo" (todos los viajes nuevos de la tabla).
+function subirAlDriveCargarViaje(viaje){
+
+    const destino = viaje ? "el viaje " + viaje : "todos los viajes nuevos";
+
+    alert("Subir al Drive (" + destino + ") todavía no está disponible: por ahora es solo la vista de ejemplo.");
+
 }

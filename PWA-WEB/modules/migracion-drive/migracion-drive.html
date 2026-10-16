@@ -162,7 +162,7 @@
 
             <div class="cv-tabla-header">
                 <h2>Viajes nuevos <span class="cv-etiqueta-ejemplo">EJEMPLO</span></h2>
-                <button class="cv-btn-drive" onclick="subirAlDriveCargarViaje()">☁️ Subir al Drive</button>
+                <button class="cv-btn-drive" onclick="subirAlDriveCargarViaje()">☁️ Subir masivo al Drive</button>
             </div>
 
             <div class="cv-tabla-contenedor">
@@ -175,6 +175,7 @@
                             <th>Peso (TNL)</th>
                             <th>Transporte</th>
                             <th>Gestión</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -185,6 +186,9 @@
                             <td>12.50</td>
                             <td>TRANSPORTES A</td>
                             <td>CANAL MODERNO</td>
+                            <td class="cv-celda-accion">
+                                <button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000001')">☁️ Subir al Drive</button>
+                            </td>
                         </tr>
                         <tr>
                             <td>FO-0000002</td>
@@ -193,6 +197,9 @@
                             <td>8.20</td>
                             <td>TRANSPORTES B</td>
                             <td>CANAL MODERNO</td>
+                            <td class="cv-celda-accion">
+                                <button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000002')">☁️ Subir al Drive</button>
+                            </td>
                         </tr>
                         <tr>
                             <td>FO-0000003</td>
@@ -201,6 +208,9 @@
                             <td>15.00</td>
                             <td>TRANSPORTES C</td>
                             <td>CANAL MODERNO</td>
+                            <td class="cv-celda-accion">
+                                <button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000003')">☁️ Subir al Drive</button>
+                            </td>
                         </tr>
                     </tbody>
                 </table>

@@ -321,6 +321,28 @@ body{
     background:#1557b0;
 }
 
+.cv-celda-accion{
+    text-align:right;
+}
+
+.cv-btn-drive-fila{
+    padding:7px 12px;
+    border:1px solid #1a73e8;
+    border-radius:8px;
+    background:white;
+    color:#1a73e8;
+    font-size:13px;
+    font-weight:bold;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:.2s;
+}
+
+.cv-btn-drive-fila:hover{
+    background:#1a73e8;
+    color:white;
+}
+
 .cv-tabla-contenedor{
     overflow-x:auto;
     border:1px solid #e5e7eb;
