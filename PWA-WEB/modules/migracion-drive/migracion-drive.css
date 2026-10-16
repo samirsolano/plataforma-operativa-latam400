@@ -457,6 +457,35 @@ body{
     color:white;
 }
 
+.cv-vacio{
+    padding:30px;
+    border:1px dashed #d1d5db;
+    border-radius:14px;
+    text-align:center;
+    color:#6b7280;
+    font-size:14px;
+    line-height:1.5;
+}
+
+.cv-aviso{
+    margin-bottom:16px;
+    padding:12px 16px;
+    border-radius:10px;
+    background:#fffbeb;
+    border:1px solid #fcd34d;
+    color:#92400e;
+    font-size:13px;
+    line-height:1.5;
+}
+
+.cv-archivo.cv-ok{
+    color:#16a34a;
+}
+
+.cv-archivo.cv-error{
+    color:#dc2626;
+}
+
 /* Viajes procesados: un bloque por gestión (nombre, encabezados, datos) */
 
 .cv-grupo{
@@ -545,7 +574,7 @@ body{
     padding:11px 12px;
     border-top:1px solid #e5e7eb;
     color:#374151;
-    white-space:nowrap;
+    overflow-wrap:anywhere;
 }
 
 .cv-tabla tbody tr:nth-child(odd){

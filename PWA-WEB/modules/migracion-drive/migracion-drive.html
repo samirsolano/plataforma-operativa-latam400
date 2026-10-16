@@ -133,8 +133,6 @@
                 </div>
             </div>
 
-            <!-- Por ahora es solo la visual: los botones no procesan nada todavía. -->
-
             <div class="cv-pasos">
 
                 <div class="cv-paso">
@@ -156,10 +154,10 @@
                 <div class="cv-paso">
                     <div class="cv-paso-numero">2</div>
                     <h3>Monitor de Guías</h3>
-                    <p>Sube el Monitor de Guías. Se toma solo la información de los viajes nuevos.</p>
+                    <p>Sube el Monitor GRE (Excel de SAP). Se toma solo la información de los viajes nuevos.</p>
                     <label class="cv-btn-subir">
                         📤 Subir Monitor de Guías
-                        <input type="file" accept=".xlsx,.xls,.csv" onchange="mostrarArchivoCargarViaje(this, 'cvArchivoMonitor')">
+                        <input type="file" id="cvInputMonitor" accept=".xlsx,.xls,.csv" onchange="leerArchivoCargarViaje(this, 'monitor')">
                     </label>
                     <span class="cv-archivo" id="cvArchivoMonitor">Ningún archivo seleccionado</span>
                 </div>
@@ -167,177 +165,22 @@
                 <div class="cv-paso">
                     <div class="cv-paso-numero">3</div>
                     <h3>VL06F</h3>
-                    <p>Sube el reporte VL06F de SAP. Se toma solo la información de los viajes nuevos.</p>
+                    <p>Sube el VL06F / Programaciones (Excel de SAP). Se toma solo la información de los viajes nuevos.</p>
                     <label class="cv-btn-subir">
                         📤 Subir VL06F
-                        <input type="file" accept=".xlsx,.xls,.csv" onchange="mostrarArchivoCargarViaje(this, 'cvArchivoVl06f')">
+                        <input type="file" id="cvInputVl06f" accept=".xlsx,.xls,.csv" onchange="leerArchivoCargarViaje(this, 'vl06f')">
                     </label>
                     <span class="cv-archivo" id="cvArchivoVl06f">Ningún archivo seleccionado</span>
                 </div>
 
             </div>
 
-            <!-- Resultado de Procesar viajes: aparece al tocar el botón -->
-
-            <!-- Resultado de Procesar viajes (con ejemplo visible mientras se arma) -->
+            <!-- Resultado de Procesar viajes: un bloque por gestión (lo arma cargar-viaje.js) -->
 
             <div id="cvViajesProcesados">
-
-                <div class="cv-tabla-header">
-                    <h2>Viajes nuevos procesados <span class="cv-etiqueta-ejemplo">EJEMPLO</span></h2>
-                    <p>Viajes nuevos completados con la información del Monitor de Guías y el VL06F.</p>
+                <div class="cv-vacio" id="cvSinProcesar">
+                    Pega los viajes, sube el Monitor GRE y el VL06F y toca <b>Procesar viajes</b>: aquí aparecen los viajes nuevos agrupados por gestión.
                 </div>
-
-                <div class="cv-grupo">
-
-                    <div class="cv-grupo-header">
-                        <h3>CANAL MODERNO <span>3 viajes</span></h3>
-                        <button class="cv-btn-procesar" onclick="procesarViajeCargarViaje(null, 'CANAL MODERNO')">⚙️ Procesar masivo</button>
-                    </div>
-
-                    <div class="cv-tabla-contenedor">
-                        <table class="cv-tabla">
-                            <thead>
-                                <tr>
-                                    <th>Viaje</th>
-                                    <th>Destino</th>
-                                    <th>Cliente</th>
-                                    <th>Peso (TNL)</th>
-                                    <th>Transporte</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>FO-0000001</td>
-                                    <td>LIMA</td>
-                                    <td>CLIENTE A</td>
-                                    <td>12.50</td>
-                                    <td>TRANSPORTES A</td>
-                                    <td class="cv-celda-accion"><button class="cv-btn-procesar" onclick="procesarViajeCargarViaje('FO-0000001')">⚙️ Procesar viaje</button></td>
-                                </tr>
-                                <tr>
-                                    <td>FO-0000002</td>
-                                    <td>AREQUIPA</td>
-                                    <td>CLIENTE B</td>
-                                    <td>8.20</td>
-                                    <td>TRANSPORTES B</td>
-                                    <td class="cv-celda-accion"><button class="cv-btn-procesar" onclick="procesarViajeCargarViaje('FO-0000002')">⚙️ Procesar viaje</button></td>
-                                </tr>
-                                <tr>
-                                    <td>FO-0000003</td>
-                                    <td>TRUJILLO</td>
-                                    <td>CLIENTE C</td>
-                                    <td>15.00</td>
-                                    <td>TRANSPORTES C</td>
-                                    <td class="cv-celda-accion"><button class="cv-btn-procesar" onclick="procesarViajeCargarViaje('FO-0000003')">⚙️ Procesar viaje</button></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                </div>
-
-                <div class="cv-grupo">
-
-                    <div class="cv-grupo-header">
-                        <h3>REPARTO LOCAL <span>3 viajes</span></h3>
-                        <button class="cv-btn-drive" onclick="subirAlDriveCargarViaje(null, 'REPARTO LOCAL')">☁️ Subir masivo</button>
-                    </div>
-
-                    <div class="cv-tabla-contenedor">
-                        <table class="cv-tabla">
-                            <thead>
-                                <tr>
-                                    <th>Viaje</th>
-                                    <th>Destino</th>
-                                    <th>Cliente</th>
-                                    <th>Peso (TNL)</th>
-                                    <th>Transporte</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>FO-0000004</td>
-                                    <td>LIMA - ATE</td>
-                                    <td>CLIENTE D</td>
-                                    <td>3.40</td>
-                                    <td>TRANSPORTES D</td>
-                                    <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000004')">☁️ Subir viaje</button></td>
-                                </tr>
-                                <tr>
-                                    <td>FO-0000005</td>
-                                    <td>LIMA - SURCO</td>
-                                    <td>CLIENTE E</td>
-                                    <td>2.10</td>
-                                    <td>TRANSPORTES D</td>
-                                    <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000005')">☁️ Subir viaje</button></td>
-                                </tr>
-                                <tr>
-                                    <td>FO-0000006</td>
-                                    <td>CALLAO</td>
-                                    <td>CLIENTE F</td>
-                                    <td>4.75</td>
-                                    <td>TRANSPORTES E</td>
-                                    <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000006')">☁️ Subir viaje</button></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                </div>
-
-                <div class="cv-grupo">
-
-                    <div class="cv-grupo-header">
-                        <h3>LARGA DISTANCIA <span>3 viajes</span></h3>
-                        <button class="cv-btn-drive" onclick="subirAlDriveCargarViaje(null, 'LARGA DISTANCIA')">☁️ Subir masivo</button>
-                    </div>
-
-                    <div class="cv-tabla-contenedor">
-                        <table class="cv-tabla">
-                            <thead>
-                                <tr>
-                                    <th>Viaje</th>
-                                    <th>Destino</th>
-                                    <th>Cliente</th>
-                                    <th>Peso (TNL)</th>
-                                    <th>Transporte</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>FO-0000007</td>
-                                    <td>PIURA</td>
-                                    <td>CLIENTE G</td>
-                                    <td>22.00</td>
-                                    <td>TRANSPORTES F</td>
-                                    <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000007')">☁️ Subir viaje</button></td>
-                                </tr>
-                                <tr>
-                                    <td>FO-0000008</td>
-                                    <td>CUSCO</td>
-                                    <td>CLIENTE H</td>
-                                    <td>18.30</td>
-                                    <td>TRANSPORTES G</td>
-                                    <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000008')">☁️ Subir viaje</button></td>
-                                </tr>
-                                <tr>
-                                    <td>FO-0000009</td>
-                                    <td>TACNA</td>
-                                    <td>CLIENTE I</td>
-                                    <td>20.60</td>
-                                    <td>TRANSPORTES F</td>
-                                    <td class="cv-celda-accion"><button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje('FO-0000009')">☁️ Subir viaje</button></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                </div>
-
             </div>
 
         </div>
@@ -446,8 +289,13 @@
 
 </div>
 
+<!-- SheetJS: lee el Monitor GRE y el VL06F (.xlsx) en el navegador -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<script src="../../shared/supabase-config.js"></script>
 <script src="../../shared/auth.js"></script>
 <script src="migracion-drive.js"></script>
+<script src="cargar-viaje.js"></script>
 
 </body>
 
