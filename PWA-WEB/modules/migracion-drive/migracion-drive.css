@@ -721,7 +721,8 @@ body{
     font-size:12px;
 }
 
-.sp-filtros input{
+.sp-filtros input,
+.sp-filtros select{
     padding:9px 10px;
     border:1px solid #d1d5db;
     border-radius:8px;
@@ -806,6 +807,58 @@ body{
 .sp-rojo{ background:#e00000; }
 .sp-verde{ background:#16a34a; }
 .sp-amarillo{ background:#facc15; color:#1f2937; }
+
+/* ================ MONITOR ================ */
+
+.mn-tabla td{
+    padding:4px 6px;
+}
+
+.mn-input{
+    width:100%;
+    min-width:90px;
+    padding:5px 6px;
+    border:1px solid #d1d5db;
+    border-radius:6px;
+    background:#fffbeb;
+    font-size:12px;
+    text-align:center;
+    transition:background .3s, border-color .3s;
+}
+
+.mn-input[type="date"]{ min-width:120px; }
+.mn-input[type="time"]{ min-width:80px; }
+
+.mn-input:focus{
+    outline:none;
+    border-color:#1a73e8;
+    background:white;
+}
+
+/* El status se elige en la misma celda, con el color de la hoja */
+.mn-status{
+    width:100%;
+    min-width:120px;
+    padding:5px 4px;
+    border:none;
+    border-radius:4px;
+    background:#9ca3af;
+    color:white;
+    font-size:11px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.mn-status.sp-amarillo{ color:#1f2937; }
+
+.mn-status option{
+    background:white;
+    color:#1f2937;
+}
+
+.mn-guardando{ opacity:.5; }
+.mn-guardado{ border-color:#16a34a; background:#dcfce7; outline:2px solid #16a34a; }
+.mn-error{ border-color:#e00000; outline:2px solid #e00000; }
 
 .modulo-en-construccion{
     display:flex;

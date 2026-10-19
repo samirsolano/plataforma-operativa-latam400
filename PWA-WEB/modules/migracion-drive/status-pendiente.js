@@ -15,6 +15,7 @@ const COLORES_STATUS = {
     "POR LANZAR": "sp-rojo",
     "EN PROCESO": "sp-amarillo",
     "CONFIRMADO": "sp-verde",
+    "CONTABILIZADO": "sp-verde",
     "CERRADO": "sp-verde"
 };
 

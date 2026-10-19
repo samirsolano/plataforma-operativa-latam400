@@ -238,6 +238,23 @@ alter table public.md_viajes add column if not exists fecha_registro_ut timestam
 alter table public.md_viajes add column if not exists estadia_ut text;
 alter table public.md_viajes add column if not exists status_ut text;
 
+-- ========================================
+-- MONITOR
+-- ========================================
+-- El Monitor llena, sobre los viajes SUBIDO, la fecha y hora de cita,
+-- la FASE, el CANAL SISTEMA (ej. CNL-OUT-84) y el CANAL FÍSICO (ej.
+-- "36 - 37"), escribiéndolos en la tabla, y va cambiando el status:
+-- POR LANZAR → EN PROCESO → CONFIRMADO → CONTABILIZADO → CERRADO.
+-- Por ahora una fase por viaje (en el Drive un viaje podía partirse en
+-- varias filas, una por fase).
+
+alter table public.md_viajes add column if not exists fase text;
+alter table public.md_viajes add column if not exists canal_sistema text;
+alter table public.md_viajes add column if not exists canal_fisico text;
+-- Último cambio hecho desde el Monitor
+alter table public.md_viajes add column if not exists monitor_por text;
+alter table public.md_viajes add column if not exists monitor_en timestamptz;
+
 -- Status Pendiente filtra los SUBIDO por fecha de subida.
 create index if not exists idx_md_viajes_subida
     on public.md_viajes (fecha_subida desc)

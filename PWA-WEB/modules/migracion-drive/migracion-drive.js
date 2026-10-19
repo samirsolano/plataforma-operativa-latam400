@@ -55,9 +55,13 @@ function abrirVista(vista, boton){
     document.getElementById(VISTAS_MIGRACION_DRIVE[vista]).style.display = "flex";
     boton.classList.add("activo");
 
-    // Status Pendiente se lee de la base cada vez que se abre.
+    // Status Pendiente y Monitor se leen de la base cada vez que se abren.
     if(vista === "status-pendiente"){
         cargarStatusPendiente();
+    }
+
+    if(vista === "monitor"){
+        cargarMonitor();
     }
 
 }

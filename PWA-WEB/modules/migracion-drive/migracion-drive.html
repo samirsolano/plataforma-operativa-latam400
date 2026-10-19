@@ -226,13 +226,26 @@
         </div>
 
         <div id="vistaMonitor" class="vista" style="display:none;">
-            <div class="vista-header">
-                <h1>🖥️ Monitor</h1>
+
+            <div class="vista-header cv-header">
+                <div>
+                    <h1>🖥️ Monitor</h1>
+                    <p>Llena la cita, fase y canales de cada viaje subido y avanza su status (reemplaza las columnas del Monitor de la hoja L400 del Drive).</p>
+                </div>
+                <div class="sp-filtros">
+                    <label>Subidos desde
+                        <input type="date" id="mnDesde" onchange="cargarMonitor()">
+                    </label>
+                    <label>Status
+                        <select id="mnStatus" onchange="pintarMonitor()"></select>
+                    </label>
+                    <input type="search" id="mnBuscar" placeholder="Buscar viaje, cliente, fase o canal" oninput="pintarMonitor()">
+                    <button class="cv-btn-subir" onclick="cargarMonitor()">🔄 Actualizar</button>
+                </div>
             </div>
-            <div class="modulo-en-construccion">
-                <h2>En construcción</h2>
-                <p>Aquí irá la hoja Monitor migrada desde Drive.</p>
-            </div>
+
+            <div id="mnContenido" class="cv-vacio">Cargando...</div>
+
         </div>
 
         <div id="vistaDespacho" class="vista" style="display:none;">
@@ -329,6 +342,7 @@
 <script src="migracion-drive.js"></script>
 <script src="cargar-viaje.js"></script>
 <script src="status-pendiente.js"></script>
+<script src="monitor.js"></script>
 
 </body>
 
