@@ -10,8 +10,9 @@
 
 const monitor = { viajes: [] };
 
-// Orden en que avanza el status (el primero lo pone "Subir viaje").
-const STATUS_MONITOR = ["POR LANZAR", "EN PROCESO", "CONFIRMADO", "CONTABILIZADO", "CERRADO"];
+// Los status de la lista del Drive, en el orden en que avanza el viaje
+// (el primero lo pone "Subir viaje"). Colores en COLORES_STATUS.
+const STATUS_MONITOR = ["POR LANZAR", "EN PROCESO", "CONFIRMADO", "CONTABILIZADO", "CERRADO", "AJUSTADO A 0"];
 
 // Campos que se pueden editar y cómo se limpian antes de guardar.
 const CAMPOS_MONITOR = {

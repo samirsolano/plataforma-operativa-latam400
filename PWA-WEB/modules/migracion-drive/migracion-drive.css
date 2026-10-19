@@ -797,7 +797,8 @@ body{
 /* Mismos colores que la hoja del Drive */
 .sp-status{
     display:block;
-    padding:3px 6px;
+    padding:3px 8px;
+    border-radius:12px;
     font-size:10px;
     font-weight:bold;
     color:white;
@@ -839,9 +840,9 @@ body{
 .mn-status{
     width:100%;
     min-width:120px;
-    padding:5px 4px;
+    padding:4px 8px;
     border:none;
-    border-radius:4px;
+    border-radius:12px;
     background:#9ca3af;
     color:white;
     font-size:11px;
@@ -849,12 +850,18 @@ body{
     cursor:pointer;
 }
 
-.mn-status.sp-amarillo{ color:#1f2937; }
-
 .mn-status option{
     background:white;
     color:#1f2937;
 }
+
+/* Colores de la lista de STATUS del Drive (Monitor y Status Pendiente) */
+.st-por-lanzar{ background:#b10202; color:white; }
+.st-en-proceso{ background:#ffe5a0; color:#473821; }
+.st-confirmado{ background:#0a53a8; color:white; }
+.st-contabilizado{ background:#e6cff2; color:#5a3286; }
+.st-cerrado{ background:#11734b; color:white; }
+.st-ajustado{ background:#ffcfc9; color:#b10202; }
 
 .mn-guardando{ opacity:.5; }
 .mn-guardado{ border-color:#16a34a; background:#dcfce7; outline:2px solid #16a34a; }

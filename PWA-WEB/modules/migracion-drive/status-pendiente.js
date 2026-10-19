@@ -9,14 +9,16 @@
 
 const statusPendiente = { viajes: [] };
 
-// Color de cada status, igual que en la hoja.
+// Color de cada status, igual que en la hoja. Los del STATUS (los que
+// cambia el Monitor) llevan los colores de la lista del Drive.
 const COLORES_STATUS = {
     "PENDIENTE": "sp-rojo",
-    "POR LANZAR": "sp-rojo",
-    "EN PROCESO": "sp-amarillo",
-    "CONFIRMADO": "sp-verde",
-    "CONTABILIZADO": "sp-verde",
-    "CERRADO": "sp-verde"
+    "POR LANZAR": "st-por-lanzar",
+    "EN PROCESO": "st-en-proceso",
+    "CONFIRMADO": "st-confirmado",
+    "CONTABILIZADO": "st-contabilizado",
+    "CERRADO": "st-cerrado",
+    "AJUSTADO A 0": "st-ajustado"
 };
 
 (function iniciarFiltroDesde(){
