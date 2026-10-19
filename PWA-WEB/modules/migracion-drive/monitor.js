@@ -2,10 +2,11 @@
 // MONITOR
 // ========================================
 // Los viajes SUBIDO (los de Status Pendiente) con las columnas del
-// Monitor de la hoja L400 del Drive. Fecha y hora de cita, FASE, CANAL
-// SISTEMA y CANAL FÍSICO se escriben directo en la tabla y el STATUS se
-// elige de la lista; cada cambio se guarda solo en md_viajes al salir
-// de la celda. Por ahora una fase por viaje.
+// Monitor de la hoja L400 del Drive. FASE, CANAL SISTEMA y CANAL FÍSICO
+// se escriben directo en la tabla y el STATUS se elige de la lista;
+// cada cambio se guarda solo en md_viajes al salir de la celda. La
+// fecha y hora de cita solo se muestran (el Monitor no las cambia).
+// Por ahora una fase por viaje.
 
 const monitor = { viajes: [] };
 
@@ -14,8 +15,6 @@ const STATUS_MONITOR = ["POR LANZAR", "EN PROCESO", "CONFIRMADO", "CONTABILIZADO
 
 // Campos que se pueden editar y cómo se limpian antes de guardar.
 const CAMPOS_MONITOR = {
-    fecha_cita: function(v){ return v || null; },
-    hora_cita: function(v){ return v || null; },
     fase: function(v){ return v.trim() || null; },
     canal_sistema: function(v){ return limpiarTexto(v) || null; },
     canal_fisico: function(v){ return v.trim() || null; },
@@ -53,8 +52,7 @@ async function cargarMonitor(){
             "peso_tn,transportista_nombre,cantidad_skus,fase,canal_sistema,canal_fisico,status" +
             "&estado=eq.SUBIDO" +
             (desde ? "&fecha_subida=gte." + encodeURIComponent(new Date(desde + "T00:00:00").toISOString()) : "") +
-            // Los que todavía no tienen cita van primero: hay que llenarlos.
-            "&order=fecha_cita.asc.nullsfirst,hora_cita.asc.nullsfirst,fecha_subida.asc&limit=2000"
+            "&order=fecha_cita.asc.nullslast,hora_cita.asc.nullslast,fecha_subida.asc&limit=2000"
         );
 
         monitor.viajes = viajes || [];
@@ -125,8 +123,8 @@ function pintarMonitor(){
 
         html +=
             '<tr>' +
-                '<td>' + entrada("fecha_cita", "date", v.fecha_cita) + '</td>' +
-                '<td>' + entrada("hora_cita", "time", v.hora_cita ? String(v.hora_cita).slice(0, 5) : "") + '</td>' +
+                '<td>' + (v.fecha_cita ? fechaSp(v.fecha_cita) : "-") + '</td>' +
+                '<td>' + (v.hora_cita ? escaparHtml(String(v.hora_cita).slice(0, 5)) : "-") + '</td>' +
                 '<td class="sp-izq sp-gestion">' + escaparHtml(v.gestion || "-") + '</td>' +
                 '<td>' + escaparHtml(v.fo) + '</td>' +
                 '<td class="sp-izq">' + escaparHtml(v.destino || "-") + '</td>' +
@@ -195,7 +193,7 @@ async function guardarCampoMonitor(control, fo, campo){
 
         console.error(error);
 
-        control.value = campo === "hora_cita" && anterior ? String(anterior).slice(0, 5) : (anterior || "");
+        control.value = anterior || "";
         control.classList.remove("mn-guardando");
         control.classList.add("mn-error");
 

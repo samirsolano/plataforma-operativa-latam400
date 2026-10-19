@@ -241,9 +241,10 @@ alter table public.md_viajes add column if not exists status_ut text;
 -- ========================================
 -- MONITOR
 -- ========================================
--- El Monitor llena, sobre los viajes SUBIDO, la fecha y hora de cita,
--- la FASE, el CANAL SISTEMA (ej. CNL-OUT-84) y el CANAL FÍSICO (ej.
--- "36 - 37"), escribiéndolos en la tabla, y va cambiando el status:
+-- El Monitor llena, sobre los viajes SUBIDO, la FASE, el CANAL SISTEMA
+-- (ej. CNL-OUT-84) y el CANAL FÍSICO (ej. "36 - 37"), escribiéndolos en
+-- la tabla, y va cambiando el status (la fecha y hora de cita solo las
+-- muestra):
 -- POR LANZAR → EN PROCESO → CONFIRMADO → CONTABILIZADO → CERRADO.
 -- Por ahora una fase por viaje (en el Drive un viaje podía partirse en
 -- varias filas, una por fase).
