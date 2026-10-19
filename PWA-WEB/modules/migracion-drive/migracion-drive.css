@@ -587,6 +587,25 @@ body{
     background:#1a73e8;
 }
 
+.cv-estado-nuevo{
+    background:#6b7280;
+}
+
+/* Ventana "Cruzados sin subir": la tabla baja con scroll */
+.cv-sin-subir{
+    max-height:55vh;
+    overflow-y:auto;
+}
+
+.cv-sin-subir .cv-tabla th{
+    position:sticky;
+    top:0;
+}
+
+.cv-sin-subir .cv-tabla th:nth-child(n){
+    width:auto;
+}
+
 .cv-btn-drive:disabled,
 .cv-btn-drive-fila:disabled{
     opacity:.6;

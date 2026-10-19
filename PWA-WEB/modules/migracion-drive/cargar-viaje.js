@@ -2,8 +2,12 @@
 // FACTURACIÓN › CARGAR VIAJE
 // ========================================
 // 1. Cruce de Viajes: se pegan los FO copiados de SAP y se cruzan con
-//    md_viajes (función md_viajes_existentes): quedan solo los nuevos.
-//    Cada cruce se guarda en md_cruces ("Ver último cruce").
+//    los viajes ya SUBIDOS de md_viajes (función md_viajes_existentes):
+//    quedan solo los nuevos. Lo cruzado o procesado que no se subió
+//    vuelve a salir como nuevo.
+//    Los nuevos se guardan en la misma md_viajes (estado NUEVO, con
+//    fecha_cruce y cruzado_por): así "Cruzados sin subir" muestra todo
+//    lo que se cruzó y no se subió, y se puede retomar.
 // 2/3. Se suben el Monitor GRE y el VL06F (Excel de SAP), se leen en el
 //    navegador con SheetJS y se quedan solo las entregas de los viajes
 //    nuevos.
@@ -15,7 +19,8 @@
 // Tablas en el Supabase principal (supabaseFetch, shared/supabase-config.js).
 
 const cargaViaje = {
-    cruce: null,     // { id, totalPegados, nuevos: [], existian: [] }
+    cruce: null,     // { fecha, totalPegados, nuevos: [], existian: [], descripcion? }
+    sinSubir: [],    // md_viajes cruzados que todavía no están SUBIDO
     monitor: null,   // filas del Monitor GRE (objetos por encabezado)
     vl06f: null      // filas del VL06F
 };
@@ -155,28 +160,28 @@ async function cruzarViajesPegados(){
         const nuevos = viajes.filter(function(v){ return !existentes.has(v); });
         const existian = viajes.filter(function(v){ return existentes.has(v); });
 
-        const guardado = await supabaseFetch("/md_cruces", {
-            method: "POST",
-            headers: { "Prefer": "return=representation" },
-            body: JSON.stringify({
-                usuario: sesion ? sesion.nombre_completo : null,
-                total_pegados: viajes.length,
-                total_nuevos: nuevos.length,
-                viajes_nuevos: nuevos
-            })
-        });
+        // Los nuevos quedan en md_viajes: los que no estaban entran como
+        // NUEVO; a los cruzados antes y no subidos solo se les actualiza
+        // el último cruce (el upsert solo toca estas columnas, no pisa el
+        // estado ni lo ya procesado).
+        const ahora = new Date().toISOString();
+        const cruzadoPor = sesion ? sesion.nombre_completo : null;
+
+        await guardarEnLotes("md_viajes", "fo", nuevos.map(function(fo){
+            return { fo: fo, fecha_cruce: ahora, cruzado_por: cruzadoPor, actualizado_en: ahora };
+        }));
 
         cerrarPegarViajes();
 
         mostrarResultadoCruce({
-            id: guardado && guardado[0] ? guardado[0].id : null,
-            fecha: guardado && guardado[0] ? guardado[0].creado_en : new Date().toISOString(),
+            fecha: ahora,
             totalPegados: viajes.length,
             nuevos: nuevos,
             existian: existian
         });
 
         abrirModalViajes("nuevos");
+        buscarSinSubir();
 
     }catch(error){
 
@@ -201,15 +206,13 @@ function mostrarResultadoCruce(cruce){
     const fecha = new Date(cruce.fecha);
 
     document.getElementById("cvArchivoViajes").textContent =
-        "📋 " + textoCantidadViajes(cruce.totalPegados) + " pegados · " +
+        "📋 " + (cruce.descripcion || textoCantidadViajes(cruce.totalPegados) + " pegados") + " · " +
         fecha.toLocaleDateString() + " " +
         fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
     document.getElementById("cvTotalPegados").textContent = cruce.totalPegados;
     document.getElementById("cvTotalExistian").textContent = cruce.totalPegados - cruce.nuevos.length;
     document.getElementById("cvTotalNuevos").textContent = cruce.nuevos.length;
-
-    document.getElementById("cvBtnUltimoCruce").style.display = "none";
 
     // Si ya había archivos cargados, se vuelven a filtrar contra este cruce.
     describirArchivo("monitor");
@@ -218,50 +221,100 @@ function mostrarResultadoCruce(cruce){
 
 }
 
-// "Ver último cruce": el último guardado en md_cruces (por si se cerró
-// la página o no se copiaron los viajes).
-async function buscarUltimoCruce(){
+// ========================================
+// CRUZADOS SIN SUBIR
+// ========================================
+// Todo lo de md_viajes que se cruzó y todavía no está SUBIDO (NUEVO,
+// PROCESADO o PENDIENTE), con quién y cuándo lo cruzó. Sirve para
+// controlar qué quedó sin subir y para retomarlo si se cerró la página.
+
+async function buscarSinSubir(){
+
+    const boton = document.getElementById("cvBtnUltimoCruce");
 
     try{
 
-        const filas = await supabaseFetch(
-            "/md_cruces?select=id,creado_en,total_pegados,total_nuevos,viajes_nuevos" +
-            "&order=creado_en.desc&limit=1"
-        );
+        cargaViaje.sinSubir = await supabaseFetch(
+            "/md_viajes?select=fo,estado,gestion,cliente,fecha_cruce,cruzado_por" +
+            "&estado=neq.SUBIDO&order=fecha_cruce.desc.nullslast&limit=2000"
+        ) || [];
 
-        const ultimo = filas && filas[0];
-        const boton = document.getElementById("cvBtnUltimoCruce");
+        const total = cargaViaje.sinSubir.length;
 
-        if(!ultimo || cargaViaje.cruce){
-            return;
-        }
-
-        const fecha = new Date(ultimo.creado_en);
-
-        boton.textContent =
-            "🕘 Ver último cruce (" + fecha.toLocaleDateString() + " " +
-            fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
-            " · " + textoCantidadViajes(ultimo.total_nuevos) +
-            (ultimo.total_nuevos === 1 ? " nuevo)" : " nuevos)");
-        boton.style.display = "block";
-        boton.onclick = function(){
-
-            mostrarResultadoCruce({
-                id: ultimo.id,
-                fecha: ultimo.creado_en,
-                totalPegados: ultimo.total_pegados,
-                nuevos: ultimo.viajes_nuevos || [],
-                // La lista de los que ya existían no se guarda, solo el total.
-                existian: null
-            });
-
-            abrirModalViajes("nuevos");
-
-        };
+        boton.style.display = total ? "block" : "none";
+        boton.textContent = "🕘 " + textoCantidadViajes(total) +
+            (total === 1 ? " cruzado sin subir" : " cruzados sin subir");
 
     }catch(error){
-        console.error("No se pudo leer el último cruce:", error);
+        console.error("No se pudieron leer los viajes sin subir:", error);
     }
+
+}
+
+const ESTADOS_SIN_SUBIR = {
+    "NUEVO": '<span class="cv-estado cv-estado-nuevo">NUEVO</span>',
+    "PROCESADO": '<span class="cv-estado cv-estado-ok">PROCESADO</span>',
+    "PENDIENTE": '<span class="cv-estado cv-estado-pendiente">PENDIENTE</span>'
+};
+
+function abrirSinSubir(){
+
+    const viajes = cargaViaje.sinSubir;
+
+    document.getElementById("cvSinSubirTexto").textContent =
+        textoCantidadViajes(viajes.length) + " que se cruzaron y todavía no se subieron a Status Pendiente." +
+        " En el próximo cruce vuelven a salir como nuevos.";
+
+    document.getElementById("cvSinSubirTabla").innerHTML = viajes.map(function(v){
+        return '<tr>' +
+            '<td>' + escaparHtml(v.fo) + '</td>' +
+            '<td>' + (ESTADOS_SIN_SUBIR[v.estado] || escaparHtml(v.estado)) + '</td>' +
+            '<td>' + escaparHtml(v.gestion || "-") + '</td>' +
+            '<td>' + (v.fecha_cruce ? fechaHoraSp(v.fecha_cruce) : "-") + '</td>' +
+            '<td>' + escaparHtml(v.cruzado_por || "-") + '</td>' +
+        '</tr>';
+    }).join("");
+
+    document.getElementById("cvBtnCopiarSinSubir").textContent = "📋 Copiar viajes";
+    document.getElementById("cvModalSinSubir").style.display = "flex";
+
+}
+
+function cerrarSinSubir(){
+    document.getElementById("cvModalSinSubir").style.display = "none";
+}
+
+function copiarSinSubir(){
+
+    const texto = cargaViaje.sinSubir.map(function(v){ return v.fo; }).join("\n");
+    const boton = document.getElementById("cvBtnCopiarSinSubir");
+
+    (navigator.clipboard ? navigator.clipboard.writeText(texto) : Promise.reject()).then(function(){
+        boton.textContent = "✅ Copiados";
+        setTimeout(function(){ boton.textContent = "📋 Copiar viajes"; }, 2000);
+    }).catch(function(){
+        alert("No se pudo copiar. Usa Retomar: los viajes quedan en la tarjeta Nuevos para copiarlos.");
+    });
+
+}
+
+// Deja los sin subir como el cruce actual, para subir el Monitor GRE y
+// el VL06F y procesarlos sin volver a pegarlos.
+function retomarSinSubir(){
+
+    const nuevos = cargaViaje.sinSubir.map(function(v){ return v.fo; });
+
+    cerrarSinSubir();
+
+    mostrarResultadoCruce({
+        fecha: new Date().toISOString(),
+        totalPegados: nuevos.length,
+        nuevos: nuevos,
+        existian: [],
+        descripcion: textoCantidadViajes(nuevos.length) + " sin subir retomados"
+    });
+
+    abrirModalViajes("nuevos");
 
 }
 
@@ -281,14 +334,8 @@ function abrirModalViajes(tipo){
     const esNuevos = tipo === "nuevos";
     const viajes = esNuevos ? cruce.nuevos : cruce.existian;
 
-    if(!viajes){
-        alert("De este cruce solo se guardó el total de viajes que ya existían (" +
-            (cruce.totalPegados - cruce.nuevos.length) + "), no la lista.");
-        return;
-    }
-
     document.getElementById("cvModalViajesTitulo").textContent =
-        esNuevos ? "✅ Viajes nuevos" : "Viajes que ya existían";
+        esNuevos ? "✅ Viajes nuevos" : "Viajes que ya estaban subidos";
 
     document.getElementById("cvModalViajesTexto").textContent =
         textoCantidadViajes(viajes.length) +
@@ -672,7 +719,6 @@ function armarViajes(reglas){
         if(!porViaje[e.fo]){
             porViaje[e.fo] = {
                 fo: e.fo,
-                cruce_id: cargaViaje.cruce.id,
                 cargado_por: sesion ? sesion.nombre_completo : null,
                 transportista_codigo: e.transportista_codigo,
                 transportista_nombre: e.transportista_nombre,
@@ -752,6 +798,25 @@ async function procesarViajesNuevos(){
         const reglas = await supabaseFetch("/md_reglas_gestion?select=tipo_regla,cliente,destino,destinatario_codigo,nombre,gestion,accion");
         const resultado = armarViajes(reglas || []);
 
+        // Retomar los sin subir o procesar dos veces puede
+        // traer viajes que ya se subieron: no se vuelven a guardar, si no
+        // pasarían a PROCESADO y saldrían de Status Pendiente.
+        const yaSubidos = new Set(leerListaRpc(await supabaseFetch(
+            "/rpc/md_viajes_existentes",
+            { method: "POST", body: JSON.stringify({ p_viajes: resultado.viajes.map(function(v){ return v.fo; }) }) }
+        )));
+
+        resultado.yaSubidos = resultado.viajes
+            .filter(function(v){ return yaSubidos.has(v.fo); })
+            .map(function(v){ return v.fo; });
+        resultado.viajes = resultado.viajes.filter(function(v){ return !yaSubidos.has(v.fo); });
+        resultado.entregas = resultado.entregas.filter(function(e){ return !yaSubidos.has(e.fo); });
+
+        if(resultado.viajes.length === 0 && resultado.yaSubidos.length){
+            alert("Todos estos viajes ya están subidos en Status Pendiente: no hay nada que procesar.");
+            return;
+        }
+
         if(resultado.viajes.length === 0){
             alert("Ninguno de los viajes nuevos aparece en el Monitor GRE. Revisa que sea el Monitor de estos viajes.");
             return;
@@ -763,7 +828,6 @@ async function procesarViajesNuevos(){
         await guardarEnLotes("md_viajes", "fo", resultado.viajes.map(function(v){
             return {
                 fo: v.fo,
-                cruce_id: v.cruce_id,
                 cargado_por: v.cargado_por,
                 transportista_codigo: v.transportista_codigo,
                 transportista_nombre: v.transportista_nombre,
@@ -789,6 +853,7 @@ async function procesarViajesNuevos(){
 
         cargaViaje.resultado = resultado;
         pintarViajesProcesados(resultado);
+        buscarSinSubir();
 
     }catch(error){
 
@@ -849,6 +914,14 @@ function pintarViajesProcesados(resultado, sinMover){
             (uno ? " nuevo no aparece" : " nuevos no aparecen") + " en el Monitor GRE</b> y " +
             (uno ? "no se guardó: " : "no se guardaron: ") +
             resultado.sinMonitor.map(escaparHtml).join(", ") + ".");
+    }
+
+    if(resultado.yaSubidos && resultado.yaSubidos.length){
+        const uno = resultado.yaSubidos.length === 1;
+        avisos.push("<b>" + textoCantidadViajes(resultado.yaSubidos.length) +
+            (uno ? " ya estaba subido" : " ya estaban subidos") + "</b> a Status Pendiente y no se " +
+            (uno ? "volvió" : "volvieron") + " a procesar: " +
+            resultado.yaSubidos.map(escaparHtml).join(", ") + ".");
     }
 
     const pendientes = resultado.viajes.filter(function(v){ return v.estado === "PENDIENTE"; }).length;
@@ -1010,6 +1083,7 @@ async function subirAlDriveCargarViaje(viaje, gestion){
         });
 
         pintarViajesProcesados(resultado, true);
+        buscarSinSubir();
 
         if(confirmados.size < elegidos.length){
             alert("Se subieron " + confirmados.size + " de " + elegidos.length +
@@ -1025,5 +1099,5 @@ async function subirAlDriveCargarViaje(viaje, gestion){
 
 }
 
-buscarUltimoCruce();
+buscarSinSubir();
 actualizarBotonProcesar();

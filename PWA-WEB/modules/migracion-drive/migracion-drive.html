@@ -148,15 +148,15 @@
                 <div class="cv-paso">
                     <div class="cv-paso-numero">1</div>
                     <h3>Cruce de Viajes</h3>
-                    <p>Copia los viajes de SAP y pégalos. Se cruzan con la base de datos y solo quedan los viajes nuevos.</p>
+                    <p>Copia los viajes de SAP y pégalos. Se cruzan con los viajes ya subidos y solo quedan los nuevos.</p>
                     <button class="cv-btn-subir" onclick="abrirPegarViajes()">
                         📋 Pegar viajes de SAP
                     </button>
                     <span class="cv-archivo" id="cvArchivoViajes">Todavía no se pegaron viajes</span>
-                    <button class="cv-btn-ultimo" id="cvBtnUltimoCruce" style="display:none;" onclick="verUltimoCruce()"></button>
+                    <button class="cv-btn-ultimo" id="cvBtnUltimoCruce" style="display:none;" onclick="abrirSinSubir()"></button>
                     <div class="cv-resumen">
                         <div><b id="cvTotalPegados">—</b><span>Pegados</span></div>
-                        <div class="cv-clic" title="Ver viajes que ya existían" onclick="abrirModalViajes('existian')"><b id="cvTotalExistian">—</b><span>Ya existían</span></div>
+                        <div class="cv-clic" title="Ver viajes que ya estaban subidos" onclick="abrirModalViajes('existian')"><b id="cvTotalExistian">—</b><span>Ya subidos</span></div>
                         <div class="cv-nuevos cv-clic" title="Ver y copiar viajes nuevos" onclick="abrirModalViajes('nuevos')"><b id="cvTotalNuevos">—</b><span>Nuevos</span></div>
                     </div>
                 </div>
@@ -278,6 +278,28 @@
             <div class="cv-modal-acciones">
                 <button class="cv-btn-secundario" onclick="cerrarModalViajes()">Cerrar</button>
                 <button class="cv-btn-copiar" id="cvBtnCopiarModal" onclick="copiarViajesModal()">📋 Copiar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== VENTANA CRUZADOS SIN SUBIR ===================== -->
+
+    <div class="cv-modal-overlay" id="cvModalSinSubir" style="display:none;" onclick="if(event.target === this) cerrarSinSubir()">
+        <div class="cv-modal">
+            <h3>🕘 Cruzados sin subir</h3>
+            <p id="cvSinSubirTexto"></p>
+            <div class="cv-tabla-contenedor cv-sin-subir">
+                <table class="cv-tabla">
+                    <thead><tr>
+                        <th>Viaje</th><th>Estado</th><th>Gestión</th><th>Último cruce</th><th>Cruzado por</th>
+                    </tr></thead>
+                    <tbody id="cvSinSubirTabla"></tbody>
+                </table>
+            </div>
+            <div class="cv-modal-acciones">
+                <button class="cv-btn-secundario" onclick="cerrarSinSubir()">Cerrar</button>
+                <button class="cv-btn-secundario" id="cvBtnCopiarSinSubir" onclick="copiarSinSubir()">📋 Copiar viajes</button>
+                <button class="cv-btn-copiar" onclick="retomarSinSubir()">↩️ Retomar</button>
             </div>
         </div>
     </div>
