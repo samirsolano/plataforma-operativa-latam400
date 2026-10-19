@@ -67,9 +67,14 @@ async function cargarMonitor(){
 function viajesMonitorFiltrados(){
 
     const texto = limpiarTexto(document.getElementById("mnBuscar").value);
+    const status = document.getElementById("mnStatus").value;
 
     return monitor.viajes.filter(function(v){
 
+        // La base ya filtra por status; esto cubre los que se cambiaron
+        // en pantalla después de cargar (ej. pasó de EN PROCESO a CERRADO).
+        if(status === "SIN_CERRAR" && v.status === "CERRADO") return false;
+        if(status && status !== "SIN_CERRAR" && v.status !== status) return false;
         if(!texto) return true;
 
         return [v.fo, v.cliente, v.transportista_nombre, v.gestion, v.destino, v.fase, v.canal_sistema]
@@ -102,7 +107,9 @@ function pintarMonitor(){
         '<div class="sp-contenedor"><table class="sp-tabla mn-tabla"><thead><tr>' +
             '<th>FECHA DE CITA</th><th>HORA DE CITA</th><th>GESTIÓN</th><th>VIAJE</th>' +
             '<th>DESTINO</th><th>CLIENTE</th><th>PESO TN</th><th>TRANSPORTISTA</th>' +
-            '<th>CANTIDAD SKU\'S</th><th>FASE</th><th>CANAL SISTEMA</th><th>CANAL FÍSICO</th>' +
+            '<th>CANTIDAD SKU\'S</th>' +
+            '<th>FASE <button class="mn-th-copiar" id="mnBtnCopiarFases" title="Copiar las fases de los viajes que se ven, una debajo de otra" onclick="copiarFasesMonitor()">📋 Copiar</button></th>' +
+            '<th>CANAL SISTEMA</th><th>CANAL FÍSICO</th>' +
             '<th>STATUS</th>' +
         '</tr></thead><tbody>';
 
@@ -147,6 +154,56 @@ function pintarMonitor(){
 
 }
 
+// Copia las fases de los viajes que se ven (status y búsqueda
+// actuales), una por línea y en el orden de la tabla, para pegarlas en
+// SAP o en Excel. Los viajes sin fase no se copian.
+function copiarFasesMonitor(){
+
+    const fases = viajesMonitorFiltrados()
+        .map(function(v){ return v.fase; })
+        .filter(function(f){ return f; });
+
+    const boton = document.getElementById("mnBtnCopiarFases");
+
+    if(fases.length === 0){
+        alert("Ninguno de los viajes que se ven tiene fase.");
+        return;
+    }
+
+    const texto = fases.join("\n");
+
+    function avisarCopiado(){
+        boton.textContent = "✅ " + fases.length;
+        boton.title = fases.length + (fases.length === 1 ? " fase copiada" : " fases copiadas");
+        setTimeout(function(){
+            boton.textContent = "📋 Copiar";
+            boton.title = "Copiar las fases de los viajes que se ven, una debajo de otra";
+        }, 2500);
+    }
+
+    // Si el portapapeles del navegador no responde, se copia con un
+    // cuadro de texto temporal.
+    function copiarConTextarea(){
+        const area = document.createElement("textarea");
+        area.value = texto;
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(area);
+        if(ok) avisarCopiado();
+        else alert("No se pudo copiar las fases.");
+    }
+
+    if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(texto).then(avisarCopiado).catch(copiarConTextarea);
+    }else{
+        copiarConTextarea();
+    }
+
+}
+
 // Guarda un solo campo del viaje. Si falla, la celda vuelve a su valor.
 async function guardarCampoMonitor(control, fo, campo){
 
@@ -182,6 +239,12 @@ async function guardarCampoMonitor(control, fo, campo){
         control.classList.remove("mn-guardando");
         control.classList.add("mn-guardado");
         setTimeout(function(){ control.classList.remove("mn-guardado"); }, 1500);
+
+        // Si con el status nuevo ya no entra en el filtro, sale de la
+        // tabla (después de mostrar que se guardó).
+        if(campo === "status" && viaje && viajesMonitorFiltrados().indexOf(viaje) === -1){
+            setTimeout(pintarMonitor, 900);
+        }
 
     }catch(error){
 
