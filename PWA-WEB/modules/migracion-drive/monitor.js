@@ -22,14 +22,9 @@ const CAMPOS_MONITOR = {
     status: function(v){ return v || null; }
 };
 
+// Se ven todos los viajes subidos, sin filtro de fecha. Por defecto los
+// "Sin cerrar", así los CERRADO no se acumulan en la pantalla.
 (function iniciarFiltrosMonitor(){
-    const desde = new Date();
-    desde.setDate(desde.getDate() - 7);
-    document.getElementById("mnDesde").value =
-        desde.getFullYear() + "-" +
-        String(desde.getMonth() + 1).padStart(2, "0") + "-" +
-        String(desde.getDate()).padStart(2, "0");
-
     document.getElementById("mnStatus").innerHTML =
         '<option value="SIN_CERRAR">Sin cerrar</option>' +
         '<option value="">Todos</option>' +
@@ -41,7 +36,7 @@ const CAMPOS_MONITOR = {
 async function cargarMonitor(){
 
     const contenido = document.getElementById("mnContenido");
-    const desde = document.getElementById("mnDesde").value;
+    const status = document.getElementById("mnStatus").value;
 
     contenido.className = "cv-vacio";
     contenido.textContent = "Cargando...";
@@ -52,7 +47,8 @@ async function cargarMonitor(){
             "/md_viajes?select=fo,gestion,fecha_subida,fecha_cita,hora_cita,destino,cliente," +
             "peso_tn,transportista_nombre,cantidad_skus,fase,canal_sistema,canal_fisico,status" +
             "&estado=eq.SUBIDO" +
-            (desde ? "&fecha_subida=gte." + encodeURIComponent(new Date(desde + "T00:00:00").toISOString()) : "") +
+            (status === "SIN_CERRAR" ? "&or=(status.is.null,status.neq.CERRADO)"
+                : status ? "&status=eq." + encodeURIComponent(status) : "") +
             "&order=fecha_cita.asc.nullslast,hora_cita.asc.nullslast,fecha_subida.asc&limit=2000"
         );
 
@@ -71,12 +67,9 @@ async function cargarMonitor(){
 function viajesMonitorFiltrados(){
 
     const texto = limpiarTexto(document.getElementById("mnBuscar").value);
-    const status = document.getElementById("mnStatus").value;
 
     return monitor.viajes.filter(function(v){
 
-        if(status === "SIN_CERRAR" && v.status === "CERRADO") return false;
-        if(status && status !== "SIN_CERRAR" && v.status !== status) return false;
         if(!texto) return true;
 
         return [v.fo, v.cliente, v.transportista_nombre, v.gestion, v.destino, v.fase, v.canal_sistema]
@@ -99,7 +92,7 @@ function pintarMonitor(){
         contenido.className = "cv-vacio";
         contenido.textContent = monitor.viajes.length
             ? "Ningún viaje coincide con los filtros."
-            : "No hay viajes subidos en estas fechas. Súbelos desde Facturación › Cargar Viaje.";
+            : "No hay viajes subidos con este status. Súbelos desde Facturación › Cargar Viaje.";
         return;
     }
 
