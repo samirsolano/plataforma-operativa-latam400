@@ -1944,7 +1944,7 @@ async function buscarResumenCodigo(){
                 });
 
                 if(vidaInsuficiente){
-                    observaciones.push("Vida útil restante menor o igual a la mitad del TVU");
+                    observaciones.push("Lote no apto por tiempo de vida útil");
                 }
 
             }
@@ -4848,7 +4848,7 @@ function calcularResumenCodigoSnapshot(dataFilas, lecturasFilas, tvuPorCodigo){
                 return fv ? mesesEntre(hoy, new Date(fv + "T00:00:00")) <= (tvu / 2) : false;
             });
             if(vidaInsuficiente){
-                observaciones.push("Vida útil restante menor o igual a la mitad del TVU");
+                observaciones.push("Lote no apto por tiempo de vida útil");
             }
         }
 
