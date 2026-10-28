@@ -23,12 +23,13 @@ if(sesion){
 
 }
 
-// Mientras el Reporte de Productividad (Hora x Hora) esté abierto no
-// se cierra la sesión por inactividad: suele quedar fijo en un
-// monitor/TV sin que nadie toque mouse ni teclado (ver auth.js).
-window.sesionSinInactividad = function(){
+// En el Reporte de Productividad (Hora x Hora) la sesión dura 2 horas
+// sin interacción (en vez de los 30 min normales): suele quedar fijo
+// en un monitor/TV sin que nadie toque mouse ni teclado (ver auth.js).
+window.tiempoInactividadMs = function(){
     const reporte = document.getElementById("modHoraHora");
-    return !!reporte && reporte.style.display !== "none";
+    const enReporte = !!reporte && reporte.style.display !== "none";
+    return enReporte ? 2 * 60 * 60 * 1000 : null;
 };
 
 let fechaSeleccionada = "";

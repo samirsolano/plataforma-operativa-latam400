@@ -70,31 +70,39 @@ function esRecarga(){
 
 // Reinicia el conteo de inactividad en cada interacción del usuario;
 // si pasan TIEMPO_INACTIVIDAD_MS sin ninguna, cierra la sesión sola.
-// Excepción: si la página define window.sesionSinInactividad() y
-// devuelve true (p. ej. un reporte que queda fijo en un monitor de
-// pared), en vez de cerrar se vuelve a contar.
+// Una página puede pedir otro límite definiendo
+// window.tiempoInactividadMs() (p. ej. un reporte que queda fijo en
+// un monitor de pared); se consulta en cada revisión.
 function iniciarControlInactividad(){
 
     let temporizador = null;
+    let inicio = Date.now();
 
-    function alVencer(){
-        if(typeof window.sesionSinInactividad === "function" && window.sesionSinInactividad()){
-            reiniciarTemporizador();
-            return;
+    function limiteActual(){
+        if(typeof window.tiempoInactividadMs === "function"){
+            return window.tiempoInactividadMs() || TIEMPO_INACTIVIDAD_MS;
         }
-        cerrarSesion();
+        return TIEMPO_INACTIVIDAD_MS;
+    }
+
+    // Revisa cada minuto: así, al cambiar de pantalla, el nuevo límite
+    // aplica sin esperar a que venza el anterior.
+    function revisar(){
+        if(Date.now() - inicio >= limiteActual()){
+            clearInterval(temporizador);
+            cerrarSesion();
+        }
     }
 
     function reiniciarTemporizador(){
-        clearTimeout(temporizador);
-        temporizador = setTimeout(alVencer, TIEMPO_INACTIVIDAD_MS);
+        inicio = Date.now();
     }
+
+    temporizador = setInterval(revisar, 60 * 1000);
 
     ["mousedown", "mousemove", "keydown", "scroll", "touchstart"].forEach(function(evento){
         document.addEventListener(evento, reiniciarTemporizador, { passive: true });
     });
-
-    reiniciarTemporizador();
 
 }
 
