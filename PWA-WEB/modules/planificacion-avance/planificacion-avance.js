@@ -23,6 +23,14 @@ if(sesion){
 
 }
 
+// Mientras el Reporte de Productividad (Hora x Hora) esté abierto no
+// se cierra la sesión por inactividad: suele quedar fijo en un
+// monitor/TV sin que nadie toque mouse ni teclado (ver auth.js).
+window.sesionSinInactividad = function(){
+    const reporte = document.getElementById("modHoraHora");
+    return !!reporte && reporte.style.display !== "none";
+};
+
 let fechaSeleccionada = "";
 let turnoSeleccionado = "";
 

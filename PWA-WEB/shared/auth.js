@@ -70,13 +70,24 @@ function esRecarga(){
 
 // Reinicia el conteo de inactividad en cada interacción del usuario;
 // si pasan TIEMPO_INACTIVIDAD_MS sin ninguna, cierra la sesión sola.
+// Excepción: si la página define window.sesionSinInactividad() y
+// devuelve true (p. ej. un reporte que queda fijo en un monitor de
+// pared), en vez de cerrar se vuelve a contar.
 function iniciarControlInactividad(){
 
     let temporizador = null;
 
+    function alVencer(){
+        if(typeof window.sesionSinInactividad === "function" && window.sesionSinInactividad()){
+            reiniciarTemporizador();
+            return;
+        }
+        cerrarSesion();
+    }
+
     function reiniciarTemporizador(){
         clearTimeout(temporizador);
-        temporizador = setTimeout(cerrarSesion, TIEMPO_INACTIVIDAD_MS);
+        temporizador = setTimeout(alVencer, TIEMPO_INACTIVIDAD_MS);
     }
 
     ["mousedown", "mousemove", "keydown", "scroll", "touchstart"].forEach(function(evento){
