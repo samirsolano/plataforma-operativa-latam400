@@ -23,6 +23,15 @@ if(sesion){
 
 }
 
+// En el Reporte de Productividad (Hora x Hora) la sesión dura 2 horas
+// sin interacción (en vez de los 30 min normales): suele quedar fijo
+// en un monitor/TV sin que nadie toque mouse ni teclado (ver auth.js).
+window.tiempoInactividadMs = function(){
+    const reporte = document.getElementById("modHoraHora");
+    const enReporte = !!reporte && reporte.style.display !== "none";
+    return enReporte ? 2 * 60 * 60 * 1000 : null;
+};
+
 let fechaSeleccionada = "";
 let turnoSeleccionado = "";
 
