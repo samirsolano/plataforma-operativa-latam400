@@ -636,6 +636,28 @@ body{
     background:#f9fafb;
 }
 
+/* Canal Moderno: fila de cliente (se procesa todo junto) y sus viajes */
+.cv-tabla tbody tr.cv-fila-cliente{
+    background:#eef2ff;
+}
+
+.cv-fila-cliente td{
+    color:#1f2937;
+    font-weight:bold;
+    border-top:2px solid #c7d2fe;
+}
+
+.cv-fila-cliente span{
+    margin-left:8px;
+    color:#6b7280;
+    font-weight:normal;
+    font-size:13px;
+}
+
+.cv-fila-de-cliente td:first-child{
+    padding-left:28px;
+}
+
 /* Ventana para pegar viajes de SAP */
 
 .cv-modal-overlay{

@@ -970,36 +970,41 @@ function pintarViajesProcesados(resultado, sinMover){
                         '</tr></thead>' +
                         '<tbody>';
 
-        viajes.forEach(function(v){
+        // Los de acción PROCESAR (Canal Moderno) se procesan juntos por
+        // cliente: van primero, agrupados con una fila de cliente que
+        // lleva el botón. Los de SUBIR siguen uno por uno, ordenados por
+        // cliente.
+        const porCliente = {};
 
-            const foJs = escaparHtml(JSON.stringify(v.fo));
-            const estado =
-                v.estado === "SUBIDO"
-                    ? '<span class="cv-estado cv-estado-subido">SUBIDO</span>'
-                : v.estado === "PENDIENTE"
-                    ? '<span class="cv-estado cv-estado-pendiente" title="' + v.entregas_sin_vl06f +
-                        ' de ' + v.cantidad_entregas + ' entregas sin VL06F">PENDIENTE · ' +
-                        v.entregas_sin_vl06f + ' sin VL06F</span>'
-                    : '<span class="cv-estado cv-estado-ok">PROCESADO</span>';
+        viajes.forEach(function(v){
+            if(v.accion !== "PROCESAR") return;
+            const c = v.cliente || "SIN CLIENTE";
+            (porCliente[c] = porCliente[c] || []).push(v);
+        });
+
+        Object.keys(porCliente).sort().forEach(function(cliente){
+
+            const delCliente = porCliente[cliente];
+            const peso = delCliente.reduce(function(s, v){ return s + v.peso_tn; }, 0);
 
             html +=
-                '<tr>' +
-                    '<td>' + escaparHtml(v.fo) + '</td>' +
-                    '<td>' + escaparHtml(v.destino) + '</td>' +
-                    '<td>' + escaparHtml(v.cliente) + '</td>' +
-                    '<td>' + v.peso_tn.toFixed(2) + '</td>' +
-                    '<td>' + escaparHtml(v.transportista_nombre) + '</td>' +
-                    '<td>' + estado + '</td>' +
+                '<tr class="cv-fila-cliente">' +
+                    '<td colspan="6">' + escaparHtml(cliente) +
+                        ' <span>' + textoCantidadViajes(delCliente.length) + ' · ' + peso.toFixed(2) + ' TN</span></td>' +
                     '<td class="cv-celda-accion">' +
-                        (v.accion === "PROCESAR"
-                            ? '<button class="cv-btn-procesar" onclick="procesarViajeCargarViaje(' + foJs + ')">⚙️ Procesar viaje</button>'
-                        : v.estado === "SUBIDO"
-                            ? '<button class="cv-btn-drive-fila" disabled>✅ Subido</button>'
-                            : '<button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje(' + foJs + ')">☁️ Subir viaje</button>') +
+                        '<button class="cv-btn-procesar" onclick="procesarViajeCargarViaje(null, ' + gestionJs + ', ' +
+                            escaparHtml(JSON.stringify(cliente)) + ')">⚙️ Procesar cliente</button>' +
                     '</td>' +
                 '</tr>';
 
+            delCliente.forEach(function(v){ html += filaViajeProcesado(v); });
+
         });
+
+        viajes
+            .filter(function(v){ return v.accion !== "PROCESAR"; })
+            .sort(function(a, b){ return String(a.cliente || "").localeCompare(String(b.cliente || "")); })
+            .forEach(function(v){ html += filaViajeProcesado(v); });
 
         html += '</tbody></table></div></div>';
 
@@ -1013,10 +1018,54 @@ function pintarViajesProcesados(resultado, sinMover){
 
 }
 
-// Todavía no definido qué hace "Procesar viaje" (Canal Moderno).
-function procesarViajeCargarViaje(viaje, gestion){
+// Una fila de la tabla de viajes procesados. Los de acción PROCESAR no
+// llevan botón propio: se procesan con el de su cliente.
+function filaViajeProcesado(v){
 
-    const destino = viaje ? "el viaje " + viaje : "todos los viajes de " + gestion;
+    const foJs = escaparHtml(JSON.stringify(v.fo));
+    const estado =
+        v.estado === "SUBIDO"
+            ? '<span class="cv-estado cv-estado-subido">SUBIDO</span>'
+        : v.estado === "PENDIENTE"
+            ? '<span class="cv-estado cv-estado-pendiente" title="' + v.entregas_sin_vl06f +
+                ' de ' + v.cantidad_entregas + ' entregas sin VL06F">PENDIENTE · ' +
+                v.entregas_sin_vl06f + ' sin VL06F</span>'
+            : '<span class="cv-estado cv-estado-ok">PROCESADO</span>';
+
+    return (
+        '<tr' + (v.accion === "PROCESAR" ? ' class="cv-fila-de-cliente"' : '') + '>' +
+            '<td>' + escaparHtml(v.fo) + '</td>' +
+            '<td>' + escaparHtml(v.destino) + '</td>' +
+            '<td>' + escaparHtml(v.cliente) + '</td>' +
+            '<td>' + v.peso_tn.toFixed(2) + '</td>' +
+            '<td>' + escaparHtml(v.transportista_nombre) + '</td>' +
+            '<td>' + estado + '</td>' +
+            '<td class="cv-celda-accion">' +
+                (v.accion === "PROCESAR"
+                    ? ''
+                : v.estado === "SUBIDO"
+                    ? '<button class="cv-btn-drive-fila" disabled>✅ Subido</button>'
+                    : '<button class="cv-btn-drive-fila" onclick="subirAlDriveCargarViaje(' + foJs + ')">☁️ Subir viaje</button>') +
+            '</td>' +
+        '</tr>'
+    );
+
+}
+
+// Todavía no definido qué hace "Procesar" (Canal Moderno). Se procesa
+// por cliente (todos sus viajes juntos) o toda la gestión ("Procesar
+// masivo").
+function procesarViajeCargarViaje(viaje, gestion, cliente){
+
+    const resultado = cargaViaje.resultado;
+    const viajes = resultado ? resultado.viajes.filter(function(v){
+        return v.accion === "PROCESAR" && v.gestion === gestion &&
+            (!cliente || (v.cliente || "SIN CLIENTE") === cliente);
+    }) : [];
+
+    const destino = viaje ? "el viaje " + viaje
+        : cliente ? cliente + " (" + textoCantidadViajes(viajes.length) + ")"
+        : "todos los viajes de " + gestion;
 
     alert("Procesar " + destino + " todavía no está disponible.");
 
