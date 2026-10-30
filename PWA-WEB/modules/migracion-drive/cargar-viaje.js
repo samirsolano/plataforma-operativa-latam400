@@ -529,8 +529,9 @@ function actualizarBotonProcesar(){
 // ========================================
 // 4. GESTIÓN (md_reglas_gestion)
 // ========================================
-// Misma prioridad que la plantilla: 1. cliente (por nombre, o por
-// código de destinatario: plantas de Alicorp), 2. Lima - Lima/Callao
+// Misma prioridad que la plantilla: 1. cliente (por código de
+// destinatario, mapeado en la vista Clientes: plantas de Alicorp, CD
+// MASS...; si no, por nombre), 2. Lima - Lima/Callao
 // por organización de ventas (RL AS / RL CMP), 3. Lima provincia,
 // 4. destino (empieza con), 5. LARGA DISTANCIA. La acción (PROCESAR /
 // SUBIR) solo la define la regla de cliente. "nombre" viene de la
@@ -544,12 +545,14 @@ function calcularGestion(reglas, cliente, destinatarioCodigo, destino, organizac
     const codigo = textoCodigo(destinatarioCodigo);
     const org = Number(organizacion);
 
+    // El código manda sobre el nombre: un mismo cliente (ej. COMPAÑIA
+    // HARD DISCOUNT) tiene varios CD, cada uno con su código.
     const reglaCliente =
         reglas.find(function(r){
-            return r.tipo_regla === "CLIENTE" && limpiarTexto(r.cliente) === cliente;
+            return r.tipo_regla === "DESTINATARIO" && codigo !== "" && textoCodigo(r.destinatario_codigo) === codigo;
         }) ||
         reglas.find(function(r){
-            return r.tipo_regla === "DESTINATARIO" && codigo !== "" && textoCodigo(r.destinatario_codigo) === codigo;
+            return r.tipo_regla === "CLIENTE" && limpiarTexto(r.cliente) === cliente;
         });
 
     const accion = reglaCliente ? reglaCliente.accion : "SUBIR";
@@ -669,7 +672,9 @@ function armarViajes(reglas){
             v ? v.lugar_destinatario : null,
             v ? v.organizacion_ventas : null
         );
-        const clienteNombre = clienteMonitor || g.nombre || (v && v.destinatario_nombre) || null;
+        // Si el código está mapeado en Clientes, se muestra ese nombre
+        // (ej. CD MASS CALLAO en vez de COMPAÑIA HARD DISCOUNT S.A.C.).
+        const clienteNombre = g.nombre || clienteMonitor || (v && v.destinatario_nombre) || null;
 
         return Object.assign({
             entrega: e.entrega,

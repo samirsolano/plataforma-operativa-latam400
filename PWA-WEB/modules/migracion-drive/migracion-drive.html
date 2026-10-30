@@ -79,6 +79,10 @@
 
             <hr>
 
+            <button id="btnClientes" onclick="abrirVista('clientes', this)">
+                👥 Clientes
+            </button>
+
             <button id="btnBaseDatos" onclick="abrirVista('base-datos', this)">
                 🗄️ Base de Datos
             </button>
@@ -253,6 +257,43 @@
             </div>
         </div>
 
+        <div id="vistaClientes" class="vista" style="display:none;">
+
+            <div class="vista-header cv-header">
+                <div>
+                    <h1>👥 Clientes</h1>
+                    <p>Clientes mapeados por destinatario de mercancías (columna "Destinatario mcía." del VL06F): al procesar un viaje, se muestra con este nombre y toma esta gestión y acción.</p>
+                </div>
+                <div class="sp-filtros">
+                    <input type="search" id="clBuscar" placeholder="Buscar código, nombre o gestión" oninput="pintarClientes()">
+                    <button class="cv-btn-subir" onclick="cargarClientes()">🔄 Actualizar</button>
+                </div>
+            </div>
+
+            <div class="cl-form">
+                <label>Destinatario de mercancías (código)
+                    <input type="text" id="clCodigo" placeholder="Ej. 1000059630" inputmode="numeric" onchange="buscarDestinatario()">
+                </label>
+                <label>Nombre que se muestra
+                    <input type="text" id="clNombre" placeholder="Ej. CD MASS PUNTA HERMOSA">
+                </label>
+                <label>Gestión
+                    <select id="clGestion"></select>
+                </label>
+                <label>Acción
+                    <select id="clAccion">
+                        <option value="SUBIR">Subir viaje</option>
+                        <option value="PROCESAR">Procesar viaje</option>
+                    </select>
+                </label>
+                <button class="cv-btn-copiar" id="clBtnAgregar" onclick="agregarCliente()">➕ Agregar</button>
+                <span class="cl-encontrado" id="clEncontrado"></span>
+            </div>
+
+            <div id="clContenido" class="cv-vacio">Cargando...</div>
+
+        </div>
+
         <div id="vistaBaseDatos" class="vista" style="display:none;">
             <div class="vista-header">
                 <h1>🗄️ Base de Datos</h1>
@@ -338,6 +379,7 @@
 <script src="cargar-viaje.js"></script>
 <script src="status-pendiente.js"></script>
 <script src="monitor.js"></script>
+<script src="clientes.js"></script>
 
 </body>
 

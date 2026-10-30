@@ -885,6 +885,69 @@ body{
 .mn-guardado{ border-color:#16a34a; background:#dcfce7; outline:2px solid #16a34a; }
 .mn-error{ border-color:#e00000; outline:2px solid #e00000; }
 
+/* ================ CLIENTES ================ */
+
+.cl-form{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+    padding:14px;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    background:#f9fafb;
+}
+
+.cl-form label{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    color:#6b7280;
+    font-size:12px;
+}
+
+.cl-form input,
+.cl-form select{
+    padding:9px 10px;
+    border:1px solid #d1d5db;
+    border-radius:8px;
+    font-size:13px;
+}
+
+.cl-form input#clNombre{
+    width:260px;
+}
+
+.cl-encontrado{
+    flex-basis:100%;
+    color:#374151;
+    font-size:12px;
+}
+
+.cl-encontrado.cl-aviso{
+    color:#b45309;
+    font-weight:bold;
+}
+
+.cl-tabla .cl-nombre{
+    min-width:240px;
+    text-align:left;
+}
+
+.cl-btn-quitar{
+    padding:4px 8px;
+    border:1px solid #d1d5db;
+    border-radius:6px;
+    background:white;
+    cursor:pointer;
+}
+
+.cl-btn-quitar:hover{
+    border-color:#e00000;
+    background:#fee2e2;
+}
+
 .modulo-en-construccion{
     display:flex;
     flex-direction:column;

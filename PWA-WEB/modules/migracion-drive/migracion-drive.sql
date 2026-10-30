@@ -49,13 +49,16 @@
 -- partir de esta tabla de reglas. La plataforma usa la MISMA lógica,
 -- para cada entrega, en este orden de prioridad:
 --
---   1. Regla CLIENTE: el nombre del cliente destinatario es igual a
+--   1. Regla DESTINATARIO (manda sobre la de nombre): el CÓDIGO del
+--      destinatario (Destinatario mcía. del VL06F) es igual a
+--      "destinatario_codigo" → esa gestión y esa acción, y el viaje
+--      muestra "nombre" como cliente. Se mantienen en la vista
+--      Clientes. Sirve para las plantas de Alicorp, que en el VL06F
+--      vienen todas como "Prd Terminado 01" (1007 Arequipa, 1008 Cusco,
+--      1010 Huachipa → TRASLADO), y para los clientes con varios CD
+--      bajo el mismo nombre (COMPAÑIA HARD DISCOUNT → CD MASS ...).
+--      Regla CLIENTE: el nombre del cliente destinatario es igual a
 --      "cliente" → esa gestión y esa acción.
---      Regla DESTINATARIO: el CÓDIGO del destinatario (Destinatario
---      mcía. del VL06F) es igual a "destinatario_codigo" → esa gestión,
---      y el viaje muestra "nombre" como cliente. Sirve para las plantas
---      de Alicorp, que en el VL06F vienen todas como "Prd Terminado 01"
---      (1007 Arequipa, 1008 Cusco, 1010 Huachipa → TRASLADO).
 --   2. Destino que empieza con "LIMA - LIMA" o "CALLAO":
 --        Organización ventas 1012        → RL AS
 --        Organización ventas 1010 / 1011 → RL CMP
@@ -157,7 +160,10 @@ insert into public.md_reglas_gestion (tipo_regla, destinatario_codigo, nombre, g
 values
     ('DESTINATARIO', '1007', 'CD ALICORP AREQUIPA', 'TRASLADO', 'SUBIR'),
     ('DESTINATARIO', '1008', 'CD ALICORP CUSCO', 'TRASLADO', 'SUBIR'),
-    ('DESTINATARIO', '1010', 'CD ALICORP HUACHIPA', 'TRASLADO', 'SUBIR')
+    ('DESTINATARIO', '1010', 'CD ALICORP HUACHIPA', 'TRASLADO', 'SUBIR'),
+    -- CD de Mass: en SAP todos son "COMPAÑIA HARD DISCOUNT S.A.C."
+    ('DESTINATARIO', '1000059630', 'CD MASS PUNTA HERMOSA', 'CANAL MODERNO', 'SUBIR'),
+    ('DESTINATARIO', '1000059639', 'CD MASS CALLAO', 'CANAL MODERNO', 'SUBIR')
 on conflict (tipo_regla, cliente, destino, destinatario_codigo) do nothing;
 
 -- ========================================
