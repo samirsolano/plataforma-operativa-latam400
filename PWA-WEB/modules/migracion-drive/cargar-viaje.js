@@ -889,7 +889,10 @@ function pintarViajesProcesados(resultado, sinMover){
     const contenedor = document.getElementById("cvViajesProcesados");
     const grupos = {};
 
+    // Lo que ya se subió a Status Pendiente sale de la lista: aquí solo
+    // queda lo que falta subir (o procesar).
     resultado.viajes.forEach(function(v){
+        if(v.estado === "SUBIDO") return;
         (grupos[v.gestion] = grupos[v.gestion] || []).push(v);
     });
 
@@ -908,7 +911,8 @@ function pintarViajesProcesados(resultado, sinMover){
             '<p>' + textoCantidadViajes(resultado.viajes.length) + ' · ' +
                 resultado.entregas.length + ' entregas · ' + redondear(pesoTotal, 2) + ' TN. ' +
                 'Ya quedaron guardados en la Base de Datos' +
-                (subidos ? ' · ' + subidos + ' subidos a Status Pendiente' : '') + '.</p>' +
+                (subidos ? ' · ' + subidos + (subidos === 1 ? ' ya subido' : ' ya subidos') +
+                    ' a Status Pendiente (no se muestran)' : '') + '.</p>' +
         '</div>';
 
     const avisos = [];
@@ -943,6 +947,10 @@ function pintarViajesProcesados(resultado, sinMover){
 
     if(avisos.length){
         html += '<div class="cv-aviso">' + avisos.join("<br>") + '</div>';
+    }
+
+    if(nombres.length === 0){
+        html += '<div class="cv-vacio">✅ Todos los viajes de esta carga ya se subieron a Status Pendiente.</div>';
     }
 
     nombres.forEach(function(gestion){
@@ -992,20 +1000,15 @@ function pintarViajesProcesados(resultado, sinMover){
             const delCliente = porCliente[cliente];
             const peso = delCliente.reduce(function(s, v){ return s + v.peso_tn; }, 0);
             const clienteJs = escaparHtml(JSON.stringify(cliente));
-            const porSubir = delCliente.some(function(v){ return v.accion === "SUBIR" && v.estado !== "SUBIDO"; });
 
             html +=
                 '<tr class="cv-fila-cliente">' +
                     '<td colspan="6">' + escaparHtml(cliente) +
                         ' <span>' + textoCantidadViajes(delCliente.length) + ' · ' + peso.toFixed(2) + ' TN</span></td>' +
                     '<td class="cv-celda-accion">' +
-                        (esProcesar(cliente) && delCliente.every(function(v){ return v.estado === "SUBIDO"; })
-                            ? '<button class="cv-btn-drive" disabled>✅ Subido</button>'
-                        : esProcesar(cliente)
+                        (esProcesar(cliente)
                             ? '<button class="cv-btn-procesar" onclick="procesarViajeCargarViaje(null, ' + gestionJs + ', ' + clienteJs + ')">⚙️ Procesar cliente</button>'
-                            : '<button class="cv-btn-drive" ' + (porSubir ? '' : 'disabled ') +
-                                'onclick="subirAlDriveCargarViaje(null, ' + gestionJs + ', ' + clienteJs + ')">' +
-                                (porSubir ? '☁️ Subir cliente' : '✅ Subido') + '</button>') +
+                            : '<button class="cv-btn-drive" onclick="subirAlDriveCargarViaje(null, ' + gestionJs + ', ' + clienteJs + ')">☁️ Subir cliente</button>') +
                     '</td>' +
                 '</tr>';
 

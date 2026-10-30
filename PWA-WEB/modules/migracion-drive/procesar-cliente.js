@@ -416,36 +416,22 @@ function pintarCorreoLeido(){
                 );
             }).join("") +
             '<button class="cv-btn-secundario" onclick="reiniciarCorreos()">↺ Empezar de nuevo</button>' +
-        '</div>' +
-        '<div class="sp-contenedor pc-leido"><table class="sp-tabla"><thead><tr>' +
-            (varios ? '<th>CORREO</th>' : '') +
-            '<th>TIPO</th><th>LOCAL DE ENTREGA</th><th>TIPO OC</th><th>OC</th><th>PEDIDO</th>' +
-            '<th>FECHA DE ENTREGA</th><th>TM\'s</th><th>UCO\'s</th><th>VIAJE</th>' +
-        '</tr></thead><tbody>';
-
-    correo.filas.forEach(function(f){
-        html +=
-            '<tr' + (f.viajes.length ? '' : ' class="pc-sin-viaje"') + '>' +
-                (varios ? '<td>' + f.correo + '</td>' : '') +
-                '<td class="sp-izq">' + escaparHtml(f.tipo) + '</td>' +
-                '<td class="sp-izq">' + escaparHtml(f.local_entrega) + '</td>' +
-                '<td>' + escaparHtml(f.tipo_oc) + ' <small class="pc-tipo-' + f.tipo_oc_plataforma.toLowerCase() + '">' + f.tipo_oc_plataforma + '</small></td>' +
-                '<td>' + escaparHtml(f.oc) + '</td>' +
-                '<td>' + escaparHtml(f.pedido) + '</td>' +
-                '<td>' + escaparHtml(f.fecha_entrega) + '</td>' +
-                '<td class="sp-num">' + f.tm.toFixed(2) + '</td>' +
-                '<td class="sp-num">' + f.ucos.toLocaleString("es-PE") + '</td>' +
-                '<td>' + (f.viajes.length ? f.viajes.map(escaparHtml).join(", ") : '⚠️ no está en estos viajes') + '</td>' +
-            '</tr>';
-    });
-
-    html += '</tbody></table></div>';
+        '</div>';
 
     if(sinPedido.length){
         html += '<div class="cv-aviso">' + (sinPedido.length === 1 ? "El viaje " : "Los viajes ") +
             '<b>' + sinPedido.map(function(v){ return escaparHtml(v.fo); }).join(", ") + '</b> no ' +
             (sinPedido.length === 1 ? "tiene" : "tienen") + ' ningún pedido en ' +
             (varios ? 'estos correos' : 'este correo') + '.</div>';
+    }
+
+    // Pedidos del correo que no van en ninguno de estos viajes.
+    const ajenos = correo.filas.filter(function(f){ return !f.viajes.length; });
+
+    if(ajenos.length){
+        html += '<div class="cv-aviso">' + (ajenos.length === 1 ? "El pedido " : "Los pedidos ") +
+            '<b>' + ajenos.map(function(f){ return escaparHtml(f.pedido); }).join(", ") + '</b> del correo no ' +
+            (ajenos.length === 1 ? "está" : "están") + ' en ninguno de estos viajes.</div>';
     }
 
     document.getElementById("pcLeido").innerHTML = html;

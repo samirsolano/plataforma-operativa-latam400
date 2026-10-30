@@ -1105,39 +1105,6 @@ body{
     color:#6b7280;
 }
 
-/* Tabla leída del correo */
-.pc-leido-header{
-    display:flex;
-    justify-content:space-between;
-    align-items:baseline;
-    gap:12px;
-    flex-wrap:wrap;
-    margin:14px 0 6px;
-    color:#6b7280;
-    font-size:12px;
-}
-
-.pc-leido-header h3{
-    color:#1f2937;
-    font-size:15px;
-}
-
-.pc-leido{
-    max-height:300px;
-}
-
-.pc-leido small{
-    margin-left:4px;
-    padding:1px 6px;
-    border-radius:8px;
-    font-size:9px;
-    font-weight:bold;
-}
-
-.pc-tipo-flujo{ background:#dbeafe; color:#1e40af; }
-.pc-tipo-almacenaje{ background:#fef3c7; color:#92400e; }
-.pc-tipo-joker{ background:#ede9fe; color:#5b21b6; }
-
 .sp-tabla tr.pc-sin-viaje td{
     background:#fee2e2;
 }
