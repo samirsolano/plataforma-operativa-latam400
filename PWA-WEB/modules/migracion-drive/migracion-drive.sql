@@ -382,6 +382,29 @@ create policy "md_viajes_anon" on public.md_viajes for all to anon using (true) 
 create policy "md_entregas_anon" on public.md_entregas for all to anon using (true) with check (true);
 
 -- ========================================
+-- CONFIGURACIÓN (keys de servicios externos)
+-- ========================================
+-- Procesar cliente lee la tabla del correo desde una foto con Gemini
+-- (gemini-correo.js). La key NO va en el código: GitHub bloquea el push
+-- si la encuentra. Se guarda acá y la pantalla la lee al usarla.
+-- Cargar o cambiar la key (en el SQL Editor, NO en este archivo):
+--
+--   insert into public.app_config (clave, valor)
+--   values ('gemini_api_key', 'PEGA_AQUI_LA_KEY')
+--   on conflict (clave) do update set valor = excluded.valor;
+
+create table if not exists public.app_config (
+    clave text primary key,
+    valor text not null
+);
+
+alter table public.app_config enable row level security;
+
+-- Solo lectura desde la plataforma; se carga/cambia desde el SQL Editor.
+drop policy if exists "app_config_anon_lectura" on public.app_config;
+create policy "app_config_anon_lectura" on public.app_config for select to anon using (true);
+
+-- ========================================
 -- AJUSTES A LA PRIMERA VERSIÓN DE ESTE ARCHIVO
 -- ========================================
 -- Si ya se había corrido la versión anterior (con md_rutas_gestion y

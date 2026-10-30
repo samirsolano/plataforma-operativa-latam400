@@ -356,15 +356,11 @@
 
                 <div class="pc-entradas" id="pcEntradas"></div>
 
-                <div class="pc-acciones" id="pcAcciones">
-                    <span id="pcFalta"></span>
-                    <button class="cv-btn-procesar-todo" id="pcBtnGenerar" disabled onclick="generarDetalleDistribucion()">⚙️ Generar detalle de distribución</button>
-                </div>
 
                 <div id="pcSalidaBloque">
                     <div class="pc-salida-header">
                         <h3 id="pcSalidaTitulo"></h3>
-                        <button class="cv-btn-secundario" disabled>⬇️ Descargar Excel</button>
+                        <button class="cv-btn-procesar-todo" id="pcBtnCopiar" disabled onclick="copiarProgramacion()">📋 Copiar para correo</button>
                     </div>
                     <div id="pcSalida"></div>
                 </div>
@@ -420,6 +416,7 @@
 <script src="../../shared/auth.js"></script>
 <script src="migracion-drive.js"></script>
 <script src="cargar-viaje.js"></script>
+<script src="gemini-correo.js"></script>
 <script src="procesar-cliente.js"></script>
 <script src="status-pendiente.js"></script>
 <script src="monitor.js"></script>

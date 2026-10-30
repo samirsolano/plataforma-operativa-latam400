@@ -997,11 +997,124 @@ body{
     overflow-y:auto;
 }
 
-/* Datos que pide el cliente */
-.pc-entradas{
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
-    gap:14px;
+/* Zona para pegar (Ctrl + V) la tabla del correo, foto o texto */
+.pc-zona{
+    padding:22px;
+    border:2px dashed #93c5fd;
+    border-radius:12px;
+    background:#eff6ff;
+    text-align:center;
+    outline:none;
+    transition:.2s;
+}
+
+.pc-zona:focus{
+    border-color:#1a73e8;
+    box-shadow:0 0 0 4px rgba(26,115,232,.15);
+}
+
+.pc-zona.pc-zona-leyendo{
+    opacity:.6;
+}
+
+.pc-zona.pc-zona-lista{
+    padding:12px;
+    border-style:solid;
+    border-color:#16a34a;
+    background:#f0fdf4;
+}
+
+.pc-zona.pc-zona-lista .pc-zona-icono,
+.pc-zona.pc-zona-lista p{
+    display:none;
+}
+
+.pc-zona-icono{
+    font-size:30px;
+}
+
+.pc-zona h3{
+    margin:4px 0;
+    color:#1f2937;
+}
+
+.pc-zona p{
+    color:#374151;
+    font-size:14px;
+}
+
+.pc-zona-subir{
+    display:inline-block;
+    margin-top:8px;
+    color:#1a73e8;
+    font-size:12px;
+    text-decoration:underline;
+    cursor:pointer;
+}
+
+.pc-zona-subir input{
+    display:none;
+}
+
+#pcEstado{
+    display:block;
+    margin-top:8px;
+}
+
+.pc-miniatura{
+    display:block;
+    max-width:100%;
+    max-height:180px;
+    margin:12px 0;
+    border:1px solid #d1d5db;
+    border-radius:8px;
+}
+
+/* Tabla leída del correo */
+.pc-leido-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:12px;
+    flex-wrap:wrap;
+    margin:14px 0 6px;
+    color:#6b7280;
+    font-size:12px;
+}
+
+.pc-leido-header h3{
+    color:#1f2937;
+    font-size:15px;
+}
+
+.pc-leido{
+    max-height:300px;
+}
+
+.pc-leido small{
+    margin-left:4px;
+    padding:1px 6px;
+    border-radius:8px;
+    font-size:9px;
+    font-weight:bold;
+}
+
+.pc-tipo-flujo{ background:#dbeafe; color:#1e40af; }
+.pc-tipo-almacenaje{ background:#fef3c7; color:#92400e; }
+.pc-tipo-joker{ background:#ede9fe; color:#5b21b6; }
+
+.sp-tabla tr.pc-sin-viaje td{
+    background:#fee2e2;
+}
+
+.pc-viaje.pc-viaje-ok{
+    border-color:#16a34a;
+    background:#dcfce7;
+}
+
+.pc-viaje.pc-viaje-falta{
+    border-color:#e00000;
+    background:#fee2e2;
 }
 
 .pc-entrada{
@@ -1065,22 +1178,20 @@ body{
     margin-top:8px;
 }
 
-.pc-acciones{
-    display:flex;
-    justify-content:flex-end;
-    align-items:center;
-    gap:12px;
-    margin:16px 0 20px;
-    color:#6b7280;
-    font-size:13px;
-}
-
-/* Detalle de distribución */
+/* Programación para el correo */
 .pc-salida-header{
     display:flex;
     justify-content:space-between;
     align-items:center;
-    margin-bottom:8px;
+    margin:20px 0 8px;
+}
+
+.pc-programacion{
+    max-height:420px;
+}
+
+.pc-programacion th{
+    background:#1f3864;
 }
 
 .pc-salida-header h3{
