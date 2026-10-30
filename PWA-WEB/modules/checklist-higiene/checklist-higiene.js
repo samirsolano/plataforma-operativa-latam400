@@ -47,6 +47,66 @@ let equipoActual = [];
 let cabeceraExistenteId = null;
 
 // ========================================
+// APROBACIÓN (Responsable de la Operación)
+// ========================================
+// Ya no se escribe a mano: solo Albert Pérez o Eduardo Pasache (ver
+// APROBADORES_HIGIENE en shared/higiene-checklist-config.js) pueden
+// aprobar, desde su propia sesión, un checklist ya guardado.
+
+const aprobadorSesion = sesion ? aprobadorHigienePorNombre(sesion.nombre_completo) : null;
+
+// Nombre de quien aprobó el checklist cargado ("" = pendiente).
+let aprobacionActual = "";
+
+function pintarAprobacion(){
+
+    const estado = document.getElementById("estadoAprobacion");
+    const boton = document.getElementById("btnAprobar");
+
+    estado.classList.toggle("aprobado", !!aprobacionActual);
+    estado.classList.toggle("pendiente", !aprobacionActual);
+
+    if(aprobacionActual){
+        estado.textContent = "✓ Aprobado por " + aprobacionActual;
+    }else if(cabeceraExistenteId){
+        estado.textContent = "Pendiente — lo aprueba " + APROBADORES_HIGIENE.join(" o ");
+    }else{
+        estado.textContent = "Pendiente — se aprueba después de guardar";
+    }
+
+    boton.classList.toggle("oculto", !(aprobadorSesion && cabeceraExistenteId && !aprobacionActual));
+
+}
+
+document.getElementById("btnAprobar").addEventListener("click", async function(){
+
+    if(!aprobadorSesion || !cabeceraExistenteId){
+        return;
+    }
+
+    const btn = this;
+    btn.disabled = true;
+
+    try{
+
+        await aprobarChecklistHigiene(cabeceraExistenteId, aprobadorSesion);
+        aprobacionActual = aprobadorSesion;
+        pintarAprobacion();
+
+    }catch(error){
+
+        console.error(error);
+        alert("No se pudo aprobar el checklist. Intenta de nuevo.");
+
+    }finally{
+
+        btn.disabled = false;
+
+    }
+
+});
+
+// ========================================
 // LEYENDA
 // ========================================
 
@@ -82,32 +142,16 @@ async function cargarSupervisores(){
 
     try{
 
-        // El selector del formulario (para llenar un checklist nuevo)
-        // y el filtro del historial (para ver los ya guardados) son
-        // listas aparte: el formulario solo ofrece a los 3
-        // supervisores de turno reales, pero el historial debe poder
-        // filtrarse por cualquier supervisor que aparezca en los
-        // registros guardados.
-        const [supervisoresFormulario, supervisoresHistorial] = await Promise.all([
-            obtenerSupervisoresHigiene(),
-            obtenerTodosLosSupervisoresHigiene()
-        ]);
-
+        // El formulario solo ofrece a los 3 supervisores de turno
+        // reales (ver SUPERVISORES_HIGIENE_PERMITIDOS).
+        const supervisores = await obtenerSupervisoresHigiene();
         const selectFormulario = document.getElementById("campoSupervisor");
-        const selectHistorial = document.getElementById("filtroHistorialSupervisor");
 
-        supervisoresFormulario.forEach(function(nombre){
+        supervisores.forEach(function(nombre){
             const opcion = document.createElement("option");
             opcion.value = nombre;
             opcion.textContent = nombre;
             selectFormulario.appendChild(opcion);
-        });
-
-        supervisoresHistorial.forEach(function(nombre){
-            const opcion = document.createElement("option");
-            opcion.value = nombre;
-            opcion.textContent = nombre;
-            selectHistorial.appendChild(opcion);
         });
 
     }catch(error){
@@ -119,7 +163,51 @@ async function cargarSupervisores(){
 
 }
 
-cargarSupervisores();
+// Al abrir la pantalla ya se revisa si existe un checklist para la
+// fecha+turno por defecto, para mostrarlo de una vez con su supervisor.
+cargarSupervisores().then(function(){
+    cargarEquipoParaSupervisor("");
+});
+
+// Si ya existe un checklist para la fecha+turno, el supervisor es el
+// que lo creó y no se puede cambiar (solo hay uno por fecha+turno).
+// Si ese supervisor ya no está entre los permitidos (ej. un checklist
+// viejo de alguien que ya no es supervisor), se agrega igual su
+// opción para que se vea su nombre en vez de quedar en blanco.
+function fijarSupervisor(selectSupervisor, existente){
+
+    // La opción agregada para un checklist anterior se quita apenas se
+    // pasa a otra fecha/turno, para que no se pueda elegir a mano.
+    selectSupervisor.querySelectorAll("option[data-agregada]").forEach(function(o){
+        if(!existente || o.value !== existente.supervisor){
+            if(selectSupervisor.value === o.value){
+                selectSupervisor.value = "";
+            }
+            o.remove();
+        }
+    });
+
+    if(!existente){
+        selectSupervisor.disabled = false;
+        return;
+    }
+
+    const existeOpcion = Array.from(selectSupervisor.options).some(function(o){
+        return o.value === existente.supervisor;
+    });
+
+    if(!existeOpcion){
+        const opcion = document.createElement("option");
+        opcion.value = existente.supervisor;
+        opcion.textContent = existente.supervisor;
+        opcion.dataset.agregada = "1";
+        selectSupervisor.appendChild(opcion);
+    }
+
+    selectSupervisor.value = existente.supervisor;
+    selectSupervisor.disabled = true;
+
+}
 
 // ========================================
 // CARGAR EQUIPO AL ELEGIR SUPERVISOR
@@ -148,12 +236,12 @@ async function cargarEquipoParaSupervisor(supervisorElegido){
         const existente = (fecha && turno) ? await buscarChecklistHigieneExistente(fecha, turno) : null;
 
         cabeceraExistenteId = existente ? existente.id : null;
+        aprobacionActual = existente ? (existente.responsable_operacion_nombre || "") : "";
+        pintarAprobacion();
 
-        const supervisor = existente ? existente.supervisor : supervisorElegido;
+        fijarSupervisor(selectSupervisor, existente);
 
-        if(existente && selectSupervisor.value !== existente.supervisor){
-            selectSupervisor.value = existente.supervisor;
-        }
+        const supervisor = existente ? existente.supervisor : selectSupervisor.value;
 
         if(!supervisor){
             equipoActual = [];
@@ -187,8 +275,6 @@ async function cargarEquipoParaSupervisor(supervisorElegido){
                     }
                 };
             });
-
-            document.getElementById("campoResponsableOperacion").value = existente.responsable_operacion_nombre || "";
 
         }else{
 
@@ -563,7 +649,6 @@ function armarCabecera(){
         area: document.getElementById("campoArea").value.trim() || "Almacén",
         supervisor: document.getElementById("campoSupervisor").value,
         responsable_verificacion: document.getElementById("campoResponsableVerificacion").value.trim(),
-        responsable_operacion_nombre: document.getElementById("campoResponsableOperacion").value.trim(),
         creado_por_dni: sesion ? sesion.usuario || "" : "",
         creado_por_nombre: sesion ? sesion.nombre_completo || "" : ""
     };
@@ -658,15 +743,10 @@ document.getElementById("btnGuardar").addEventListener("click", async function()
 
         alert("Checklist de higiene guardado correctamente.");
 
-        cabeceraExistenteId = null;
-        equipoActual = [];
-        document.getElementById("campoSupervisor").value = "";
-        document.getElementById("campoResponsableOperacion").value = "";
-        renderizarEquipo();
-        document.getElementById("contenedorTablaEquipo").classList.add("oculto");
-        document.getElementById("btnAgregarPersona").classList.add("oculto");
-        document.getElementById("mensajeEquipo").textContent = "Selecciona un supervisor para cargar a su equipo.";
-        document.getElementById("mensajeEquipo").classList.remove("oculto");
+        // Se vuelve a cargar el que se acaba de guardar: queda con su
+        // supervisor fijo y, si quien está en sesión es aprobador, ya
+        // puede aprobarlo ahí mismo.
+        await cargarEquipoParaSupervisor("");
 
     }catch(error){
 
@@ -702,6 +782,8 @@ document.getElementById("btnDescargarExcel").addEventListener("click", async fun
 
     try{
 
+        cabecera.responsable_operacion_nombre = aprobacionActual;
+
         await exportarPlantillaHigieneExcel(cabecera, armarDetalle());
 
     }catch(error){
@@ -717,118 +799,3 @@ document.getElementById("btnDescargarExcel").addEventListener("click", async fun
 
 });
 
-// ========================================
-// HISTORIAL
-// ========================================
-
-document.getElementById("btnVerHistorial").addEventListener("click", function(){
-
-    const vistaFormulario = document.getElementById("vistaFormulario");
-    const vistaHistorial = document.getElementById("vistaHistorial");
-
-    const mostrandoHistorial = !vistaHistorial.classList.contains("oculto");
-
-    if(mostrandoHistorial){
-
-        vistaHistorial.classList.add("oculto");
-        vistaFormulario.classList.remove("oculto");
-        this.textContent = "📋 Ver Historial";
-
-    }else{
-
-        vistaFormulario.classList.add("oculto");
-        vistaHistorial.classList.remove("oculto");
-        this.textContent = "✏️ Volver al Formulario";
-        cargarHistorial();
-
-    }
-
-});
-
-async function cargarHistorial(){
-
-    const tbody = document.getElementById("tblHistorial");
-    const mensajeVacio = document.getElementById("mensajeVacioHistorial");
-
-    tbody.innerHTML = "";
-    mensajeVacio.classList.add("oculto");
-
-    const filtros = {
-        fecha: document.getElementById("filtroHistorialFecha").value || undefined,
-        supervisor: document.getElementById("filtroHistorialSupervisor").value || undefined
-    };
-
-    try{
-
-        const registros = await listarChecklistsHigiene(filtros);
-
-        if(!registros || !registros.length){
-            mensajeVacio.classList.remove("oculto");
-            return;
-        }
-
-        registros.forEach(function(r){
-
-            const tr = document.createElement("tr");
-
-            const claseBadge = r.turno === "DIA" ? "badge-dia" : (r.turno === "NOCHE" ? "badge-noche" : "badge-intermedio");
-
-            tr.innerHTML = `
-                <td>${r.fecha}</td>
-                <td><span class="badge ${claseBadge}">${r.turno}</span></td>
-                <td>${r.area || "-"}</td>
-                <td>${r.supervisor}</td>
-                <td>${r.responsable_verificacion || "-"}</td>
-                <td><button type="button" class="btn-secundario btnDescargarHistorial" data-id="${r.id}">⬇️ Excel</button></td>
-            `;
-
-            tbody.appendChild(tr);
-
-        });
-
-    }catch(error){
-
-        console.error(error);
-        mensajeVacio.textContent = "No se pudo cargar el historial.";
-        mensajeVacio.classList.remove("oculto");
-
-    }
-
-}
-
-document.getElementById("btnFiltrarHistorial").addEventListener("click", cargarHistorial);
-
-document.getElementById("tblHistorial").addEventListener("click", async function(e){
-
-    const boton = e.target.closest(".btnDescargarHistorial");
-
-    if(!boton){
-        return;
-    }
-
-    const id = boton.dataset.id;
-
-    boton.disabled = true;
-    boton.textContent = "Generando...";
-
-    try{
-
-        const registros = await listarChecklistsHigiene({});
-        const cabecera = (registros || []).find(r => String(r.id) === String(id));
-        const detalle = await obtenerDetalleChecklist(id);
-
-        await exportarPlantillaHigieneExcel(cabecera, detalle || []);
-
-    }catch(error){
-
-        console.error(error);
-        alert("No se pudo generar el Excel de este registro.");
-
-    }finally{
-
-        boton.disabled = false;
-        boton.textContent = "⬇️ Excel";
-
-    }
-
-});

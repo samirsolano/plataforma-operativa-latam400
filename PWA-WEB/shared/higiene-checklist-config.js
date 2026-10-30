@@ -286,6 +286,66 @@ async function detectarNombreSupervisorPorDni(dni){
 }
 
 // ========================================
+// APROBACIÓN (Responsable de la Operación)
+// ========================================
+// El "Nombre del Responsable de la Operación" ya no se escribe a mano:
+// es la aprobación del checklist, y solo la pueden dar estas personas
+// desde su propia sesión. Se guarda en responsable_operacion_nombre
+// (vacío = pendiente), que es lo que la plantilla Excel imprime en
+// J30. armarCabecera NO manda ese campo, para que corregir un
+// checklist ya aprobado no borre la aprobación.
+const APROBADORES_HIGIENE = [
+    "ALBERT PEREZ",
+    "EDUARDO PASACHE"
+];
+
+function normalizarNombreHigiene(nombre){
+
+    const descompuesto = String(nombre || "").toUpperCase().normalize("NFD");
+    let sinTildes = "";
+
+    for(let i = 0; i < descompuesto.length; i++){
+
+        const codigo = descompuesto.charCodeAt(i);
+
+        if(codigo < 768 || codigo > 879){ // fuera de U+0300–U+036F
+            sinTildes += descompuesto[i];
+        }
+
+    }
+
+    return sinTildes.replace(/[^A-Z\s]/g, " ").trim().replace(/\s+/g, " ");
+
+}
+
+// Devuelve el aprobador (tal como está en APROBADORES_HIGIENE) si
+// todas sus palabras aparecen en el nombre de la sesión — así calza
+// "PEREZ VASQUEZ ALBERT" o "Eduardo Felipe Pasache Medina".
+function aprobadorHigienePorNombre(nombreSesion){
+
+    const palabrasSesion = normalizarNombreHigiene(nombreSesion).split(" ");
+
+    return APROBADORES_HIGIENE.find(function(aprobador){
+        return aprobador.split(" ").every(function(palabra){
+            return palabrasSesion.includes(palabra);
+        });
+    }) || null;
+
+}
+
+async function aprobarChecklistHigiene(cabeceraId, aprobador){
+
+    await checklistFetch(
+        "/higiene_checklist_cabecera?id=eq." + encodeURIComponent(cabeceraId),
+        {
+            method: "PATCH",
+            body: JSON.stringify({ responsable_operacion_nombre: aprobador })
+        }
+    );
+
+}
+
+// ========================================
 // GUARDAR / LISTAR
 // ========================================
 

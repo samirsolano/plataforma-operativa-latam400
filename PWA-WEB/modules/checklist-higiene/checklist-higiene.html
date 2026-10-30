@@ -76,11 +76,6 @@
                         <h1>Checklist de Higiene</h1>
                         <p class="subtitulo">Verificación de Higiene y Estado de Salud del Personal (ALI-R-GC-00-013)</p>
                     </div>
-
-                    <button type="button" class="btn-secundario" id="btnVerHistorial">
-                        📋 Ver Historial
-                    </button>
-
                 </header>
 
                 <!-- ============ FORMULARIO ============ -->
@@ -208,8 +203,19 @@
                     <div class="filaResponsable">
 
                         <div class="grupo grupo-ancho">
-                            <label>Nombre del Responsable de la Operación</label>
-                            <input type="text" id="campoResponsableOperacion">
+                            <label>Aprobación del Responsable de la Operación</label>
+
+                            <div class="filaAprobacion">
+
+                                <div id="estadoAprobacion" class="estado-aprobacion pendiente">
+                                    Pendiente — se aprueba después de guardar
+                                </div>
+
+                                <button type="button" class="btn-aprobar oculto" id="btnAprobar">
+                                    ✓ Aprobar checklist
+                                </button>
+
+                            </div>
                         </div>
 
                     </div>
@@ -229,58 +235,6 @@
                     </div>
 
                 </div>
-
-                <!-- ============ HISTORIAL ============ -->
-
-                <div class="card oculto" id="vistaHistorial">
-
-                    <div class="filtros">
-
-                        <div class="grupo">
-                            <label>Fecha</label>
-                            <input type="date" id="filtroHistorialFecha">
-                        </div>
-
-                        <div class="grupo grupo-ancho">
-                            <label>Supervisor</label>
-                            <select id="filtroHistorialSupervisor">
-                                <option value="">Supervisor (todos)</option>
-                            </select>
-                        </div>
-
-                        <button type="button" class="btn-secundario" id="btnFiltrarHistorial">
-                            Filtrar
-                        </button>
-
-                    </div>
-
-                    <div class="tabla-scroll">
-
-                        <table>
-
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Turno</th>
-                                    <th>Área</th>
-                                    <th>Supervisor</th>
-                                    <th>Responsable de verificación</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-
-                            <tbody id="tblHistorial"></tbody>
-
-                        </table>
-
-                    </div>
-
-                    <p id="mensajeVacioHistorial" class="mensaje-vacio oculto">
-                        No hay checklists registrados con ese filtro.
-                    </p>
-
-                </div>
-
             </div>
 
         </main>
