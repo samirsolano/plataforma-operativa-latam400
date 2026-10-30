@@ -331,6 +331,49 @@
         </div>
     </div>
 
+    <!-- ===================== PANEL PROCESAR CLIENTE (procesar-cliente.js) ===================== -->
+
+    <div class="cv-modal-overlay" id="pcModal" style="display:none;">
+        <div class="cv-modal pc-modal">
+
+            <div class="pc-encabezado">
+                <div>
+                    <span class="pc-sobre">⚙️ Procesar cliente</span>
+                    <h2 id="pcCliente"></h2>
+                    <div class="pc-resumen" id="pcResumen"></div>
+                </div>
+                <button class="pc-cerrar" title="Cerrar" onclick="cerrarProcesarCliente()">✕</button>
+            </div>
+
+            <div class="pc-viajes" id="pcViajes"></div>
+
+            <div class="pc-cuerpo">
+
+                <div class="cv-aviso pc-sin-definir" id="pcSinDefinir" style="display:none;">
+                    Los datos para procesar este cliente todavía no están definidos.
+                    Por ahora solo está armado <b>SUPERMERCADOS PERUANOS S.A.</b>
+                </div>
+
+                <div class="pc-entradas" id="pcEntradas"></div>
+
+                <div class="pc-acciones" id="pcAcciones">
+                    <span id="pcFalta"></span>
+                    <button class="cv-btn-procesar-todo" id="pcBtnGenerar" disabled onclick="generarDetalleDistribucion()">⚙️ Generar detalle de distribución</button>
+                </div>
+
+                <div id="pcSalidaBloque">
+                    <div class="pc-salida-header">
+                        <h3 id="pcSalidaTitulo"></h3>
+                        <button class="cv-btn-secundario" disabled>⬇️ Descargar Excel</button>
+                    </div>
+                    <div id="pcSalida"></div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
     <!-- ===================== VENTANA CRUZADOS SIN SUBIR ===================== -->
 
     <div class="cv-modal-overlay" id="cvModalSinSubir" style="display:none;" onclick="if(event.target === this) cerrarSinSubir()">
@@ -377,6 +420,7 @@
 <script src="../../shared/auth.js"></script>
 <script src="migracion-drive.js"></script>
 <script src="cargar-viaje.js"></script>
+<script src="procesar-cliente.js"></script>
 <script src="status-pendiente.js"></script>
 <script src="monitor.js"></script>
 <script src="clientes.js"></script>

@@ -1057,22 +1057,17 @@ function filaViajeProcesado(v){
 
 }
 
-// Todavía no definido qué hace "Procesar" (Canal Moderno). Se procesa
-// por cliente (todos sus viajes juntos) o toda la gestión ("Procesar
-// masivo").
+// "Procesar" (Canal Moderno) va por cliente: abre el panel Procesar
+// cliente (procesar-cliente.js). "Procesar masivo" de la gestión pide
+// hacerlo cliente por cliente, porque cada uno lleva sus propios datos.
 function procesarViajeCargarViaje(viaje, gestion, cliente){
 
-    const resultado = cargaViaje.resultado;
-    const viajes = resultado ? resultado.viajes.filter(function(v){
-        return v.accion === "PROCESAR" && v.gestion === gestion &&
-            (!cliente || (v.cliente || "SIN CLIENTE") === cliente);
-    }) : [];
+    if(cliente){
+        abrirProcesarCliente(gestion, cliente);
+        return;
+    }
 
-    const destino = viaje ? "el viaje " + viaje
-        : cliente ? cliente + " (" + textoCantidadViajes(viajes.length) + ")"
-        : "todos los viajes de " + gestion;
-
-    alert("Procesar " + destino + " todavía no está disponible.");
+    alert("Procesa cliente por cliente con su botón ⚙️ Procesar cliente: cada uno lleva sus propios datos.");
 
 }
 
