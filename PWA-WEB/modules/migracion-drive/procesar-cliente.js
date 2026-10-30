@@ -196,13 +196,11 @@ function leerImagenCorreo(archivo){
         const base64 = dataUrl.split(",")[1];
 
         document.getElementById("pcZona").classList.add("pc-zona-leyendo");
-        document.getElementById("pcLeido").innerHTML =
-            '<img class="pc-miniatura" src="' + dataUrl + '" alt="Tabla del correo">';
         estadoCorreo("", "⏳ Leyendo la imagen... (puede tardar unos segundos)");
 
         try{
             const datos = await leerTablaCorreoConGemini(base64, archivo.type || "image/png");
-            await cargarCorreo(datos.titulo, datos.filas, "la imagen");
+            await cargarCorreo(datos.titulo, datos.filas, "imagen", dataUrl);
         }catch(error){
             console.error(error);
             estadoCorreo("cv-error", "❌ No se pudo leer: " + (error.message || error) +
@@ -250,7 +248,7 @@ function leerTextoCorreo(texto){
             return fila;
         });
 
-    cargarCorreo(titulo, filas, "la tabla pegada");
+    cargarCorreo(titulo, filas, "tabla", null);
 
 }
 
@@ -270,9 +268,14 @@ function tipoOcPlataforma(tipoOc){
     return letra === "A" ? "ALMACENAJE" : letra === "J" ? "JOKER" : "FLUJO";
 }
 
-async function cargarCorreo(titulo, filasLeidas, origen){
+// Se pueden pegar varios correos (fotos o tablas), uno tras otro: cada
+// uno suma sus pedidos a los anteriores, por si a uno le falta un
+// pedido que vino en otro correo. Un pedido que ya estaba no se repite.
+async function cargarCorreo(titulo, filasLeidas, origen, miniatura){
 
-    const filas = (filasLeidas || []).map(function(f){
+    const numero = procesarCliente.correo ? procesarCliente.correo.pegados.length + 1 : 1;
+
+    const leidas = (filasLeidas || []).map(function(f){
         return {
             tipo: String(f.tipo || "").trim(),
             local_entrega: String(f.local_entrega || "").trim(),
@@ -285,77 +288,129 @@ async function cargarCorreo(titulo, filasLeidas, origen){
             tm: numeroCorreo(f.tm),
             pen: numeroCorreo(f.pen),
             ucos: numeroCorreo(f.ucos),
+            correo: numero,
             viajes: []
         };
     }).filter(function(f){ return f.pedido; });
 
-    if(filas.length === 0){
-        estadoCorreo("cv-error", "❌ En " + origen + " no se encontraron pedidos.");
+    if(leidas.length === 0){
+        estadoCorreo("cv-error", "❌ En la " + origen + " no se encontraron pedidos.");
         return;
     }
 
     estadoCorreo("", "⏳ Cruzando los pedidos con los viajes...");
 
-    // Pedido (Documento modelo de la entrega) → viajes del cliente.
-    try{
-
-        const fos = procesarCliente.viajes.map(function(v){ return '"' + v.fo + '"'; }).join(",");
-        const entregas = fos ? await supabaseFetch(
-            "/md_entregas?fo=in.(" + encodeURIComponent(fos) + ")&select=fo,entrega,documento_modelo&order=fo,entrega"
-        ) : [];
-
-        const viajesPorPedido = {};
-
-        (entregas || []).forEach(function(e){
-            const pedido = soloDigitos(e.documento_modelo);
-            if(!pedido) return;
-            viajesPorPedido[pedido] = viajesPorPedido[pedido] || [];
-            if(viajesPorPedido[pedido].indexOf(e.fo) === -1) viajesPorPedido[pedido].push(e.fo);
-        });
-
-        filas.forEach(function(f){ f.viajes = viajesPorPedido[f.pedido] || []; });
-        procesarCliente.entregas = entregas || [];
-
-    }catch(error){
-        console.error(error);
-        estadoCorreo("cv-error", "❌ Se leyó el correo, pero no se pudo cruzar con los viajes: " + (error.message || error));
-        return;
+    // Las entregas de los viajes se leen una sola vez (al primer correo).
+    if(!procesarCliente.correo){
+        try{
+            const fos = procesarCliente.viajes.map(function(v){ return '"' + v.fo + '"'; }).join(",");
+            procesarCliente.entregas = (fos ? await supabaseFetch(
+                "/md_entregas?fo=in.(" + encodeURIComponent(fos) + ")&select=fo,entrega,documento_modelo&order=fo,entrega"
+            ) : []) || [];
+        }catch(error){
+            console.error(error);
+            estadoCorreo("cv-error", "❌ Se leyó el correo, pero no se pudo cruzar con los viajes: " + (error.message || error));
+            return;
+        }
+        procesarCliente.correo = { filas: [], pegados: [] };
     }
 
-    procesarCliente.correo = { titulo: titulo || "", filas: filas };
+    // Se suman los pedidos nuevos; los que ya estaban no se repiten.
+    const correo = procesarCliente.correo;
+    const yaEstaban = new Set(correo.filas.map(function(f){ return f.pedido; }));
+    const nuevas = leidas.filter(function(f){
+        if(yaEstaban.has(f.pedido)) return false;
+        yaEstaban.add(f.pedido);
+        return true;
+    });
 
-    const cruzan = filas.filter(function(f){ return f.viajes.length; }).length;
+    correo.filas = correo.filas.concat(nuevas);
+    correo.pegados.push({
+        numero: numero,
+        origen: origen,
+        titulo: titulo || "",
+        leidos: leidas.length,
+        nuevos: nuevas.length,
+        miniatura: miniatura
+    });
 
-    estadoCorreo(cruzan === filas.length ? "cv-ok" : "cv-error",
-        (cruzan === filas.length ? "✅ " : "⚠️ ") + "Se leyeron " + filas.length + " pedidos de " + origen +
-        " · " + cruzan + " están en los viajes de este cliente" +
-        (cruzan < filas.length ? " · " + (filas.length - cruzan) + " no" : "") + ".");
+    // Pedido (Documento modelo de la entrega) → viajes del cliente.
+    const viajesPorPedido = {};
 
-    document.getElementById("pcZona").classList.add("pc-zona-lista");
+    procesarCliente.entregas.forEach(function(e){
+        const pedido = soloDigitos(e.documento_modelo);
+        if(!pedido) return;
+        viajesPorPedido[pedido] = viajesPorPedido[pedido] || [];
+        if(viajesPorPedido[pedido].indexOf(e.fo) === -1) viajesPorPedido[pedido].push(e.fo);
+    });
+
+    correo.filas.forEach(function(f){ f.viajes = viajesPorPedido[f.pedido] || []; });
+
+    const repetidos = leidas.length - nuevas.length;
+    const cruzan = correo.filas.filter(function(f){ return f.viajes.length; }).length;
+
+    estadoCorreo(cruzan === correo.filas.length ? "cv-ok" : "cv-error",
+        (cruzan === correo.filas.length ? "✅ " : "⚠️ ") +
+        "Correo " + numero + " (" + origen + "): " + leidas.length + " pedidos" +
+        (numero > 1 ? ", " + nuevas.length + (nuevas.length === 1 ? " nuevo" : " nuevos") +
+            (repetidos ? ", " + repetidos + (repetidos === 1 ? " ya estaba" : " ya estaban") : "") : "") +
+        " · Total " + correo.filas.length + " pedidos, " + cruzan + " en los viajes de este cliente" +
+        (cruzan < correo.filas.length ? " (" + (correo.filas.length - cruzan) + " no)" : "") + ".");
+
+    const zona = document.getElementById("pcZona");
+    zona.classList.add("pc-zona-lista");
+    zona.querySelector("h3").textContent = "➕ ¿Falta algún pedido? Pega otro correo aquí (Ctrl + V)";
+
     pintarCorreoLeido();
     pintarViajesCliente();
     generarProgramacion();
 
 }
 
+// Borra los correos pegados para empezar de nuevo.
+function reiniciarCorreos(){
+
+    procesarCliente.correo = null;
+    procesarCliente.programacion = [];
+
+    abrirProcesarCliente(procesarCliente.gestion, procesarCliente.cliente);
+
+}
+
 function pintarCorreoLeido(){
 
     const correo = procesarCliente.correo;
-    const miniatura = document.querySelector("#pcLeido .pc-miniatura");
-    const totalTm = correo.filas.reduce(function(s, f){ return s + f.tm; }, 0);
-    const totalUcos = correo.filas.reduce(function(s, f){ return s + f.ucos; }, 0);
+    const varios = correo.pegados.length > 1;
 
     const conPedido = new Set();
     correo.filas.forEach(function(f){ f.viajes.forEach(function(fo){ conPedido.add(fo); }); });
     const sinPedido = procesarCliente.viajes.filter(function(v){ return !conPedido.has(v.fo); });
 
+    // Los correos pegados, cada uno con su miniatura (si fue foto) y el
+    // total leído, para compararlo con el total del correo.
     let html =
-        '<div class="pc-leido-header">' +
-            '<h3>📨 ' + escaparHtml(correo.titulo || "Detalle del correo") + '</h3>' +
-            '<span>Revisa que coincida con el correo: total leído <b>' + totalTm.toFixed(2) + ' TM</b> · <b>' +
-                totalUcos.toLocaleString("es-PE") + ' UCO\'s</b></span>' +
+        '<div class="pc-pegados">' +
+            correo.pegados.map(function(p){
+                const filas = correo.filas.filter(function(f){ return f.correo === p.numero; });
+                const tm = filas.reduce(function(s, f){ return s + f.tm; }, 0);
+                const ucos = filas.reduce(function(s, f){ return s + f.ucos; }, 0);
+                return (
+                    '<div class="pc-pegado">' +
+                        (p.miniatura ? '<img src="' + p.miniatura + '" alt="Correo ' + p.numero + '">' : '<div class="pc-pegado-texto">📋</div>') +
+                        '<div>' +
+                            '<b>Correo ' + p.numero + '</b> · ' + p.origen +
+                            (p.titulo ? '<br><span>' + escaparHtml(p.titulo) + '</span>' : '') +
+                            '<br><span>' + p.leidos + ' pedidos' +
+                                (p.numero > 1 ? ' (' + p.nuevos + (p.nuevos === 1 ? ' nuevo' : ' nuevos') + ')' : '') +
+                                ' · ' + tm.toFixed(2) + ' TM · ' + ucos.toLocaleString("es-PE") + ' UCO\'s</span>' +
+                        '</div>' +
+                    '</div>'
+                );
+            }).join("") +
+            '<button class="cv-btn-secundario" onclick="reiniciarCorreos()">↺ Empezar de nuevo</button>' +
         '</div>' +
         '<div class="sp-contenedor pc-leido"><table class="sp-tabla"><thead><tr>' +
+            (varios ? '<th>CORREO</th>' : '') +
             '<th>TIPO</th><th>LOCAL DE ENTREGA</th><th>TIPO OC</th><th>OC</th><th>PEDIDO</th>' +
             '<th>FECHA DE ENTREGA</th><th>TM\'s</th><th>UCO\'s</th><th>VIAJE</th>' +
         '</tr></thead><tbody>';
@@ -363,6 +418,7 @@ function pintarCorreoLeido(){
     correo.filas.forEach(function(f){
         html +=
             '<tr' + (f.viajes.length ? '' : ' class="pc-sin-viaje"') + '>' +
+                (varios ? '<td>' + f.correo + '</td>' : '') +
                 '<td class="sp-izq">' + escaparHtml(f.tipo) + '</td>' +
                 '<td class="sp-izq">' + escaparHtml(f.local_entrega) + '</td>' +
                 '<td>' + escaparHtml(f.tipo_oc) + ' <small class="pc-tipo-' + f.tipo_oc_plataforma.toLowerCase() + '">' + f.tipo_oc_plataforma + '</small></td>' +
@@ -380,14 +436,11 @@ function pintarCorreoLeido(){
     if(sinPedido.length){
         html += '<div class="cv-aviso">' + (sinPedido.length === 1 ? "El viaje " : "Los viajes ") +
             '<b>' + sinPedido.map(function(v){ return escaparHtml(v.fo); }).join(", ") + '</b> no ' +
-            (sinPedido.length === 1 ? "tiene" : "tienen") + ' ningún pedido en este correo.</div>';
+            (sinPedido.length === 1 ? "tiene" : "tienen") + ' ningún pedido en ' +
+            (varios ? 'estos correos' : 'este correo') + '.</div>';
     }
 
     document.getElementById("pcLeido").innerHTML = html;
-
-    if(miniatura){
-        document.getElementById("pcLeido").insertBefore(miniatura, document.getElementById("pcLeido").firstChild);
-    }
 
 }
 
@@ -438,7 +491,7 @@ function generarProgramacion(){
 
     if(sinOc.length){
         html = '<div class="cv-aviso">⚠️ <b>' + sinOc.length + (sinOc.length === 1 ? ' entrega' : ' entregas') +
-            '</b> tienen un pedido que no está en el correo (sin rótulo ni O/C). Revisa el correo antes de copiar.</div>' + html;
+            '</b> tienen un pedido que no está en los correos pegados (sin rótulo ni O/C). Si viene en otro correo, pégalo arriba y se completan solas.</div>' + html;
     }
 
     document.getElementById("pcSalidaTitulo").textContent = "📦 " + procesarCliente.config.salida.titulo +
