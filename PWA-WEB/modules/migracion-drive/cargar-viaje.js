@@ -970,41 +970,46 @@ function pintarViajesProcesados(resultado, sinMover){
                         '</tr></thead>' +
                         '<tbody>';
 
-        // Los de acción PROCESAR (Canal Moderno) se procesan juntos por
-        // cliente: van primero, agrupados con una fila de cliente que
-        // lleva el botón. Los de SUBIR siguen uno por uno, ordenados por
-        // cliente.
+        // Un bloque por cliente, cada uno con su fila de encabezado (total
+        // y botón). Los de acción PROCESAR (Canal Moderno) se procesan
+        // juntos con el botón del cliente y van primero; los de SUBIR
+        // tienen "Subir cliente" y además su botón por viaje.
         const porCliente = {};
 
         viajes.forEach(function(v){
-            if(v.accion !== "PROCESAR") return;
             const c = v.cliente || "SIN CLIENTE";
             (porCliente[c] = porCliente[c] || []).push(v);
         });
 
-        Object.keys(porCliente).sort().forEach(function(cliente){
+        const esProcesar = function(c){
+            return porCliente[c].every(function(v){ return v.accion === "PROCESAR"; });
+        };
+
+        Object.keys(porCliente).sort(function(a, b){
+            return (esProcesar(b) - esProcesar(a)) || a.localeCompare(b);
+        }).forEach(function(cliente){
 
             const delCliente = porCliente[cliente];
             const peso = delCliente.reduce(function(s, v){ return s + v.peso_tn; }, 0);
+            const clienteJs = escaparHtml(JSON.stringify(cliente));
+            const porSubir = delCliente.some(function(v){ return v.accion === "SUBIR" && v.estado !== "SUBIDO"; });
 
             html +=
                 '<tr class="cv-fila-cliente">' +
                     '<td colspan="6">' + escaparHtml(cliente) +
                         ' <span>' + textoCantidadViajes(delCliente.length) + ' · ' + peso.toFixed(2) + ' TN</span></td>' +
                     '<td class="cv-celda-accion">' +
-                        '<button class="cv-btn-procesar" onclick="procesarViajeCargarViaje(null, ' + gestionJs + ', ' +
-                            escaparHtml(JSON.stringify(cliente)) + ')">⚙️ Procesar cliente</button>' +
+                        (esProcesar(cliente)
+                            ? '<button class="cv-btn-procesar" onclick="procesarViajeCargarViaje(null, ' + gestionJs + ', ' + clienteJs + ')">⚙️ Procesar cliente</button>'
+                            : '<button class="cv-btn-drive" ' + (porSubir ? '' : 'disabled ') +
+                                'onclick="subirAlDriveCargarViaje(null, ' + gestionJs + ', ' + clienteJs + ')">' +
+                                (porSubir ? '☁️ Subir cliente' : '✅ Subido') + '</button>') +
                     '</td>' +
                 '</tr>';
 
             delCliente.forEach(function(v){ html += filaViajeProcesado(v); });
 
         });
-
-        viajes
-            .filter(function(v){ return v.accion !== "PROCESAR"; })
-            .sort(function(a, b){ return String(a.cliente || "").localeCompare(String(b.cliente || "")); })
-            .forEach(function(v){ html += filaViajeProcesado(v); });
 
         html += '</tbody></table></div></div>';
 
@@ -1033,7 +1038,7 @@ function filaViajeProcesado(v){
             : '<span class="cv-estado cv-estado-ok">PROCESADO</span>';
 
     return (
-        '<tr' + (v.accion === "PROCESAR" ? ' class="cv-fila-de-cliente"' : '') + '>' +
+        '<tr class="cv-fila-de-cliente">' +
             '<td>' + escaparHtml(v.fo) + '</td>' +
             '<td>' + escaparHtml(v.destino) + '</td>' +
             '<td>' + escaparHtml(v.cliente) + '</td>' +
@@ -1079,7 +1084,7 @@ function procesarViajeCargarViaje(viaje, gestion, cliente){
 // estaban subidos, así no se pisan status que ya se hayan avanzado.
 // Sin viaje = "Subir masivo" de la gestión (solo los de acción SUBIR).
 
-async function subirAlDriveCargarViaje(viaje, gestion){
+async function subirAlDriveCargarViaje(viaje, gestion, cliente){
 
     const resultado = cargaViaje.resultado;
 
@@ -1087,9 +1092,12 @@ async function subirAlDriveCargarViaje(viaje, gestion){
         return;
     }
 
+    // Un viaje, todos los de un cliente ("Subir cliente") o toda la
+    // gestión ("Subir masivo").
     const elegidos = resultado.viajes.filter(function(v){
         if(v.accion !== "SUBIR" || v.estado === "SUBIDO") return false;
-        return viaje ? v.fo === viaje : v.gestion === gestion;
+        if(viaje) return v.fo === viaje;
+        return v.gestion === gestion && (!cliente || (v.cliente || "SIN CLIENTE") === cliente);
     });
 
     if(elegidos.length === 0){
