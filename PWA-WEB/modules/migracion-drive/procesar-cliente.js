@@ -32,6 +32,13 @@ const CONFIG_PROCESAR_CLIENTE = {
         salida: {
             titulo: "Programación para el correo",
             columnas: ["F.O", "RÓTULO", "PEDIDO", "O/C", "ENTREGAS"]
+        },
+        // Al subir, el cliente del viaje lleva su tipo de OC, como en el
+        // Drive: SUPERMERCADOS PERUANOS S.A. (ALMACENAJE) / (FC).
+        sufijos: {
+            FLUJO: "(FC)",
+            ALMACENAJE: "(ALMACENAJE)",
+            JOKER: "(JOKER)"
         }
     }
 };
@@ -143,6 +150,7 @@ function abrirProcesarCliente(gestion, cliente){
             '</td></tr></tbody></table></div>';
 
         document.getElementById("pcBtnCopiar").disabled = true;
+        document.getElementById("pcSubir").innerHTML = "";
 
     }
 
@@ -459,6 +467,7 @@ function generarProgramacion(){
         const delCorreo = porPedido[pedido];
         return {
             fo: e.fo,
+            tipo: delCorreo ? delCorreo.tipo_oc_plataforma : "",
             rotulo: delCorreo ? ROTULOS_TIPO_OC[delCorreo.tipo_oc_plataforma] : "",
             pedido: pedido,
             oc: delCorreo ? delCorreo.oc : "",
@@ -498,6 +507,7 @@ function generarProgramacion(){
         " · " + filas.length + (filas.length === 1 ? " entrega" : " entregas");
     document.getElementById("pcSalida").innerHTML = html;
     document.getElementById("pcBtnCopiar").disabled = filas.length === 0;
+    pintarSubida();
 
 }
 
@@ -567,6 +577,171 @@ function copiarProgramacion(){
         })]).then(avisarCopiado).catch(copiarConSeleccion);
     }else{
         copiarConSeleccion();
+    }
+
+}
+
+// ----- Subir a Status Pendiente -----
+// Con el correo ya se sabe el tipo de OC de cada viaje: al subirlo, el
+// cliente queda con su sufijo, como en el Drive (ej. SUPERMERCADOS
+// PERUANOS S.A. (ALMACENAJE) / (FC)). Un viaje con entregas de dos
+// tipos distintos no se sube: hay que revisarlo.
+
+function subidaPorViaje(){
+
+    const sufijos = procesarCliente.config.sufijos || {};
+
+    return procesarCliente.viajes.map(function(v){
+
+        const filas = procesarCliente.programacion.filter(function(f){ return f.fo === v.fo; });
+        const tipos = Array.from(new Set(filas.map(function(f){ return f.tipo; }).filter(function(t){ return t; })));
+        const sinOc = filas.filter(function(f){ return !f.oc; }).length;
+        const base = procesarCliente.cliente;
+
+        const item = { viaje: v, tipos: tipos, sinOc: sinOc, entregas: filas.length, nombre: null, problema: null };
+
+        if(v.estado === "SUBIDO"){
+            item.problema = "subido";
+        }else if(tipos.length === 0){
+            item.problema = "Ninguna entrega está en los correos pegados.";
+        }else if(tipos.length > 1){
+            item.problema = "Tiene entregas de " + tipos.map(function(t){ return ROTULOS_TIPO_OC[t]; }).join(" y ") + ": revísalo.";
+        }else{
+            item.nombre = base + (sufijos[tipos[0]] ? " " + sufijos[tipos[0]] : "");
+        }
+
+        return item;
+
+    });
+
+}
+
+function pintarSubida(){
+
+    const items = subidaPorViaje();
+    const listos = items.filter(function(i){ return i.nombre; });
+
+    let html =
+        '<div class="pc-salida-header">' +
+            '<h3>☁️ Subir a Status Pendiente</h3>' +
+            '<button class="cv-btn-procesar-todo" id="pcBtnSubir" ' + (listos.length ? '' : 'disabled ') +
+                'onclick="subirViajesCliente()">☁️ Subir ' + textoCantidadViajes(listos.length) + '</button>' +
+        '</div>' +
+        '<div class="sp-contenedor"><table class="sp-tabla"><thead><tr>' +
+            '<th>VIAJE</th><th>RÓTULO</th><th>CLIENTE AL SUBIR</th><th>ENTREGAS</th><th></th>' +
+        '</tr></thead><tbody>';
+
+    items.forEach(function(i){
+        html +=
+            '<tr' + (i.problema && i.problema !== "subido" ? ' class="pc-sin-viaje"' : '') + '>' +
+                '<td><b>' + escaparHtml(i.viaje.fo) + '</b></td>' +
+                '<td>' + (i.tipos.map(function(t){ return ROTULOS_TIPO_OC[t]; }).join(" / ") || "-") + '</td>' +
+                '<td class="sp-izq"><b>' + escaparHtml(i.problema === "subido" ? i.viaje.cliente : (i.nombre || "-")) + '</b></td>' +
+                '<td>' + i.entregas + (i.sinOc ? ' <span class="pc-falta-oc">(' + i.sinOc + ' sin O/C)</span>' : '') + '</td>' +
+                '<td class="sp-izq">' +
+                    (i.problema === "subido" ? '✅ Subido'
+                        : i.problema ? '⚠️ ' + escaparHtml(i.problema)
+                        : 'Listo') +
+                '</td>' +
+            '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+
+    document.getElementById("pcSubir").innerHTML = html;
+
+}
+
+async function subirViajesCliente(){
+
+    const listos = subidaPorViaje().filter(function(i){ return i.nombre; });
+    const conFaltas = listos.filter(function(i){ return i.sinOc; });
+
+    if(listos.length === 0){
+        return;
+    }
+
+    if(conFaltas.length && !confirm(
+        (conFaltas.length === 1 ? "El viaje " + conFaltas[0].viaje.fo + " tiene" : conFaltas.length + " viajes tienen") +
+        " entregas sin O/C (su pedido no está en los correos pegados). ¿Subir igual?"
+    )){
+        return;
+    }
+
+    const boton = document.getElementById("pcBtnSubir");
+    boton.disabled = true;
+    boton.textContent = "⏳ Subiendo...";
+
+    // Un pedido por cada nombre de cliente (ALMACENAJE, FC...).
+    const porNombre = {};
+    listos.forEach(function(i){ (porNombre[i.nombre] = porNombre[i.nombre] || []).push(i.viaje); });
+
+    const ahora = new Date().toISOString();
+    const confirmados = {};
+
+    try{
+
+        for(const nombre of Object.keys(porNombre)){
+
+            const lista = porNombre[nombre].map(function(v){ return '"' + v.fo + '"'; }).join(",");
+
+            const subidos = await supabaseFetch(
+                "/md_viajes?fo=in.(" + encodeURIComponent(lista) + ")&estado=neq.SUBIDO",
+                {
+                    method: "PATCH",
+                    headers: { "Prefer": "return=representation" },
+                    body: JSON.stringify({
+                        cliente: nombre,
+                        estado: "SUBIDO",
+                        fecha_subida: ahora,
+                        subido_por: sesion ? sesion.nombre_completo : null,
+                        status: "POR LANZAR",
+                        status_modulado: "PENDIENTE",
+                        status_despacho: "PENDIENTE",
+                        status_ut: "PENDIENTE",
+                        actualizado_en: ahora
+                    })
+                }
+            );
+
+            (subidos || []).forEach(function(v){ confirmados[v.fo] = nombre; });
+
+            await supabaseFetch("/md_entregas?fo=in.(" + encodeURIComponent(lista) + ")", {
+                method: "PATCH",
+                headers: { "Prefer": "return=minimal" },
+                body: JSON.stringify({ cliente_nombre: nombre, actualizado_en: ahora })
+            });
+
+        }
+
+    }catch(error){
+
+        console.error(error);
+        alert("No se pudo subir: " + (error.message || error));
+
+    }
+
+    // Los viajes del panel son los mismos de Cargar Viaje: se actualizan
+    // ahí también (cliente nuevo y SUBIDO).
+    procesarCliente.viajes.forEach(function(v){
+        if(confirmados[v.fo]){
+            v.cliente = confirmados[v.fo];
+            v.estado = "SUBIDO";
+        }
+    });
+
+    pintarSubida();
+
+    if(cargaViaje.resultado){
+        pintarViajesProcesados(cargaViaje.resultado, true);
+        buscarSinSubir();
+    }
+
+    const cuantos = Object.keys(confirmados).length;
+
+    if(cuantos < listos.length){
+        alert("Se subieron " + cuantos + " de " + listos.length +
+            " viajes. Los demás ya estaban subidos o no se encontraron: revisa Status Pendiente.");
     }
 
 }

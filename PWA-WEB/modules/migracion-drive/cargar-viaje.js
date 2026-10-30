@@ -999,7 +999,9 @@ function pintarViajesProcesados(resultado, sinMover){
                     '<td colspan="6">' + escaparHtml(cliente) +
                         ' <span>' + textoCantidadViajes(delCliente.length) + ' · ' + peso.toFixed(2) + ' TN</span></td>' +
                     '<td class="cv-celda-accion">' +
-                        (esProcesar(cliente)
+                        (esProcesar(cliente) && delCliente.every(function(v){ return v.estado === "SUBIDO"; })
+                            ? '<button class="cv-btn-drive" disabled>✅ Subido</button>'
+                        : esProcesar(cliente)
                             ? '<button class="cv-btn-procesar" onclick="procesarViajeCargarViaje(null, ' + gestionJs + ', ' + clienteJs + ')">⚙️ Procesar cliente</button>'
                             : '<button class="cv-btn-drive" ' + (porSubir ? '' : 'disabled ') +
                                 'onclick="subirAlDriveCargarViaje(null, ' + gestionJs + ', ' + clienteJs + ')">' +
