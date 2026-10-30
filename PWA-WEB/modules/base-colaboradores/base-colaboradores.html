@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Base de Colaboradores - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="base-colaboradores.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="contenedor">
+
+        <header class="header">
+
+            <div>
+
+                <a href="../inicio/home.html" class="volver">
+                    ← Volver al Panel
+                </a>
+
+                <h1>
+                    Base de Colaboradores
+                </h1>
+
+                <p class="subtitulo">
+                    Matrix de personal por jefe directo — de aquí sale el equipo del Checklist de Higiene.
+                </p>
+
+            </div>
+
+            <div class="header-botones">
+
+                <button type="button" class="btn-secundario" id="btnExportar">
+                    ⬇️ Exportar a Excel
+                </button>
+
+                <button type="button" class="btn-primario" id="btnAgregar">
+                    + Agregar Colaborador
+                </button>
+
+            </div>
+
+        </header>
+
+        <div class="resumen">
+
+            <div class="resumen-item">
+                <span class="resumen-numero" id="lblTotal">-</span>
+                <span class="resumen-texto">Total</span>
+            </div>
+
+            <div class="resumen-item">
+                <span class="resumen-numero verde" id="lblActivos">-</span>
+                <span class="resumen-texto">Activos</span>
+            </div>
+
+            <div class="resumen-item">
+                <span class="resumen-numero naranja" id="lblVacaciones">-</span>
+                <span class="resumen-texto">En vacaciones</span>
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <div class="filtros">
+
+                <div class="buscador">
+
+                    <input
+                        type="text"
+                        id="buscador"
+                        placeholder="Buscar por DNI, nombre o puesto..."
+                        autocomplete="off"
+                    >
+
+                </div>
+
+                <select id="filtroSupervisor">
+                    <option value="">Jefe directo (todos)</option>
+                </select>
+
+                <select id="filtroEstado">
+                    <option value="">Estado (todos)</option>
+                    <option value="ACTIVO">Activos</option>
+                    <option value="VACACIONES">En vacaciones</option>
+                </select>
+
+            </div>
+
+            <div class="tabla-scroll">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>DNI</th>
+                            <th>Apellidos y nombres</th>
+                            <th>Puesto</th>
+                            <th>Grupo</th>
+                            <th>Jefe directo</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="tblColaboradores">
+                    </tbody>
+
+                </table>
+
+            </div>
+
+            <p id="mensajeVacio" class="mensaje-vacio">
+                Cargando colaboradores...
+            </p>
+
+        </div>
+
+    </div>
+
+    <!-- MODAL AGREGAR / EDITAR -->
+
+    <div class="modal-overlay" id="modalFormulario">
+
+        <div class="modal">
+
+            <h3 id="tituloFormulario">
+                Agregar Colaborador
+            </h3>
+
+            <form autocomplete="off" onsubmit="return false;">
+
+                <div class="grupo">
+                    <label for="campoDni">DNI</label>
+                    <input
+                        type="text"
+                        id="campoDni"
+                        maxlength="8"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        spellcheck="false"
+                    >
+                </div>
+
+                <div class="grupo">
+                    <label for="campoNombre">Apellidos y nombres</label>
+                    <input type="text" id="campoNombre" autocomplete="off">
+                </div>
+
+                <div class="grupo">
+                    <label for="campoPuesto">Puesto</label>
+                    <input type="text" id="campoPuesto" list="listaPuestos" autocomplete="off">
+                    <datalist id="listaPuestos"></datalist>
+                </div>
+
+                <div class="grupo">
+                    <label for="campoSupervisor">Jefe directo</label>
+                    <input type="text" id="campoSupervisor" list="listaSupervisores" autocomplete="off">
+                    <datalist id="listaSupervisores"></datalist>
+                </div>
+
+                <div class="grupo">
+                    <label for="campoGrupo">Grupo</label>
+                    <select id="campoGrupo">
+                        <option value="BLUE">BLUE</option>
+                        <option value="WHITE">WHITE</option>
+                    </select>
+                </div>
+
+                <p id="mensajeErrorFormulario" class="mensaje-error"></p>
+
+                <div class="modal-botones">
+
+                    <button type="button" id="btnCancelarFormulario" class="btn-secundario">
+                        Cancelar
+                    </button>
+
+                    <button type="button" id="btnGuardarFormulario" class="btn-primario">
+                        Guardar
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    <!-- MODAL VACACIONES -->
+
+    <div class="modal-overlay" id="modalVacaciones">
+
+        <div class="modal">
+
+            <h3>
+                Poner en vacaciones
+            </h3>
+
+            <p class="nombre-modal" id="lblNombreVacaciones"></p>
+
+            <div class="grupo">
+                <label for="campoVacacionesHasta">Regresa el (opcional)</label>
+                <input type="date" id="campoVacacionesHasta">
+            </div>
+
+            <p class="nota-modal">
+                Mientras esté en vacaciones no aparecerá en el equipo del Checklist de Higiene.
+            </p>
+
+            <p id="mensajeErrorVacaciones" class="mensaje-error"></p>
+
+            <div class="modal-botones">
+
+                <button type="button" id="btnCancelarVacaciones" class="btn-secundario">
+                    Cancelar
+                </button>
+
+                <button type="button" id="btnConfirmarVacaciones" class="btn-naranja">
+                    Confirmar
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- MODAL ELIMINAR -->
+
+    <div class="modal-overlay" id="modalEliminar">
+
+        <div class="modal">
+
+            <h3>
+                ¿Eliminar colaborador?
+            </h3>
+
+            <p class="nombre-modal" id="lblNombreEliminar"></p>
+
+            <p class="nota-modal">
+                Se borra de la base. Los checklists que ya se guardaron con esta persona no se pierden.
+            </p>
+
+            <p id="mensajeErrorEliminar" class="mensaje-error"></p>
+
+            <div class="modal-botones">
+
+                <button type="button" id="btnCancelarEliminar" class="btn-secundario">
+                    Cancelar
+                </button>
+
+                <button type="button" id="btnConfirmarEliminar" class="btn-primario">
+                    Eliminar
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="../../shared/checklist-config.js"></script>
+    <script src="base-colaboradores.js"></script>
+
+</body>
+
+</html>

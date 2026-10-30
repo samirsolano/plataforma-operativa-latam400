@@ -28,6 +28,7 @@ const MODULOS_APP = [
     },
 
     { key: "checklist-higiene", nombre: "Checklist Higiene", submodulos: [] },
+    { key: "base-colaboradores", nombre: "Base de Colaboradores", submodulos: [] },
 
     {
         key: "checklist-equipos",

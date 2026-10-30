@@ -218,13 +218,21 @@ function deduplicarPorDni(filas){
 
 async function obtenerEquipoPorSupervisor(supervisor){
 
+    // select=* (y filtro en el cliente) para no romper si todavía no
+    // se corrió base-colaboradores.sql (Plataforma Operativa) — quien
+    // está en VACACIONES (módulo Base de Colaboradores) no entra al
+    // equipo.
     const filas = await checklistFetch(
-        "/matrix_colaboradores?select=dni,nombre_completo&supervisor=eq." +
+        "/matrix_colaboradores?select=*&supervisor=eq." +
         encodeURIComponent(supervisor) +
         "&order=nombre_completo.asc"
     );
 
-    return deduplicarPorDni((filas || []).map(function(c){
+    const enTurno = (filas || []).filter(function(c){
+        return c.estado !== "VACACIONES";
+    });
+
+    return deduplicarPorDni(enTurno.map(function(c){
         return { dni: c.dni, nombre: c.nombre_completo };
     }));
 

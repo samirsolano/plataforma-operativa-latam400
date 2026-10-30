@@ -22,6 +22,9 @@ if(sesion){
         linkChecklistHigieneNav: "checklist-higiene",
         cardChecklistHigiene: "checklist-higiene",
 
+        linkBaseColaboradores: "base-colaboradores",
+        cardBaseColaboradores: "base-colaboradores",
+
         linkChecklistEquiposNav: "checklist-equipos",
         cardChecklistEquipos: "checklist-equipos",
 
