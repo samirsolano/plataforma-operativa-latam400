@@ -163,7 +163,8 @@ values
     ('DESTINATARIO', '1010', 'CD ALICORP HUACHIPA', 'TRASLADO', 'SUBIR'),
     -- CD de Mass: en SAP todos son "COMPAÑIA HARD DISCOUNT S.A.C."
     ('DESTINATARIO', '1000059630', 'CD MASS PUNTA HERMOSA', 'CANAL MODERNO', 'SUBIR'),
-    ('DESTINATARIO', '1000059639', 'CD MASS CALLAO', 'CANAL MODERNO', 'SUBIR')
+    ('DESTINATARIO', '1000059639', 'CD MASS CALLAO', 'CANAL MODERNO', 'SUBIR'),
+    ('DESTINATARIO', '1000016777', 'SUPERMERCADOS PERUANOS S.A.', 'CANAL MODERNO', 'PROCESAR')
 on conflict (tipo_regla, cliente, destino, destinatario_codigo) do nothing;
 
 -- ========================================
