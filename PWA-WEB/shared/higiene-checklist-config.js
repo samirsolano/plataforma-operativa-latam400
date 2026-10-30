@@ -296,8 +296,19 @@ async function detectarNombreSupervisorPorDni(dni){
 // checklist ya aprobado no borre la aprobación.
 const APROBADORES_HIGIENE = [
     "ALBERT PEREZ",
-    "EDUARDO PASACHE"
+    "EDUARDO PASACHE",
+    "GABRIELA CISNEROS"
 ];
+
+// "ALBERT PEREZ, EDUARDO PASACHE o GABRIELA CISNEROS" — para los textos
+// de "Pendiente".
+function textoAprobadoresHigiene(){
+
+    return APROBADORES_HIGIENE.length > 1
+        ? APROBADORES_HIGIENE.slice(0, -1).join(", ") + " o " + APROBADORES_HIGIENE[APROBADORES_HIGIENE.length - 1]
+        : APROBADORES_HIGIENE.join("");
+
+}
 
 function normalizarNombreHigiene(nombre){
 
@@ -494,13 +505,17 @@ async function obtenerDetalleChecklist(cabeceraId){
 //   C5  = Fecha            D5 = "Área: ..."      K5 = Responsable de verificación
 //   F5/G5/H5 = casilleros de turno (1/2/3)
 //   Fila 15 = encabezados de tabla
-//   Filas 16-28 (13 filas) = personas: B=código, C=nombre (C:D combinada),
+//   Filas 16-27 (12 filas) = personas: B=código, C=nombre (C:D combinada),
 //                            E..J = las 6 marcas, K = observaciones
 //   J30 = Nombre del Responsable de la Operación (footer)
 //
-// Si hay más de 13 personas, la plantilla oficial no trae más filas
-// con formato — esas se agregan como filas XML nuevas sin estilo,
-// debajo del bloque de firma, con su propio encabezado.
+// La plantilla trae 12 filas de personas: si hay más, se arma una hoja
+// más (copia completa de la plantilla, con su encabezado y firma) por
+// cada 12 personas — "v.1", "v.1 (2)", "v.1 (3)"...
+
+const PERSONAS_POR_HOJA_HIGIENE = 12;
+const FILA_INICIAL_PERSONAS_HIGIENE = 16;
+
 function formatearFechaDDMMYYYY(fechaISO){
 
     if(!fechaISO){
@@ -553,54 +568,174 @@ function fijarCeldaXML(xml, direccion, texto){
 
 }
 
-// Celda de texto en línea sin referencia de estilo, para las filas
-// nuevas (personas 14 en adelante) que no existen en la plantilla.
-function celdaTextoPlanoXML(direccion, texto){
+// Centra (horizontal y vertical) todas las celdas de la tabla de
+// personas (B..K, filas 16-27). En la plantilla original las marcas
+// quedaban pegadas a la izquierda: en vez de tocar el estilo original
+// (que comparten otras celdas del formato), se agrega a styles.xml una
+// copia centrada de cada estilo usado en la tabla y esas celdas pasan
+// a apuntar a la copia.
+function centrarTablaHigieneXML(stylesXml, hojaXml){
 
-    const valor = escaparXML(texto);
+    const filaFinal = FILA_INICIAL_PERSONAS_HIGIENE + PERSONAS_POR_HOJA_HIGIENE - 1;
+    const patronCelda = /<c r="([B-K])(\d+)"([^>]*?) s="(\d+)"/g;
 
-    return valor
-        ? `<c r="${direccion}" t="inlineStr"><is><t xml:space="preserve">${valor}</t></is></c>`
-        : `<c r="${direccion}"/>`;
+    const estilosUsados = new Set();
+    let m;
 
-}
+    while((m = patronCelda.exec(hojaXml))){
+        const fila = parseInt(m[2], 10);
+        if(fila >= FILA_INICIAL_PERSONAS_HIGIENE && fila <= filaFinal){
+            estilosUsados.add(m[4]);
+        }
+    }
 
-function agregarFilasContinuacionXML(xml, personas){
+    const bloque = stylesXml.match(/<cellXfs count="(\d+)">([\s\S]*?)<\/cellXfs>/);
 
-    const FILA_ENCABEZADO = 33;
-    const FILA_INICIO = 34;
+    if(!bloque || !estilosUsados.size){
+        return { stylesXml: stylesXml, hojaXml: hojaXml };
+    }
 
-    let filasXML = `<row r="${FILA_ENCABEZADO}">` +
-        celdaTextoPlanoXML("B" + FILA_ENCABEZADO, "CÓDIGO") +
-        celdaTextoPlanoXML("C" + FILA_ENCABEZADO, "APELLIDOS Y NOMBRES") +
-        celdaTextoPlanoXML("E" + FILA_ENCABEZADO, "UNIFORME Y EPPS (1)") +
-        celdaTextoPlanoXML("F" + FILA_ENCABEZADO, "MANOS Y UÑAS (2)") +
-        celdaTextoPlanoXML("G" + FILA_ENCABEZADO, "CABELLO (3)") +
-        celdaTextoPlanoXML("H" + FILA_ENCABEZADO, "ROSTRO (4)") +
-        celdaTextoPlanoXML("I" + FILA_ENCABEZADO, "Ausencia obj. no autorizados (5)") +
-        celdaTextoPlanoXML("J" + FILA_ENCABEZADO, "Ausencia síntomas (6)") +
-        celdaTextoPlanoXML("K" + FILA_ENCABEZADO, "OBSERVACIONES") +
-        `</row>`;
+    const xfs = bloque[2].match(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g) || [];
+    const nuevos = [];
+    const mapa = {};
 
-    personas.forEach(function(persona, indice){
+    estilosUsados.forEach(function(indice){
 
-        const fila = FILA_INICIO + indice;
+        const original = xfs[parseInt(indice, 10)];
 
-        filasXML += `<row r="${fila}">` +
-            celdaTextoPlanoXML("B" + fila, persona.dni || "") +
-            celdaTextoPlanoXML("C" + fila, persona.nombre || "") +
-            celdaTextoPlanoXML("E" + fila, SIMBOLO_MARCA_HIGIENE[persona.uniforme_epp] || "") +
-            celdaTextoPlanoXML("F" + fila, SIMBOLO_MARCA_HIGIENE[persona.manos_unas] || "") +
-            celdaTextoPlanoXML("G" + fila, SIMBOLO_MARCA_HIGIENE[persona.cabello] || "") +
-            celdaTextoPlanoXML("H" + fila, SIMBOLO_MARCA_HIGIENE[persona.rostro] || "") +
-            celdaTextoPlanoXML("I" + fila, SIMBOLO_MARCA_HIGIENE[persona.objetos_no_autorizados] || "") +
-            celdaTextoPlanoXML("J" + fila, SIMBOLO_MARCA_HIGIENE[persona.sintomas_enfermedad] || "") +
-            celdaTextoPlanoXML("K" + fila, persona.observaciones || "") +
-            `</row>`;
+        if(!original){
+            return;
+        }
+
+        const alineacion = '<alignment horizontal="center" vertical="center" wrapText="1"/>';
+        let copia;
+
+        if(/\/>$/.test(original) && !/<\/xf>$/.test(original)){
+            copia = original.replace(/\/>$/, ">" + alineacion + "</xf>");
+        }else{
+            copia = original
+                .replace(/<alignment\b[^>]*?(?:\/>|>[\s\S]*?<\/alignment>)/, "")
+                .replace(/^(<xf\b[^>]*>)/, "$1" + alineacion);
+        }
+
+        copia = copia.replace(/\sapplyAlignment="[^"]*"/, "").replace(/^<xf\b/, '<xf applyAlignment="1"');
+
+        mapa[indice] = String(xfs.length + nuevos.length);
+        nuevos.push(copia);
 
     });
 
-    return xml.replace("</sheetData>", filasXML + "</sheetData>");
+    const nuevoBloque = `<cellXfs count="${xfs.length + nuevos.length}">${bloque[2]}${nuevos.join("")}</cellXfs>`;
+
+    const nuevaHoja = hojaXml.replace(patronCelda, function(todo, col, fila, resto, indice){
+        const numero = parseInt(fila, 10);
+        const dentro = numero >= FILA_INICIAL_PERSONAS_HIGIENE && numero <= filaFinal;
+        return (dentro && mapa[indice])
+            ? `<c r="${col}${fila}"${resto} s="${mapa[indice]}"`
+            : todo;
+    });
+
+    return {
+        stylesXml: stylesXml.replace(bloque[0], nuevoBloque),
+        hojaXml: nuevaHoja
+    };
+
+}
+
+// Llena una hoja (copia de la plantilla) con la cabecera y hasta 12
+// personas.
+function llenarHojaHigieneXML(xml, cabecera, personas){
+
+    xml = fijarCeldaXML(xml, "C5", formatearFechaDDMMYYYY(cabecera.fecha));
+    xml = fijarCeldaXML(xml, "D5", "Área: " + (cabecera.area || "Almacén"));
+    xml = fijarCeldaXML(xml, "K5", cabecera.responsable_verificacion || "");
+
+    const CELDA_TURNO = { DIA: "F5", NOCHE: "G5", INTERMEDIO: "H5" };
+
+    ["F5", "G5", "H5"].forEach(function(direccion, indice){
+
+        const numero = indice + 1;
+        const esSeleccionado = CELDA_TURNO[cabecera.turno] === direccion;
+
+        xml = fijarCeldaXML(xml, direccion, esSeleccionado ? (numero + " ✓") : String(numero));
+
+    });
+
+    personas.forEach(function(persona, indice){
+
+        const fila = FILA_INICIAL_PERSONAS_HIGIENE + indice;
+
+        xml = fijarCeldaXML(xml, "B" + fila, persona.dni || "");
+        xml = fijarCeldaXML(xml, "C" + fila, persona.nombre || "");
+        xml = fijarCeldaXML(xml, "E" + fila, SIMBOLO_MARCA_HIGIENE[persona.uniforme_epp] || "");
+        xml = fijarCeldaXML(xml, "F" + fila, SIMBOLO_MARCA_HIGIENE[persona.manos_unas] || "");
+        xml = fijarCeldaXML(xml, "G" + fila, SIMBOLO_MARCA_HIGIENE[persona.cabello] || "");
+        xml = fijarCeldaXML(xml, "H" + fila, SIMBOLO_MARCA_HIGIENE[persona.rostro] || "");
+        xml = fijarCeldaXML(xml, "I" + fila, SIMBOLO_MARCA_HIGIENE[persona.objetos_no_autorizados] || "");
+        xml = fijarCeldaXML(xml, "J" + fila, SIMBOLO_MARCA_HIGIENE[persona.sintomas_enfermedad] || "");
+        xml = fijarCeldaXML(xml, "K" + fila, persona.observaciones || "");
+
+    });
+
+    xml = fijarCeldaXML(xml, "J30", cabecera.responsable_operacion_nombre || "");
+
+    return xml;
+
+}
+
+// Agrega al libro la hoja número `numero` (2, 3, ...) como copia de la
+// hoja 1: su propio XML, sus relaciones (dibujo y configuración de
+// impresión copiados aparte, para que cada hoja tenga los suyos), su
+// entrada en el libro y su área de impresión.
+async function agregarHojaCopiaHigiene(zip, numero, hojaXml, partes){
+
+    const nombreHoja = "v.1 (" + numero + ")";
+    const rId = "rIdHigiene" + numero;
+
+    zip.file(`xl/worksheets/sheet${numero}.xml`, hojaXml);
+
+    zip.file(
+        `xl/worksheets/_rels/sheet${numero}.xml.rels`,
+        partes.relsHoja
+            .replace("drawings/drawing1.xml", `drawings/drawing${numero}.xml`)
+            .replace("printerSettings/printerSettings1.bin", `printerSettings/printerSettings${numero}.bin`)
+    );
+
+    if(partes.dibujo !== null){
+        zip.file(`xl/drawings/drawing${numero}.xml`, partes.dibujo);
+    }
+
+    if(partes.impresion !== null){
+        zip.file(`xl/printerSettings/printerSettings${numero}.bin`, partes.impresion);
+    }
+
+    partes.tipos = partes.tipos.replace(
+        "</Types>",
+        `<Override PartName="/xl/worksheets/sheet${numero}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
+        (partes.dibujo !== null
+            ? `<Override PartName="/xl/drawings/drawing${numero}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`
+            : "") +
+        "</Types>"
+    );
+
+    partes.relsLibro = partes.relsLibro.replace(
+        "</Relationships>",
+        `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${numero}.xml"/></Relationships>`
+    );
+
+    partes.libro = partes.libro
+        .replace("</sheets>", `<sheet name="${nombreHoja}" sheetId="${100 + numero}" r:id="${rId}"/></sheets>`);
+
+    // Misma área de impresión que la hoja 1 (mismo nombre de definedName
+    // que trae la plantilla, solo que para esta hoja).
+    const areaImpresion = partes.libro.match(/<definedName name="([^"]+)" localSheetId="0">[^<]*!(\$[^<]+)<\/definedName>/);
+
+    if(areaImpresion){
+        partes.libro = partes.libro.replace(
+            "</definedNames>",
+            `<definedName name="${areaImpresion[1]}" localSheetId="${numero - 1}">'${nombreHoja}'!${areaImpresion[2]}</definedName></definedNames>`
+        );
+    }
 
 }
 
@@ -619,63 +754,84 @@ function descargarBlob(blob, nombreArchivo){
 
 }
 
-async function exportarPlantillaHigieneExcel(cabecera, detalle, rutaPlantilla){
+// Arma el .xlsx en memoria y devuelve el Blob (sin descargarlo).
+async function generarPlantillaHigieneExcel(cabecera, detalle, rutaPlantilla){
 
     rutaPlantilla = rutaPlantilla || "../../shared/assets/plantilla-higiene.xlsx";
 
     const buffer = await fetch(rutaPlantilla).then(function(r){ return r.arrayBuffer(); });
     const zip = await JSZip.loadAsync(buffer);
 
-    const rutaHoja = "xl/worksheets/sheet1.xml";
-    let xml = await zip.file(rutaHoja).async("string");
+    const leer = async function(ruta, tipo){
+        const archivo = zip.file(ruta);
+        return archivo ? await archivo.async(tipo || "string") : null;
+    };
 
-    xml = fijarCeldaXML(xml, "C5", formatearFechaDDMMYYYY(cabecera.fecha));
-    xml = fijarCeldaXML(xml, "D5", "Área: " + (cabecera.area || "Almacén"));
-    xml = fijarCeldaXML(xml, "K5", cabecera.responsable_verificacion || "");
+    const centrado = centrarTablaHigieneXML(
+        await leer("xl/styles.xml"),
+        await leer("xl/worksheets/sheet1.xml")
+    );
 
-    const CELDA_TURNO = { DIA: "F5", NOCHE: "G5", INTERMEDIO: "H5" };
+    zip.file("xl/styles.xml", centrado.stylesXml);
 
-    ["F5", "G5", "H5"].forEach(function(direccion, indice){
+    const plantillaHoja = centrado.hojaXml;
+    const personas = detalle || [];
 
-        const numero = indice + 1;
-        const esSeleccionado = CELDA_TURNO[cabecera.turno] === direccion;
+    const grupos = [];
 
-        xml = fijarCeldaXML(xml, direccion, esSeleccionado ? (numero + " ✓") : String(numero));
-
-    });
-
-    const FILA_INICIAL = 16;
-    const personasEnPlantilla = (detalle || []).slice(0, 13);
-    const personasExtra = (detalle || []).slice(13);
-
-    personasEnPlantilla.forEach(function(persona, indice){
-
-        const fila = FILA_INICIAL + indice;
-
-        xml = fijarCeldaXML(xml, "B" + fila, persona.dni || "");
-        xml = fijarCeldaXML(xml, "C" + fila, persona.nombre || "");
-        xml = fijarCeldaXML(xml, "E" + fila, SIMBOLO_MARCA_HIGIENE[persona.uniforme_epp] || "");
-        xml = fijarCeldaXML(xml, "F" + fila, SIMBOLO_MARCA_HIGIENE[persona.manos_unas] || "");
-        xml = fijarCeldaXML(xml, "G" + fila, SIMBOLO_MARCA_HIGIENE[persona.cabello] || "");
-        xml = fijarCeldaXML(xml, "H" + fila, SIMBOLO_MARCA_HIGIENE[persona.rostro] || "");
-        xml = fijarCeldaXML(xml, "I" + fila, SIMBOLO_MARCA_HIGIENE[persona.objetos_no_autorizados] || "");
-        xml = fijarCeldaXML(xml, "J" + fila, SIMBOLO_MARCA_HIGIENE[persona.sintomas_enfermedad] || "");
-        xml = fijarCeldaXML(xml, "K" + fila, persona.observaciones || "");
-
-    });
-
-    xml = fijarCeldaXML(xml, "J30", cabecera.responsable_operacion_nombre || "");
-
-    if(personasExtra.length){
-        xml = agregarFilasContinuacionXML(xml, personasExtra);
+    for(let i = 0; i < personas.length; i += PERSONAS_POR_HOJA_HIGIENE){
+        grupos.push(personas.slice(i, i + PERSONAS_POR_HOJA_HIGIENE));
     }
 
-    zip.file(rutaHoja, xml);
+    if(!grupos.length){
+        grupos.push([]);
+    }
 
-    const blob = await zip.generateAsync({
+    zip.file("xl/worksheets/sheet1.xml", llenarHojaHigieneXML(plantillaHoja, cabecera, grupos[0]));
+
+    if(grupos.length > 1){
+
+        const partes = {
+            relsHoja: await leer("xl/worksheets/_rels/sheet1.xml.rels") || "",
+            dibujo: await leer("xl/drawings/drawing1.xml"),
+            impresion: await leer("xl/printerSettings/printerSettings1.bin", "uint8array"),
+            tipos: await leer("[Content_Types].xml"),
+            relsLibro: await leer("xl/_rels/workbook.xml.rels"),
+            libro: await leer("xl/workbook.xml")
+        };
+
+        // En las copias: sin "pestaña seleccionada" (solo la primera)
+        // ni el identificador interno de la hoja original.
+        const plantillaCopia = plantillaHoja
+            .replace(/\stabSelected="1"/, "")
+            .replace(/\sxr:uid="\{[^}]*\}"/, "");
+
+        for(let i = 1; i < grupos.length; i++){
+            await agregarHojaCopiaHigiene(
+                zip,
+                i + 1,
+                llenarHojaHigieneXML(plantillaCopia, cabecera, grupos[i]),
+                partes
+            );
+        }
+
+        zip.file("[Content_Types].xml", partes.tipos);
+        zip.file("xl/_rels/workbook.xml.rels", partes.relsLibro);
+        zip.file("xl/workbook.xml", partes.libro);
+
+    }
+
+    return await zip.generateAsync({
         type: "blob",
+        compression: "DEFLATE",
         mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     });
+
+}
+
+async function exportarPlantillaHigieneExcel(cabecera, detalle, rutaPlantilla){
+
+    const blob = await generarPlantillaHigieneExcel(cabecera, detalle, rutaPlantilla);
 
     const nombreArchivo =
         "higiene-" + (cabecera.fecha || "") + "-" +

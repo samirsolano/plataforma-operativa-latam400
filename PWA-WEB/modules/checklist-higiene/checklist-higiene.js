@@ -49,7 +49,7 @@ let cabeceraExistenteId = null;
 // ========================================
 // APROBACIÓN (Responsable de la Operación)
 // ========================================
-// Ya no se escribe a mano: solo Albert Pérez o Eduardo Pasache (ver
+// Ya no se escribe a mano: solo Albert Pérez, Eduardo Pasache o Gabriela Cisneros (ver
 // APROBADORES_HIGIENE en shared/higiene-checklist-config.js) pueden
 // aprobar, desde su propia sesión, un checklist ya guardado.
 
@@ -69,7 +69,7 @@ function pintarAprobacion(){
     if(aprobacionActual){
         estado.textContent = "✓ Aprobado por " + aprobacionActual;
     }else if(cabeceraExistenteId){
-        estado.textContent = "Pendiente — lo aprueba " + APROBADORES_HIGIENE.join(" o ");
+        estado.textContent = "Pendiente — lo aprueba " + textoAprobadoresHigiene();
     }else{
         estado.textContent = "Pendiente — se aprueba después de guardar";
     }
