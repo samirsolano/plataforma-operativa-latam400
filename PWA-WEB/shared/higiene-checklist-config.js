@@ -81,7 +81,7 @@ function marcasTodoConforme(){
 // alimentando Reconocimiento y Planificación de Recursos) para no
 // afectar esos otros módulos.
 
-// De las 9 personas que aparecen como "Jefe Directo" en el roster,
+// De las personas que aparecen como "Jefe Directo" en el roster,
 // solo estas 3 son supervisores de turno reales (el resto son roles
 // administrativos/gerenciales que no llenan un checklist de higiene
 // por turno) — el selector de supervisor (y la auto-detección) se
@@ -89,7 +89,7 @@ function marcasTodoConforme(){
 // (ej. el equipo de Eduardo Pasache) sigue funcionando sin
 // restricción vía "+ Agregar persona" (buscarColaboradorPorTexto).
 const SUPERVISORES_HIGIENE_PERMITIDOS = [
-    "ALONSO LARICO",
+    "ESTEPHANIE PONCE",
     "JONATHAN QUINTANILLA",
     "MELQUIADES PANGALIMA"
 ];
