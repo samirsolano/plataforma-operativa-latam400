@@ -65,6 +65,7 @@ const MODULOS_APP = [
     { key: "toma-lote-farmacia", nombre: "Toma de Lote Farmacia", submodulos: [] },
     { key: "inventario-paletas", nombre: "Inventario de Paletas", submodulos: [] },
     { key: "inventario-picking", nombre: "Inventario Picking", submodulos: [] },
+    { key: "monitor-guias", nombre: "Monitor de Guías", submodulos: [] },
     { key: "configuracion", nombre: "Configuración", submodulos: [] }
 
 ];

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Monitor de Guías - Plataforma Operativa
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="monitor-guias.css"
+    >
+
+</head>
+
+<body>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+
+                <h1>MONITOR</h1>
+                <h1>DE GUÍAS</h1>
+
+                <span>LATAM 400 CL</span>
+
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+
+                </div>
+
+            </div>
+
+            <nav class="menu">
+
+                <a href="#" class="activo">Guías desde SAP</a>
+
+            </nav>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="contenido">
+
+            <header class="topbar">
+
+                <div class="topbar-titulo">
+                    <h2>Monitor de Guías</h2>
+                    <p>ZO2CP006 → ZO2CP004 → VL06O, ejecutado por el puente SAP</p>
+                </div>
+
+                <div class="estado-puente" id="estadoPuente">
+                    <span class="punto"></span> Revisando puente SAP...
+                </div>
+
+            </header>
+
+            <div class="fila-paneles">
+
+                <!-- LANZAR -->
+
+                <section class="panel">
+
+                    <h3>Bajar guías de SAP</h3>
+
+                    <div class="pestanas">
+                        <button class="pestana activa" id="tabFechas" type="button">Por fechas</button>
+                        <button class="pestana" id="tabFos" type="button">Por FO</button>
+                    </div>
+
+                    <div id="modoFechas">
+                        <div class="fila-fechas">
+                            <div>
+                                <label for="fechaDesde">Desde</label>
+                                <input type="date" id="fechaDesde">
+                            </div>
+                            <div>
+                                <label for="fechaHasta">Hasta</label>
+                                <input type="date" id="fechaHasta">
+                            </div>
+                        </div>
+                        <p class="nota-modulo">Fecha de entrega en ZO2CP006, puesto 1054. Máximo 31 días.</p>
+                    </div>
+
+                    <div id="modoFos" class="oculto">
+                        <label for="listaFos">FO (una por línea)</label>
+                        <textarea id="listaFos" rows="6" placeholder="6100012345&#10;6100012346"></textarea>
+                    </div>
+
+                    <div class="acciones">
+                        <button class="btn-principal" id="btnLanzar" type="button">Lanzar en SAP</button>
+                        <button class="btn-secundario" id="btnPing" type="button">Probar conexión con SAP</button>
+                    </div>
+
+                </section>
+
+                <!-- EJECUCIONES -->
+
+                <section class="panel">
+
+                    <h3>Últimas ejecuciones</h3>
+
+                    <div id="listaComandos">
+                        <p class="sin-datos">Cargando...</p>
+                    </div>
+
+                </section>
+
+            </div>
+
+            <!-- RESULTADO -->
+
+            <section class="panel">
+
+                <div class="cabecera-tabla">
+                    <h3>Guías <span class="subtitulo" id="subtituloGuias"></span></h3>
+                    <input type="text" id="filtroGuias" placeholder="Buscar FO, entrega, placa, cliente...">
+                </div>
+
+                <div class="tabla-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>FO</th>
+                                <th>Entrega</th>
+                                <th>Guía</th>
+                                <th>Transporte</th>
+                                <th>Placa</th>
+                                <th>Conductor</th>
+                                <th>Transportista</th>
+                                <th>Cliente</th>
+                                <th>Destino</th>
+                                <th class="num">Peso</th>
+                                <th>Org. vtas</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoGuias">
+                            <tr><td colspan="11" class="sin-datos">Sin datos todavía.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="../../shared/checklist-config.js"></script>
+    <script src="monitor-guias.js"></script>
+
+</body>
+
+</html>

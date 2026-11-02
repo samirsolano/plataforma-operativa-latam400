@@ -58,6 +58,9 @@ if(sesion){
         linkInventarioPicking: "inventario-picking",
         cardInventarioPicking: "inventario-picking",
 
+        linkMonitorGuias: "monitor-guias",
+        cardMonitorGuias: "monitor-guias",
+
         linkConfiguracion: "configuracion",
         cardConfiguracion: "configuracion"
 
