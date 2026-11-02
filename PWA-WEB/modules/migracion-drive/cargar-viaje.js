@@ -35,6 +35,9 @@ const ORDEN_GESTIONES = [
     "LARGA DISTANCIA", "TRASLADO", "DEX"
 ];
 
+// Única gestión que, en los viajes procesados, se separa por cliente.
+const GESTION_POR_CLIENTE = "CANAL MODERNO";
+
 // Clientes a los que hay que mandar un packing list: el viaje se sube
 // normal, pero queda "pendiente de Packing List" hasta marcarlo como
 // enviado. Basta con que el nombre del cliente contenga alguno de estos.
@@ -999,6 +1002,14 @@ function pintarViajesProcesados(resultado, sinMover){
                         '</tr></thead>' +
                         '<tbody>';
 
+        // Solo CANAL MODERNO se separa por cliente; las demás gestiones
+        // van como lista simple, un viaje por fila con su botón.
+        if(gestion !== GESTION_POR_CLIENTE){
+            viajes.forEach(function(v){ html += filaViajeProcesado(v, false); });
+            html += '</tbody></table></div></div>';
+            return;
+        }
+
         // Un bloque por cliente, cada uno con su fila de encabezado (total
         // y botón). Los de acción PROCESAR (Canal Moderno) se procesan
         // juntos con el botón del cliente y van primero; los de SUBIR
@@ -1033,7 +1044,7 @@ function pintarViajesProcesados(resultado, sinMover){
                     '</td>' +
                 '</tr>';
 
-            delCliente.forEach(function(v){ html += filaViajeProcesado(v); });
+            delCliente.forEach(function(v){ html += filaViajeProcesado(v, true); });
 
         });
 
@@ -1050,8 +1061,9 @@ function pintarViajesProcesados(resultado, sinMover){
 }
 
 // Una fila de la tabla de viajes procesados. Los de acción PROCESAR no
-// llevan botón propio: se procesan con el de su cliente.
-function filaViajeProcesado(v){
+// llevan botón propio: se procesan con el de su cliente. enBloque: va
+// dentro de un bloque de cliente (Canal Moderno), con sangría.
+function filaViajeProcesado(v, enBloque){
 
     const foJs = escaparHtml(JSON.stringify(v.fo));
     const estado =
@@ -1064,7 +1076,7 @@ function filaViajeProcesado(v){
             : '<span class="cv-estado cv-estado-ok">PROCESADO</span>';
 
     return (
-        '<tr class="cv-fila-de-cliente">' +
+        '<tr' + (enBloque ? ' class="cv-fila-de-cliente"' : '') + '>' +
             '<td>' + escaparHtml(v.fo) + '</td>' +
             '<td>' + escaparHtml(v.destino) + '</td>' +
             '<td>' + escaparHtml(v.cliente) +
