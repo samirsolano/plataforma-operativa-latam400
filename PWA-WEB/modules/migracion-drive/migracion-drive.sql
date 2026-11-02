@@ -263,9 +263,31 @@ alter table public.md_viajes add column if not exists canal_fisico text;
 alter table public.md_viajes add column if not exists monitor_por text;
 alter table public.md_viajes add column if not exists monitor_en timestamptz;
 
--- Status Pendiente filtra los SUBIDO por fecha de subida.
+-- ========================================
+-- PACKING LIST (Cencosud, Metro, Tottus)
+-- ========================================
+-- A estos clientes hay que mandarles un packing list. El viaje se sube
+-- normal a Status Pendiente, pero queda con pl_pendiente = true hasta
+-- que se marca como enviado desde Cargar Viaje ("📦 Pendiente de
+-- Packing List"). Qué clientes lo llevan: CLIENTES_CON_PACKING_LIST en
+-- cargar-viaje.js.
+
+alter table public.md_viajes add column if not exists pl_pendiente boolean not null default false;
+alter table public.md_viajes add column if not exists pl_enviado_en timestamptz;
+alter table public.md_viajes add column if not exists pl_enviado_por text;
+
+create index if not exists idx_md_viajes_pl_pendiente
+    on public.md_viajes (fecha_subida)
+    where pl_pendiente;
+
+-- Status Pendiente muestra los SUBIDO sin filtro de fecha; por defecto
+-- solo los pendientes de despacho.
 create index if not exists idx_md_viajes_subida
     on public.md_viajes (fecha_subida desc)
+    where estado = 'SUBIDO';
+
+create index if not exists idx_md_viajes_despacho
+    on public.md_viajes (status_despacho, fecha_subida)
     where estado = 'SUBIDO';
 
 -- Estados con nombre propio para poder sumar PENDIENTE si la tabla ya

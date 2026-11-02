@@ -121,8 +121,11 @@
                     <p>Viajes subidos desde Cargar Viaje (reemplaza la hoja STATUS PENDIENTE del Drive).</p>
                 </div>
                 <div class="sp-filtros">
-                    <label>Subidos desde
-                        <input type="date" id="spDesde" onchange="cargarStatusPendiente()">
+                    <label>Mostrar
+                        <select id="spFiltro" onchange="cargarStatusPendiente()">
+                            <option value="PENDIENTE_DESPACHO">Pendiente de despacho</option>
+                            <option value="">Todos</option>
+                        </select>
                     </label>
                     <input type="search" id="spBuscar" placeholder="Buscar viaje, cliente o transportista" oninput="pintarStatusPendiente()">
                     <button class="cv-btn-subir" onclick="cargarStatusPendiente()">🔄 Actualizar</button>
@@ -142,7 +145,10 @@
                 </div>
                 <!-- Se activa cuando ya se subieron Monitor de Guías y VL06F -->
                 <div class="cv-header-procesar">
-                    <button class="cv-btn-procesar-todo" id="cvBtnProcesarViajes" disabled onclick="procesarViajesNuevos()">⚙️ Procesar viajes</button>
+                    <div class="cv-header-botones">
+                        <button class="cv-btn-pl" id="cvBtnPackingList" onclick="abrirPackingList()">📦 Pendiente de Packing List</button>
+                        <button class="cv-btn-procesar-todo" id="cvBtnProcesarViajes" disabled onclick="procesarViajesNuevos()">⚙️ Procesar viajes</button>
+                    </div>
                     <span id="cvProcesarTexto">Sube el Monitor de Guías y el VL06F para procesar.</span>
                 </div>
             </div>
@@ -368,6 +374,19 @@
 
             </div>
 
+        </div>
+    </div>
+
+    <!-- ===================== VENTANA PENDIENTE DE PACKING LIST ===================== -->
+
+    <div class="cv-modal-overlay" id="cvModalPackingList" style="display:none;" onclick="if(event.target === this) cerrarPackingList()">
+        <div class="cv-modal">
+            <h3>📦 Pendiente de Packing List</h3>
+            <p id="cvPackingListTexto"></p>
+            <div id="cvPackingListTabla"></div>
+            <div class="cv-modal-acciones">
+                <button class="cv-btn-secundario" onclick="cerrarPackingList()">Cerrar</button>
+            </div>
         </div>
     </div>
 

@@ -716,6 +716,8 @@ async function subirViajesCliente(){
         }
     });
 
+    await marcarPendientePackingList(procesarCliente.viajes.filter(function(v){ return confirmados[v.fo]; }));
+
     pintarSubida();
 
     if(cargaViaje.resultado){

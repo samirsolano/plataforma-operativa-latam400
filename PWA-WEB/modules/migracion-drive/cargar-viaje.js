@@ -35,6 +35,27 @@ const ORDEN_GESTIONES = [
     "LARGA DISTANCIA", "TRASLADO", "DEX"
 ];
 
+// Clientes a los que hay que mandar un packing list: el viaje se sube
+// normal, pero queda "pendiente de Packing List" hasta marcarlo como
+// enviado. Basta con que el nombre del cliente contenga alguno de estos.
+const CLIENTES_CON_PACKING_LIST = ["CENCOSUD", "METRO", "TOTTUS"];
+
+function requierePackingList(cliente){
+    const nombre = limpiarTexto(cliente);
+    return CLIENTES_CON_PACKING_LIST.some(function(c){ return nombre.indexOf(c) !== -1; });
+}
+
+// Los de acción PROCESAR solo se procesan si el cliente tiene su proceso
+// armado (CONFIG_PROCESAR_CLIENTE en procesar-cliente.js, hoy SPSA); los
+// demás se suben normal, como los de acción SUBIR.
+function tieneProcesoCliente(cliente){
+    return typeof CONFIG_PROCESAR_CLIENTE !== "undefined" && !!CONFIG_PROCESAR_CLIENTE[cliente];
+}
+
+function seSubeDirecto(v){
+    return v.accion === "SUBIR" || !tieneProcesoCliente(v.cliente);
+}
+
 function textoCantidadViajes(cantidad){
     return cantidad + (cantidad === 1 ? " viaje" : " viajes");
 }
@@ -956,8 +977,8 @@ function pintarViajesProcesados(resultado, sinMover){
     nombres.forEach(function(gestion){
 
         const viajes = grupos[gestion];
-        const todosProcesar = viajes.every(function(v){ return v.accion === "PROCESAR"; });
-        const faltanSubir = viajes.some(function(v){ return v.accion === "SUBIR" && v.estado !== "SUBIDO"; });
+        const todosProcesar = viajes.every(function(v){ return !seSubeDirecto(v); });
+        const faltanSubir = viajes.some(function(v){ return seSubeDirecto(v) && v.estado !== "SUBIDO"; });
         const gestionJs = escaparHtml(JSON.stringify(gestion));
 
         html +=
@@ -990,7 +1011,7 @@ function pintarViajesProcesados(resultado, sinMover){
         });
 
         const esProcesar = function(c){
-            return porCliente[c].every(function(v){ return v.accion === "PROCESAR"; });
+            return porCliente[c].every(function(v){ return !seSubeDirecto(v); });
         };
 
         Object.keys(porCliente).sort(function(a, b){
@@ -1046,12 +1067,13 @@ function filaViajeProcesado(v){
         '<tr class="cv-fila-de-cliente">' +
             '<td>' + escaparHtml(v.fo) + '</td>' +
             '<td>' + escaparHtml(v.destino) + '</td>' +
-            '<td>' + escaparHtml(v.cliente) + '</td>' +
+            '<td>' + escaparHtml(v.cliente) +
+                (requierePackingList(v.cliente) ? ' <span class="cv-chip-pl" title="Al subirlo queda pendiente de Packing List">📦 PL</span>' : '') + '</td>' +
             '<td>' + v.peso_tn.toFixed(2) + '</td>' +
             '<td>' + escaparHtml(v.transportista_nombre) + '</td>' +
             '<td>' + estado + '</td>' +
             '<td class="cv-celda-accion">' +
-                (v.accion === "PROCESAR"
+                (!seSubeDirecto(v)
                     ? ''
                 : v.estado === "SUBIDO"
                     ? '<button class="cv-btn-drive-fila" disabled>✅ Subido</button>'
@@ -1095,7 +1117,7 @@ async function subirAlDriveCargarViaje(viaje, gestion, cliente){
     // Un viaje, todos los de un cliente ("Subir cliente") o toda la
     // gestión ("Subir masivo").
     const elegidos = resultado.viajes.filter(function(v){
-        if(v.accion !== "SUBIR" || v.estado === "SUBIDO") return false;
+        if(!seSubeDirecto(v) || v.estado === "SUBIDO") return false;
         if(viaje) return v.fo === viaje;
         return v.gestion === gestion && (!cliente || (v.cliente || "SIN CLIENTE") === cliente);
     });
@@ -1144,6 +1166,8 @@ async function subirAlDriveCargarViaje(viaje, gestion, cliente){
             if(confirmados.has(v.fo)) v.estado = "SUBIDO";
         });
 
+        await marcarPendientePackingList(elegidos.filter(function(v){ return confirmados.has(v.fo); }));
+
         pintarViajesProcesados(resultado, true);
         buscarSinSubir();
 
@@ -1161,5 +1185,138 @@ async function subirAlDriveCargarViaje(viaje, gestion, cliente){
 
 }
 
+// ========================================
+// PENDIENTE DE PACKING LIST (Cencosud, Metro, Tottus)
+// ========================================
+// Al subir, los viajes de CLIENTES_CON_PACKING_LIST quedan con
+// pl_pendiente = true. El botón de arriba ("📦 Pendiente de Packing
+// List") los lista hasta que se marcan como enviados.
+
+const packingList = { viajes: [] };
+
+// Después de subir: marca los que llevan packing list.
+async function marcarPendientePackingList(viajes){
+
+    const conPl = viajes.filter(function(v){ return requierePackingList(v.cliente); });
+
+    if(conPl.length === 0){
+        return;
+    }
+
+    const lista = conPl.map(function(v){ return '"' + v.fo + '"'; }).join(",");
+
+    try{
+        await supabaseFetch("/md_viajes?fo=in.(" + encodeURIComponent(lista) + ")", {
+            method: "PATCH",
+            headers: { "Prefer": "return=minimal" },
+            body: JSON.stringify({ pl_pendiente: true, pl_enviado_en: null, pl_enviado_por: null })
+        });
+    }catch(error){
+        console.error(error);
+        alert("Los viajes se subieron, pero no se pudieron marcar como pendientes de Packing List: " +
+            (error.message || error));
+    }
+
+    buscarPendientesPackingList();
+
+}
+
+async function buscarPendientesPackingList(){
+
+    const boton = document.getElementById("cvBtnPackingList");
+
+    try{
+
+        packingList.viajes = await supabaseFetch(
+            "/md_viajes?pl_pendiente=is.true&select=fo,cliente,gestion,destino,peso_tn,fecha_subida,status,status_despacho" +
+            "&order=fecha_subida.asc&limit=2000"
+        ) || [];
+
+        const total = packingList.viajes.length;
+
+        boton.textContent = "📦 Pendiente de Packing List (" + total + ")";
+        boton.classList.toggle("cv-btn-pl-hay", total > 0);
+
+    }catch(error){
+        console.error("No se pudieron leer los pendientes de Packing List:", error);
+    }
+
+}
+
+function abrirPackingList(){
+    pintarPackingList();
+    document.getElementById("cvModalPackingList").style.display = "flex";
+}
+
+function cerrarPackingList(){
+    document.getElementById("cvModalPackingList").style.display = "none";
+}
+
+function pintarPackingList(){
+
+    const viajes = packingList.viajes;
+    const contenido = document.getElementById("cvPackingListTabla");
+
+    document.getElementById("cvPackingListTexto").textContent = viajes.length
+        ? textoCantidadViajes(viajes.length) + " subidos a los que todavía no se les manda el packing list."
+        : "No hay viajes pendientes de Packing List.";
+
+    if(viajes.length === 0){
+        contenido.innerHTML = "";
+        return;
+    }
+
+    contenido.innerHTML =
+        '<div class="cv-tabla-contenedor cv-sin-subir"><table class="cv-tabla"><thead><tr>' +
+            '<th>Viaje</th><th>Cliente</th><th>Subido</th><th>Status</th><th>Despacho</th><th></th>' +
+        '</tr></thead><tbody>' +
+        viajes.map(function(v){
+            return '<tr>' +
+                '<td><b>' + escaparHtml(v.fo) + '</b></td>' +
+                '<td>' + escaparHtml(v.cliente) + '</td>' +
+                '<td>' + (v.fecha_subida ? fechaHoraSp(v.fecha_subida) : "-") + '</td>' +
+                '<td>' + celdaStatus(v.status) + '</td>' +
+                '<td>' + celdaStatus(v.status_despacho) + '</td>' +
+                '<td><button class="cv-btn-drive-fila" onclick="marcarPackingListEnviado(' +
+                    escaparHtml(JSON.stringify(v.fo)) + ', this)">✅ Enviado</button></td>' +
+            '</tr>';
+        }).join("") +
+        '</tbody></table></div>';
+
+}
+
+async function marcarPackingListEnviado(fo, boton){
+
+    boton.disabled = true;
+    boton.textContent = "⏳";
+
+    try{
+
+        await supabaseFetch("/md_viajes?fo=eq." + encodeURIComponent(fo), {
+            method: "PATCH",
+            headers: { "Prefer": "return=minimal" },
+            body: JSON.stringify({
+                pl_pendiente: false,
+                pl_enviado_en: new Date().toISOString(),
+                pl_enviado_por: sesion ? sesion.nombre_completo : null
+            })
+        });
+
+        packingList.viajes = packingList.viajes.filter(function(v){ return v.fo !== fo; });
+        pintarPackingList();
+        buscarPendientesPackingList();
+
+    }catch(error){
+
+        console.error(error);
+        boton.disabled = false;
+        boton.textContent = "✅ Enviado";
+        alert("No se pudo marcar el packing list del viaje " + fo + ": " + (error.message || error));
+
+    }
+
+}
+
 buscarSinSubir();
+buscarPendientesPackingList();
 actualizarBotonProcesar();

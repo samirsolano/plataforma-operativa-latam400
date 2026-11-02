@@ -325,6 +325,42 @@ body{
     flex-shrink:0;
 }
 
+.cv-header-botones{
+    display:flex;
+    gap:8px;
+}
+
+/* Pendiente de Packing List (Cencosud, Metro, Tottus) */
+.cv-btn-pl{
+    padding:12px 16px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+    background:white;
+    color:#374151;
+    font-size:14px;
+    font-weight:bold;
+    cursor:pointer;
+    white-space:nowrap;
+}
+
+.cv-btn-pl.cv-btn-pl-hay{
+    border-color:#f59e0b;
+    background:#fffbeb;
+    color:#92400e;
+}
+
+.cv-chip-pl{
+    display:inline-block;
+    margin-left:4px;
+    padding:1px 6px;
+    border-radius:8px;
+    background:#fef3c7;
+    color:#92400e;
+    font-size:10px;
+    font-weight:bold;
+    white-space:nowrap;
+}
+
 .cv-header-procesar span{
     max-width:260px;
     text-align:right;

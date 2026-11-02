@@ -4,8 +4,9 @@
 // Los viajes que "Subir viaje" pasó a estado SUBIDO (md_viajes), con
 // las columnas y colores de la hoja STATUS PENDIENTE del Drive: un
 // bloque por gestión con su total y la suma total al final.
-// Se filtra por fecha de subida (por defecto los últimos 7 días) para
-// no traer toda la tabla a medida que crece.
+// Sin filtro de fecha: por defecto se ve todo lo pendiente de despacho
+// (STATUS DE DESPACHO = PENDIENTE), sin importar cuándo se subió; lo
+// despachado sale de la vista. "Todos" trae también lo despachado.
 
 const statusPendiente = { viajes: [] };
 
@@ -21,19 +22,10 @@ const COLORES_STATUS = {
     "AJUSTADO A 0": "st-ajustado"
 };
 
-(function iniciarFiltroDesde(){
-    const desde = new Date();
-    desde.setDate(desde.getDate() - 7);
-    document.getElementById("spDesde").value =
-        desde.getFullYear() + "-" +
-        String(desde.getMonth() + 1).padStart(2, "0") + "-" +
-        String(desde.getDate()).padStart(2, "0");
-})();
-
 async function cargarStatusPendiente(){
 
     const contenido = document.getElementById("spContenido");
-    const desde = document.getElementById("spDesde").value;
+    const soloPendientes = document.getElementById("spFiltro").value === "PENDIENTE_DESPACHO";
 
     contenido.className = "cv-vacio";
     contenido.textContent = "Cargando...";
@@ -43,9 +35,9 @@ async function cargarStatusPendiente(){
         const viajes = await supabaseFetch(
             "/md_viajes?select=fo,gestion,fecha_subida,fecha_cita,hora_cita,cliente," +
             "transportista_nombre,status,status_modulado,status_despacho,fecha_registro_ut," +
-            "estadia_ut,status_ut,cantidad_skus,peso_tn" +
+            "estadia_ut,status_ut,cantidad_skus,peso_tn,pl_pendiente" +
             "&estado=eq.SUBIDO" +
-            (desde ? "&fecha_subida=gte." + encodeURIComponent(new Date(desde + "T00:00:00").toISOString()) : "") +
+            (soloPendientes ? "&or=(status_despacho.is.null,status_despacho.eq.PENDIENTE)" : "") +
             "&order=fecha_subida.asc&limit=2000"
         );
 
@@ -112,7 +104,7 @@ function pintarStatusPendiente(){
         contenido.className = "cv-vacio";
         contenido.textContent = statusPendiente.viajes.length
             ? "Ningún viaje coincide con la búsqueda."
-            : "No hay viajes subidos en estas fechas. Súbelos desde Facturación › Cargar Viaje.";
+            : "No hay viajes pendientes de despacho. Para ver también los despachados, elige Mostrar › Todos.";
         return;
     }
 
@@ -156,7 +148,8 @@ function pintarStatusPendiente(){
                     '<td>' + fechaSp(v.fecha_cita) + '</td>' +
                     '<td>' + (v.hora_cita ? escaparHtml(String(v.hora_cita).slice(0, 5)) : "-") + '</td>' +
                     '<td>' + escaparHtml(v.fo) + '</td>' +
-                    '<td class="sp-izq">' + escaparHtml(v.cliente) + '</td>' +
+                    '<td class="sp-izq">' + escaparHtml(v.cliente) +
+                        (v.pl_pendiente ? ' <span class="cv-chip-pl" title="Pendiente de enviar el packing list">📦 PL</span>' : '') + '</td>' +
                     '<td class="sp-izq">' + escaparHtml(v.transportista_nombre) + '</td>' +
                     '<td>' + celdaStatus(v.status) + '</td>' +
                     '<td>' + celdaStatus(v.status_modulado) + '</td>' +
