@@ -1254,30 +1254,37 @@ async function conHojasPicking(boton, accion){
 
 }
 
-// Una página A4 por línea, con el mismo formato de la plantilla.
+// ----- Diseño de la hoja de picking (igual que la plantilla F-LAT-058) -----
+// Azul #002060 con letra blanca para las etiquetas y el título, amarillo
+// en PEDIDO, naranja en OC, rojo en los encabezados del detalle, Calibri
+// 12 y el logo de CEVA arriba a la derecha.
+
+const PICKING_COLORES = { azul: "002060", amarillo: "FFFF00", naranja: "FFC000", rojo: "FF0000" };
+const PICKING_LOGO = "../../shared/assets/ceva-logo.png";
+
+// Una página A4 por línea, con el diseño de la plantilla.
 function imprimirPicking(boton){
 
     conHojasPicking(boton, function(hojas){
 
+        const logo = new URL(PICKING_LOGO, location.href).href;
+
         const paginas = hojas.map(function(h){
             return (
-                '<section class="hoja">' +
-                    '<table class="cab">' +
-                        '<tr><th>FO</th><td class="fo">' + escaparHtml(h.fo) + '</td><th class="izq">TIENDA</th><td></td><td></td><th>CANTIDAD PALETAS</th></tr>' +
-                        '<tr><th>PEDIDO</th><td></td><td class="grande">' + escaparHtml(h.cliente) + '</td><td></td><td></td><td class="paletas" rowspan="3"></td></tr>' +
-                        '<tr><th>OC</th><td></td><td class="titulo" colspan="3">1° LISTA DE VALIDACIÓN DE PICKING</td></tr>' +
-                        '<tr><th>ROTULO</th><td></td><td class="grande">' + escaparHtml(h.rotulo) + '</td><th>Cita:</th><td>' + escaparHtml(h.cita) + '</td></tr>' +
-                    '</table>' +
-                    '<table class="det">' +
-                        '<thead><tr><th>CÓDIGO</th><th>DENOMINACIÓN</th><th>UM</th><th>CANTIDAD</th></tr></thead><tbody>' +
-                        h.materiales.map(function(m){
-                            return '<tr><td>' + escaparHtml(m.material) + '</td><td class="izq">' + escaparHtml(m.descripcion || "") +
-                                '</td><td>' + escaparHtml(m.um || "") + '</td><td class="num">' + m.cantidad.toLocaleString("es-PE") + '</td></tr>';
-                        }).join("") +
-                        '<tr class="total"><td></td><td></td><td>TOTAL</td><td class="num">' + h.total.toLocaleString("es-PE") + '</td></tr>' +
-                    '</tbody></table>' +
-                    '<div class="pie">' + escaparHtml(nombreHojaPicking(h)) + '</div>' +
-                '</section>'
+                '<section class="hoja"><table>' +
+                    '<colgroup><col style="width:13%"><col style="width:15%"><col style="width:40%"><col style="width:9%"><col style="width:11%"><col style="width:12%"></colgroup>' +
+                    '<tr><td class="az">FO</td><td class="az">' + escaparHtml(h.fo) + '</td><td class="b">TIENDA</td>' +
+                        '<td class="logo" colspan="2" rowspan="2"><img src="' + logo + '" alt="CEVA"></td><td class="az">CANTIDAD PALETAS</td></tr>' +
+                    '<tr><td class="az">PEDIDO</td><td class="am"></td><td class="b">' + escaparHtml(h.cliente) + '</td><td class="pal" rowspan="3"></td></tr>' +
+                    '<tr><td class="az">OC</td><td class="na"></td><td class="az" colspan="3">1° LISTA DE VALIDACIÓN DE PICKING</td></tr>' +
+                    '<tr><td class="az">ROTULO</td><td class="az"></td><td class="az">' + escaparHtml(h.rotulo) + '</td><td class="az">Cita:</td><td class="az">' + escaparHtml(h.cita) + '</td></tr>' +
+                    '<tr><td class="sin"></td><td class="ro">CÓDIGO</td><td class="ro">DENOMINACIÓN</td><td class="ro">UM</td><td class="ro">CANTIDAD</td><td class="sin"></td></tr>' +
+                    h.materiales.map(function(m){
+                        return '<tr><td class="sin"></td><td>' + escaparHtml(m.material) + '</td><td>' + escaparHtml(m.descripcion || "") +
+                            '</td><td>' + escaparHtml(m.um || "") + '</td><td>' + m.cantidad.toLocaleString("es-PE") + '</td><td class="sin"></td></tr>';
+                    }).join("") +
+                    '<tr><td class="sin"></td><td></td><td></td><td class="b">TOTAL</td><td class="b">' + h.total.toLocaleString("es-PE") + '</td><td class="sin"></td></tr>' +
+                '</table><div class="pie">' + escaparHtml(nombreHojaPicking(h)) + '</div></section>'
             );
         }).join("");
 
@@ -1290,19 +1297,17 @@ function imprimirPicking(boton){
 
         ventana.document.write(
             '<!doctype html><html><head><meta charset="utf-8"><title>Lista de validación de picking</title><style>' +
-                '@page{size:A4 portrait;margin:12mm}' +
-                'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000;margin:0}' +
+                '@page{size:A4 portrait;margin:10mm}' +
+                '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+                'body{font-family:Calibri,Arial,sans-serif;font-size:12pt;color:#000;margin:0}' +
                 '.hoja{page-break-after:always}.hoja:last-child{page-break-after:auto}' +
-                'table{border-collapse:collapse;width:100%}' +
-                '.cab{margin-bottom:10px}.cab th,.cab td{border:1px solid #000;padding:4px 6px;text-align:left;font-size:11pt}' +
-                '.cab th{width:12%;background:#f2f2f2}.cab .fo{font-weight:bold;font-size:13pt}' +
-                '.cab .grande{font-weight:bold;font-size:13pt;text-align:center}' +
-                '.cab .titulo{font-weight:bold;font-size:14pt;text-align:center}' +
-                '.cab .paletas{width:16%}' +
-                '.det th{background:#1f3864;color:#fff;border:1px solid #000;padding:4px 6px}' +
-                '.det td{border:1px solid #000;padding:3px 6px;text-align:center}' +
-                '.det .izq{text-align:left}.det .num{text-align:right}' +
-                '.det .total td{font-weight:bold;background:#f2f2f2}' +
+                'table{border-collapse:collapse;width:100%;table-layout:fixed}' +
+                'td{border:1px solid #000;padding:2px 4px;text-align:center;height:20px}' +
+                '.az{background:#' + PICKING_COLORES.azul + ';color:#fff;font-weight:bold}' +
+                '.am{background:#' + PICKING_COLORES.amarillo + '}.na{background:#' + PICKING_COLORES.naranja + '}' +
+                '.ro{background:#' + PICKING_COLORES.rojo + ';color:#fff;font-weight:bold}' +
+                '.b{font-weight:bold}.sin{border:none}' +
+                '.logo{border:none}.logo img{height:34px}' +
                 '.pie{margin-top:6px;font-size:9pt;color:#555;text-align:right}' +
             '</style></head><body>' + paginas +
             '<script>window.onload=function(){window.print();};<\/script></body></html>'
@@ -1313,39 +1318,134 @@ function imprimirPicking(boton){
 
 }
 
-// Un Excel con una pestaña por línea ("1000181352 (1 de 4)"), como la
-// plantilla.
+// Carga un script de una CDN una sola vez (ExcelJS, solo al exportar).
+function cargarScriptUnaVez(url){
+    return new Promise(function(resolve, reject){
+        if(document.querySelector('script[src="' + url + '"]')) return resolve();
+        const s = document.createElement("script");
+        s.src = url;
+        s.onload = resolve;
+        s.onerror = function(){ reject(new Error("no se pudo cargar " + url)); };
+        document.head.appendChild(s);
+    });
+}
+
+async function logoBase64(){
+    const blob = await fetch(PICKING_LOGO).then(function(r){ return r.blob(); });
+    return new Promise(function(resolve){
+        const lector = new FileReader();
+        lector.onload = function(){ resolve(lector.result); };
+        lector.readAsDataURL(blob);
+    });
+}
+
+// Un Excel con una pestaña por línea ("1000181352 (1 de 4)") y el
+// diseño de la plantilla. Se arma con ExcelJS (SheetJS no guarda
+// colores ni imágenes).
 function exportarPicking(boton){
 
-    conHojasPicking(boton, function(hojas){
+    conHojasPicking(boton, async function(hojas){
 
-        const libro = XLSX.utils.book_new();
+        try{
 
-        hojas.forEach(function(h){
+            await cargarScriptUnaVez("https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js");
 
-            const filas = [
-                ["FO", h.fo, "TIENDA", "", "", "CANTIDAD PALETAS"],
-                ["PEDIDO", "", h.cliente, "", "", ""],
-                ["OC", "", "1° LISTA DE VALIDACIÓN DE PICKING", "", "", ""],
-                ["ROTULO", "", h.rotulo, "Cita:", h.cita, ""],
-                ["", "CÓDIGO", "DENOMINACIÓN", "UM", "CANTIDAD"]
-            ].concat(h.materiales.map(function(m){
-                return ["", Number(m.material) || m.material, m.descripcion || "", m.um || "", m.cantidad];
-            })).concat([["", "", "", "TOTAL", h.total]]);
+            const libro = new ExcelJS.Workbook();
+            const logo = libro.addImage({ base64: await logoBase64(), extension: "png" });
 
-            const hoja = XLSX.utils.aoa_to_sheet(filas);
-            hoja["!merges"] = [
-                { s: { r: 1, c: 5 }, e: { r: 3, c: 5 } },   // F2:F4 (cantidad de paletas, a mano)
-                { s: { r: 2, c: 2 }, e: { r: 2, c: 4 } }    // C3:E3 (título)
-            ];
-            hoja["!cols"] = [{ wch: 20 }, { wch: 23 }, { wch: 67 }, { wch: 13 }, { wch: 15 }, { wch: 18 }];
+            const fuente = function(negrita, blanca){
+                return { name: "Calibri", size: 12, bold: !!negrita, color: { argb: blanca ? "FFFFFFFF" : "FF000000" } };
+            };
+            const relleno = function(color){
+                return { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + color } };
+            };
+            const borde = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+            const centro = { horizontal: "center", vertical: "middle", wrapText: true };
 
-            XLSX.utils.book_append_sheet(libro, hoja, nombreHojaPicking(h).slice(0, 31));
+            // Escribe una celda con su estilo.
+            function celda(hoja, ref, valor, estilo){
+                const c = hoja.getCell(ref);
+                c.value = valor;
+                c.font = fuente(estilo.negrita, estilo.blanca);
+                c.alignment = centro;
+                c.border = borde;
+                if(estilo.color) c.fill = relleno(estilo.color);
+            }
 
-        });
+            const AZUL = { negrita: true, blanca: true, color: PICKING_COLORES.azul };
+            const ROJO = { negrita: true, blanca: true, color: PICKING_COLORES.rojo };
 
-        const fos = Array.from(new Set(hojas.map(function(h){ return h.fo; })));
-        XLSX.writeFile(libro, "Picking Tottus " + (fos.length === 1 ? fos[0] : fos.length + " viajes") + ".xlsx");
+            hojas.forEach(function(h){
+
+                const hoja = libro.addWorksheet(nombreHojaPicking(h).slice(0, 31), {
+                    pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+                });
+
+                hoja.columns = [{ width: 20 }, { width: 23 }, { width: 67 }, { width: 13.3 }, { width: 15 }, { width: 18.3 }];
+
+                // Cabecera (filas 1 a 4)
+                celda(hoja, "A1", "FO", AZUL);
+                celda(hoja, "B1", Number(h.fo) || h.fo, AZUL);
+                celda(hoja, "C1", "TIENDA", { negrita: true });
+                celda(hoja, "F1", "CANTIDAD PALETAS", AZUL);
+
+                celda(hoja, "A2", "PEDIDO", AZUL);
+                celda(hoja, "B2", "", { color: PICKING_COLORES.amarillo });
+                celda(hoja, "C2", h.cliente, { negrita: true });
+                hoja.mergeCells("F2:F4");
+                celda(hoja, "F2", "", {});
+
+                celda(hoja, "A3", "OC", AZUL);
+                celda(hoja, "B3", "", { color: PICKING_COLORES.naranja });
+                hoja.mergeCells("C3:E3");
+                celda(hoja, "C3", "1° LISTA DE VALIDACIÓN DE PICKING", AZUL);
+
+                celda(hoja, "A4", "ROTULO", AZUL);
+                celda(hoja, "B4", "", AZUL);
+                celda(hoja, "C4", h.rotulo, AZUL);
+                celda(hoja, "D4", "Cita:", AZUL);
+                celda(hoja, "E4", h.cita, AZUL);
+
+                // Detalle
+                ["CÓDIGO", "DENOMINACIÓN", "UM", "CANTIDAD"].forEach(function(t, i){
+                    celda(hoja, ["B", "C", "D", "E"][i] + "5", t, ROJO);
+                });
+
+                let fila = 6;
+                h.materiales.forEach(function(m){
+                    celda(hoja, "B" + fila, Number(m.material) || m.material, {});
+                    celda(hoja, "C" + fila, m.descripcion || "", {});
+                    celda(hoja, "D" + fila, m.um || "", {});
+                    celda(hoja, "E" + fila, m.cantidad, {});
+                    fila++;
+                });
+
+                celda(hoja, "B" + fila, "", {});
+                celda(hoja, "C" + fila, "", {});
+                celda(hoja, "D" + fila, "TOTAL", { negrita: true });
+                celda(hoja, "E" + fila, h.total, { negrita: true });
+
+                // Logo de CEVA arriba, entre D y E (como en la plantilla).
+                hoja.addImage(logo, { tl: { col: 3.55, row: 0.1 }, ext: { width: 100, height: 36 } });
+
+            });
+
+            const buffer = await libro.xlsx.writeBuffer();
+            const fos = Array.from(new Set(hojas.map(function(h){ return h.fo; })));
+            const enlace = document.createElement("a");
+            enlace.href = URL.createObjectURL(new Blob([buffer], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }));
+            enlace.download = "Picking Tottus " + (fos.length === 1 ? fos[0] : fos.length + " viajes") + ".xlsx";
+            document.body.appendChild(enlace);
+            enlace.click();
+            document.body.removeChild(enlace);
+            setTimeout(function(){ URL.revokeObjectURL(enlace.href); }, 5000);
+
+        }catch(error){
+            console.error(error);
+            alert("No se pudo exportar el Excel: " + (error.message || error));
+        }
 
     });
 
