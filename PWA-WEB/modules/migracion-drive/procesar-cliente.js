@@ -412,6 +412,9 @@ async function cargarCorreo(titulo, filasLeidas, origen, miniatura){
                     "/md_entregas_rotulo?fo=in.(" + encodeURIComponent(fos) + ")&select=fo,entrega,rotulo,peso_kg"
                   ) || [])
                 : [];
+            procesarCliente.negocioMara = procesarCliente.config.modo === "lineas" && fos
+                ? await negocioSegunMara(fos)
+                : {};
         }catch(error){
             console.error(error);
             estadoCorreo("cv-error", "❌ Se leyó el correo, pero no se pudo cruzar con los viajes: " + (error.message || error));
@@ -870,10 +873,52 @@ async function subirViajesCliente(){
 
 const SIN_NEGOCIO = "SIN NEGOCIO";
 
-function generarLineas(){
+// Negocio de cada entrega según la MARA, para los pedidos que no vienen
+// en el correo: la EMPRESA de sus materiales (md_materiales.negocio_tottus:
+// PE11 Alicorp → ALICORP LIMPIEZA, PE21 Intradevco → INTRADEVCO, Lavax →
+// INTRADEVCO). Una entrega no se parte: toma el negocio que más pesa.
+async function negocioSegunMara(fosLista){
 
-    const negocioDePedido = {};
-    procesarCliente.correo.filas.forEach(function(f){ if(f.negocio) negocioDePedido[f.pedido] = f.negocio; });
+    const detalle = await supabaseFetch(
+        "/md_entregas_material?fo=in.(" + encodeURIComponent(fosLista) + ")&select=entrega,material,peso_kg"
+    ) || [];
+    const materiales = Array.from(new Set(detalle.map(function(d){ return d.material; })));
+    const negocioDe = {};
+
+    for(let i = 0; i < materiales.length; i += 300){
+        const lista = materiales.slice(i, i + 300).map(function(m){ return '"' + m + '"'; }).join(",");
+        (await supabaseFetch("/md_materiales?material=in.(" + encodeURIComponent(lista) + ")&select=material,negocio_tottus") || [])
+            .forEach(function(m){ if(m.negocio_tottus) negocioDe[m.material] = m.negocio_tottus; });
+    }
+
+    const pesos = {};
+    detalle.forEach(function(d){
+        const negocio = negocioDe[d.material];
+        if(!negocio) return;
+        pesos[d.entrega] = pesos[d.entrega] || {};
+        pesos[d.entrega][negocio] = (pesos[d.entrega][negocio] || 0) + (Number(d.peso_kg) || 0);
+    });
+
+    const resultado = {};
+    Object.keys(pesos).forEach(function(entrega){
+        resultado[entrega] = Object.keys(pesos[entrega]).sort(function(a, b){ return pesos[entrega][b] - pesos[entrega][a]; })[0];
+    });
+
+    return resultado;
+
+}
+
+// Negocio de una entrega: el del correo (Portafolio de su pedido) o, si
+// el pedido no vino en el correo, el de la MARA. { negocio, origen }.
+function negocioDeEntregaPanel(entrega, pedido){
+    const delCorreo = procesarCliente.correo.filas.find(function(f){ return f.pedido === pedido && f.negocio; });
+    if(delCorreo) return { negocio: delCorreo.negocio, origen: "correo" };
+    const mara = (procesarCliente.negocioMara || {})[entrega];
+    if(mara) return { negocio: mara, origen: "MARA" };
+    return { negocio: SIN_NEGOCIO, origen: "" };
+}
+
+function generarLineas(){
 
     const pedidoDeEntrega = {};
     procesarCliente.entregas.forEach(function(e){ pedidoDeEntrega[e.entrega] = soloDigitos(e.documento_modelo); });
@@ -881,7 +926,7 @@ function generarLineas(){
     const suma = {};
 
     (procesarCliente.rotulos || []).forEach(function(r){
-        const negocio = negocioDePedido[pedidoDeEntrega[r.entrega]] || SIN_NEGOCIO;
+        const negocio = negocioDeEntregaPanel(r.entrega, pedidoDeEntrega[r.entrega]).negocio;
         const clave = r.fo + "|" + negocio + "|" + r.rotulo;
         if(!suma[clave]) suma[clave] = { fo: r.fo, cliente: negocio, rotulo: r.rotulo, peso_kg: 0 };
         suma[clave].peso_kg += Number(r.peso_kg) || 0;
@@ -895,7 +940,8 @@ function generarLineas(){
     // por entrega y rótulo, ordenada por FO, rótulo y entrega.
     procesarCliente.resumen = (procesarCliente.rotulos || []).map(function(r){
         const pedido = pedidoDeEntrega[r.entrega] || "";
-        return { fo: r.fo, rotulo: r.rotulo, pedido: pedido, entrega: r.entrega, tienda: negocioDePedido[pedido] || SIN_NEGOCIO };
+        const negocio = negocioDeEntregaPanel(r.entrega, pedido);
+        return { fo: r.fo, rotulo: r.rotulo, pedido: pedido, entrega: r.entrega, tienda: negocio.negocio, origen: negocio.origen };
     }).sort(function(a, b){
         return a.fo.localeCompare(b.fo) || a.rotulo.localeCompare(b.rotulo) || a.entrega.localeCompare(b.entrega);
     });
@@ -923,7 +969,16 @@ function pintarLineas(){
 
     if(sinNegocio){
         html += '<div class="cv-aviso">⚠️ ' + sinNegocio + (sinNegocio === 1 ? " línea queda" : " líneas quedan") +
-            " <b>SIN NEGOCIO</b>: su pedido no está en los correos pegados. Si viene en otro correo, pégalo arriba.</div>";
+            " <b>SIN NEGOCIO</b>: su pedido no está en los correos pegados y sus materiales no tienen negocio en la MARA. " +
+            "Pega el otro correo o completa el negocio de esos materiales en 📚 MARAs.</div>";
+    }
+
+    const segunMara = (procesarCliente.resumen || []).filter(function(r){ return r.origen === "MARA"; });
+
+    if(segunMara.length){
+        html += '<div class="cv-aviso pc-aviso-mara">ℹ️ ' + segunMara.length + (segunMara.length === 1 ? " entrega" : " entregas") +
+            " no " + (segunMara.length === 1 ? "está" : "están") + " en el correo: su negocio se tomó de la <b>MARA</b> " +
+            "(empresa de sus materiales, la entrega completa). Revísalo en el resumen; si viene en otro correo, pégalo arriba y manda el correo.</div>";
     }
 
     if(lineas.length){
@@ -973,7 +1028,8 @@ function pintarLineas(){
                     "<td><b>" + escaparHtml(r.rotulo) + "</b></td>" +
                     "<td>" + escaparHtml(r.pedido) + "</td>" +
                     "<td><b>" + escaparHtml(r.entrega) + "</b></td>" +
-                    "<td>" + escaparHtml(r.tienda) + "</td>" +
+                    "<td>" + escaparHtml(r.tienda) +
+                        (r.origen === "MARA" ? ' <span class="pc-chip-mara" title="No vino en el correo: negocio según la MARA">MARA</span>' : "") + "</td>" +
                 "</tr>";
             }).join("") +
             "</tbody></table></div>";
@@ -1089,12 +1145,8 @@ function pintarSubidaLineas(){
 // correo y las 08:00): md_viajes.fecha_cita / hora_cita.
 async function guardarNegocioYCita(fos){
 
-    const negocioDePedido = {};
     const ocDePedido = {};
-    procesarCliente.correo.filas.forEach(function(f){
-        if(f.negocio) negocioDePedido[f.pedido] = f.negocio;
-        if(f.oc) ocDePedido[f.pedido] = f.oc;
-    });
+    procesarCliente.correo.filas.forEach(function(f){ if(f.oc) ocDePedido[f.pedido] = f.oc; });
 
     const entregasPorNegocio = {};
     const entregasPorOc = {};
@@ -1102,9 +1154,9 @@ async function guardarNegocioYCita(fos){
     procesarCliente.entregas.forEach(function(e){
         if(fos.indexOf(e.fo) === -1) return;
         const pedido = soloDigitos(e.documento_modelo);
-        const negocio = negocioDePedido[pedido];
+        const negocio = negocioDeEntregaPanel(e.entrega, pedido).negocio;
         const oc = ocDePedido[pedido];
-        if(negocio) (entregasPorNegocio[negocio] = entregasPorNegocio[negocio] || []).push(e.entrega);
+        if(negocio !== SIN_NEGOCIO) (entregasPorNegocio[negocio] = entregasPorNegocio[negocio] || []).push(e.entrega);
         if(oc) (entregasPorOc[oc] = entregasPorOc[oc] || []).push(e.entrega);
     });
 
@@ -1272,12 +1324,8 @@ async function armarHojasPicking(){
         "&select=fo,entrega,material,descripcion,um,cantidad,rotulo&order=material"
     ) || []) : [];
 
-    const negocioDePedido = {};
     const fechaDePedido = {};
-    procesarCliente.correo.filas.forEach(function(f){
-        if(f.negocio) negocioDePedido[f.pedido] = f.negocio;
-        if(f.fecha_entrega) fechaDePedido[f.pedido] = f.fecha_entrega;
-    });
+    procesarCliente.correo.filas.forEach(function(f){ if(f.fecha_entrega) fechaDePedido[f.pedido] = f.fecha_entrega; });
 
     const pedidoDeEntrega = {};
     procesarCliente.entregas.forEach(function(e){ pedidoDeEntrega[e.entrega] = soloDigitos(e.documento_modelo); });
@@ -1287,7 +1335,7 @@ async function armarHojasPicking(){
 
     detalle.forEach(function(d){
         const pedido = pedidoDeEntrega[d.entrega];
-        const negocio = negocioDePedido[pedido] || SIN_NEGOCIO;
+        const negocio = negocioDeEntregaPanel(d.entrega, pedido).negocio;
         const clave = d.fo + "|" + negocio + "|" + (d.rotulo || SIN_ROTULO);
         const linea = porLinea[clave] = porLinea[clave] || { materiales: {}, fecha: fechaDePedido[pedido] || "" };
         const mat = d.material + "|" + (d.um || "");

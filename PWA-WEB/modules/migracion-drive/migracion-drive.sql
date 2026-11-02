@@ -389,6 +389,14 @@ create table if not exists public.md_materiales (
 alter table public.md_materiales add column if not exists sku_tottus text;
 alter table public.md_materiales add column if not exists conversion_tottus numeric(12, 3);
 
+-- Marca y negocio Tottus (de la EMPRESA de la MARA: PE21 Intradevco ->
+-- INTRADEVCO, PE11 Alicorp -> ALICORP LIMPIEZA; Lavax va como
+-- INTRADEVCO). Procesar cliente toma el negocio de aquí para las
+-- entregas cuyo pedido no vino en el correo: la entrega entera va al
+-- negocio que más peso tiene (una entrega no se parte).
+alter table public.md_materiales add column if not exists marca text;
+alter table public.md_materiales add column if not exists negocio_tottus text;
+
 create table if not exists public.md_entregas_rotulo (
     entrega text not null references public.md_entregas (entrega) on delete cascade,
     fo text not null,

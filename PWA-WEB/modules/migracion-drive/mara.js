@@ -13,6 +13,11 @@
 const maraTottus = { materiales: [] };
 const ROTULOS_MARA_TOTTUS = ["T.LIMPIEZA", "T.HUACHIPA"];
 
+// Negocio Tottus de cada material (de la EMPRESA de la MARA; Lavax va
+// como INTRADEVCO): lo usa Procesar cliente para las entregas cuyo
+// pedido no vino en el correo.
+const NEGOCIOS_TOTTUS = ["ALICORP LIMPIEZA", "INTRADEVCO"];
+
 // La API devuelve como mucho 1000 filas por pedido: se piden de a 1000.
 async function cargarMaraTottus(){
 
@@ -27,7 +32,7 @@ async function cargarMaraTottus(){
 
         for(let desde = 0; ; desde += 1000){
             const lote = await supabaseFetch(
-                "/md_materiales?select=material,descripcion,rotulo_tottus,sku_tottus,conversion_tottus,actualizado_en&order=material" +
+                "/md_materiales?select=material,descripcion,marca,rotulo_tottus,negocio_tottus,sku_tottus,conversion_tottus,actualizado_en&order=material" +
                 "&limit=1000&offset=" + desde
             ) || [];
             Array.prototype.push.apply(todos, lote);
@@ -57,7 +62,7 @@ function pintarMaraTottus(){
         if(rotulo === "SIN" && m.rotulo_tottus) return false;
         if(rotulo && rotulo !== "SIN" && m.rotulo_tottus !== rotulo) return false;
         if(!texto) return true;
-        return [m.material, m.descripcion, m.sku_tottus].some(function(c){ return limpiarTexto(c).indexOf(texto) !== -1; });
+        return [m.material, m.descripcion, m.sku_tottus, m.marca, m.negocio_tottus].some(function(c){ return limpiarTexto(c).indexOf(texto) !== -1; });
     });
 
     if(materiales.length === 0){
@@ -84,18 +89,27 @@ function pintarMaraTottus(){
             " · el rótulo se guarda solo al cambiarlo" +
         "</div>" +
         '<div class="sp-contenedor mt-tabla"><table class="sp-tabla"><thead><tr>' +
-            "<th>MATERIAL</th><th>DESCRIPCIÓN</th><th>RÓTULO TOTTUS</th><th>SKU TOTTUS</th><th>CONVERSIÓN (UND)</th>" +
+            "<th>MATERIAL</th><th>DESCRIPCIÓN</th><th>MARCA</th><th>RÓTULO TOTTUS</th><th>NEGOCIO TOTTUS</th><th>SKU TOTTUS</th><th>CONVERSIÓN (UND)</th>" +
         "</tr></thead><tbody>" +
         visibles.map(function(m){
             const material = escaparHtml(JSON.stringify(m.material));
             return "<tr>" +
                 "<td><b>" + escaparHtml(m.material) + "</b></td>" +
                 '<td class="sp-izq">' + escaparHtml(m.descripcion || "-") + "</td>" +
+                "<td>" + escaparHtml(m.marca || "-") + "</td>" +
                 "<td>" +
                     '<select class="mn-input" onchange="cambiarRotuloMaterial(this, ' + material + ')">' +
                         (m.rotulo_tottus ? "" : '<option value="" selected>— sin rótulo —</option>') +
                         ROTULOS_MARA_TOTTUS.map(function(r){
                             return '<option value="' + r + '"' + (r === m.rotulo_tottus ? " selected" : "") + ">" + r + "</option>";
+                        }).join("") +
+                    "</select>" +
+                "</td>" +
+                "<td>" +
+                    '<select class="mn-input" onchange="cambiarCampoMaterial(this, ' + material + ', \'negocio_tottus\')">' +
+                        '<option value=""' + (m.negocio_tottus ? "" : " selected") + ">—</option>" +
+                        NEGOCIOS_TOTTUS.map(function(n){
+                            return '<option value="' + n + '"' + (n === m.negocio_tottus ? " selected" : "") + ">" + n + "</option>";
                         }).join("") +
                     "</select>" +
                 "</td>" +

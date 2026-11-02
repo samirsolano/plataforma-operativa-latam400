@@ -1324,6 +1324,23 @@ body{
     font-weight:bold;
 }
 
+/* Negocio tomado de la MARA (la entrega no vino en el correo) */
+.pc-chip-mara{
+    margin-left:4px;
+    padding:1px 6px;
+    border-radius:8px;
+    background:#e0f2fe;
+    color:#075985;
+    font-size:9px;
+    font-weight:bold;
+}
+
+.cv-aviso.pc-aviso-mara{
+    border-color:#7dd3fc;
+    background:#f0f9ff;
+    color:#075985;
+}
+
 .pc-falta-oc{
     color:#e00000;
     font-size:11px;
