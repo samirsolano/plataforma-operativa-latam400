@@ -89,6 +89,11 @@
 
                 <a href="#" class="tab-link" data-tab="tabBaseDatos">Base de Datos</a>
 
+                <div class="menu-separador"></div>
+                <div class="menu-seccion">Revisión</div>
+
+                <a href="#" class="tab-link" data-tab="tabSeparacion">Separación de etiquetas</a>
+
             </nav>
 
         </aside>
@@ -1128,6 +1133,41 @@
 
             </div>
 
+            <!-- ============================================ -->
+            <!-- REVISIÓN: SEPARACIÓN DE ETIQUETAS -->
+            <!-- ============================================ -->
+
+            <div class="tab-contenido oculto" id="tabSeparacion">
+
+                <div class="card">
+
+                    <h2>
+                        SEPARACIÓN DE ETIQUETAS
+                    </h2>
+
+                    <p class="nota-modulo">
+                        Sube los PDF de etiquetas del portal (uno por OC, ej: <strong>1000447112.pdf</strong>). Puedes subir varios a la vez.<br>
+                        Por cada uno se arma <strong>otro PDF</strong> con las mismas etiquetas y en el mismo orden, pero con una hoja <strong>antes de cada lote</strong>: Código, Descripción, Lote y Cantidad de etiquetas.<br>
+                        Todo se hace en esta pantalla: no se guarda nada.
+                    </p>
+
+                    <div class="filtros-mara separacion-filtros">
+
+                        <div>
+                            <label>PDF de etiquetas (puedes elegir varios)</label>
+                            <input type="file" id="archivoEtiquetasPdf" accept="application/pdf,.pdf" multiple>
+                        </div>
+
+                    </div>
+
+                    <div id="resultadoSeparacion">
+                        <div class="sin-datos">Todavía no se subió ningún PDF.</div>
+                    </div>
+
+                </div>
+
+            </div>
+
         </main>
 
     </div>
@@ -1268,6 +1308,9 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
     <script src="../../shared/supabase-config.js"></script>
     <script src="../../shared/auth.js"></script>
     <script src="toma-lote-farmacia.js"></script>

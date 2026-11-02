@@ -1441,3 +1441,60 @@ select:disabled{
     background-color:white;
     color:#1f2937;
 }
+
+/* ========================================
+   REVISIÓN: SEPARACIÓN DE ETIQUETAS
+   ======================================== */
+
+.separacion-filtros{
+    grid-template-columns:1fr;
+    max-width:520px;
+}
+
+.sep-oc{
+    border:1px solid #e5e9f0;
+    border-radius:14px;
+    padding:18px;
+    margin-top:18px;
+}
+
+.sep-oc-cab{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-bottom:12px;
+}
+
+.sep-oc-titulo{
+    font-size:16px;
+    font-weight:800;
+    color:#111827;
+}
+
+.sep-oc-sub{
+    font-size:12.5px;
+    color:#6b7280;
+    margin-top:3px;
+}
+
+.sep-aviso{
+    background:#fff7e6;
+    border:1px solid #f5c26b;
+    color:#8a5a00;
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:13px;
+    margin-bottom:12px;
+}
+
+.btn-descargar-sep{
+    border:none;
+    border-radius:10px;
+    background:#FC000D;
+    color:white;
+    font-weight:700;
+    padding:11px 16px;
+    cursor:pointer;
+    white-space:nowrap;
+}

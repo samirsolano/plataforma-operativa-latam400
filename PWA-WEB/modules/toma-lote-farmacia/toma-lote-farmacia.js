@@ -6112,3 +6112,516 @@ document.getElementById("avanceContenido").addEventListener("click", function(e)
     }
 
 });
+
+// ========================================
+// REVISIÓN: SEPARACIÓN DE ETIQUETAS
+// ========================================
+// Se suben los PDF de etiquetas del portal (uno por OC; cada página =
+// una etiqueta = una caja, con Art (EAN), Lote, descripción, FV y
+// Cantidad). Por cada PDF se devuelve OTRO PDF con las mismas
+// etiquetas, en el mismo orden, pero con una página separadora antes
+// de cada lote: Código (sacado del EAN con MARA Alicorp), Descripción,
+// Lote y cuántas etiquetas siguen. Todo se hace en el navegador; no
+// se guarda nada en la base de datos.
+
+if(window.pdfjsLib){
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+}
+
+const archivoEtiquetasPdf = document.getElementById("archivoEtiquetasPdf");
+const resultadoSeparacion = document.getElementById("resultadoSeparacion");
+
+// Arma las líneas del texto de una página (ítems agrupados por altura
+// y ordenados de izquierda a derecha) y saca los campos por su rótulo.
+function leerCamposEtiqueta(items){
+
+    const lineas = [];
+
+    items.forEach(function(it){
+
+        const texto = String(it.str || "").trim();
+
+        if(!texto){
+            return;
+        }
+
+        const y = it.transform[5];
+        let linea = lineas.find(l => Math.abs(l.y - y) < 4);
+
+        if(!linea){
+            linea = { y: y, partes: [] };
+            lineas.push(linea);
+        }
+
+        linea.partes.push({ x: it.transform[4], texto: texto });
+
+    });
+
+    const textosLinea = lineas
+        .sort((a, b) => b.y - a.y)
+        .map(l => l.partes.sort((a, b) => a.x - b.x).map(p => p.texto).join(" ").replace(/\s+/g, " "));
+
+    const todo = textosLinea.join("\n");
+
+    // Hay dos formatos de etiqueta:
+    // - Con "Art:" (EAN), "Lote:", "FV:", "Cantidad:" y la descripción
+    //   en una línea sin rótulo.
+    // - Con ASN: "Descrip: <texto> <n> Unid", "Lote:", "Exp:" (sin EAN).
+    let descripcion = "";
+    const lineaDescrip = textosLinea.find(t => /Descrip\s*:/i.test(t));
+
+    if(lineaDescrip){
+        descripcion = lineaDescrip.replace(/.*Descrip\s*:/i, "").replace(/\s*(\d+\s*)?Unid\b.*$/i, "");
+    }else{
+        descripcion = textosLinea.find(t => /[A-Za-z]{3,}/.test(t) && !/[A-Za-z.]+\s*:/.test(t)) || "";
+    }
+
+    return {
+        ean: (todo.match(/Art\s*:\s*(\d{8,14})/i) || [])[1] || "",
+        lote: (todo.match(/Lote\s*:\s*([A-Za-z0-9\-]+)/i) || [])[1] || "",
+        fv: (todo.match(/(?:FV|Exp)\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i) || [])[1] || "",
+        descripcion: descripcion.trim()
+    };
+
+}
+
+// Raíces (3 primeras letras) de las palabras de una descripción: así
+// "EUCALIPTO" ~ "EUCA", "TUTTI" ~ "TUTI", "BUC" ~ "BUCAL".
+function raicesDescripcion(texto){
+    return new Set(
+        textoPdfSeguro(texto).toUpperCase().split(/[^A-Z0-9]+/)
+            .filter(p => p.length >= 3)
+            .map(p => p.slice(0, 3))
+    );
+}
+
+function parecidoDescripcion(a, b){
+    const pa = raicesDescripcion(a);
+    const pb = raicesDescripcion(b);
+    let comunes = 0;
+    pa.forEach(p => { if(pb.has(p)){ comunes++; } });
+    return comunes;
+}
+
+// Código de un grupo de etiquetas:
+// 1) Por el EAN en MARA Alicorp (etiquetas con "Art:").
+// 2) Sin EAN (etiquetas ASN): entre los códigos programados en esa OC,
+//    el de descripción más parecida; si además ese código se registró
+//    con ese mismo lote, suma puntos. Solo se acepta si gana claro.
+// ctx: { maraPorEan, maraPorCodigo, programados: [{codigo, descripcion}],
+//        lotesPorCodigo: { codigo: Set(lotes) } } (los dos últimos de la OC).
+function resolverCodigoGrupo(g, ctx){
+
+    const mara = ctx.maraPorEan[g.ean];
+
+    if(mara){
+        return { codigo: String(mara.codigo).trim(), descripcion: mara.descripcion || g.descripcion };
+    }
+
+    const lote = String(g.lote || "").trim().toUpperCase();
+
+    const puntajes = ctx.programados.map(function(pr){
+        const descMara = (ctx.maraPorCodigo[pr.codigo] || {}).descripcion;
+        let puntos = Math.max(parecidoDescripcion(g.descripcion, pr.descripcion), parecidoDescripcion(g.descripcion, descMara));
+        if(lote && (ctx.lotesPorCodigo[pr.codigo] || new Set()).has(lote)){
+            puntos += 3;
+        }
+        return { pr: pr, puntos: puntos };
+    }).sort((a, b) => b.puntos - a.puntos);
+
+    const primero = puntajes[0];
+    const segundo = puntajes[1];
+
+    if(!primero || primero.puntos < 3 || (segundo && segundo.puntos === primero.puntos)){
+        return null;
+    }
+
+    const codigo = primero.pr.codigo;
+
+    return {
+        codigo: codigo,
+        descripcion: (ctx.maraPorCodigo[codigo] && ctx.maraPorCodigo[codigo].descripcion) || primero.pr.descripcion || g.descripcion
+    };
+
+}
+
+async function leerPdfEtiquetas(archivo){
+
+    const bytes = await archivo.arrayBuffer();
+    // pdf.js se queda con el buffer que recibe; se le pasa una copia
+    // para poder reusar los bytes al armar el PDF nuevo.
+    const pdf = await pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
+    const paginas = [];
+
+    for(let n = 1; n <= pdf.numPages; n++){
+        const pagina = await pdf.getPage(n);
+        const contenido = await pagina.getTextContent();
+        const campos = leerCamposEtiqueta(contenido.items);
+        campos.indice = n - 1;
+        paginas.push(campos);
+    }
+
+    const ocTexto = (archivo.name.match(/(\d{6,})/) || [])[1] || "";
+
+    return { archivo: archivo.name, oc: ocTexto, bytes: bytes, pdf: pdf, paginas: paginas };
+
+}
+
+// Las etiquetas ASN no traen el EAN en texto, pero sí en su código 2D
+// (DataMatrix GS1): "(02)<EAN>(10)<lote>(37)<unidades>". Se dibuja la
+// página y se lee el DataMatrix (probando zonas: arriba a la derecha,
+// arriba al centro y la página entera).
+async function leerEanDeCodigo2D(pdf, numeroPagina){
+
+    if(!window.ZXing){
+        return "";
+    }
+
+    const pagina = await pdf.getPage(numeroPagina);
+    const vista = pagina.getViewport({ scale: 3 });
+    const lienzo = document.createElement("canvas");
+    lienzo.width = vista.width;
+    lienzo.height = vista.height;
+
+    const ctx = lienzo.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+    await pagina.render({ canvasContext: ctx, viewport: vista }).promise;
+
+    const pistas = new Map();
+    pistas.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.DATA_MATRIX]);
+    pistas.set(ZXing.DecodeHintType.TRY_HARDER, true);
+
+    const lector = new ZXing.MultiFormatReader();
+    lector.setHints(pistas);
+
+    const zonas = [[0.6, 0, 1, 0.5], [0.3, 0, 0.7, 0.55], [0, 0, 1, 1]];
+
+    for(const [x0, y0, x1, y1] of zonas){
+
+        const w = Math.round((x1 - x0) * lienzo.width);
+        const h = Math.round((y1 - y0) * lienzo.height);
+        const recorte = document.createElement("canvas");
+        recorte.width = w + 80;
+        recorte.height = h + 80;
+
+        const rc = recorte.getContext("2d");
+        rc.fillStyle = "#fff";
+        rc.fillRect(0, 0, recorte.width, recorte.height);
+        rc.drawImage(lienzo, Math.round(x0 * lienzo.width), Math.round(y0 * lienzo.height), w, h, 40, 40, w, h);
+
+        try{
+            const resultado = lector.decode(
+                new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(recorte)))
+            );
+            const texto = resultado.getText();
+            // Con paréntesis "(02)775...(10)..." o crudo "02775...".
+            const ean = (texto.match(/\(02\)\s*(\d{8,14})/) || texto.match(/^\D*02(\d{13,14})/) || [])[1];
+            if(ean){
+                return ean.length === 14 && ean.startsWith("0") ? ean.slice(1) : ean;
+            }
+        }catch(e){
+            // no se encontró en esta zona; se prueba la siguiente
+        }
+
+    }
+
+    return "";
+
+}
+
+// Grupos por EAN + lote, en el orden en que aparecen en el PDF. Si un
+// lote aparece en dos partes del PDF, sus etiquetas se juntan detrás
+// de un solo separador (con el total correcto).
+function agruparPorLote(paginas){
+
+    const grupos = [];
+    const porClave = {};
+
+    paginas.forEach(function(p){
+        // Sin EAN (etiquetas ASN) se separa también por descripción, por
+        // si dos productos distintos comparten número de lote.
+        const clave = (p.ean || p.descripcion) + "|" + String(p.lote).trim().toUpperCase();
+        if(!porClave[clave]){
+            porClave[clave] = { ean: p.ean, lote: p.lote, fv: p.fv, descripcion: p.descripcion, indices: [] };
+            grupos.push(porClave[clave]);
+        }
+        porClave[clave].indices.push(p.indice);
+    });
+
+    return grupos;
+
+}
+
+// Las fuentes estándar del PDF solo aceptan caracteres latinos básicos.
+function textoPdfSeguro(texto){
+    return String(texto || "")
+        .normalize("NFD").replace(/[̀-ͯ]/g, "")
+        .replace(/[^\x20-\x7E]/g, "");
+}
+
+// Achica la letra hasta que el texto entre en el ancho disponible.
+function tamanoQueEntra(fuente, texto, tamano, anchoMax){
+    while(tamano > 8 && fuente.widthOfTextAtSize(texto, tamano) > anchoMax){
+        tamano -= 1;
+    }
+    return tamano;
+}
+
+function dibujarSeparador(pagina, fuente, fuenteNegrita, g, oc){
+
+    const { width: ancho, height: alto } = pagina.getSize();
+    const margen = ancho * 0.06;
+    const anchoUtil = ancho - margen * 2;
+    const negro = PDFLib.rgb(0, 0, 0);
+    const gris = PDFLib.rgb(0.35, 0.35, 0.35);
+    const u = alto / 100; // unidad vertical relativa al tamaño de la etiqueta
+
+    // Marco grueso para que el separador se distinga de una etiqueta.
+    pagina.drawRectangle({
+        x: margen / 2, y: margen / 2, width: ancho - margen, height: alto - margen,
+        borderColor: negro, borderWidth: Math.max(2, ancho * 0.004)
+    });
+
+    let y = alto - margen - u * 6;
+
+    function rotuloValor(rotulo, valor, tamanoValor){
+        pagina.drawText(rotulo, { x: margen, y: y, size: u * 4.5, font: fuente, color: gris });
+        y -= tamanoValor * 1.05;
+        const tam = tamanoQueEntra(fuenteNegrita, valor, tamanoValor, anchoUtil);
+        pagina.drawText(valor, { x: margen, y: y, size: tam, font: fuenteNegrita, color: negro });
+        y -= u * 7;
+    }
+
+    if(oc){
+        const textoOc = "OC " + oc;
+        pagina.drawText(textoOc, {
+            x: ancho - margen - fuente.widthOfTextAtSize(textoOc, u * 4.5),
+            y: alto - margen - u * 6, size: u * 4.5, font: fuente, color: gris
+        });
+    }
+
+    rotuloValor("CODIGO", textoPdfSeguro(g.codigo), u * 13);
+    rotuloValor("DESCRIPCION", textoPdfSeguro(g.descripcionFinal || "-"), u * 6.5);
+    rotuloValor("LOTE", textoPdfSeguro(g.lote || "-"), u * 10);
+    rotuloValor("CANTIDAD DE ETIQUETAS", String(g.indices.length), u * 13);
+
+}
+
+async function armarPdfSeparado(p, ctx){
+
+    const original = await PDFLib.PDFDocument.load(p.bytes);
+    const nuevo = await PDFLib.PDFDocument.create();
+    const fuente = await nuevo.embedFont(PDFLib.StandardFonts.Helvetica);
+    const fuenteNegrita = await nuevo.embedFont(PDFLib.StandardFonts.HelveticaBold);
+
+    const grupos = agruparPorLote(p.paginas);
+    const copiadas = await nuevo.copyPages(original, original.getPageIndices());
+
+    // Grupos sin EAN en el texto (etiquetas ASN): se lee del código 2D
+    // de su primera etiqueta (todas las del grupo son el mismo producto).
+    for(const g of grupos){
+        if(!g.ean){
+            g.ean = await leerEanDeCodigo2D(p.pdf, g.indices[0] + 1);
+            g.eanDeCodigo2D = !!g.ean;
+        }
+    }
+
+    grupos.forEach(function(g){
+
+        const resuelto = resolverCodigoGrupo(g, ctx);
+        g.codigo = resuelto ? resuelto.codigo : (g.ean ? "EAN " + g.ean : "SIN CODIGO");
+        g.descripcionFinal = resuelto ? resuelto.descripcion : g.descripcion;
+        g.sinCodigo = !resuelto;
+
+        // Solo para la pantalla (no va en el PDF): el lote de la
+        // etiqueta contra los lotes registrados de ese código en la OC.
+        const registrados = resuelto ? [...(ctx.lotesPorCodigo[resuelto.codigo] || [])] : [];
+        const lote = String(g.lote || "").trim().toUpperCase();
+        g.observacion = "";
+        if(resuelto && lote && !registrados.includes(lote)){
+            g.observacion = registrados.length
+                ? "Lote no registrado en esta OC (registrado: " + registrados.join(", ") + ")"
+                : "Este código no tiene lecturas en esta OC";
+        }
+
+        // El separador tiene el mismo tamaño que la primera etiqueta del lote.
+        const tamano = copiadas[g.indices[0]].getSize();
+        const separador = nuevo.addPage([tamano.width, tamano.height]);
+        dibujarSeparador(separador, fuente, fuenteNegrita, g, p.oc);
+
+        g.indices.forEach(i => nuevo.addPage(copiadas[i]));
+
+    });
+
+    const bytes = await nuevo.save();
+
+    return { grupos: grupos, blob: new Blob([bytes], { type: "application/pdf" }) };
+
+}
+
+function nombreArchivoSeparado(nombre){
+    return nombre.replace(/\.pdf$/i, "") + "_separado.pdf";
+}
+
+function descargarBlob(blob, nombre){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombre;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+archivoEtiquetasPdf.addEventListener("change", async function(e){
+
+    const archivos = Array.from(e.target.files || []);
+
+    if(!archivos.length){
+        return;
+    }
+
+    if(!window.pdfjsLib || !window.PDFLib){
+        mostrarToast("No se pudo cargar el lector de PDF. Revisa la conexión y recarga la página.", "error");
+        archivoEtiquetasPdf.value = "";
+        return;
+    }
+
+    resultadoSeparacion.innerHTML = `<div class="sin-datos">Procesando ${archivos.length} PDF...</div>`;
+
+    try{
+
+        const pdfs = [];
+
+        for(const archivo of archivos){
+            pdfs.push(await leerPdfEtiquetas(archivo));
+        }
+
+        const ocs = [...new Set(pdfs.map(p => p.oc).filter(Boolean))];
+
+        const [maraFilas, lecturasFilas, dataFilas] = await Promise.all([
+            supabaseFetchTodo("/mara_alicorp?select=ean,codigo,descripcion"),
+            ocs.length ? supabaseFetchTodo("/farmacia_lecturas?select=oc,codigo,lote&oc=in.(" + ocs.join(",") + ")") : [],
+            ocs.length ? supabaseFetchTodo("/farmacia_data?select=orden_compra,codigo,descripcion&orden_compra=in.(" + ocs.join(",") + ")") : []
+        ]);
+
+        const maraPorEan = {};
+        const maraPorCodigo = {};
+
+        (maraFilas || []).forEach(function(m){
+            if(m.ean){
+                maraPorEan[String(m.ean).trim()] = m;
+            }
+            const c = String(m.codigo || "").trim();
+            if(c && !maraPorCodigo[c]){
+                maraPorCodigo[c] = m;
+            }
+        });
+
+        // Por OC: códigos programados y lotes registrados de cada código.
+        const programadosPorOc = {};
+        const lotesPorOc = {};
+
+        (dataFilas || []).forEach(function(f){
+            const oc = String(f.orden_compra);
+            const c = String(f.codigo || "").trim();
+            programadosPorOc[oc] = programadosPorOc[oc] || {};
+            if(c && !programadosPorOc[oc][c]){
+                programadosPorOc[oc][c] = { codigo: c, descripcion: f.descripcion || "" };
+            }
+        });
+
+        (lecturasFilas || []).forEach(function(l){
+            const oc = String(l.oc);
+            const c = String(l.codigo || "").trim();
+            const lote = String(l.lote || "").trim().toUpperCase();
+            if(!c || !lote){
+                return;
+            }
+            lotesPorOc[oc] = lotesPorOc[oc] || {};
+            lotesPorOc[oc][c] = lotesPorOc[oc][c] || new Set();
+            lotesPorOc[oc][c].add(lote);
+        });
+
+        resultadoSeparacion.innerHTML = "";
+
+        for(const p of pdfs){
+
+            const resultado = await armarPdfSeparado(p, {
+                maraPorEan: maraPorEan,
+                maraPorCodigo: maraPorCodigo,
+                programados: Object.values(programadosPorOc[p.oc] || {}),
+                lotesPorCodigo: lotesPorOc[p.oc] || {}
+            });
+            resultadoSeparacion.appendChild(renderResultadoSeparacion(p, resultado));
+
+        }
+
+    }catch(err){
+
+        console.error(err);
+        resultadoSeparacion.innerHTML = `<div class="sin-datos">No se pudo procesar el PDF: ${escaparHtmlFarmacia(err.message || "")}</div>`;
+
+    }finally{
+
+        archivoEtiquetasPdf.value = "";
+
+    }
+
+});
+
+function renderResultadoSeparacion(p, resultado){
+
+    const bloque = document.createElement("div");
+    bloque.className = "sep-oc";
+
+    const sinLeer = p.paginas.filter(pg => !pg.lote).length;
+    const sinCodigo = resultado.grupos.filter(g => g.sinCodigo);
+    const nombre = nombreArchivoSeparado(p.archivo);
+
+    bloque.innerHTML = `
+        <div class="sep-oc-cab">
+            <div>
+                <div class="sep-oc-titulo">OC ${escaparHtmlFarmacia(p.oc || "(sin OC en el nombre)")}</div>
+                <div class="sep-oc-sub">${escaparHtmlFarmacia(p.archivo)} · ${p.paginas.length} etiquetas · ${resultado.grupos.length} lotes</div>
+            </div>
+            <button type="button" class="btn-descargar-sep">⬇ Descargar ${escaparHtmlFarmacia(nombre)}</button>
+        </div>
+
+        ${sinLeer ? `<div class="sep-aviso">${sinLeer} página(s) no se pudieron leer (sin Lote): quedaron en su propio grupo.</div>` : ""}
+        ${sinCodigo.length ? `<div class="sep-aviso">No se encontró el código de ${sinCodigo.length} lote(s) (ni por EAN ni por descripción entre los códigos de esta OC): ${escaparHtmlFarmacia(sinCodigo.map(g => g.lote).join(", "))}. En su hoja sale "SIN CODIGO".</div>` : ""}
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>Lote</th>
+                    <th>Cantidad de etiquetas</th>
+                    <th>Observación</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${resultado.grupos.map(g => `
+                    <tr>
+                        <td>${escaparHtmlFarmacia(g.codigo)}</td>
+                        <td>${escaparHtmlFarmacia(g.descripcionFinal || "-")}</td>
+                        <td>${escaparHtmlFarmacia(g.lote || "-")}</td>
+                        <td><strong>${g.indices.length}</strong></td>
+                        <td>${g.observacion ? `<span class="estado advertencia">${escaparHtmlFarmacia(g.observacion)}</span>` : "-"}</td>
+                    </tr>
+                `).join("")}
+            </tbody>
+        </table>
+    `;
+
+    bloque.querySelector(".btn-descargar-sep").addEventListener("click", function(){
+        descargarBlob(resultado.blob, nombre);
+    });
+
+    return bloque;
+
+}
