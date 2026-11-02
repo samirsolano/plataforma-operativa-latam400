@@ -1388,6 +1388,7 @@ async function buscarPendientesPackingList(){
 
 function abrirPackingList(){
     pintarPackingList();
+    cargarCitasTottus();
     document.getElementById("cvModalPackingList").style.display = "flex";
 }
 
@@ -1428,6 +1429,206 @@ function pintarPackingList(){
 
 }
 
+// ----- Tottus: citas y ASN (en 📦 Pendiente de Packing List) -----
+// Como la tabla "Datos" de la plantilla F-LAT-058: una fila por FO ×
+// tienda (TOTTUS - HUACHIPA / TOTTUS ORIENTE) con sus OC (guardadas al
+// subir desde Procesar cliente). La CITA la escribe el usuario (sale del
+// portal de Tottus) y el ASN es 2000 + cita. Se guarda en
+// md_citas_tottus y se copia para el correo.
+
+async function cargarCitasTottus(){
+
+    const caja = document.getElementById("cvCitasTottus");
+    const fos = packingList.viajes
+        .filter(function(v){ return limpiarTexto(v.cliente).indexOf("TOTTUS") !== -1; })
+        .map(function(v){ return v.fo; });
+
+    packingList.citas = [];
+
+    if(fos.length === 0){
+        caja.innerHTML = "";
+        return;
+    }
+
+    caja.innerHTML = '<div class="cv-vacio">Cargando citas de Tottus...</div>';
+
+    try{
+
+        const lista = fos.map(function(fo){ return '"' + fo + '"'; }).join(",");
+        const respuestas = await Promise.all([
+            supabaseFetch("/md_entregas?fo=in.(" + encodeURIComponent(lista) + ")&select=fo,entrega,destinatario_nombre,oc&order=fo,entrega"),
+            supabaseFetch("/md_citas_tottus?fo=in.(" + encodeURIComponent(lista) + ")&select=fo,tienda,cita,asn")
+        ]);
+
+        const citaDe = {};
+        (respuestas[1] || []).forEach(function(c){ citaDe[c.fo + "|" + c.tienda] = c; });
+
+        const grupos = {};
+
+        (respuestas[0] || []).forEach(function(e){
+            const tienda = limpiarTexto(e.destinatario_nombre) || "SIN TIENDA";
+            const clave = e.fo + "|" + tienda;
+            const g = grupos[clave] = grupos[clave] || {
+                fo: e.fo, tienda: tienda, ocs: [],
+                cita: (citaDe[clave] || {}).cita || "", asn: (citaDe[clave] || {}).asn || ""
+            };
+            if(e.oc && g.ocs.indexOf(e.oc) === -1) g.ocs.push(e.oc);
+        });
+
+        // Como en la plantilla: viajes del más nuevo al más antiguo y, en
+        // cada uno, TOTTUS - HUACHIPA antes que TOTTUS ORIENTE.
+        packingList.citas = Object.keys(grupos).map(function(k){ return grupos[k]; }).sort(function(a, b){
+            return b.fo.localeCompare(a.fo) || a.tienda.localeCompare(b.tienda);
+        });
+
+        pintarCitasTottus();
+
+    }catch(error){
+        console.error(error);
+        caja.innerHTML = '<div class="cv-aviso">No se pudieron cargar las citas de Tottus: ' + escaparHtml(error.message || error) + "</div>";
+    }
+
+}
+
+function pintarCitasTottus(){
+
+    const filas = packingList.citas;
+    const sinOc = filas.filter(function(g){ return g.ocs.length === 0; });
+
+    let html =
+        '<div class="pc-salida-header">' +
+            "<h3>🗓️ Tottus · Citas y ASN</h3>" +
+            '<button class="cv-btn-procesar-todo" id="cvBtnCopiarCitas" onclick="copiarCitasTottus()">📋 Copiar para correo</button>' +
+        "</div>" +
+        '<p class="cv-citas-ayuda">Escribe la cita del portal de Tottus en cada fila: el ASN sale solo (2000 + cita) y queda guardado.</p>';
+
+    if(sinOc.length){
+        html += '<div class="cv-aviso">⚠️ ' + sinOc.map(function(g){ return escaparHtml(g.fo); })
+            .filter(function(fo, i, a){ return a.indexOf(fo) === i; }).join(", ") +
+            ": sin OC guardadas (se subieron antes de este cambio o sin pegar el correo en Procesar cliente).</div>";
+    }
+
+    html += '<div class="cv-tabla-contenedor cv-citas"><table class="cv-tabla"><thead><tr>' +
+        "<th>FO</th><th>CITA</th><th>TIENDA</th><th>OC</th><th>ASN</th>" +
+    "</tr></thead><tbody>";
+
+    filas.forEach(function(g, i){
+
+        const primeraDelFo = i === 0 || filas[i - 1].fo !== g.fo;
+        const filasDelFo = filas.filter(function(x){ return x.fo === g.fo; })
+            .reduce(function(s, x){ return s + Math.max(x.ocs.length, 1); }, 0);
+        const alto = Math.max(g.ocs.length, 1);
+        const ocs = g.ocs.length ? g.ocs : ["-"];
+
+        ocs.forEach(function(oc, j){
+            html += "<tr>";
+            if(j === 0){
+                if(primeraDelFo) html += '<td rowspan="' + filasDelFo + '"><b>' + escaparHtml(g.fo) + "</b></td>";
+                html +=
+                    '<td rowspan="' + alto + '"><input type="text" class="mn-input" inputmode="numeric" placeholder="Cita" value="' +
+                        escaparHtml(g.cita) + '" onchange="guardarCitaTottus(this, ' + i + ')"></td>' +
+                    '<td rowspan="' + alto + '">' + escaparHtml(g.tienda) + "</td>";
+            }
+            html += "<td>" + escaparHtml(oc) + "</td>";
+            if(j === 0) html += '<td rowspan="' + alto + '" id="cvAsn_' + i + '"><b>' + escaparHtml(g.asn || "-") + "</b></td>";
+            html += "</tr>";
+        });
+
+    });
+
+    html += "</tbody></table></div>";
+
+    document.getElementById("cvCitasTottus").innerHTML = html;
+
+}
+
+async function guardarCitaTottus(control, indice){
+
+    const g = packingList.citas[indice];
+    const cita = String(control.value || "").replace(/\D/g, "");
+    const asn = cita ? "2000" + cita : "";
+    const anterior = { cita: g.cita, asn: g.asn };
+
+    control.value = cita;
+    control.classList.remove("mn-guardado", "mn-error");
+    control.classList.add("mn-guardando");
+
+    try{
+
+        await supabaseFetch("/md_citas_tottus?on_conflict=fo,tienda", {
+            method: "POST",
+            headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
+            body: JSON.stringify([{
+                fo: g.fo,
+                tienda: g.tienda,
+                cita: cita || null,
+                asn: asn || null,
+                actualizado_por: sesion ? sesion.nombre_completo : null,
+                actualizado_en: new Date().toISOString()
+            }])
+        });
+
+        g.cita = cita;
+        g.asn = asn;
+        document.getElementById("cvAsn_" + indice).innerHTML = "<b>" + escaparHtml(asn || "-") + "</b>";
+
+        control.classList.remove("mn-guardando");
+        control.classList.add("mn-guardado");
+        setTimeout(function(){ control.classList.remove("mn-guardado"); }, 1500);
+
+    }catch(error){
+
+        console.error(error);
+        control.value = anterior.cita;
+        control.classList.remove("mn-guardando");
+        control.classList.add("mn-error");
+        alert("No se pudo guardar la cita: " + (error.message || error));
+
+    }
+
+}
+
+// Copia el cuadro para el correo, con el formato de la plantilla
+// (encabezado verde, FO / cita / tienda / ASN combinados por grupo).
+function copiarCitasTottus(){
+
+    const filas = packingList.citas;
+    const th = 'style="background:#C6E0B4;color:#375623;font-weight:bold;padding:3px 14px;border:1px solid #000;font-family:Calibri,Arial,sans-serif;font-size:11pt;text-align:center"';
+    const td = 'style="padding:1px 14px;border:1px solid #000;font-family:Calibri,Arial,sans-serif;font-size:11pt;text-align:center;vertical-align:middle"';
+
+    let html = '<table style="border-collapse:collapse"><thead><tr>' +
+        ["FO", "CITA", "TIENDA", "OC", "ASN"].map(function(c){ return "<th " + th + ">" + c + "</th>"; }).join("") +
+    "</tr></thead><tbody>";
+    const texto = [["FO", "CITA", "TIENDA", "OC", "ASN"].join("\t")];
+
+    filas.forEach(function(g, i){
+
+        const primeraDelFo = i === 0 || filas[i - 1].fo !== g.fo;
+        const filasDelFo = filas.filter(function(x){ return x.fo === g.fo; })
+            .reduce(function(s, x){ return s + Math.max(x.ocs.length, 1); }, 0);
+        const ocs = g.ocs.length ? g.ocs : [""];
+
+        ocs.forEach(function(oc, j){
+            html += "<tr>";
+            if(j === 0){
+                if(primeraDelFo) html += '<td rowspan="' + filasDelFo + '" ' + td + ">" + escaparHtml(g.fo) + "</td>";
+                html += '<td rowspan="' + ocs.length + '" ' + td + ">" + escaparHtml(g.cita) + "</td>" +
+                    '<td rowspan="' + ocs.length + '" ' + td + ">" + escaparHtml(g.tienda) + "</td>";
+            }
+            html += "<td " + td + ">" + escaparHtml(oc) + "</td>";
+            if(j === 0) html += '<td rowspan="' + ocs.length + '" ' + td + ">" + escaparHtml(g.asn) + "</td>";
+            html += "</tr>";
+            texto.push([g.fo, g.cita, g.tienda, oc, g.asn].join("\t"));
+        });
+
+    });
+
+    html += "</tbody></table>";
+
+    copiarHtmlCorreo(document.getElementById("cvBtnCopiarCitas"), "📋 Copiar para correo", html, texto.join("\n"));
+
+}
+
 async function marcarPackingListEnviado(fo, boton){
 
     boton.disabled = true;
@@ -1447,6 +1648,7 @@ async function marcarPackingListEnviado(fo, boton){
 
         packingList.viajes = packingList.viajes.filter(function(v){ return v.fo !== fo; });
         pintarPackingList();
+        cargarCitasTottus();
         buscarPendientesPackingList();
 
     }catch(error){

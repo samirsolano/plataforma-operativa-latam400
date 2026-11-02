@@ -624,6 +624,14 @@ function copiarTablaCorreo(boton, textoBoton, intro, columnas, filas, negritas){
     const texto = intro + "\n" + columnas.join("\t") + "\n" +
         filas.map(function(f){ return f.join("\t"); }).join("\n");
 
+    copiarHtmlCorreo(boton, textoBoton, html, texto);
+
+}
+
+// Copia al portapapeles un HTML (para pegar con formato en Outlook) y su
+// versión en texto (para Excel), y avisa en el botón.
+function copiarHtmlCorreo(boton, textoBoton, html, texto){
+
     function avisarCopiado(){
         boton.textContent = "✅ Copiado: pégalo en el correo";
         setTimeout(function(){ boton.textContent = textoBoton; }, 3000);
@@ -1082,15 +1090,34 @@ function pintarSubidaLineas(){
 async function guardarNegocioYCita(fos){
 
     const negocioDePedido = {};
-    procesarCliente.correo.filas.forEach(function(f){ if(f.negocio) negocioDePedido[f.pedido] = f.negocio; });
+    const ocDePedido = {};
+    procesarCliente.correo.filas.forEach(function(f){
+        if(f.negocio) negocioDePedido[f.pedido] = f.negocio;
+        if(f.oc) ocDePedido[f.pedido] = f.oc;
+    });
 
     const entregasPorNegocio = {};
+    const entregasPorOc = {};
 
     procesarCliente.entregas.forEach(function(e){
         if(fos.indexOf(e.fo) === -1) return;
-        const negocio = negocioDePedido[soloDigitos(e.documento_modelo)];
+        const pedido = soloDigitos(e.documento_modelo);
+        const negocio = negocioDePedido[pedido];
+        const oc = ocDePedido[pedido];
         if(negocio) (entregasPorNegocio[negocio] = entregasPorNegocio[negocio] || []).push(e.entrega);
+        if(oc) (entregasPorOc[oc] = entregasPorOc[oc] || []).push(e.entrega);
     });
+
+    // La OC de cada entrega (Referencia de cliente del correo): la usa el
+    // cuadro de citas y ASN de 📦 Pendiente de Packing List.
+    for(const oc of Object.keys(entregasPorOc)){
+        const lista = entregasPorOc[oc].map(function(x){ return '"' + x + '"'; }).join(",");
+        await supabaseFetch("/md_entregas?entrega=in.(" + encodeURIComponent(lista) + ")", {
+            method: "PATCH",
+            headers: { "Prefer": "return=minimal" },
+            body: JSON.stringify({ oc: oc })
+        });
+    }
 
     for(const negocio of Object.keys(entregasPorNegocio)){
         const lista = entregasPorNegocio[negocio].map(function(x){ return '"' + x + '"'; }).join(",");

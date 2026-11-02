@@ -373,6 +373,30 @@ body{
     color:#b91c1c;
 }
 
+/* Ventana de Packing List: más ancha y con scroll (cuadro de citas Tottus) */
+.cv-modal.cv-modal-pl{
+    width:980px;
+    max-height:90vh;
+    overflow-y:auto;
+}
+
+.cv-citas-ayuda{
+    margin:-4px 0 8px !important;
+}
+
+.cv-citas .cv-tabla th:nth-child(n){
+    width:auto;
+}
+
+.cv-citas td{
+    text-align:center;
+    vertical-align:middle;
+}
+
+.cv-citas input.mn-input{
+    max-width:110px;
+}
+
 .cv-chip-pl{
     display:inline-block;
     margin-left:4px;
