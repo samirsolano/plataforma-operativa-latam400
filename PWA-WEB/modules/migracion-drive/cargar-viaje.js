@@ -880,6 +880,8 @@ async function procesarViajesNuevos(){
             return fila;
         }));
 
+        await guardarRotulosTottus(resultado);
+
         cargaViaje.resultado = resultado;
         pintarViajesProcesados(resultado);
         buscarSinSubir();
@@ -895,6 +897,106 @@ async function procesarViajesNuevos(){
         actualizarBotonProcesar();
 
     }
+
+}
+
+// ========================================
+// RÓTULOS TOTTUS (al procesar)
+// ========================================
+// Como la hoja SAP de la plantilla F-LAT-058 ("ROTULO FINAL"): cada
+// línea del VL06F de una entrega de Tottus toma su rótulo:
+//   destinatario TOTTUS ORIENTE - HUACHIPA (SECOS) → ese mismo nombre
+//   otro destinatario TOTTUS (ej. TOTTUS - HUACHIPA (SECOS)) → el
+//     rótulo del material en md_materiales (columna "TIENDA TOTTUS" de
+//     la MARA: T.LIMPIEZA / T.HUACHIPA)
+// y el peso de la entrega se reparte por rótulo (md_entregas_rotulo).
+// Después el viaje se parte por negocio × rótulo con el correo de
+// Tottus.
+
+const ROTULO_TOTTUS_ORIENTE = "TOTTUS ORIENTE - HUACHIPA (SECOS)";
+const SIN_ROTULO = "SIN RÓTULO";
+
+function esEntregaTottus(e){
+    return limpiarTexto(e.destinatario_nombre || e.cliente_nombre).indexOf("TOTTUS") !== -1;
+}
+
+// Rótulo de cada material (md_materiales), en lotes para no armar una
+// URL demasiado larga.
+async function rotulosDeMateriales(materiales){
+
+    const rotulos = {};
+
+    for(let i = 0; i < materiales.length; i += 300){
+        const lista = materiales.slice(i, i + 300).map(function(m){ return '"' + m + '"'; }).join(",");
+        const filas = await supabaseFetch(
+            "/md_materiales?material=in.(" + encodeURIComponent(lista) + ")&select=material,rotulo_tottus"
+        );
+        (filas || []).forEach(function(f){ if(f.rotulo_tottus) rotulos[f.material] = f.rotulo_tottus; });
+    }
+
+    return rotulos;
+
+}
+
+async function guardarRotulosTottus(resultado){
+
+    const tottus = {};
+    resultado.entregas.forEach(function(e){ if(esEntregaTottus(e)) tottus[e.entrega] = e; });
+
+    const entregas = Object.keys(tottus);
+
+    if(entregas.length === 0){
+        return;
+    }
+
+    const lineas = cargaViaje.vl06f.filas.filter(function(f){ return tottus[textoCodigo(f["Entrega"])]; });
+    const materiales = Array.from(new Set(lineas.map(function(f){ return textoCodigo(f["Material"]); })));
+    const rotuloDe = await rotulosDeMateriales(materiales);
+
+    // (entrega, rótulo) → peso y líneas
+    const porRotulo = {};
+
+    lineas.forEach(function(f){
+
+        const e = tottus[textoCodigo(f["Entrega"])];
+        const oriente = limpiarTexto(e.destinatario_nombre || e.cliente_nombre).indexOf("TOTTUS ORIENTE") !== -1;
+        const rotulo = oriente ? ROTULO_TOTTUS_ORIENTE : (rotuloDe[textoCodigo(f["Material"])] || SIN_ROTULO);
+        const clave = e.entrega + "|" + rotulo;
+
+        if(!porRotulo[clave]){
+            porRotulo[clave] = { entrega: e.entrega, fo: e.fo, rotulo: rotulo, peso_kg: 0, cantidad_lineas: 0 };
+        }
+
+        porRotulo[clave].peso_kg += numero(f["Peso total"]);
+        porRotulo[clave].cantidad_lineas += 1;
+
+    });
+
+    const filas = Object.keys(porRotulo).map(function(k){
+        const r = porRotulo[k];
+        r.peso_kg = redondear(r.peso_kg, 3);
+        return r;
+    });
+
+    // Se reemplaza lo que hubiera de un procesamiento anterior.
+    for(let i = 0; i < entregas.length; i += 300){
+        const lista = entregas.slice(i, i + 300).map(function(x){ return '"' + x + '"'; }).join(",");
+        await supabaseFetch("/md_entregas_rotulo?entrega=in.(" + encodeURIComponent(lista) + ")", {
+            method: "DELETE",
+            headers: { "Prefer": "return=minimal" }
+        });
+    }
+
+    await guardarEnLotes("md_entregas_rotulo", "entrega,rotulo", filas);
+
+    // Para mostrarlo en la tabla: el reparto de cada viaje.
+    resultado.viajes.forEach(function(v){
+        const delViaje = filas.filter(function(r){ return r.fo === v.fo; });
+        if(delViaje.length === 0) return;
+        const suma = {};
+        delViaje.forEach(function(r){ suma[r.rotulo] = (suma[r.rotulo] || 0) + r.peso_kg; });
+        v.rotulos = Object.keys(suma).sort().map(function(r){ return { rotulo: r, peso_kg: suma[r] }; });
+    });
 
 }
 
@@ -1080,7 +1182,11 @@ function filaViajeProcesado(v, enBloque){
             '<td>' + escaparHtml(v.fo) + '</td>' +
             '<td>' + escaparHtml(v.destino) + '</td>' +
             '<td>' + escaparHtml(v.cliente) +
-                (requierePackingList(v.cliente) ? ' <span class="cv-chip-pl" title="Al subirlo queda pendiente de Packing List">📦 PL</span>' : '') + '</td>' +
+                (requierePackingList(v.cliente) ? ' <span class="cv-chip-pl" title="Al subirlo queda pendiente de Packing List">📦 PL</span>' : '') +
+                (v.rotulos ? '<div class="cv-rotulos">' + v.rotulos.map(function(r){
+                    return '<span class="cv-rotulo' + (r.rotulo === SIN_ROTULO ? ' cv-rotulo-falta' : '') + '">' +
+                        escaparHtml(r.rotulo) + ' <b>' + (r.peso_kg / 1000).toFixed(2) + ' TN</b></span>';
+                }).join('') + '</div>' : '') + '</td>' +
             '<td>' + v.peso_tn.toFixed(2) + '</td>' +
             '<td>' + escaparHtml(v.transportista_nombre) + '</td>' +
             '<td>' + estado + '</td>' +

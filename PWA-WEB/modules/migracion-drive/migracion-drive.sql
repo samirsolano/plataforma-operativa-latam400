@@ -366,6 +366,45 @@ create index if not exists idx_md_entregas_fo
     on public.md_entregas (fo);
 
 -- ========================================
+-- MATERIALES Y RÓTULOS TOTTUS
+-- ========================================
+-- md_materiales: maestro de materiales (por ahora el rótulo Tottus de
+-- la columna "TIENDA TOTTUS" de la MARA de la plantilla F-LAT-058:
+-- T.LIMPIEZA / T.HUACHIPA). Se cargó desde la plantilla (1 555
+-- materiales); se le pueden sumar columnas (SKU Tottus, EAN...).
+-- md_entregas_rotulo: al procesar, el peso de cada entrega de Tottus
+-- repartido por rótulo según sus materiales (ver guardarRotulosTottus
+-- en cargar-viaje.js).
+
+create table if not exists public.md_materiales (
+    material text primary key,
+    descripcion text,
+    rotulo_tottus text,
+    actualizado_en timestamptz not null default now()
+);
+
+create table if not exists public.md_entregas_rotulo (
+    entrega text not null references public.md_entregas (entrega) on delete cascade,
+    fo text not null,
+    rotulo text not null,
+    peso_kg numeric(12, 3) not null default 0,
+    cantidad_lineas integer not null default 0,
+    actualizado_en timestamptz not null default now(),
+    primary key (entrega, rotulo)
+);
+
+create index if not exists idx_md_entregas_rotulo_fo on public.md_entregas_rotulo (fo);
+
+alter table public.md_materiales enable row level security;
+alter table public.md_entregas_rotulo enable row level security;
+
+drop policy if exists "md_materiales_anon" on public.md_materiales;
+drop policy if exists "md_entregas_rotulo_anon" on public.md_entregas_rotulo;
+
+create policy "md_materiales_anon" on public.md_materiales for all to anon using (true) with check (true);
+create policy "md_entregas_rotulo_anon" on public.md_entregas_rotulo for all to anon using (true) with check (true);
+
+-- ========================================
 -- FUNCIÓN DEL CRUCE: ¿cuáles de estos viajes ya existen?
 -- ========================================
 -- La pantalla manda solo los viajes pegados (ej. 200) y recibe los que

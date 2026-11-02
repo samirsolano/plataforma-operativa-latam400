@@ -349,6 +349,30 @@ body{
     color:#92400e;
 }
 
+/* Rótulos Tottus de un viaje (T.LIMPIEZA / T.HUACHIPA / TOTTUS ORIENTE) */
+.cv-rotulos{
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px;
+    margin-top:4px;
+}
+
+.cv-rotulo{
+    padding:2px 7px;
+    border:1px solid #c7d2fe;
+    border-radius:8px;
+    background:#eef2ff;
+    color:#3730a3;
+    font-size:10px;
+    white-space:nowrap;
+}
+
+.cv-rotulo.cv-rotulo-falta{
+    border-color:#fca5a5;
+    background:#fee2e2;
+    color:#b91c1c;
+}
+
 .cv-chip-pl{
     display:inline-block;
     margin-left:4px;
