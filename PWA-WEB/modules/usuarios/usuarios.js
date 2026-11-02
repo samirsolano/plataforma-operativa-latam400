@@ -58,7 +58,7 @@ async function cargarUsuarios(){
     try{
 
         const usuarios = await supabaseFetch(
-            "/usuarios_app?select=id,usuario,password,dni,nombre_completo,rol,activo&order=nombre_completo.asc"
+            "/usuarios_app?select=id,usuario,dni,nombre_completo,rol,activo&order=nombre_completo.asc"
         );
 
         usuariosCache = usuarios || [];
@@ -75,7 +75,6 @@ async function cargarUsuarios(){
 
             tr.innerHTML = `
                 <td>${u.usuario}</td>
-                <td>${u.password}</td>
                 <td>${u.dni || "-"}</td>
                 <td>${u.nombre_completo}</td>
                 <td>${u.rol}</td>
@@ -199,7 +198,10 @@ function abrirModal(usuario){
         btnGuardar.textContent = "Guardar cambios";
 
         inputNuevoUsuario.value = usuario.usuario;
-        inputNuevoPassword.value = usuario.password;
+        // La contraseña guardada está cifrada y no se lee: vacío =
+        // se mantiene la actual.
+        inputNuevoPassword.value = "";
+        inputNuevoPassword.placeholder = "Dejar vacío para no cambiarla";
         inputNuevoDni.value = usuario.dni || "";
         inputNuevoNombre.value = usuario.nombre_completo;
         inputNuevoRol.value = usuario.rol;
@@ -213,6 +215,7 @@ function abrirModal(usuario){
 
         inputNuevoUsuario.value = "";
         inputNuevoPassword.value = "";
+        inputNuevoPassword.placeholder = "";
         inputNuevoDni.value = "";
         inputNuevoNombre.value = "";
         inputNuevoRol.value = "";
@@ -253,12 +256,13 @@ btnGuardar.addEventListener("click", async function(){
 
     mensajeErrorModal.textContent = "";
 
-    if(!usuario || !password || !dni || !nombre || !rol){
+    const editando = editandoId !== null;
+
+    // Al editar, la contraseña es opcional (vacía = no se cambia).
+    if(!usuario || (!password && !editando) || !dni || !nombre || !rol){
         mensajeErrorModal.textContent = "Complete todos los campos.";
         return;
     }
-
-    const editando = editandoId !== null;
 
     btnGuardar.disabled = true;
     btnGuardar.textContent = "GUARDANDO...";
@@ -267,12 +271,16 @@ btnGuardar.addEventListener("click", async function(){
 
         const datos = {
             usuario: usuario,
-            password: password,
             dni: dni,
             nombre_completo: nombre,
             rol: rol,
             activo: activo
         };
+
+        // El trigger de usuarios_app la cifra al guardar (login-seguro.sql).
+        if(password){
+            datos.password = password;
+        }
 
         if(editando){
 

@@ -305,28 +305,28 @@ function abrirCambioContrasena(){
             return;
         }
 
-        // Sesiones viejas pueden no traer id — se ubica por usuario.
-        const filtro = sesion.id
-            ? "id=eq." + encodeURIComponent(sesion.id)
-            : "usuario=eq." + encodeURIComponent(sesion.usuario || "");
-
         btnGuardar.disabled = true;
         btnGuardar.textContent = "Guardando...";
 
         try{
 
-            const filas = await supabaseFetch("/usuarios_app?" + filtro + "&select=id,password");
-            const registro = filas && filas[0];
+            // Se valida la actual y se guarda la nueva (cifrada) en
+            // Supabase, ver login-seguro.sql. Sesiones viejas pueden
+            // no traer id — en ese caso se ubica por usuario.
+            const cambiada = await supabaseFetch("/rpc/cambiar_password", {
+                method: "POST",
+                body: JSON.stringify({
+                    p_id: sesion.id || null,
+                    p_usuario: sesion.usuario || "",
+                    p_actual: actual,
+                    p_nueva: nueva
+                })
+            });
 
-            if(!registro || registro.password !== actual){
+            if(!cambiada){
                 errorEl.textContent = "La contraseña actual no es correcta.";
                 return;
             }
-
-            await supabaseFetch("/usuarios_app?id=eq." + encodeURIComponent(registro.id), {
-                method: "PATCH",
-                body: JSON.stringify({ password: nueva })
-            });
 
             cerrar();
 

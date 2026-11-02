@@ -20,15 +20,15 @@ async function ingresar(){
 
     try{
 
-        // Buscamos al usuario por su nombre de usuario.
-        // La contraseña se compara en el siguiente paso,
-        // no se filtra por ella en la consulta.
-        const filas = await supabaseFetch(
-            "/usuarios_app?usuario=eq." + encodeURIComponent(usuario) +
-            "&select=id,usuario,password,nombre_completo,rol,activo"
-        );
+        // La contraseña se valida en Supabase (función login_usuario,
+        // ver login-seguro.sql): el navegador nunca recibe la
+        // contraseña guardada. Solo devuelve fila si coincide.
+        const filas = await supabaseFetch("/rpc/login_usuario", {
+            method: "POST",
+            body: JSON.stringify({ p_usuario: usuario, p_password: password })
+        });
 
-        const registro = filas[0];
+        const registro = filas && filas[0];
 
         if(!registro){
             mensajeError.textContent = "Usuario o contraseña incorrectos.";
@@ -37,11 +37,6 @@ async function ingresar(){
 
         if(!registro.activo){
             mensajeError.textContent = "Este usuario está inactivo. Contacte a su administrador.";
-            return;
-        }
-
-        if(registro.password !== password){
-            mensajeError.textContent = "Usuario o contraseña incorrectos.";
             return;
         }
 
