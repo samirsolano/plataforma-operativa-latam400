@@ -94,7 +94,10 @@ const CONFIG_TOTTUS = {
     salida: {
         titulo: "Líneas del viaje (como en el Drive)",
         columnas: ["F.O", "CLIENTE", "RÓTULO", "PESO KG", "PESO TN"]
-    }
+    },
+    // Hora de cita por defecto (como en la plantilla); se puede cambiar
+    // por viaje antes de subir.
+    horaCita: "08:00"
 };
 
 const CONFIG_PROCESAR_CLIENTE = {
@@ -165,6 +168,7 @@ function abrirProcesarCliente(gestion, cliente){
     procesarCliente.entregas = [];
     procesarCliente.programacion = [];
     procesarCliente.lineas = [];
+    procesarCliente.citas = {};
 
     // Tottus junta todos sus viajes (sus nombres varían: TOTTUS -
     // HUACHIPA, TOTTUS ORIENTE...); los demás, solo los de ese cliente.
@@ -998,12 +1002,37 @@ function copiarSalida(){
 
 }
 
+// Cita por defecto de un viaje: la fecha es la Fec.Pref.Entrega del
+// correo (de cualquiera de sus pedidos) y la hora, la del cliente
+// (Tottus 08:00). Se puede cambiar en la tabla antes de subir.
+function citaPorDefecto(fo){
+
+    const fechaDePedido = {};
+    procesarCliente.correo.filas.forEach(function(f){ if(f.fecha_entrega) fechaDePedido[f.pedido] = f.fecha_entrega; });
+
+    const entrega = procesarCliente.entregas.find(function(e){
+        return e.fo === fo && fechaDePedido[soloDigitos(e.documento_modelo)];
+    });
+
+    return {
+        fecha: entrega ? fechaIsoDeCorreo(fechaDePedido[soloDigitos(entrega.documento_modelo)]) || "" : "",
+        hora: procesarCliente.config.horaCita || ""
+    };
+
+}
+
+function cambiarCita(fo, campo, valor){
+    procesarCliente.citas[fo] = procesarCliente.citas[fo] || citaPorDefecto(fo);
+    procesarCliente.citas[fo][campo] = valor;
+}
+
 function pintarSubidaLineas(){
 
     const viajes = procesarCliente.viajes.map(function(v){
         const lineas = procesarCliente.lineas.filter(function(l){ return l.fo === v.fo; });
         const falta = lineas.filter(function(l){ return l.cliente === SIN_NEGOCIO || l.rotulo === SIN_ROTULO; }).length;
-        return { viaje: v, lineas: lineas, falta: falta };
+        const cita = procesarCliente.citas[v.fo] = procesarCliente.citas[v.fo] || citaPorDefecto(v.fo);
+        return { viaje: v, lineas: lineas, falta: falta, cita: cita };
     });
 
     const listos = viajes.filter(function(i){ return i.viaje.estado !== "SUBIDO" && i.lineas.length; });
@@ -1015,15 +1044,21 @@ function pintarSubidaLineas(){
                 'onclick="subirViajesConLineas()">☁️ Subir ' + textoCantidadViajes(listos.length) + "</button>" +
         "</div>" +
         '<div class="sp-contenedor"><table class="sp-tabla"><thead><tr>' +
-            "<th>VIAJE</th><th>LÍNEAS</th><th>PESO TN</th><th></th>" +
+            "<th>VIAJE</th><th>LÍNEAS</th><th>PESO TN</th><th>FECHA DE CITA</th><th>HORA DE CITA</th><th></th>" +
         "</tr></thead><tbody>";
 
     viajes.forEach(function(i){
+        const fo = escaparHtml(JSON.stringify(i.viaje.fo));
+        const subido = i.viaje.estado === "SUBIDO";
         html +=
             "<tr" + (!i.lineas.length || i.falta ? ' class="pc-sin-viaje"' : "") + ">" +
                 "<td><b>" + escaparHtml(i.viaje.fo) + "</b></td>" +
                 "<td>" + i.lineas.length + "</td>" +
                 '<td class="sp-num">' + i.viaje.peso_tn.toFixed(3) + "</td>" +
+                '<td><input type="date" class="mn-input" value="' + escaparHtml(i.cita.fecha) + '"' + (subido ? " disabled" : "") +
+                    ' onchange="cambiarCita(' + fo + ', \'fecha\', this.value)"></td>' +
+                '<td><input type="time" class="mn-input" value="' + escaparHtml(i.cita.hora) + '"' + (subido ? " disabled" : "") +
+                    ' onchange="cambiarCita(' + fo + ', \'hora\', this.value)"></td>' +
                 '<td class="sp-izq">' +
                     (i.viaje.estado === "SUBIDO" ? "✅ Subido"
                         : !i.lineas.length ? "⚠️ Sin rótulos: vuelve a procesarlo"
@@ -1041,27 +1076,20 @@ function pintarSubidaLineas(){
 
 // Al subir, se guarda lo que sale del correo para poder volver a armar
 // la lista de picking después (desde Status Pendiente o el Monitor) sin
-// pegarlo otra vez: el negocio de cada entrega (md_entregas.negocio) y
-// la fecha de cita del viaje (la Fec.Pref.Entrega del correo,
-// md_viajes.fecha_cita).
+// pegarlo otra vez: el negocio de cada entrega (md_entregas.negocio). Y
+// la cita del viaje como quedó en la tabla (por defecto la fecha del
+// correo y las 08:00): md_viajes.fecha_cita / hora_cita.
 async function guardarNegocioYCita(fos){
 
     const negocioDePedido = {};
-    const fechaDePedido = {};
-    procesarCliente.correo.filas.forEach(function(f){
-        if(f.negocio) negocioDePedido[f.pedido] = f.negocio;
-        if(f.fecha_entrega) fechaDePedido[f.pedido] = f.fecha_entrega;
-    });
+    procesarCliente.correo.filas.forEach(function(f){ if(f.negocio) negocioDePedido[f.pedido] = f.negocio; });
 
     const entregasPorNegocio = {};
-    const fechaDeViaje = {};
 
     procesarCliente.entregas.forEach(function(e){
         if(fos.indexOf(e.fo) === -1) return;
-        const pedido = soloDigitos(e.documento_modelo);
-        const negocio = negocioDePedido[pedido];
+        const negocio = negocioDePedido[soloDigitos(e.documento_modelo)];
         if(negocio) (entregasPorNegocio[negocio] = entregasPorNegocio[negocio] || []).push(e.entrega);
-        if(fechaDePedido[pedido] && !fechaDeViaje[e.fo]) fechaDeViaje[e.fo] = fechaDePedido[pedido];
     });
 
     for(const negocio of Object.keys(entregasPorNegocio)){
@@ -1073,13 +1101,16 @@ async function guardarNegocioYCita(fos){
         });
     }
 
-    for(const fo of Object.keys(fechaDeViaje)){
-        const fecha = fechaIsoDeCorreo(fechaDeViaje[fo]);
-        if(!fecha) continue;
+    for(const fo of fos){
+        const cita = procesarCliente.citas[fo] || citaPorDefecto(fo);
+        const cambios = {};
+        if(cita.fecha) cambios.fecha_cita = cita.fecha;
+        if(cita.hora) cambios.hora_cita = cita.hora;
+        if(!Object.keys(cambios).length) continue;
         await supabaseFetch("/md_viajes?fo=eq." + encodeURIComponent(fo), {
             method: "PATCH",
             headers: { "Prefer": "return=minimal" },
-            body: JSON.stringify({ fecha_cita: fecha })
+            body: JSON.stringify(cambios)
         });
     }
 
