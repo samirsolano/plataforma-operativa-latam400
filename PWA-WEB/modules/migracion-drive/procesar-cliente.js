@@ -1039,6 +1039,58 @@ function pintarSubidaLineas(){
 
 }
 
+// Al subir, se guarda lo que sale del correo para poder volver a armar
+// la lista de picking después (desde Status Pendiente o el Monitor) sin
+// pegarlo otra vez: el negocio de cada entrega (md_entregas.negocio) y
+// la fecha de cita del viaje (la Fec.Pref.Entrega del correo,
+// md_viajes.fecha_cita).
+async function guardarNegocioYCita(fos){
+
+    const negocioDePedido = {};
+    const fechaDePedido = {};
+    procesarCliente.correo.filas.forEach(function(f){
+        if(f.negocio) negocioDePedido[f.pedido] = f.negocio;
+        if(f.fecha_entrega) fechaDePedido[f.pedido] = f.fecha_entrega;
+    });
+
+    const entregasPorNegocio = {};
+    const fechaDeViaje = {};
+
+    procesarCliente.entregas.forEach(function(e){
+        if(fos.indexOf(e.fo) === -1) return;
+        const pedido = soloDigitos(e.documento_modelo);
+        const negocio = negocioDePedido[pedido];
+        if(negocio) (entregasPorNegocio[negocio] = entregasPorNegocio[negocio] || []).push(e.entrega);
+        if(fechaDePedido[pedido] && !fechaDeViaje[e.fo]) fechaDeViaje[e.fo] = fechaDePedido[pedido];
+    });
+
+    for(const negocio of Object.keys(entregasPorNegocio)){
+        const lista = entregasPorNegocio[negocio].map(function(x){ return '"' + x + '"'; }).join(",");
+        await supabaseFetch("/md_entregas?entrega=in.(" + encodeURIComponent(lista) + ")", {
+            method: "PATCH",
+            headers: { "Prefer": "return=minimal" },
+            body: JSON.stringify({ negocio: negocio })
+        });
+    }
+
+    for(const fo of Object.keys(fechaDeViaje)){
+        const fecha = fechaIsoDeCorreo(fechaDeViaje[fo]);
+        if(!fecha) continue;
+        await supabaseFetch("/md_viajes?fo=eq." + encodeURIComponent(fo), {
+            method: "PATCH",
+            headers: { "Prefer": "return=minimal" },
+            body: JSON.stringify({ fecha_cita: fecha })
+        });
+    }
+
+}
+
+// "2/11/2026" (como viene en el correo) → "2026-11-02".
+function fechaIsoDeCorreo(texto){
+    const m = String(texto || "").match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+    return m ? m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0") : null;
+}
+
 // Sube los viajes (como "Subir viaje") y guarda sus líneas en
 // md_viaje_lineas, que es lo que muestran Status Pendiente y el Monitor.
 async function subirViajesConLineas(){
@@ -1114,6 +1166,8 @@ async function subirViajesConLineas(){
             });
 
             await guardarEnLotes("md_viaje_lineas", "fo,linea", filas);
+
+            await guardarNegocioYCita(fos);
 
         }
 
@@ -1220,7 +1274,59 @@ function nombreHojaPicking(h){
     return h.fo + " (" + h.numero + " de " + h.de + ")";
 }
 
-async function conHojasPicking(boton, accion){
+// Las hojas de picking de un viaje ya subido, armadas con lo que quedó
+// guardado (sin el panel ni el correo): sus líneas (md_viaje_lineas),
+// el negocio de cada entrega (md_entregas.negocio), el detalle por
+// material (md_entregas_material) y la fecha de cita del viaje. Sirve
+// para volver a imprimir desde Status Pendiente o el Monitor.
+async function armarHojasPickingGuardadas(fo){
+
+    const filtro = "fo=eq." + encodeURIComponent(fo);
+    const respuestas = await Promise.all([
+        supabaseFetch("/md_viaje_lineas?" + filtro + "&select=linea,cliente,rotulo&order=linea"),
+        supabaseFetch("/md_entregas?" + filtro + "&select=entrega,negocio"),
+        supabaseFetch("/md_entregas_material?" + filtro + "&select=entrega,material,descripcion,um,cantidad,rotulo&order=material"),
+        supabaseFetch("/md_viajes?" + filtro + "&select=fecha_cita")
+    ]);
+
+    const lineas = respuestas[0] || [];
+    const negocioDeEntrega = {};
+    (respuestas[1] || []).forEach(function(e){ negocioDeEntrega[e.entrega] = e.negocio; });
+    const viaje = (respuestas[3] || [])[0] || {};
+    const cita = viaje.fecha_cita ? fechaSp(viaje.fecha_cita) : fechaHoyPicking();
+
+    // línea (negocio|rótulo) → material|um → cantidad
+    const porLinea = {};
+
+    (respuestas[2] || []).forEach(function(d){
+        const clave = (negocioDeEntrega[d.entrega] || SIN_NEGOCIO) + "|" + (d.rotulo || SIN_ROTULO);
+        const materiales = porLinea[clave] = porLinea[clave] || {};
+        const mat = d.material + "|" + (d.um || "");
+        materiales[mat] = materiales[mat] || { material: d.material, descripcion: d.descripcion, um: d.um, cantidad: 0 };
+        materiales[mat].cantidad += Number(d.cantidad) || 0;
+    });
+
+    return lineas.map(function(l, i){
+        const materiales = Object.keys(porLinea[l.cliente + "|" + l.rotulo] || {}).map(function(k){
+            return porLinea[l.cliente + "|" + l.rotulo][k];
+        }).sort(function(a, b){ return a.material.localeCompare(b.material); });
+        return {
+            fo: fo,
+            numero: i + 1,
+            de: lineas.length,
+            cliente: l.cliente,
+            rotulo: l.rotulo,
+            cita: cita,
+            materiales: materiales,
+            total: materiales.reduce(function(s, m){ return s + m.cantidad; }, 0)
+        };
+    });
+
+}
+
+// fo: viaje ya subido (se arma con lo guardado); sin fo, los viajes del
+// panel de Procesar cliente.
+async function conHojasPicking(boton, accion, fo){
 
     const texto = boton.textContent;
     boton.disabled = true;
@@ -1228,14 +1334,17 @@ async function conHojasPicking(boton, accion){
 
     try{
 
-        const hojas = await armarHojasPicking();
+        const hojas = fo ? await armarHojasPickingGuardadas(fo) : await armarHojasPicking();
         const sinDetalle = hojas.filter(function(h){ return h.materiales.length === 0; });
 
         if(hojas.length === 0){
             alert("No hay líneas para armar la lista de picking.");
         }else if(sinDetalle.length === hojas.length){
-            alert("Estos viajes no tienen el detalle por material: se procesaron antes de este cambio. " +
-                "Vuelve a cruzarlos y procesarlos con su VL06F.");
+            alert(fo
+                ? "El viaje " + fo + " no tiene guardado el detalle por material o el negocio de sus entregas: " +
+                  "se subió antes de este cambio. La lista solo se puede volver a imprimir de los viajes subidos desde ahora."
+                : "Estos viajes no tienen el detalle por material: se procesaron antes de este cambio. " +
+                  "Vuelve a cruzarlos y procesarlos con su VL06F.");
         }else{
             if(sinDetalle.length){
                 alert(sinDetalle.length + " de " + hojas.length + " hojas salen sin materiales (" +
@@ -1263,7 +1372,8 @@ const PICKING_COLORES = { azul: "002060", amarillo: "FFFF00", naranja: "FFC000",
 const PICKING_LOGO = "../../shared/assets/ceva-logo.png";
 
 // Una página A4 por línea, con el diseño de la plantilla.
-function imprimirPicking(boton){
+// fo (opcional): un viaje ya subido (Status Pendiente / Monitor).
+function imprimirPicking(boton, fo){
 
     conHojasPicking(boton, function(hojas){
 
@@ -1314,7 +1424,7 @@ function imprimirPicking(boton){
         );
         ventana.document.close();
 
-    });
+    }, fo);
 
 }
 
@@ -1342,7 +1452,7 @@ async function logoBase64(){
 // Un Excel con una pestaña por línea ("1000181352 (1 de 4)") y el
 // diseño de la plantilla. Se arma con ExcelJS (SheetJS no guarda
 // colores ni imágenes).
-function exportarPicking(boton){
+function exportarPicking(boton, fo){
 
     conHojasPicking(boton, async function(hojas){
 
@@ -1447,6 +1557,6 @@ function exportarPicking(boton){
             alert("No se pudo exportar el Excel: " + (error.message || error));
         }
 
-    });
+    }, fo);
 
 }

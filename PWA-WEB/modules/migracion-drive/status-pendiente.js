@@ -48,6 +48,18 @@ async function cargarLineasViajes(fos){
 // Cada viaje con líneas se vuelve una fila por línea, con el cliente,
 // rótulo, peso, fase, canales y status de la línea; el resto de datos
 // (cita, transportista, despacho...) son los del viaje.
+// Botones para volver a imprimir / exportar la lista de picking de un
+// viaje partido (va en su primera línea). imprimirPicking y
+// exportarPicking están en procesar-cliente.js.
+function botonesPicking(v){
+    if(!v.linea || v.linea.linea !== v.primeraLinea) return "";
+    const fo = escaparHtml(JSON.stringify(v.fo));
+    return '<div class="sp-picking">' +
+        '<button title="Imprimir la lista de validación de picking" onclick="imprimirPicking(this, ' + fo + ')">🖨️</button>' +
+        '<button title="Exportar la lista de validación de picking a Excel" onclick="exportarPicking(this, ' + fo + ')">📥</button>' +
+    '</div>';
+}
+
 function filasConLineas(viajes, lineasPorFo){
 
     const filas = [];
@@ -64,6 +76,7 @@ function filasConLineas(viajes, lineasPorFo){
         lineas.forEach(function(l){
             filas.push(Object.assign({}, v, {
                 linea: l,
+                primeraLinea: lineas[0].linea,
                 cliente: l.cliente,
                 rotulo: l.rotulo,
                 peso_tn: (Number(l.peso_kg) || 0) / 1000,
@@ -211,7 +224,7 @@ function pintarStatusPendiente(){
                     '<td>' + fechaHoraSp(v.fecha_subida) + '</td>' +
                     '<td>' + fechaSp(v.fecha_cita) + '</td>' +
                     '<td>' + (v.hora_cita ? escaparHtml(String(v.hora_cita).slice(0, 5)) : "-") + '</td>' +
-                    '<td>' + escaparHtml(v.fo) + '</td>' +
+                    '<td>' + escaparHtml(v.fo) + botonesPicking(v) + '</td>' +
                     '<td class="sp-izq">' + escaparHtml(v.cliente) +
                         (v.pl_pendiente ? ' <span class="cv-chip-pl" title="Pendiente de enviar el packing list">📦 PL</span>' : '') +
                         (v.rotulo ? '<div class="sp-rotulo">' + escaparHtml(v.rotulo) + '</div>' : '') + '</td>' +

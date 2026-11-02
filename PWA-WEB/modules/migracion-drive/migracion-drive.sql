@@ -395,6 +395,11 @@ create table if not exists public.md_entregas_rotulo (
 
 create index if not exists idx_md_entregas_rotulo_fo on public.md_entregas_rotulo (fo);
 
+-- Negocio de cada entrega de Tottus (ALICORP LIMPIEZA / INTRADEVCO), del
+-- correo, guardado al subir: con esto la lista de picking se vuelve a
+-- armar desde Status Pendiente o el Monitor sin pegar el correo otra vez.
+alter table public.md_entregas add column if not exists negocio text;
+
 -- md_entregas_material: el detalle del VL06F por material, solo de las
 -- entregas de Tottus (para la lista de validación de picking, una hoja
 -- por línea del viaje). Se reemplaza al volver a procesar.

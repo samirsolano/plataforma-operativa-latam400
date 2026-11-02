@@ -83,6 +83,18 @@
                 👥 Clientes
             </button>
 
+            <button id="btnMaras" class="menu-grupo" onclick="alternarSubmenu('submenuMaras', this)">
+                📚 MARAs <span class="flecha">▸</span>
+            </button>
+
+            <div id="submenuMaras" class="submenu" style="display:none;">
+
+                <button id="btnMaraTottus" onclick="abrirVista('mara-tottus', this)">
+                    MARA Tottus
+                </button>
+
+            </div>
+
             <button id="btnBaseDatos" onclick="abrirVista('base-datos', this)">
                 🗄️ Base de Datos
             </button>
@@ -300,6 +312,47 @@
 
         </div>
 
+        <div id="vistaMaraTottus" class="vista" style="display:none;">
+
+            <div class="vista-header cv-header">
+                <div>
+                    <h1>📚 MARAs › MARA Tottus</h1>
+                    <p>Rótulo de cada material para Tottus (columna "TIENDA TOTTUS" de la MARA de la plantilla F-LAT-058). Al procesar, cada material de una entrega de Tottus toma su rótulo de aquí.</p>
+                </div>
+                <div class="sp-filtros">
+                    <label>Rótulo
+                        <select id="mtRotulo" onchange="pintarMaraTottus()">
+                            <option value="">Todos</option>
+                            <option value="T.LIMPIEZA">T.LIMPIEZA</option>
+                            <option value="T.HUACHIPA">T.HUACHIPA</option>
+                            <option value="SIN">Sin rótulo</option>
+                        </select>
+                    </label>
+                    <input type="search" id="mtBuscar" placeholder="Buscar código o descripción" oninput="pintarMaraTottus()">
+                    <button class="cv-btn-subir" onclick="cargarMaraTottus()">🔄 Actualizar</button>
+                </div>
+            </div>
+
+            <div class="cl-form">
+                <label>Material (código)
+                    <input type="text" id="mtMaterial" placeholder="Ej. 8400460" inputmode="numeric">
+                </label>
+                <label>Descripción
+                    <input type="text" id="mtDescripcion" placeholder="Ej. DET. LIQ.BOLIVAR FLORAL RENA 1.9L 6FCO">
+                </label>
+                <label>Rótulo
+                    <select id="mtNuevoRotulo">
+                        <option value="T.LIMPIEZA">T.LIMPIEZA</option>
+                        <option value="T.HUACHIPA">T.HUACHIPA</option>
+                    </select>
+                </label>
+                <button class="cv-btn-copiar" id="mtBtnAgregar" onclick="agregarMaterialTottus()">➕ Agregar / actualizar</button>
+            </div>
+
+            <div id="mtContenido" class="cv-vacio">Cargando...</div>
+
+        </div>
+
         <div id="vistaBaseDatos" class="vista" style="display:none;">
             <div class="vista-header">
                 <h1>🗄️ Base de Datos</h1>
@@ -441,6 +494,7 @@
 <script src="status-pendiente.js"></script>
 <script src="monitor.js"></script>
 <script src="clientes.js"></script>
+<script src="mara.js"></script>
 
 </body>
 

@@ -137,7 +137,7 @@ function pintarMonitor(){
                 '<td>' + (v.fecha_cita ? fechaSp(v.fecha_cita) : "-") + '</td>' +
                 '<td>' + (v.hora_cita ? escaparHtml(String(v.hora_cita).slice(0, 5)) : "-") + '</td>' +
                 '<td class="sp-izq sp-gestion">' + escaparHtml(v.gestion || "-") + '</td>' +
-                '<td>' + escaparHtml(v.fo) + '</td>' +
+                '<td>' + escaparHtml(v.fo) + botonesPicking(v) + '</td>' +
                 '<td class="sp-izq">' + escaparHtml(v.rotulo || v.destino || "-") + '</td>' +
                 '<td class="sp-izq">' + escaparHtml(v.cliente || "-") + '</td>' +
                 '<td class="sp-num">' + (Number(v.peso_tn) || 0).toFixed(3) + '</td>' +

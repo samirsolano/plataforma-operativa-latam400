@@ -27,6 +27,7 @@ const VISTAS_MIGRACION_DRIVE = {
     "monitor": "vistaMonitor",
     "despacho": "vistaDespacho",
     "clientes": "vistaClientes",
+    "mara-tottus": "vistaMaraTottus",
     "base-datos": "vistaBaseDatos",
     "reportes": "vistaReportes"
 };
@@ -56,7 +57,7 @@ function abrirVista(vista, boton){
     document.getElementById(VISTAS_MIGRACION_DRIVE[vista]).style.display = "flex";
     boton.classList.add("activo");
 
-    // Status Pendiente, Monitor y Clientes se leen de la base cada vez
+    // Status Pendiente, Monitor, Clientes y las MARAs se leen de la base cada vez
     // que se abren.
     if(vista === "status-pendiente"){
         cargarStatusPendiente();
@@ -68,6 +69,10 @@ function abrirVista(vista, boton){
 
     if(vista === "clientes"){
         cargarClientes();
+    }
+
+    if(vista === "mara-tottus"){
+        cargarMaraTottus();
     }
 
 }
