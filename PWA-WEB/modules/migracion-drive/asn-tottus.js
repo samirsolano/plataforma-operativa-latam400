@@ -7,7 +7,8 @@
 // programado:
 //   programado (cita, OC, SKU) = Σ cantidad del VL06F × conversión,
 //     de las entregas del FO × tienda de esa cita (md_citas_tottus),
-//     con su OC (md_entregas.oc) y el SKU Tottus y la conversión del
+//     con su OC (md_entregas.oc; si el pedido no vino en el correo, la
+//     OC del pre-ASN que tiene todos sus SKU) y el SKU Tottus y la conversión del
 //     material (md_materiales, Maestro de la plantilla F-LAT-058).
 //   Las líneas del pre-ASN sin programar se quitan; las programadas
 //   llevan lo programado. Nunca más que el pre-ASN: una misma OC × SKU
@@ -120,11 +121,16 @@ async function generarAsnTottus(input){
         const programado = {};
         const sinMaestro = {};
         const sinOc = {};
+        const ocsNuevas = {};
 
         citas.forEach(function(cita){
             (deCita[cita] || []).forEach(function(r){
                 entregas.filter(function(e){ return e.fo === r.fo && limpiarTexto(e.destinatario_nombre) === r.tienda; })
                     .forEach(function(e){
+                        if(!e.oc){
+                            e.oc = ocDesdePreAsn(e.entrega, lineas.filter(function(l){ return l.cita === cita; }), detalle, deMaterial);
+                            if(e.oc) ocsNuevas[e.entrega] = e.oc;
+                        }
                         if(!e.oc){ sinOc[e.entrega] = e.fo; return; }
                         detalle.filter(function(d){ return d.entrega === e.entrega; }).forEach(function(d){
                             const m = deMaterial[d.material];
@@ -191,7 +197,20 @@ async function generarAsnTottus(input){
 
         });
 
-        pintarAsnTottus(excesos, sinMaestro, sinOc);
+        // Las OC sacadas del pre-ASN se guardan en la entrega (cuadro de
+        // citas, siguiente ASN).
+        const conOcNueva = Object.keys(ocsNuevas);
+        for(const entrega of conOcNueva){
+            await supabaseFetch("/md_entregas?entrega=eq." + encodeURIComponent(entrega), {
+                method: "PATCH",
+                headers: { "Prefer": "return=minimal" },
+                body: JSON.stringify({ oc: ocsNuevas[entrega] })
+            });
+        }
+
+        pintarAsnTottus(excesos, sinMaestro, sinOc, ocsNuevas);
+
+        if(conOcNueva.length && typeof cargarCitasTottus === "function") cargarCitasTottus();
 
     }catch(error){
         console.error(error);
@@ -200,10 +219,39 @@ async function generarAsnTottus(input){
 
 }
 
-function pintarAsnTottus(excesos, sinMaestro, sinOc){
+// OC de una entrega que no vino en el correo: la del pre-ASN de su cita
+// que tiene todos los SKU de la entrega. Si ninguna o más de una
+// calzan, queda sin OC (no se adivina).
+function ocDesdePreAsn(entrega, lineasCita, detalle, deMaterial){
+
+    const skus = Array.from(new Set(detalle
+        .filter(function(d){ return d.entrega === entrega; })
+        .map(function(d){ return (deMaterial[d.material] || {}).sku_tottus; })
+        .filter(Boolean)));
+
+    if(!skus.length) return "";
+
+    const skusDeOc = {};
+    lineasCita.forEach(function(l){ (skusDeOc[l.oc] = skusDeOc[l.oc] || []).push(l.sku); });
+
+    const calzan = Object.keys(skusDeOc).filter(function(oc){
+        return skus.every(function(s){ return skusDeOc[oc].indexOf(s) !== -1; });
+    });
+
+    return calzan.length === 1 ? calzan[0] : "";
+
+}
+
+function pintarAsnTottus(excesos, sinMaestro, sinOc, ocsNuevas){
 
     const caja = document.getElementById("cvAsnResultado");
+    const conOcNueva = Object.keys(ocsNuevas || {});
     let html = "";
+
+    if(conOcNueva.length){
+        html += '<div class="cv-vacio">ℹ️ OC tomadas del pre-ASN (el pedido no vino en el correo): ' +
+            conOcNueva.map(function(e){ return escaparHtml(e + " → " + ocsNuevas[e]); }).join(", ") + "</div>";
+    }
 
     if(excesos.length){
         html += '<div class="cv-aviso">⚠️ <b>Programado más que el pre-ASN</b> (en el ASN va solo hasta lo que trae el pre-ASN):<br>' +
@@ -219,7 +267,7 @@ function pintarAsnTottus(excesos, sinMaestro, sinOc){
 
     const entregasSinOc = Object.keys(sinOc);
     if(entregasSinOc.length){
-        html += '<div class="cv-aviso">⚠️ ' + entregasSinOc.length + " entregas sin OC guardada (viajes subidos sin pegar el correo en Procesar cliente): " +
+        html += '<div class="cv-aviso">⚠️ ' + entregasSinOc.length + " entregas sin OC (su pedido no vino en el correo y sus SKU no calzan con una sola OC del pre-ASN): " +
             entregasSinOc.map(escaparHtml).join(", ") + "</div>";
     }
 

@@ -977,7 +977,7 @@ function pintarLineas(){
 
     if(segunMara.length){
         html += '<div class="cv-aviso pc-aviso-mara">ℹ️ ' + segunMara.length + (segunMara.length === 1 ? " entrega" : " entregas") +
-            " no " + (segunMara.length === 1 ? "está" : "están") + " en el correo: su negocio se tomó de la <b>MARA</b> " +
+            " sin negocio en el correo (su pedido no vino o el correo no trae Portafolio): se tomó de la <b>MARA</b> " +
             "(empresa de sus materiales, la entrega completa). Revísalo en el resumen; si viene en otro correo, pégalo arriba y manda el correo.</div>";
     }
 
