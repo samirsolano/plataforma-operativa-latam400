@@ -202,9 +202,9 @@ function pintarPuente(estados){
         return;
     }
 
-    const segundos = (Date.now() - new Date(masReciente.ultimo_latido).getTime()) / 1000;
-
-    if(segundos <= SEGUNDOS_PUENTE_VIVO){
+    // "segundos" viene calculado por el servidor (sap_puente_estado_vista):
+    // el reloj de la PC del usuario puede estar desfasado.
+    if(masReciente.segundos <= SEGUNDOS_PUENTE_VIVO){
         caja.classList.add("conectado");
         caja.innerHTML = '<span class="punto"></span> Puente SAP conectado (' + escapar(masReciente.equipo) + ")";
     }else{
@@ -317,7 +317,7 @@ async function refrescar(){
 
     try{
         const [estados, comandos] = await Promise.all([
-            checklistFetch("/sap_puente_estado?select=equipo,ultimo_latido"),
+            checklistFetch("/sap_puente_estado_vista?select=equipo,ultimo_latido,segundos"),
             checklistFetch("/sap_comandos?select=*&order=id.desc&limit=10")
         ]);
 

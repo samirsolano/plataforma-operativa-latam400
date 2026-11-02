@@ -258,3 +258,13 @@ grant execute on function public.sap_solicitar_comando(text, jsonb, text) to ano
 grant execute on function public.sap_puente_tomar(text) to anon, authenticated;
 grant execute on function public.sap_puente_guardar_guias(text, bigint, jsonb) to anon, authenticated;
 grant execute on function public.sap_puente_terminar(text, bigint, text, integer, text) to anon, authenticated;
+
+-- Antigüedad del latido calculada con el reloj del servidor: el de la
+-- PC del usuario puede estar desfasado varios minutos.
+create or replace view public.sap_puente_estado_vista
+with (security_invoker = true) as
+select equipo, ultimo_latido,
+       extract(epoch from now() - ultimo_latido)::integer as segundos
+from public.sap_puente_estado;
+
+grant select on public.sap_puente_estado_vista to anon, authenticated;

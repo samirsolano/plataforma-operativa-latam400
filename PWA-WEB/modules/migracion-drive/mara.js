@@ -5,8 +5,10 @@
 // TOTTUS" de la MARA de la plantilla F-LAT-058: T.LIMPIEZA /
 // T.HUACHIPA). Al procesar (cargar-viaje.js, guardarRotulosTottus) cada
 // material de una entrega de Tottus toma su rótulo de aquí; los que no
-// están quedan SIN RÓTULO. Desde esta vista se busca, se cambia el
-// rótulo y se agregan materiales nuevos.
+// están quedan SIN RÓTULO. También tiene el Maestro de Tottus (hoja
+// "Maestro" de la plantilla): SKU Tottus y conversión a unidades, que
+// usa el ASN (asn-tottus.js). Desde esta vista se busca, se cambian el
+// rótulo, el SKU y la conversión, y se agregan materiales nuevos.
 
 const maraTottus = { materiales: [] };
 const ROTULOS_MARA_TOTTUS = ["T.LIMPIEZA", "T.HUACHIPA"];
@@ -25,7 +27,7 @@ async function cargarMaraTottus(){
 
         for(let desde = 0; ; desde += 1000){
             const lote = await supabaseFetch(
-                "/md_materiales?select=material,descripcion,rotulo_tottus,actualizado_en&order=material" +
+                "/md_materiales?select=material,descripcion,rotulo_tottus,sku_tottus,conversion_tottus,actualizado_en&order=material" +
                 "&limit=1000&offset=" + desde
             ) || [];
             Array.prototype.push.apply(todos, lote);
@@ -55,7 +57,7 @@ function pintarMaraTottus(){
         if(rotulo === "SIN" && m.rotulo_tottus) return false;
         if(rotulo && rotulo !== "SIN" && m.rotulo_tottus !== rotulo) return false;
         if(!texto) return true;
-        return limpiarTexto(m.material).indexOf(texto) !== -1 || limpiarTexto(m.descripcion).indexOf(texto) !== -1;
+        return [m.material, m.descripcion, m.sku_tottus].some(function(c){ return limpiarTexto(c).indexOf(texto) !== -1; });
     });
 
     if(materiales.length === 0){
@@ -82,7 +84,7 @@ function pintarMaraTottus(){
             " · el rótulo se guarda solo al cambiarlo" +
         "</div>" +
         '<div class="sp-contenedor mt-tabla"><table class="sp-tabla"><thead><tr>' +
-            "<th>MATERIAL</th><th>DESCRIPCIÓN</th><th>RÓTULO TOTTUS</th>" +
+            "<th>MATERIAL</th><th>DESCRIPCIÓN</th><th>RÓTULO TOTTUS</th><th>SKU TOTTUS</th><th>CONVERSIÓN (UND)</th>" +
         "</tr></thead><tbody>" +
         visibles.map(function(m){
             const material = escaparHtml(JSON.stringify(m.material));
@@ -97,29 +99,46 @@ function pintarMaraTottus(){
                         }).join("") +
                     "</select>" +
                 "</td>" +
+                '<td><input type="text" class="mn-input" inputmode="numeric" placeholder="SKU" value="' + escaparHtml(m.sku_tottus || "") +
+                    '" onchange="cambiarCampoMaterial(this, ' + material + ', \'sku_tottus\')"></td>' +
+                '<td><input type="number" class="mn-input" min="0" step="1" placeholder="×" value="' + escaparHtml(m.conversion_tottus == null ? "" : Number(m.conversion_tottus)) +
+                    '" onchange="cambiarCampoMaterial(this, ' + material + ', \'conversion_tottus\')"></td>' +
             "</tr>";
         }).join("") +
         "</tbody></table></div>";
 
 }
 
-async function cambiarRotuloMaterial(control, material){
+function cambiarRotuloMaterial(control, material){
+    return cambiarCampoMaterial(control, material, "rotulo_tottus");
+}
+
+// Guarda un campo del material (rótulo, SKU Tottus o conversión) al
+// cambiarlo. Si falla, la celda vuelve a su valor.
+async function cambiarCampoMaterial(control, material, campo){
 
     const fila = maraTottus.materiales.find(function(m){ return m.material === material; });
-    const anterior = fila ? fila.rotulo_tottus : "";
+    const anterior = fila ? fila[campo] : "";
+    const valor = campo === "conversion_tottus"
+        ? (control.value === "" ? null : Number(control.value))
+        : campo === "sku_tottus" ? (textoCodigo(control.value) || null)
+        : (control.value || null);
 
     control.classList.remove("mn-guardado", "mn-error");
     control.classList.add("mn-guardando");
 
     try{
 
+        const cambios = { actualizado_en: new Date().toISOString() };
+        cambios[campo] = valor;
+
         await supabaseFetch("/md_materiales?material=eq." + encodeURIComponent(material), {
             method: "PATCH",
             headers: { "Prefer": "return=minimal" },
-            body: JSON.stringify({ rotulo_tottus: control.value || null, actualizado_en: new Date().toISOString() })
+            body: JSON.stringify(cambios)
         });
 
-        if(fila) fila.rotulo_tottus = control.value || null;
+        if(fila) fila[campo] = valor;
 
         control.classList.remove("mn-guardando");
         control.classList.add("mn-guardado");
@@ -131,7 +150,7 @@ async function cambiarRotuloMaterial(control, material){
         control.value = anterior || "";
         control.classList.remove("mn-guardando");
         control.classList.add("mn-error");
-        alert("No se pudo cambiar el rótulo del material " + material + ": " + (error.message || error));
+        alert("No se pudo guardar el cambio del material " + material + ": " + (error.message || error));
 
     }
 

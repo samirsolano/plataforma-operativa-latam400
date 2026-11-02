@@ -384,6 +384,13 @@ body{
     margin:-4px 0 8px !important;
 }
 
+.cv-citas td.cv-asn-aviso{
+    background:#fffbeb;
+    color:#92400e;
+    font-size:12px;
+    text-align:left;
+}
+
 .cv-citas .cv-tabla th:nth-child(n){
     width:auto;
 }

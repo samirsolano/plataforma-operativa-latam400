@@ -383,6 +383,12 @@ create table if not exists public.md_materiales (
     actualizado_en timestamptz not null default now()
 );
 
+-- Maestro de Tottus (hoja "Maestro" de la plantilla F-LAT-058, 637
+-- materiales): SKU Tottus y conversión a unidades. Lo usa el ASN:
+-- unidades = cantidad del VL06F × conversión.
+alter table public.md_materiales add column if not exists sku_tottus text;
+alter table public.md_materiales add column if not exists conversion_tottus numeric(12, 3);
+
 create table if not exists public.md_entregas_rotulo (
     entrega text not null references public.md_entregas (entrega) on delete cascade,
     fo text not null,

@@ -317,7 +317,7 @@
             <div class="vista-header cv-header">
                 <div>
                     <h1>📚 MARAs › MARA Tottus</h1>
-                    <p>Rótulo de cada material para Tottus (columna "TIENDA TOTTUS" de la MARA de la plantilla F-LAT-058). Al procesar, cada material de una entrega de Tottus toma su rótulo de aquí.</p>
+                    <p>Rótulo de cada material para Tottus (columna "TIENDA TOTTUS" de la MARA de la plantilla F-LAT-058) y el Maestro: SKU Tottus y conversión a unidades (para el ASN).</p>
                 </div>
                 <div class="sp-filtros">
                     <label>Rótulo
@@ -438,6 +438,14 @@
             <p id="cvPackingListTexto"></p>
             <div id="cvPackingListTabla"></div>
             <div id="cvCitasTottus"></div>
+            <div class="pc-salida-header">
+                <h3>📄 Tottus · Generar ASN</h3>
+                <label class="cv-btn-subir">📤 Subir pre-ASN del portal
+                    <input type="file" accept=".xlsx,.xls" multiple style="display:none;" onchange="generarAsnTottus(this)">
+                </label>
+            </div>
+            <p class="cv-citas-ayuda">Sube el ASN previo (pre-ASN) que bajas del portal de Tottus, uno por cita (puedes subir varios a la vez): se ajusta a lo que tenemos programado, quitando lo no programado y sin pasar lo que trae el pre-ASN.</p>
+            <div id="cvAsnResultado"></div>
             <div class="cv-modal-acciones">
                 <button class="cv-btn-secundario" onclick="cerrarPackingList()">Cerrar</button>
             </div>
@@ -496,6 +504,7 @@
 <script src="monitor.js"></script>
 <script src="clientes.js"></script>
 <script src="mara.js"></script>
+<script src="asn-tottus.js"></script>
 
 </body>
 
