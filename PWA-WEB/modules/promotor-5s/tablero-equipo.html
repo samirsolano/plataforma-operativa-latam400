@@ -25,7 +25,7 @@
 
     <div class="barra-superior noImprimir">
 
-        <a href="promotor-5s.html" class="volver">
+        <a href="promotor-5s.html" class="volver" id="linkVolver">
             ← Volver a Promotor 5S
         </a>
 
@@ -33,7 +33,11 @@
 
         <div class="acciones-barra">
 
-            <a href="tablero.html" class="btn-secundario-barra">
+            <select id="selectorMes" class="selector-mes-barra" aria-label="Mes">
+                <option value="">Cargando meses...</option>
+            </select>
+
+            <a href="tablero.html" class="btn-secundario-barra" id="linkOtroTablero">
                 Ver por Pasillo
             </a>
 
@@ -53,6 +57,7 @@
 
     <script src="../../shared/checklist-config.js"></script>
     <script src="logo-sigma.js"></script>
+    <script src="meses-promotor.js"></script>
     <script src="tablero-equipo.js"></script>
 
 </body>

@@ -301,3 +301,39 @@ th:nth-child(2), td:nth-child(2){
     gap:10px;
     margin-top:10px;
 }
+
+.subtitulo-header{
+    margin-top:6px;
+    color:#6b7280;
+    font-size:14px;
+}
+
+.subtitulo-header b{
+    color:#1f2937;
+}
+
+.selector-mes-header{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+}
+
+.selector-mes-header label{
+    font-size:12px;
+    font-weight:700;
+    color:#6b7280;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+}
+
+.selector-mes-header select{
+    padding:12px 16px;
+    border:2px solid #FC000D;
+    border-radius:12px;
+    font-size:16px;
+    font-weight:700;
+    color:#1f2937;
+    background:white;
+    min-width:200px;
+    cursor:pointer;
+}

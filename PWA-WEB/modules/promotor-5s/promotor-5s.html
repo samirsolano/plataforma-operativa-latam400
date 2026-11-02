@@ -79,13 +79,24 @@
                     Promotor 5S
                 </h1>
 
+                <p class="subtitulo-header">
+                    Lista tomada de la Carga Mensual del mes elegido.
+                    <b id="resumenMes"></b>
+                </p>
+
+            </div>
+
+            <div class="selector-mes-header">
+
+                <label for="selectorMes">Mes</label>
+
+                <select id="selectorMes">
+                    <option value="">Cargando meses...</option>
+                </select>
+
             </div>
 
             <div class="acciones-header">
-
-                <button type="button" class="btn-secundario" id="btnCargarDesdeActivos">
-                    ⬇️ Cargar desde Colaboradores Activos
-                </button>
 
                 <button type="button" class="btn-secundario" id="btnVerTablero">
                     🖼️ Ver Tablero por Pasillo
@@ -93,10 +104,6 @@
 
                 <button type="button" class="btn-secundario" id="btnVerEquipoCompleto">
                     👥 Ver Equipo Completo
-                </button>
-
-                <button type="button" class="btn-primario" id="btnAgregar">
-                    + Agregar Promotor
                 </button>
 
             </div>
@@ -144,7 +151,7 @@
                             <th>DNI</th>
                             <th>Nombre</th>
                             <th>Turno</th>
-                            <th>Acción</th>
+                            <th>Supervisor</th>
 
                         </tr>
 
@@ -169,125 +176,10 @@
 
     </div>
 
-    <!-- MODAL AGREGAR / EDITAR -->
-
-    <div class="modal-overlay" id="modalOverlay">
-
-        <div class="modal">
-
-            <h3 id="tituloModal">
-                Agregar Promotor 5S
-            </h3>
-
-            <form autocomplete="off" onsubmit="return false;">
-
-                <div class="grupo">
-
-                    <label>
-                        Zona
-                    </label>
-
-                    <input
-                        type="text"
-                        id="nuevaZona"
-                        autocomplete="off"
-                        placeholder="Ej: ZONA 1"
-                    >
-
-                </div>
-
-                <div class="grupo">
-
-                    <label>
-                        Pasillo
-                    </label>
-
-                    <input
-                        type="text"
-                        id="nuevoPasillo"
-                        autocomplete="off"
-                        placeholder="Ej: Pasillo 1"
-                    >
-
-                </div>
-
-                <div class="grupo">
-
-                    <label>
-                        Turno
-                    </label>
-
-                    <select id="nuevoTurno">
-                        <option value="DIA">DIA (1er turno)</option>
-                        <option value="INTERMEDIO">INTERMEDIO (2do turno)</option>
-                        <option value="NOCHE">NOCHE (3er turno)</option>
-                    </select>
-
-                </div>
-
-                <div class="grupo">
-
-                    <label>
-                        DNI
-                    </label>
-
-                    <input
-                        type="text"
-                        id="nuevoDni"
-                        maxlength="8"
-                        inputmode="numeric"
-                        autocomplete="off"
-                        autocorrect="off"
-                        autocapitalize="off"
-                        spellcheck="false"
-                    >
-
-                </div>
-
-                <div class="grupo">
-
-                    <label>
-                        Nombre completo
-                    </label>
-
-                    <input
-                        type="text"
-                        id="nuevoNombre"
-                        autocomplete="off"
-                    >
-
-                </div>
-
-                <img id="previsualizacionFoto" class="previsualizacion" alt="Foto">
-
-                <p id="mensajeErrorModal" class="mensaje-error"></p>
-
-                <div class="modal-botones">
-
-                    <button type="button" id="btnEliminar" class="btn-eliminar oculto">
-                        Eliminar
-                    </button>
-
-                    <button type="button" id="btnCancelar" class="btn-secundario">
-                        Cancelar
-                    </button>
-
-                    <button type="button" id="btnGuardar" class="btn-primario">
-                        Guardar
-                    </button>
-
-                </div>
-
-            </form>
-
-        </div>
-
-    </div>
-
     <script src="../../shared/auth.js"></script>
     <script src="../../shared/checklist-config.js"></script>
     <script src="../../shared/supabase-config.js"></script>
-    <script src="../../shared/colaboradores-fotos.js"></script>
+    <script src="meses-promotor.js"></script>
     <script src="promotor-5s.js"></script>
 
 </body>

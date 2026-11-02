@@ -39,36 +39,60 @@ const FOTO_DEFAULT =
 const mensajeCarga = document.getElementById("mensajeCarga");
 const contenedorTurnos = document.getElementById("contenedorTurnos");
 
+const selectorMes = document.getElementById("selectorMes");
+
 document.getElementById("btnImprimir").addEventListener("click", function(){
     window.print();
 });
 
-async function cargarEquipoCompleto(){
+let fotosPorDni = null;
+
+async function obtenerFotosPorDni(){
+
+    if(fotosPorDni){
+        return fotosPorDni;
+    }
+
+    const fotos = await checklistFetch("/fotos_colaboradores?select=dni,foto");
+
+    fotosPorDni = {};
+
+    (fotos || []).forEach(function(f){
+        fotosPorDni[f.dni] = f.foto;
+    });
+
+    return fotosPorDni;
+
+}
+
+async function cargarEquipoCompleto(mes){
+
+    contenedorTurnos.innerHTML = "";
+    mensajeCarga.textContent = "Cargando promotores...";
+    mensajeCarga.style.display = "block";
+
+    document.getElementById("linkVolver").href = urlConMes("promotor-5s.html", mes);
+    document.getElementById("linkOtroTablero").href = urlConMes("tablero.html", mes);
 
     try{
 
         const [promotores, fotos] = await Promise.all([
-            checklistFetch(
-                "/promotores_5s?select=zona,pasillo,turno,dni,nombre&activo=eq.true&order=turno.asc,zona.asc,pasillo.asc"
-            ),
-            checklistFetch(
-                "/fotos_colaboradores?select=dni,foto"
-            )
+            obtenerPromotoresDelMes(mes, "turno.asc,zona.asc,pasillo.asc"),
+            obtenerFotosPorDni()
         ]);
 
-        if(!promotores || !promotores.length){
-            mensajeCarga.textContent =
-                "No hay Promotores 5S registrados. Ve a \"Promotor 5S\" y agrega o carga desde Colaboradores Activos.";
+        if(mes !== selectorMes.value && selectorMes.value){
             return;
         }
 
-        const fotosPorDni = {};
+        if(!promotores.length){
+            mensajeCarga.textContent = mes
+                ? "No hay Promotores 5S cargados para " + mes + "."
+                : "Todavía no hay meses cargados. Sube el Excel del mes en \"Carga Mensual\".";
+            return;
+        }
 
-        (fotos || []).forEach(function(f){
-            fotosPorDni[f.dni] = f.foto;
-        });
-
-        renderizarEquipoCompleto(promotores, fotosPorDni);
+        renderizarEquipoCompleto(promotores, fotos, mes);
 
         mensajeCarga.style.display = "none";
 
@@ -81,7 +105,7 @@ async function cargarEquipoCompleto(){
 
 }
 
-function renderizarEquipoCompleto(promotores, fotosPorDni){
+function renderizarEquipoCompleto(promotores, fotosPorDni, mes){
 
     contenedorTurnos.innerHTML = "";
 
@@ -124,7 +148,7 @@ function renderizarEquipoCompleto(promotores, fotosPorDni){
                     <div class="hoja-logo"><img class="logo-sigma-img" src="${LOGO_SIGMA_ROJO_SRC}" alt="SIGMA"></div>
                     <div class="hoja-titulos">
                         <h2>PROMOTORES 5S</h2>
-                        <span>${ETIQUETAS_TURNO[turno]} — LATAM 400 CL${sufijoHoja}</span>
+                        <span>${ETIQUETAS_TURNO[turno]} — LATAM 400 CL · ${mes}${sufijoHoja}</span>
                     </div>
                 </div>
                 <div class="hoja-personas">
@@ -140,4 +164,7 @@ function renderizarEquipoCompleto(promotores, fotosPorDni){
 
 }
 
-cargarEquipoCompleto();
+iniciarSelectorMes(selectorMes, cargarEquipoCompleto).catch(function(e){
+    console.error(e);
+    mensajeCarga.textContent = "No se pudo cargar la lista de meses.";
+});

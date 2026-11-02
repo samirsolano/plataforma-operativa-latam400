@@ -41,11 +41,11 @@ document.getElementById("btnCerrarSesion").addEventListener("click", function(e)
 });
 
 document.getElementById("btnVerTablero").addEventListener("click", function(){
-    window.location.href = "tablero.html";
+    window.location.href = urlConMes("tablero.html", selectorMes.value);
 });
 
 document.getElementById("btnVerEquipoCompleto").addEventListener("click", function(){
-    window.location.href = "tablero-equipo.html";
+    window.location.href = urlConMes("tablero-equipo.html", selectorMes.value);
 });
 
 // ========================================
@@ -59,9 +59,11 @@ const ETIQUETAS_TURNO = {
 };
 
 // ========================================
-// LISTAR
+// LISTAR (según el mes elegido arriba)
 // ========================================
 
+const selectorMes = document.getElementById("selectorMes");
+const resumenMes = document.getElementById("resumenMes");
 const tblPromotores = document.getElementById("tblPromotores");
 const mensajeVacio = document.getElementById("mensajeVacio");
 const buscador = document.getElementById("buscador");
@@ -70,16 +72,26 @@ const filtroTurno = document.getElementById("filtroTurno");
 
 let promotoresCargados = [];
 
-async function cargarPromotores(){
+async function cargarPromotores(mes){
 
     tblPromotores.innerHTML = "";
-    mensajeVacio.style.display = "none";
+    resumenMes.textContent = "";
+    mensajeVacio.textContent = "Cargando promotores...";
+    mensajeVacio.style.display = "block";
+
+    if(!mes){
+        promotoresCargados = [];
+        mensajeVacio.textContent = "Todavía no hay meses cargados. Sube el Excel del mes en \"Carga Mensual\".";
+        return;
+    }
 
     try{
 
-        promotoresCargados = await checklistFetch(
-            "/promotores_5s?select=id,dni,nombre,zona,pasillo,turno,activo&activo=eq.true&order=zona.asc,pasillo.asc,turno.asc"
+        promotoresCargados = await obtenerPromotoresDelMes(
+            mes, "zona.asc,pasillo.asc,turno.asc"
         );
+
+        resumenMes.textContent = promotoresCargados.length + " promotores en " + mes;
 
         llenarFiltroZona(promotoresCargados);
         aplicarFiltros();
@@ -114,7 +126,7 @@ function llenarFiltroZona(lista){
 
     });
 
-    filtroZona.value = seleccionActual;
+    filtroZona.value = zonas.includes(seleccionActual) ? seleccionActual : "";
 
 }
 
@@ -124,7 +136,7 @@ function renderizarPromotores(lista){
     mensajeVacio.style.display = "none";
 
     if(!lista || !lista.length){
-        mensajeVacio.textContent = "No hay promotores 5S registrados.";
+        mensajeVacio.textContent = "No hay promotores 5S para este mes.";
         mensajeVacio.style.display = "block";
         return;
     }
@@ -139,11 +151,7 @@ function renderizarPromotores(lista){
             <td>${p.dni}</td>
             <td>${p.nombre}</td>
             <td>${ETIQUETAS_TURNO[p.turno] || p.turno || "-"}</td>
-            <td>
-                <button class="btn-editar" data-id="${p.id}">
-                    Editar
-                </button>
-            </td>
+            <td>${p.supervisor || "-"}</td>
         `;
 
         tblPromotores.appendChild(tr);
@@ -180,305 +188,17 @@ filtroZona.addEventListener("change", aplicarFiltros);
 filtroTurno.addEventListener("change", aplicarFiltros);
 
 // ========================================
-// CARGAR DESDE COLABORADORES ACTIVOS
-// ========================================
-// Copia zona/pasillo/turno/dni/nombre del roster activo hacia
-// promotores_5s, para no partir de cero. "ignore-duplicates" hace
-// que esto sea seguro de repetir: nunca pisa un promotor que ya
-// fue asignado/editado a mano para ese zona+pasillo+turno.
-
-document.getElementById("btnCargarDesdeActivos").addEventListener("click", async function(){
-
-    const boton = this;
-    boton.disabled = true;
-    boton.textContent = "Cargando...";
-
-    try{
-
-        const activos = await checklistFetch(
-            "/colaboradores_activos?select=dni,nombre,zona,pasillo,turno&activo=eq.true"
-        );
-
-        if(!activos || !activos.length){
-            alert("No hay colaboradores activos para copiar.");
-            return;
-        }
-
-        const filas = activos
-            .filter(c => c.zona && c.pasillo && c.turno)
-            .map(c => ({
-                zona: c.zona,
-                pasillo: c.pasillo,
-                turno: c.turno,
-                dni: c.dni,
-                nombre: c.nombre,
-                activo: true
-            }));
-
-        await checklistFetch(
-            "/promotores_5s?on_conflict=zona,pasillo,turno",
-            {
-                method: "POST",
-                headers: { Prefer: "resolution=ignore-duplicates" },
-                body: JSON.stringify(filas)
-            }
-        );
-
-        await cargarPromotores();
-
-        alert("Listo. Se agregaron los que faltaban (los que ya tenías asignados no se tocaron).");
-
-    }catch(e){
-
-        console.error(e);
-        alert("No se pudo copiar desde Colaboradores Activos.");
-
-    }finally{
-
-        boton.disabled = false;
-        boton.textContent = "⬇️ Cargar desde Colaboradores Activos";
-
-    }
-
-});
-
-// ========================================
-// MODAL AGREGAR / EDITAR
-// ========================================
-
-const modalOverlay = document.getElementById("modalOverlay");
-const tituloModal = document.getElementById("tituloModal");
-const btnCancelar = document.getElementById("btnCancelar");
-const btnGuardar = document.getElementById("btnGuardar");
-const btnEliminar = document.getElementById("btnEliminar");
-const mensajeErrorModal = document.getElementById("mensajeErrorModal");
-
-const inputZona = document.getElementById("nuevaZona");
-const inputPasillo = document.getElementById("nuevoPasillo");
-const inputTurno = document.getElementById("nuevoTurno");
-const inputDni = document.getElementById("nuevoDni");
-const inputNombre = document.getElementById("nuevoNombre");
-const previsualizacionFoto = document.getElementById("previsualizacionFoto");
-
-let editandoId = null;
-
-function limpiarModal(){
-
-    mensajeErrorModal.textContent = "";
-    inputZona.value = "";
-    inputPasillo.value = "";
-    inputTurno.value = "DIA";
-    inputDni.value = "";
-    inputNombre.value = "";
-    previsualizacionFoto.style.display = "none";
-    previsualizacionFoto.src = "";
-    btnEliminar.classList.add("oculto");
-
-}
-
-document.getElementById("btnAgregar").addEventListener("click", function(){
-
-    limpiarModal();
-    editandoId = null;
-    tituloModal.textContent = "Agregar Promotor 5S";
-    modalOverlay.classList.add("visible");
-
-});
-
-function abrirModalEditar(promotor){
-
-    limpiarModal();
-    editandoId = promotor.id;
-
-    tituloModal.textContent = "Editar Promotor 5S";
-
-    inputZona.value = promotor.zona || "";
-    inputPasillo.value = promotor.pasillo || "";
-    inputTurno.value = promotor.turno || "DIA";
-    inputDni.value = promotor.dni;
-    inputNombre.value = promotor.nombre;
-
-    btnEliminar.classList.remove("oculto");
-
-    previsualizarFoto(promotor.dni);
-
-    modalOverlay.classList.add("visible");
-
-}
-
-async function previsualizarFoto(dni){
-
-    if(!dni){
-        return;
-    }
-
-    try{
-
-        const foto = await buscarFotoColaborador(dni);
-
-        if(foto && foto.foto){
-            previsualizacionFoto.src = foto.foto;
-            previsualizacionFoto.style.display = "block";
-        }
-
-    }catch(e){
-        console.error(e);
-    }
-
-}
-
-inputDni.addEventListener("blur", function(){
-    previsualizacionFoto.style.display = "none";
-    previsualizarFoto(inputDni.value.trim());
-});
-
-function cerrarModal(){
-    modalOverlay.classList.remove("visible");
-}
-
-btnCancelar.addEventListener("click", cerrarModal);
-
-modalOverlay.addEventListener("click", function(e){
-
-    if(e.target === modalOverlay){
-        cerrarModal();
-    }
-
-});
-
-tblPromotores.addEventListener("click", function(e){
-
-    const botonEditar = e.target.closest(".btn-editar");
-
-    if(!botonEditar){
-        return;
-    }
-
-    const id = botonEditar.dataset.id;
-    const promotor = promotoresCargados.find(p => String(p.id) === String(id));
-
-    if(promotor){
-        abrirModalEditar(promotor);
-    }
-
-});
-
-btnGuardar.addEventListener("click", async function(){
-
-    const zona = inputZona.value.trim();
-    const pasillo = inputPasillo.value.trim();
-    const turno = inputTurno.value;
-    const dni = inputDni.value.trim();
-    const nombre = inputNombre.value.trim();
-
-    mensajeErrorModal.textContent = "";
-
-    if(!zona || !pasillo || !dni || !nombre){
-        mensajeErrorModal.textContent = "Complete zona, pasillo, DNI y nombre.";
-        return;
-    }
-
-    if(dni.length !== 8){
-        mensajeErrorModal.textContent = "El DNI debe tener 8 dígitos.";
-        return;
-    }
-
-    btnGuardar.disabled = true;
-    btnGuardar.textContent = "GUARDANDO...";
-
-    try{
-
-        if(editandoId){
-
-            await checklistFetch(
-                "/promotores_5s?id=eq." + encodeURIComponent(editandoId),
-                {
-                    method: "PATCH",
-                    body: JSON.stringify({
-                        zona: zona,
-                        pasillo: pasillo,
-                        turno: turno,
-                        dni: dni,
-                        nombre: nombre,
-                        updated_at: new Date().toISOString()
-                    })
-                }
-            );
-
-        }else{
-
-            await checklistFetch(
-                "/promotores_5s",
-                {
-                    method: "POST",
-                    body: JSON.stringify({
-                        zona: zona,
-                        pasillo: pasillo,
-                        turno: turno,
-                        dni: dni,
-                        nombre: nombre
-                    })
-                }
-            );
-
-        }
-
-        cerrarModal();
-        cargarPromotores();
-
-    }catch(e){
-
-        console.error(e);
-        mensajeErrorModal.textContent = "No se pudo guardar. Verifique que no exista ya un promotor para esa zona, pasillo y turno.";
-
-    }finally{
-
-        btnGuardar.disabled = false;
-        btnGuardar.textContent = "Guardar";
-
-    }
-
-});
-
-btnEliminar.addEventListener("click", async function(){
-
-    if(!editandoId){
-        return;
-    }
-
-    if(!confirm("¿Eliminar este Promotor 5S?")){
-        return;
-    }
-
-    btnEliminar.disabled = true;
-
-    try{
-
-        await checklistFetch(
-            "/promotores_5s?id=eq." + encodeURIComponent(editandoId),
-            { method: "DELETE" }
-        );
-
-        cerrarModal();
-        cargarPromotores();
-
-    }catch(e){
-
-        console.error(e);
-        mensajeErrorModal.textContent = "No se pudo eliminar.";
-
-    }finally{
-
-        btnEliminar.disabled = false;
-
-    }
-
-});
-
-// ========================================
 // INICIO
 // ========================================
 
 if(sesion && tienePermiso(sesion, "checklist-5s", "promotor-5s")){
-    cargarPromotores();
+
+    iniciarSelectorMes(selectorMes, cargarPromotores).catch(function(e){
+
+        console.error(e);
+        mensajeVacio.textContent = "No se pudo cargar la lista de meses.";
+        mensajeVacio.style.display = "block";
+
+    });
+
 }
