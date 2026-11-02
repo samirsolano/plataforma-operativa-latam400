@@ -49,10 +49,10 @@ function requierePackingList(cliente){
 }
 
 // Los de acción PROCESAR solo se procesan si el cliente tiene su proceso
-// armado (CONFIG_PROCESAR_CLIENTE en procesar-cliente.js, hoy SPSA); los
+// armado (configDeCliente en procesar-cliente.js: SPSA y Tottus); los
 // demás se suben normal, como los de acción SUBIR.
 function tieneProcesoCliente(cliente){
-    return typeof CONFIG_PROCESAR_CLIENTE !== "undefined" && !!CONFIG_PROCESAR_CLIENTE[cliente];
+    return typeof configDeCliente === "function" && !!configDeCliente(cliente);
 }
 
 function seSubeDirecto(v){
@@ -953,8 +953,10 @@ async function guardarRotulosTottus(resultado){
     const materiales = Array.from(new Set(lineas.map(function(f){ return textoCodigo(f["Material"]); })));
     const rotuloDe = await rotulosDeMateriales(materiales);
 
-    // (entrega, rótulo) → peso y líneas
+    // (entrega, rótulo) → peso y líneas; y el detalle por material, que
+    // usa la lista de validación de picking (una por línea del viaje).
     const porRotulo = {};
+    const detalle = [];
 
     lineas.forEach(function(f){
 
@@ -962,6 +964,17 @@ async function guardarRotulosTottus(resultado){
         const oriente = limpiarTexto(e.destinatario_nombre || e.cliente_nombre).indexOf("TOTTUS ORIENTE") !== -1;
         const rotulo = oriente ? ROTULO_TOTTUS_ORIENTE : (rotuloDe[textoCodigo(f["Material"])] || SIN_ROTULO);
         const clave = e.entrega + "|" + rotulo;
+
+        detalle.push({
+            entrega: e.entrega,
+            fo: e.fo,
+            material: textoCodigo(f["Material"]),
+            descripcion: f["Denominación de posición"] || null,
+            um: limpiarTexto(f["Un.medida venta"]) || null,
+            cantidad: numero(f["Cantidad entrega"]),
+            peso_kg: redondear(numero(f["Peso total"]), 3),
+            rotulo: rotulo
+        });
 
         if(!porRotulo[clave]){
             porRotulo[clave] = { entrega: e.entrega, fo: e.fo, rotulo: rotulo, peso_kg: 0, cantidad_lineas: 0 };
@@ -985,9 +998,21 @@ async function guardarRotulosTottus(resultado){
             method: "DELETE",
             headers: { "Prefer": "return=minimal" }
         });
+        await supabaseFetch("/md_entregas_material?entrega=in.(" + encodeURIComponent(lista) + ")", {
+            method: "DELETE",
+            headers: { "Prefer": "return=minimal" }
+        });
     }
 
     await guardarEnLotes("md_entregas_rotulo", "entrega,rotulo", filas);
+
+    for(let i = 0; i < detalle.length; i += 500){
+        await supabaseFetch("/md_entregas_material", {
+            method: "POST",
+            headers: { "Prefer": "return=minimal" },
+            body: JSON.stringify(detalle.slice(i, i + 500))
+        });
+    }
 
     // Para mostrarlo en la tabla: el reparto de cada viaje.
     resultado.viajes.forEach(function(v){

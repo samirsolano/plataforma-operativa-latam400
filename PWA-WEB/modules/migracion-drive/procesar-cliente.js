@@ -10,59 +10,124 @@
 // viaje va. Con eso sale solo la programación para responder el correo:
 // una fila por entrega (F.O, RÓTULO, PEDIDO, O/C, ENTREGAS), que se
 // copia con formato y se pega en el correo.
-// Cada cliente tiene su configuración en CONFIG_PROCESAR_CLIENTE: mismo
-// panel, distinta información.
+// Cada cliente tiene su configuración (configDeCliente): mismo panel,
+// distinta información.
+//   columnas: encabezado de la tabla del correo (normalizado, ver
+//             normalizarEncabezado) → dato. Los que importan son pedido
+//             y oc; el resto es para el resumen.
+//   modo:     qué sale después de pegar el correo:
+//     "programacion" (SPSA): la programación para responder el correo
+//                    y subir con el cliente (ALMACENAJE) / (FC).
+//     "lineas" (Tottus): las líneas del viaje (negocio × rótulo × peso)
+//                    como en el Drive; el negocio sale del correo y el
+//                    rótulo de md_entregas_rotulo (calculado al procesar).
+//
+// TOTTUS: además de los dos pasos de arriba, la plantilla F-LAT-058
+// arma el ASN (packing list) y la validación de picking; eso queda
+// para después.
 
 const procesarCliente = {
     cliente: null,
     gestion: null,
     viajes: [],
     config: null,
-    correo: null,       // { titulo, filas: [...] } ya cruzadas con los viajes
+    correo: null,       // { filas: [...], pegados: [...] } ya cruzadas con los viajes
     entregas: [],       // md_entregas de los viajes (fo, entrega, documento_modelo)
-    programacion: []    // filas de la programación para el correo
+    programacion: [],   // modo "programacion": filas para el correo
+    lineas: []          // modo "lineas": líneas del viaje (fo, cliente, rotulo, peso_kg)
 };
 
-const CONFIG_PROCESAR_CLIENTE = {
-    "SUPERMERCADOS PERUANOS S.A.": {
-        pegado: {
-            titulo: "Detalle del correo",
-            ayuda: "Copia la tabla del correo de SPSA (o una captura de ella) y pégala aquí con Ctrl + V."
-        },
-        salida: {
-            titulo: "Programación para el correo",
-            columnas: ["F.O", "RÓTULO", "PEDIDO", "O/C", "ENTREGAS"]
-        },
-        // Al subir, el cliente del viaje lleva su tipo de OC, como en el
-        // Drive: SUPERMERCADOS PERUANOS S.A. (ALMACENAJE) / (FC).
-        sufijos: {
-            FLUJO: "(FC)",
-            ALMACENAJE: "(ALMACENAJE)",
-            JOKER: "(JOKER)"
-        }
+const CONFIG_SPSA = {
+    modo: "programacion",
+    pegado: {
+        titulo: "Detalle del correo",
+        ayuda: "Copia la tabla del correo de SPSA (o una captura de ella) y pégala aquí con Ctrl + V."
+    },
+    columnas: {
+        "TIPO": "tipo",
+        "LOCAL DE ENTREGA": "local_entrega",
+        "TIPO OC": "tipo_oc",
+        "OC": "oc",
+        "PEDIDO": "pedido",
+        "FECHA DE ENTREGA": "fecha_entrega",
+        "CENTRO": "centro",
+        "TM'S": "tm",
+        "PEN": "pen",
+        "UCO'S": "ucos"
+    },
+    salida: {
+        titulo: "Programación para el correo",
+        columnas: ["F.O", "RÓTULO", "PEDIDO", "O/C", "ENTREGAS"]
+    },
+    // Al subir, el cliente del viaje lleva su tipo de OC, como en el
+    // Drive: SUPERMERCADOS PERUANOS S.A. (ALMACENAJE) / (FC).
+    sufijos: {
+        FLUJO: "(FC)",
+        ALMACENAJE: "(ALMACENAJE)",
+        JOKER: "(JOKER)"
     }
 };
 
-// Rótulo de la programación según el tipo de OC.
+// Correo de Tottus (hoja CORREO de la plantilla F-LAT-058).
+const CONFIG_TOTTUS = {
+    modo: "lineas",
+    pegado: {
+        titulo: "Detalle del correo",
+        ayuda: "Copia la tabla del correo de Tottus (o una captura de ella) y pégala aquí con Ctrl + V."
+    },
+    // En el correo real la columna del negocio se llama "Portafolio"
+    // (en la plantilla, "Negocio"): se aceptan las dos.
+    columnas: {
+        "NEGOCIO": "negocio",
+        "PORTAFOLIO": "negocio",
+        "TIENDAS": "local_entrega",
+        "TIPO": "tipo_oc",
+        "REFERENCIA DE CLIENTE": "oc",
+        "DOCUMENTO DE VENTAS": "pedido",
+        "FEC PREF ENTREGA": "fecha_entrega",
+        "STATUS PEDIDO": "status_pedido",
+        "CENTRO": "centro",
+        "PESO KG": "kg",
+        "VALOR NETOS": "pen",
+        "CANTIDAD EAN14": "ucos"
+    },
+    salida: {
+        titulo: "Líneas del viaje (como en el Drive)",
+        columnas: ["F.O", "CLIENTE", "RÓTULO", "PESO KG", "PESO TN"]
+    }
+};
+
+const CONFIG_PROCESAR_CLIENTE = {
+    "SUPERMERCADOS PERUANOS S.A.": CONFIG_SPSA
+};
+
+// Config del cliente: por nombre exacto, o Tottus para cualquier
+// cliente con TOTTUS en el nombre (tiene varios: TOTTUS - HUACHIPA
+// (SECOS), TOTTUS ORIENTE..., TOTTUS ALICORP LIMPIEZA...).
+function configDeCliente(cliente){
+    if(CONFIG_PROCESAR_CLIENTE[cliente]) return CONFIG_PROCESAR_CLIENTE[cliente];
+    if(limpiarTexto(cliente).indexOf("TOTTUS") !== -1) return CONFIG_TOTTUS;
+    return null;
+}
+
+// Rótulo de la programación de SPSA según el tipo de OC.
 const ROTULOS_TIPO_OC = {
     "FLUJO": "Flujo Continuo",
     "ALMACENAJE": "Almacenaje",
     "JOKER": "Joker"
 };
 
-// Encabezados de la tabla del correo → clave de cada fila.
-const COLUMNAS_CORREO = {
-    "TIPO": "tipo",
-    "LOCAL DE ENTREGA": "local_entrega",
-    "TIPO OC": "tipo_oc",
-    "OC": "oc",
-    "PEDIDO": "pedido",
-    "FECHA DE ENTREGA": "fecha_entrega",
-    "CENTRO": "centro",
-    "TM'S": "tm",
-    "PEN": "pen",
-    "UCO'S": "ucos"
-};
+// Encabezados comparables: sin tildes ni símbolos (Nº → N, Fec.Pref. →
+// FEC PREF), en mayúsculas y con el apóstrofo recto (UCO’s → UCO'S).
+function normalizarEncabezado(texto){
+    return String(texto || "")
+        .normalize("NFD").replace(/[̀-ͯ]/g, "")
+        .replace(/[’`´]/g, "'")
+        .toUpperCase()
+        .replace(/[^A-Z0-9' ]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
 
 // Ctrl + V en cualquier parte del panel.
 document.getElementById("pcModal").addEventListener("paste", function(evento){
@@ -95,12 +160,21 @@ function abrirProcesarCliente(gestion, cliente){
 
     procesarCliente.cliente = cliente;
     procesarCliente.gestion = gestion;
-    procesarCliente.config = CONFIG_PROCESAR_CLIENTE[cliente] || null;
+    procesarCliente.config = configDeCliente(cliente);
     procesarCliente.correo = null;
     procesarCliente.entregas = [];
     procesarCliente.programacion = [];
+    procesarCliente.lineas = [];
+
+    // Tottus junta todos sus viajes (sus nombres varían: TOTTUS -
+    // HUACHIPA, TOTTUS ORIENTE...); los demás, solo los de ese cliente.
+    const porLineas = procesarCliente.config && procesarCliente.config.modo === "lineas";
+
     procesarCliente.viajes = resultado ? resultado.viajes.filter(function(v){
-        return v.accion === "PROCESAR" && v.gestion === gestion && (v.cliente || "SIN CLIENTE") === cliente;
+        if(v.accion !== "PROCESAR" || v.gestion !== gestion || v.estado === "SUBIDO") return false;
+        return porLineas
+            ? configDeCliente(v.cliente || "") === procesarCliente.config
+            : (v.cliente || "SIN CLIENTE") === cliente;
     }) : [];
 
     const viajes = procesarCliente.viajes;
@@ -145,7 +219,7 @@ function abrirProcesarCliente(gestion, cliente){
             '<div class="sp-contenedor"><table class="sp-tabla"><thead><tr>' +
                 columnas.map(function(c){ return '<th>' + escaparHtml(c) + '</th>'; }).join("") +
             '</tr></thead><tbody><tr><td class="pc-vacio" colspan="' + columnas.length + '">' +
-                'Pega la tabla del correo: aquí sale la programación de los ' +
+                'Pega la tabla del correo: aquí sale ' + (procesarCliente.config.modo === "lineas" ? 'el detalle de líneas' : 'la programación') + ' de los ' +
                 textoCantidadViajes(viajes.length) + '.' +
             '</td></tr></tbody></table></div>';
 
@@ -208,7 +282,7 @@ function leerImagenCorreo(archivo){
 
         try{
             const datos = await leerTablaCorreoConGemini(base64, archivo.type || "image/png");
-            await cargarCorreo(datos.titulo, datos.filas, "imagen", dataUrl);
+            await leerTablaCorreo(datos.titulo, [datos.encabezados].concat(datos.filas), "imagen", dataUrl);
         }catch(error){
             console.error(error);
             estadoCorreo("cv-error", "❌ No se pudo leer: " + (error.message || error) +
@@ -226,37 +300,48 @@ function leerImagenCorreo(archivo){
 // ----- Tabla copiada como texto (columnas separadas por tabulación) -----
 
 function leerTextoCorreo(texto){
-
     const lineas = texto.split(/\r?\n/).map(function(l){ return l.split("\t"); });
+    leerTablaCorreo("", lineas, "tabla", null);
+}
+
+// La tabla del correo (de la foto o pegada), como filas de celdas: busca
+// la fila de encabezados con las columnas de este cliente (al menos
+// pedido y OC), lee las filas de abajo y salta la de totales. Lo que
+// haya arriba del encabezado es el título (ej. CENTRO 1054 - PUNTA NEGRA).
+function leerTablaCorreo(titulo, lineas, origen, miniatura){
+
+    const columnas = procesarCliente.config.columnas;
+    const claveDe = function(celda){ return columnas[normalizarEncabezado(celda)] || null; };
 
     const iEncabezado = lineas.findIndex(function(celdas){
-        const limpias = celdas.map(limpiarTexto);
-        return limpias.indexOf("PEDIDO") !== -1 && limpias.indexOf("OC") !== -1;
+        const claves = (celdas || []).map(claveDe);
+        return claves.indexOf("pedido") !== -1 && claves.indexOf("oc") !== -1;
     });
 
     if(iEncabezado === -1){
-        estadoCorreo("cv-error", "❌ No se encontró la tabla: lo pegado debe incluir los encabezados (PEDIDO, OC...).");
+        estadoCorreo("cv-error", "❌ No se encontró la tabla del correo: tiene que verse con sus encabezados (" +
+            Object.keys(columnas).slice(0, 5).join(", ") + "...).");
         return;
     }
 
-    const claves = lineas[iEncabezado].map(function(c){ return COLUMNAS_CORREO[limpiarTexto(c)] || null; });
-    const titulo = lineas.slice(0, iEncabezado)
+    const claves = lineas[iEncabezado].map(claveDe);
+
+    titulo = titulo || lineas.slice(0, iEncabezado)
         .map(function(c){ return c.join(" ").trim(); })
         .filter(function(t){ return t; })
         .pop() || "";
 
     const filas = lineas.slice(iEncabezado + 1)
         .filter(function(celdas){
-            const primera = limpiarTexto(celdas[0]);
-            return celdas.join("").trim() !== "" && primera.indexOf("TOTAL") !== 0;
+            return (celdas || []).join("").trim() !== "" && limpiarTexto(celdas[0]).indexOf("TOTAL") !== 0;
         })
         .map(function(celdas){
             const fila = {};
-            claves.forEach(function(clave, i){ if(clave) fila[clave] = (celdas[i] || "").trim(); });
+            claves.forEach(function(clave, i){ if(clave) fila[clave] = String(celdas[i] == null ? "" : celdas[i]).trim(); });
             return fila;
         });
 
-    cargarCorreo(titulo, filas, "tabla", null);
+    return cargarCorreo(titulo, filas, origen, miniatura);
 
 }
 
@@ -286,6 +371,7 @@ async function cargarCorreo(titulo, filasLeidas, origen, miniatura){
     const leidas = (filasLeidas || []).map(function(f){
         return {
             tipo: String(f.tipo || "").trim(),
+            negocio: limpiarTexto(f.negocio),
             local_entrega: String(f.local_entrega || "").trim(),
             tipo_oc: String(f.tipo_oc || "").trim(),
             tipo_oc_plataforma: tipoOcPlataforma(f.tipo_oc),
@@ -293,7 +379,8 @@ async function cargarCorreo(titulo, filasLeidas, origen, miniatura){
             pedido: soloDigitos(f.pedido),
             fecha_entrega: String(f.fecha_entrega || "").trim(),
             centro: String(f.centro || "").trim(),
-            tm: numeroCorreo(f.tm),
+            // El peso viene en TM (SPSA) o en KG (Tottus, Cencosud).
+            tm: f.tm ? numeroCorreo(f.tm) : numeroCorreo(f.kg) / 1000,
             pen: numeroCorreo(f.pen),
             ucos: numeroCorreo(f.ucos),
             correo: numero,
@@ -315,6 +402,12 @@ async function cargarCorreo(titulo, filasLeidas, origen, miniatura){
             procesarCliente.entregas = (fos ? await supabaseFetch(
                 "/md_entregas?fo=in.(" + encodeURIComponent(fos) + ")&select=fo,entrega,documento_modelo&order=fo,entrega"
             ) : []) || [];
+            // Tottus: el peso de cada entrega por rótulo (calculado al procesar).
+            procesarCliente.rotulos = procesarCliente.config.modo === "lineas" && fos
+                ? (await supabaseFetch(
+                    "/md_entregas_rotulo?fo=in.(" + encodeURIComponent(fos) + ")&select=fo,entrega,rotulo,peso_kg"
+                  ) || [])
+                : [];
         }catch(error){
             console.error(error);
             estadoCorreo("cv-error", "❌ Se leyó el correo, pero no se pudo cruzar con los viajes: " + (error.message || error));
@@ -371,7 +464,11 @@ async function cargarCorreo(titulo, filasLeidas, origen, miniatura){
 
     pintarCorreoLeido();
     pintarViajesCliente();
-    generarProgramacion();
+    if(procesarCliente.config.modo === "lineas"){
+        generarLineas();
+    }else{
+        generarProgramacion();
+    }
 
 }
 
@@ -497,14 +594,10 @@ function generarProgramacion(){
 
 }
 
-// Copia la programación con el formato del correo (encabezado azul,
-// F.O y O/C en negrita), lista para pegar en Outlook; también como
-// texto con tabulaciones por si se pega en Excel.
-function copiarProgramacion(){
-
-    const filas = procesarCliente.programacion;
-    const boton = document.getElementById("pcBtnCopiar");
-    const columnas = procesarCliente.config.salida.columnas;
+// Copia una tabla con el formato del correo (encabezado azul y las
+// columnas de "negritas" en negrita), lista para pegar en Outlook; también
+// como texto con tabulaciones por si se pega en Excel.
+function copiarTablaCorreo(boton, textoBoton, intro, columnas, filas, negritas){
 
     const th = 'style="background:#1f3864;color:#ffffff;font-weight:bold;padding:3px 14px;border:1px solid #ffffff;font-family:Calibri,Arial,sans-serif;font-size:11pt;text-align:center"';
     const td = function(negrita){
@@ -513,27 +606,23 @@ function copiarProgramacion(){
     };
 
     const html =
-        '<p style="font-family:Calibri,Arial,sans-serif;font-size:11pt;margin:0 0 4px">Considerar la siguiente programación:</p>' +
+        '<p style="font-family:Calibri,Arial,sans-serif;font-size:11pt;margin:0 0 4px">' + escaparHtml(intro) + '</p>' +
         '<table style="border-collapse:collapse"><thead><tr>' +
             columnas.map(function(c){ return '<th ' + th + '>' + c + '</th>'; }).join("") +
         '</tr></thead><tbody>' +
         filas.map(function(f){
-            return '<tr>' +
-                '<td ' + td(true) + '>' + escaparHtml(f.fo) + '</td>' +
-                '<td ' + td(true) + '>' + escaparHtml(f.rotulo) + '</td>' +
-                '<td ' + td(false) + '>' + escaparHtml(f.pedido) + '</td>' +
-                '<td ' + td(true) + '>' + escaparHtml(f.oc) + '</td>' +
-                '<td ' + td(false) + '>' + escaparHtml(f.entrega) + '</td>' +
-            '</tr>';
+            return '<tr>' + f.map(function(valor, i){
+                return '<td ' + td(negritas.indexOf(i) !== -1) + '>' + escaparHtml(valor) + '</td>';
+            }).join("") + '</tr>';
         }).join("") +
         '</tbody></table>';
 
-    const texto = "Considerar la siguiente programación:\n" + columnas.join("\t") + "\n" +
-        filas.map(function(f){ return [f.fo, f.rotulo, f.pedido, f.oc, f.entrega].join("\t"); }).join("\n");
+    const texto = intro + "\n" + columnas.join("\t") + "\n" +
+        filas.map(function(f){ return f.join("\t"); }).join("\n");
 
     function avisarCopiado(){
         boton.textContent = "✅ Copiado: pégalo en el correo";
-        setTimeout(function(){ boton.textContent = "📋 Copiar para correo"; }, 3000);
+        setTimeout(function(){ boton.textContent = textoBoton; }, 3000);
     }
 
     // Si el portapapeles con formato no está disponible, se copia
@@ -553,7 +642,7 @@ function copiarProgramacion(){
         seleccion.removeAllRanges();
         document.body.removeChild(bloque);
         if(ok) avisarCopiado();
-        else alert("No se pudo copiar la programación.");
+        else alert("No se pudo copiar la tabla.");
     }
 
     if(navigator.clipboard && window.ClipboardItem){
@@ -565,6 +654,29 @@ function copiarProgramacion(){
         copiarConSeleccion();
     }
 
+}
+
+// SPSA: la programación (F.O, RÓTULO, PEDIDO, O/C, ENTREGAS).
+function copiarProgramacion(){
+    copiarTablaCorreo(
+        document.getElementById("pcBtnCopiar"), "📋 Copiar",
+        "Considerar la siguiente programación:",
+        procesarCliente.config.salida.columnas,
+        procesarCliente.programacion.map(function(f){ return [f.fo, f.rotulo, f.pedido, f.oc, f.entrega]; }),
+        [0, 1, 3]
+    );
+}
+
+// Tottus: el resumen por entrega (FO, ROTULO, PEDIDO, ENTREGA, TIENDA),
+// como la tabla dinámica de la plantilla.
+function copiarResumenTottus(){
+    copiarTablaCorreo(
+        document.getElementById("pcBtnCopiarResumen"), "📋 Copiar para correo",
+        "Considerar la siguiente programación:",
+        ["FO", "ROTULO", "PEDIDO", "ENTREGA", "TIENDA"],
+        (procesarCliente.resumen || []).map(function(r){ return [r.fo, r.rotulo, r.pedido, r.entrega, r.tienda]; }),
+        [0, 1, 3]
+    );
 }
 
 // ----- Subir a Status Pendiente -----
@@ -731,5 +843,510 @@ async function subirViajesCliente(){
         alert("Se subieron " + cuantos + " de " + listos.length +
             " viajes. Los demás ya estaban subidos o no se encontraron: revisa Status Pendiente.");
     }
+
+}
+
+// ========================================
+// TOTTUS: LÍNEAS DEL VIAJE (modo "lineas")
+// ========================================
+// Como en el Drive: cada viaje se parte por NEGOCIO × RÓTULO con su
+// peso. El rótulo de cada entrega (y su peso) viene de
+// md_entregas_rotulo (calculado al procesar con la MARA); el negocio,
+// del correo de Tottus por pedido (Documento modelo de la entrega).
+// Al subir, las líneas se guardan en md_viaje_lineas: cada una lleva su
+// propia fase, canales y status en el Monitor.
+
+const SIN_NEGOCIO = "SIN NEGOCIO";
+
+function generarLineas(){
+
+    const negocioDePedido = {};
+    procesarCliente.correo.filas.forEach(function(f){ if(f.negocio) negocioDePedido[f.pedido] = f.negocio; });
+
+    const pedidoDeEntrega = {};
+    procesarCliente.entregas.forEach(function(e){ pedidoDeEntrega[e.entrega] = soloDigitos(e.documento_modelo); });
+
+    const suma = {};
+
+    (procesarCliente.rotulos || []).forEach(function(r){
+        const negocio = negocioDePedido[pedidoDeEntrega[r.entrega]] || SIN_NEGOCIO;
+        const clave = r.fo + "|" + negocio + "|" + r.rotulo;
+        if(!suma[clave]) suma[clave] = { fo: r.fo, cliente: negocio, rotulo: r.rotulo, peso_kg: 0 };
+        suma[clave].peso_kg += Number(r.peso_kg) || 0;
+    });
+
+    procesarCliente.lineas = Object.keys(suma).map(function(k){ return suma[k]; }).sort(function(a, b){
+        return a.fo.localeCompare(b.fo) || a.cliente.localeCompare(b.cliente) || a.rotulo.localeCompare(b.rotulo);
+    });
+
+    // Resumen para el correo (tabla dinámica de la plantilla): una fila
+    // por entrega y rótulo, ordenada por FO, rótulo y entrega.
+    procesarCliente.resumen = (procesarCliente.rotulos || []).map(function(r){
+        const pedido = pedidoDeEntrega[r.entrega] || "";
+        return { fo: r.fo, rotulo: r.rotulo, pedido: pedido, entrega: r.entrega, tienda: negocioDePedido[pedido] || SIN_NEGOCIO };
+    }).sort(function(a, b){
+        return a.fo.localeCompare(b.fo) || a.rotulo.localeCompare(b.rotulo) || a.entrega.localeCompare(b.entrega);
+    });
+
+    pintarLineas();
+    pintarSubidaLineas();
+
+}
+
+function pintarLineas(){
+
+    const lineas = procesarCliente.lineas;
+    const conLineas = new Set(lineas.map(function(l){ return l.fo; }));
+    const sinRotulos = procesarCliente.viajes.filter(function(v){ return !conLineas.has(v.fo); });
+    const sinNegocio = lineas.filter(function(l){ return l.cliente === SIN_NEGOCIO; }).length;
+
+    let html = "";
+
+    if(sinRotulos.length){
+        html += '<div class="cv-aviso">⚠️ ' + (sinRotulos.length === 1 ? "El viaje " : "Los viajes ") + "<b>" +
+            sinRotulos.map(function(v){ return escaparHtml(v.fo); }).join(", ") + "</b> no " +
+            (sinRotulos.length === 1 ? "tiene" : "tienen") + " rótulos: se procesaron antes de este cambio. " +
+            "Vuelve a cruzarlos y procesarlos con su VL06F.</div>";
+    }
+
+    if(sinNegocio){
+        html += '<div class="cv-aviso">⚠️ ' + sinNegocio + (sinNegocio === 1 ? " línea queda" : " líneas quedan") +
+            " <b>SIN NEGOCIO</b>: su pedido no está en los correos pegados. Si viene en otro correo, pégalo arriba.</div>";
+    }
+
+    if(lineas.length){
+        html +=
+            '<div class="pc-picking">' +
+                '<span>📄 Lista de validación de picking (una hoja por línea):</span>' +
+                '<button class="cv-btn-secundario" onclick="imprimirPicking(this)">🖨️ Imprimir</button>' +
+                '<button class="cv-btn-secundario" onclick="exportarPicking(this)">📥 Exportar Excel</button>' +
+            '</div>';
+    }
+
+    html += '<div class="sp-contenedor pc-programacion"><table class="sp-tabla"><thead><tr>' +
+        procesarCliente.config.salida.columnas.map(function(c){ return "<th>" + c + "</th>"; }).join("") +
+    "</tr></thead><tbody>";
+
+    let foAnterior = null;
+
+    lineas.forEach(function(l){
+        html +=
+            "<tr" + (l.cliente === SIN_NEGOCIO || l.rotulo === SIN_ROTULO ? ' class="pc-sin-viaje"' : "") + ">" +
+                "<td><b>" + (l.fo !== foAnterior ? escaparHtml(l.fo) : "") + "</b></td>" +
+                '<td class="sp-izq"><b>' + escaparHtml(l.cliente) + "</b></td>" +
+                '<td class="sp-izq">' + escaparHtml(l.rotulo) + "</td>" +
+                '<td class="sp-num">' + l.peso_kg.toLocaleString("es-PE", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + "</td>" +
+                '<td class="sp-num">' + (l.peso_kg / 1000).toFixed(3) + "</td>" +
+            "</tr>";
+        foAnterior = l.fo;
+    });
+
+    html += "</tbody></table></div>";
+
+    // Resumen para mandar por correo.
+    const resumen = procesarCliente.resumen || [];
+
+    if(resumen.length){
+        html +=
+            '<div class="pc-salida-header">' +
+                "<h3>📧 Resumen para el correo · " + resumen.length + (resumen.length === 1 ? " entrega" : " entregas") + "</h3>" +
+                '<button class="cv-btn-procesar-todo" id="pcBtnCopiarResumen" onclick="copiarResumenTottus()">📋 Copiar para correo</button>' +
+            "</div>" +
+            '<div class="sp-contenedor pc-programacion"><table class="sp-tabla"><thead><tr>' +
+                "<th>FO</th><th>ROTULO</th><th>PEDIDO</th><th>ENTREGA</th><th>TIENDA</th>" +
+            "</tr></thead><tbody>" +
+            resumen.map(function(r){
+                return "<tr" + (r.tienda === SIN_NEGOCIO || r.rotulo === SIN_ROTULO ? ' class="pc-sin-viaje"' : "") + ">" +
+                    "<td><b>" + escaparHtml(r.fo) + "</b></td>" +
+                    "<td><b>" + escaparHtml(r.rotulo) + "</b></td>" +
+                    "<td>" + escaparHtml(r.pedido) + "</td>" +
+                    "<td><b>" + escaparHtml(r.entrega) + "</b></td>" +
+                    "<td>" + escaparHtml(r.tienda) + "</td>" +
+                "</tr>";
+            }).join("") +
+            "</tbody></table></div>";
+    }
+
+    document.getElementById("pcSalidaTitulo").textContent = "📦 " + procesarCliente.config.salida.titulo +
+        " · " + lineas.length + (lineas.length === 1 ? " línea" : " líneas");
+    document.getElementById("pcSalida").innerHTML = html;
+    document.getElementById("pcBtnCopiar").disabled = lineas.length === 0;
+
+}
+
+// Copia lo que se ve en "📦": la programación (SPSA) o las líneas (Tottus).
+function copiarSalida(){
+
+    if(procesarCliente.config.modo !== "lineas"){
+        copiarProgramacion();
+        return;
+    }
+
+    const boton = document.getElementById("pcBtnCopiar");
+    const columnas = procesarCliente.config.salida.columnas;
+    const filas = procesarCliente.lineas.map(function(l){
+        return [l.fo, l.cliente, l.rotulo, l.peso_kg.toFixed(3), (l.peso_kg / 1000).toFixed(3)];
+    });
+    const texto = [columnas].concat(filas).map(function(f){ return f.join("\t"); }).join("\n");
+
+    (navigator.clipboard ? navigator.clipboard.writeText(texto) : Promise.reject()).then(function(){
+        boton.textContent = "✅ Copiado";
+        setTimeout(function(){ boton.textContent = "📋 Copiar"; }, 2500);
+    }).catch(function(){
+        alert("No se pudo copiar las líneas.");
+    });
+
+}
+
+function pintarSubidaLineas(){
+
+    const viajes = procesarCliente.viajes.map(function(v){
+        const lineas = procesarCliente.lineas.filter(function(l){ return l.fo === v.fo; });
+        const falta = lineas.filter(function(l){ return l.cliente === SIN_NEGOCIO || l.rotulo === SIN_ROTULO; }).length;
+        return { viaje: v, lineas: lineas, falta: falta };
+    });
+
+    const listos = viajes.filter(function(i){ return i.viaje.estado !== "SUBIDO" && i.lineas.length; });
+
+    let html =
+        '<div class="pc-salida-header">' +
+            "<h3>☁️ Subir a Status Pendiente</h3>" +
+            '<button class="cv-btn-procesar-todo" id="pcBtnSubir" ' + (listos.length ? "" : "disabled ") +
+                'onclick="subirViajesConLineas()">☁️ Subir ' + textoCantidadViajes(listos.length) + "</button>" +
+        "</div>" +
+        '<div class="sp-contenedor"><table class="sp-tabla"><thead><tr>' +
+            "<th>VIAJE</th><th>LÍNEAS</th><th>PESO TN</th><th></th>" +
+        "</tr></thead><tbody>";
+
+    viajes.forEach(function(i){
+        html +=
+            "<tr" + (!i.lineas.length || i.falta ? ' class="pc-sin-viaje"' : "") + ">" +
+                "<td><b>" + escaparHtml(i.viaje.fo) + "</b></td>" +
+                "<td>" + i.lineas.length + "</td>" +
+                '<td class="sp-num">' + i.viaje.peso_tn.toFixed(3) + "</td>" +
+                '<td class="sp-izq">' +
+                    (i.viaje.estado === "SUBIDO" ? "✅ Subido"
+                        : !i.lineas.length ? "⚠️ Sin rótulos: vuelve a procesarlo"
+                        : i.falta ? "⚠️ " + i.falta + (i.falta === 1 ? " línea" : " líneas") + " sin negocio o sin rótulo"
+                        : "Listo") +
+                "</td>" +
+            "</tr>";
+    });
+
+    html += "</tbody></table></div>";
+
+    document.getElementById("pcSubir").innerHTML = html;
+
+}
+
+// Sube los viajes (como "Subir viaje") y guarda sus líneas en
+// md_viaje_lineas, que es lo que muestran Status Pendiente y el Monitor.
+async function subirViajesConLineas(){
+
+    const listos = procesarCliente.viajes.filter(function(v){
+        return v.estado !== "SUBIDO" && procesarCliente.lineas.some(function(l){ return l.fo === v.fo; });
+    });
+    const conFaltas = procesarCliente.lineas.filter(function(l){
+        return listos.some(function(v){ return v.fo === l.fo; }) && (l.cliente === SIN_NEGOCIO || l.rotulo === SIN_ROTULO);
+    });
+
+    if(listos.length === 0){
+        return;
+    }
+
+    if(conFaltas.length && !confirm(
+        conFaltas.length + (conFaltas.length === 1 ? " línea queda" : " líneas quedan") +
+        " SIN NEGOCIO o SIN RÓTULO. ¿Subir igual?"
+    )){
+        return;
+    }
+
+    const boton = document.getElementById("pcBtnSubir");
+    boton.disabled = true;
+    boton.textContent = "⏳ Subiendo...";
+
+    const ahora = new Date().toISOString();
+    const lista = listos.map(function(v){ return '"' + v.fo + '"'; }).join(",");
+    let confirmados = new Set();
+
+    try{
+
+        const subidos = await supabaseFetch("/md_viajes?fo=in.(" + encodeURIComponent(lista) + ")&estado=neq.SUBIDO", {
+            method: "PATCH",
+            headers: { "Prefer": "return=representation" },
+            body: JSON.stringify({
+                estado: "SUBIDO",
+                fecha_subida: ahora,
+                subido_por: sesion ? sesion.nombre_completo : null,
+                status: "POR LANZAR",
+                status_modulado: "PENDIENTE",
+                status_despacho: "PENDIENTE",
+                status_ut: "PENDIENTE",
+                actualizado_en: ahora
+            })
+        });
+
+        confirmados = new Set((subidos || []).map(function(v){ return v.fo; }));
+        const fos = Array.from(confirmados);
+
+        if(fos.length){
+
+            const listaSubidos = fos.map(function(fo){ return '"' + fo + '"'; }).join(",");
+
+            await supabaseFetch("/md_viaje_lineas?fo=in.(" + encodeURIComponent(listaSubidos) + ")", {
+                method: "DELETE",
+                headers: { "Prefer": "return=minimal" }
+            });
+
+            const filas = [];
+            fos.forEach(function(fo){
+                procesarCliente.lineas.filter(function(l){ return l.fo === fo; }).forEach(function(l, i){
+                    filas.push({
+                        fo: fo,
+                        linea: i + 1,
+                        cliente: l.cliente,
+                        rotulo: l.rotulo,
+                        peso_kg: redondear(l.peso_kg, 3),
+                        status: "POR LANZAR",
+                        actualizado_en: ahora
+                    });
+                });
+            });
+
+            await guardarEnLotes("md_viaje_lineas", "fo,linea", filas);
+
+        }
+
+    }catch(error){
+
+        console.error(error);
+        alert("No se pudo subir: " + (error.message || error));
+
+    }
+
+    procesarCliente.viajes.forEach(function(v){ if(confirmados.has(v.fo)) v.estado = "SUBIDO"; });
+
+    await marcarPendientePackingList(procesarCliente.viajes.filter(function(v){ return confirmados.has(v.fo); }));
+
+    pintarSubidaLineas();
+
+    if(cargaViaje.resultado){
+        pintarViajesProcesados(cargaViaje.resultado, true);
+        buscarSinSubir();
+    }
+
+    if(confirmados.size < listos.length){
+        alert("Se subieron " + confirmados.size + " de " + listos.length +
+            " viajes. Los demás ya estaban subidos o no se encontraron: revisa Status Pendiente.");
+    }
+
+}
+
+// ========================================
+// TOTTUS: LISTA DE VALIDACIÓN DE PICKING
+// ========================================
+// Como las hojas "1000181352 (1 de 4)" de la plantilla F-LAT-058: una
+// hoja por línea del viaje (FO × negocio × rótulo) con los materiales y
+// cantidades del VL06F (md_entregas_material, guardado al procesar),
+// para imprimir o exportar a Excel. CANTIDAD PALETAS queda en blanco
+// (se llena a mano).
+
+// Las hojas de picking de los viajes del panel.
+async function armarHojasPicking(){
+
+    const fos = procesarCliente.viajes.map(function(v){ return '"' + v.fo + '"'; }).join(",");
+    const detalle = fos ? (await supabaseFetch(
+        "/md_entregas_material?fo=in.(" + encodeURIComponent(fos) + ")" +
+        "&select=fo,entrega,material,descripcion,um,cantidad,rotulo&order=material"
+    ) || []) : [];
+
+    const negocioDePedido = {};
+    const fechaDePedido = {};
+    procesarCliente.correo.filas.forEach(function(f){
+        if(f.negocio) negocioDePedido[f.pedido] = f.negocio;
+        if(f.fecha_entrega) fechaDePedido[f.pedido] = f.fecha_entrega;
+    });
+
+    const pedidoDeEntrega = {};
+    procesarCliente.entregas.forEach(function(e){ pedidoDeEntrega[e.entrega] = soloDigitos(e.documento_modelo); });
+
+    // línea (fo|negocio|rótulo) → material|um → cantidad
+    const porLinea = {};
+
+    detalle.forEach(function(d){
+        const pedido = pedidoDeEntrega[d.entrega];
+        const negocio = negocioDePedido[pedido] || SIN_NEGOCIO;
+        const clave = d.fo + "|" + negocio + "|" + (d.rotulo || SIN_ROTULO);
+        const linea = porLinea[clave] = porLinea[clave] || { materiales: {}, fecha: fechaDePedido[pedido] || "" };
+        const mat = d.material + "|" + (d.um || "");
+        linea.materiales[mat] = linea.materiales[mat] || { material: d.material, descripcion: d.descripcion, um: d.um, cantidad: 0 };
+        linea.materiales[mat].cantidad += Number(d.cantidad) || 0;
+    });
+
+    const hojas = [];
+
+    procesarCliente.viajes.forEach(function(v){
+
+        const lineas = procesarCliente.lineas.filter(function(l){ return l.fo === v.fo; });
+
+        lineas.forEach(function(l, i){
+            const datos = porLinea[l.fo + "|" + l.cliente + "|" + l.rotulo] || { materiales: {}, fecha: "" };
+            const materiales = Object.keys(datos.materiales).map(function(k){ return datos.materiales[k]; })
+                .sort(function(a, b){ return a.material.localeCompare(b.material); });
+            hojas.push({
+                fo: l.fo,
+                numero: i + 1,
+                de: lineas.length,
+                cliente: l.cliente,
+                rotulo: l.rotulo,
+                cita: datos.fecha || fechaHoyPicking(),
+                materiales: materiales,
+                total: materiales.reduce(function(s, m){ return s + m.cantidad; }, 0)
+            });
+        });
+
+    });
+
+    return hojas;
+
+}
+
+function fechaHoyPicking(){
+    const d = new Date();
+    return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
+}
+
+function nombreHojaPicking(h){
+    return h.fo + " (" + h.numero + " de " + h.de + ")";
+}
+
+async function conHojasPicking(boton, accion){
+
+    const texto = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = "⏳";
+
+    try{
+
+        const hojas = await armarHojasPicking();
+        const sinDetalle = hojas.filter(function(h){ return h.materiales.length === 0; });
+
+        if(hojas.length === 0){
+            alert("No hay líneas para armar la lista de picking.");
+        }else if(sinDetalle.length === hojas.length){
+            alert("Estos viajes no tienen el detalle por material: se procesaron antes de este cambio. " +
+                "Vuelve a cruzarlos y procesarlos con su VL06F.");
+        }else{
+            if(sinDetalle.length){
+                alert(sinDetalle.length + " de " + hojas.length + " hojas salen sin materiales (" +
+                    sinDetalle.map(nombreHojaPicking).join(", ") + "): vuelve a procesar esos viajes con su VL06F.");
+            }
+            accion(hojas);
+        }
+
+    }catch(error){
+        console.error(error);
+        alert("No se pudo armar la lista de picking: " + (error.message || error));
+    }finally{
+        boton.disabled = false;
+        boton.textContent = texto;
+    }
+
+}
+
+// Una página A4 por línea, con el mismo formato de la plantilla.
+function imprimirPicking(boton){
+
+    conHojasPicking(boton, function(hojas){
+
+        const paginas = hojas.map(function(h){
+            return (
+                '<section class="hoja">' +
+                    '<table class="cab">' +
+                        '<tr><th>FO</th><td class="fo">' + escaparHtml(h.fo) + '</td><th class="izq">TIENDA</th><td></td><td></td><th>CANTIDAD PALETAS</th></tr>' +
+                        '<tr><th>PEDIDO</th><td></td><td class="grande">' + escaparHtml(h.cliente) + '</td><td></td><td></td><td class="paletas" rowspan="3"></td></tr>' +
+                        '<tr><th>OC</th><td></td><td class="titulo" colspan="3">1° LISTA DE VALIDACIÓN DE PICKING</td></tr>' +
+                        '<tr><th>ROTULO</th><td></td><td class="grande">' + escaparHtml(h.rotulo) + '</td><th>Cita:</th><td>' + escaparHtml(h.cita) + '</td></tr>' +
+                    '</table>' +
+                    '<table class="det">' +
+                        '<thead><tr><th>CÓDIGO</th><th>DENOMINACIÓN</th><th>UM</th><th>CANTIDAD</th></tr></thead><tbody>' +
+                        h.materiales.map(function(m){
+                            return '<tr><td>' + escaparHtml(m.material) + '</td><td class="izq">' + escaparHtml(m.descripcion || "") +
+                                '</td><td>' + escaparHtml(m.um || "") + '</td><td class="num">' + m.cantidad.toLocaleString("es-PE") + '</td></tr>';
+                        }).join("") +
+                        '<tr class="total"><td></td><td></td><td>TOTAL</td><td class="num">' + h.total.toLocaleString("es-PE") + '</td></tr>' +
+                    '</tbody></table>' +
+                    '<div class="pie">' + escaparHtml(nombreHojaPicking(h)) + '</div>' +
+                '</section>'
+            );
+        }).join("");
+
+        const ventana = window.open("", "_blank");
+
+        if(!ventana){
+            alert("El navegador bloqueó la ventana de impresión: permite las ventanas emergentes para esta página.");
+            return;
+        }
+
+        ventana.document.write(
+            '<!doctype html><html><head><meta charset="utf-8"><title>Lista de validación de picking</title><style>' +
+                '@page{size:A4 portrait;margin:12mm}' +
+                'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000;margin:0}' +
+                '.hoja{page-break-after:always}.hoja:last-child{page-break-after:auto}' +
+                'table{border-collapse:collapse;width:100%}' +
+                '.cab{margin-bottom:10px}.cab th,.cab td{border:1px solid #000;padding:4px 6px;text-align:left;font-size:11pt}' +
+                '.cab th{width:12%;background:#f2f2f2}.cab .fo{font-weight:bold;font-size:13pt}' +
+                '.cab .grande{font-weight:bold;font-size:13pt;text-align:center}' +
+                '.cab .titulo{font-weight:bold;font-size:14pt;text-align:center}' +
+                '.cab .paletas{width:16%}' +
+                '.det th{background:#1f3864;color:#fff;border:1px solid #000;padding:4px 6px}' +
+                '.det td{border:1px solid #000;padding:3px 6px;text-align:center}' +
+                '.det .izq{text-align:left}.det .num{text-align:right}' +
+                '.det .total td{font-weight:bold;background:#f2f2f2}' +
+                '.pie{margin-top:6px;font-size:9pt;color:#555;text-align:right}' +
+            '</style></head><body>' + paginas +
+            '<script>window.onload=function(){window.print();};<\/script></body></html>'
+        );
+        ventana.document.close();
+
+    });
+
+}
+
+// Un Excel con una pestaña por línea ("1000181352 (1 de 4)"), como la
+// plantilla.
+function exportarPicking(boton){
+
+    conHojasPicking(boton, function(hojas){
+
+        const libro = XLSX.utils.book_new();
+
+        hojas.forEach(function(h){
+
+            const filas = [
+                ["FO", h.fo, "TIENDA", "", "", "CANTIDAD PALETAS"],
+                ["PEDIDO", "", h.cliente, "", "", ""],
+                ["OC", "", "1° LISTA DE VALIDACIÓN DE PICKING", "", "", ""],
+                ["ROTULO", "", h.rotulo, "Cita:", h.cita, ""],
+                ["", "CÓDIGO", "DENOMINACIÓN", "UM", "CANTIDAD"]
+            ].concat(h.materiales.map(function(m){
+                return ["", Number(m.material) || m.material, m.descripcion || "", m.um || "", m.cantidad];
+            })).concat([["", "", "", "TOTAL", h.total]]);
+
+            const hoja = XLSX.utils.aoa_to_sheet(filas);
+            hoja["!merges"] = [
+                { s: { r: 1, c: 5 }, e: { r: 3, c: 5 } },   // F2:F4 (cantidad de paletas, a mano)
+                { s: { r: 2, c: 2 }, e: { r: 2, c: 4 } }    // C3:E3 (título)
+            ];
+            hoja["!cols"] = [{ wch: 20 }, { wch: 23 }, { wch: 67 }, { wch: 13 }, { wch: 15 }, { wch: 18 }];
+
+            XLSX.utils.book_append_sheet(libro, hoja, nombreHojaPicking(h).slice(0, 31));
+
+        });
+
+        const fos = Array.from(new Set(hojas.map(function(h){ return h.fo; })));
+        XLSX.writeFile(libro, "Picking Tottus " + (fos.length === 1 ? fos[0] : fos.length + " viajes") + ".xlsx");
+
+    });
 
 }

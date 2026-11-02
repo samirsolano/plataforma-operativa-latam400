@@ -32,27 +32,21 @@ async function obtenerGeminiApiKey(){
 
 const GEMINI_MODELOS = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.1-flash-lite"];
 const GEMINI_ESCALON_MS = 6000;       // si un modelo no respondió en este tiempo, se suma el siguiente
-const GEMINI_LIMITE_TOTAL_MS = 30000; // una tabla es más larga de leer que una etiqueta
+const GEMINI_LIMITE_TOTAL_MS = 45000; // una tabla es más larga de leer que una etiqueta (medido: 6 a 30 s)
 
+// Devuelve la tabla tal como se ve (encabezados y filas, como texto):
+// qué columna es qué lo decide cada cliente en procesar-cliente.js, así
+// sirve para los correos de SPSA, Tottus, Cencosud... sin cambiar esto.
 const PROMPT_TABLA_CORREO = `Esta imagen es una captura de una tabla enviada por correo por un cliente de un almacén en Perú (detalle de pedidos y órdenes de compra a despachar). Arriba de la tabla puede haber un título (ej. "CENTRO 1054 - PUNTA NEGRA").
 
-Extrae TODAS las filas de datos de la tabla, en el mismo orden. NO incluyas la fila de encabezados ni la fila de totales ("Total general").
+Transcribe la tabla:
+- encabezados: los títulos de las columnas, de izquierda a derecha, tal como se ven.
+- filas: TODAS las filas de datos, en el mismo orden, cada una con una celda por columna (en el mismo orden que los encabezados; celda vacía = ""). NO incluyas la fila de totales ("Total general", "Total").
+- Si arriba de la tabla hay un título, va en "titulo".
 
-Para cada fila devuelve estas claves (si una columna no existe en la tabla, deja ""):
-- tipo: columna TIPO (ej. "Non Foods", "Soluciones")
-- local_entrega: columna LOCAL DE ENTREGA
-- tipo_oc: columna TIPO OC (ej. "Flujo Continuo", "Almacenaje")
-- oc: columna OC (número de orden de compra, solo dígitos)
-- pedido: columna PEDIDO (solo dígitos)
-- fecha_entrega: columna FECHA DE ENTREGA en formato DD/MM/AAAA
-- centro: columna CENTRO
-- tm: columna TM's (número con punto decimal)
-- pen: columna PEN (número sin separador de miles)
-- ucos: columna UCO's (número sin separador de miles)
+Copia cada celda EXACTAMENTE como se ve, dígito por dígito; no inventes, no completes ni corrijas datos. Si una fila tiene celdas combinadas (un mismo valor que abarca varias filas), repite el valor en cada fila.
 
-Copia los números EXACTAMENTE como se ven, dígito por dígito; no inventes ni completes datos.
-
-Responde ÚNICAMENTE con un objeto JSON plano, sin texto adicional ni backticks, con esta forma: {"titulo": "", "filas": [{"tipo": "", "local_entrega": "", "tipo_oc": "", "oc": "", "pedido": "", "fecha_entrega": "", "centro": "", "tm": "", "pen": "", "ucos": ""}]}`;
+Responde ÚNICAMENTE con un objeto JSON plano, sin texto adicional ni backticks, con esta forma: {"titulo": "", "encabezados": ["", ""], "filas": [["", ""]]}`;
 
 async function llamarModeloGeminiTabla(modelo, key, base64, mediaType, signal){
 
@@ -83,8 +77,8 @@ async function llamarModeloGeminiTabla(modelo, key, base64, mediaType, signal){
     const texto = partes.map(function(p){ return p.text || ""; }).join("");
     const json = JSON.parse(texto.replace(/```json|```/g, "").trim());
 
-    if(!json || !Array.isArray(json.filas) || json.filas.length === 0){
-        throw new Error("no encontró filas en la imagen");
+    if(!json || !Array.isArray(json.encabezados) || !Array.isArray(json.filas) || json.filas.length === 0){
+        throw new Error("no encontró la tabla en la imagen");
     }
 
     return json;

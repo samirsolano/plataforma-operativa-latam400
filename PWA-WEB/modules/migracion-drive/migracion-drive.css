@@ -859,6 +859,14 @@ body{
     text-align:right;
 }
 
+/* Rótulo de una línea de viaje partido (Tottus), debajo del cliente */
+.sp-rotulo{
+    margin-top:2px;
+    color:#4338ca;
+    font-size:10px;
+    font-weight:bold;
+}
+
 .sp-gestion{
     font-weight:bold;
     color:#1f2937;
@@ -1246,6 +1254,22 @@ body{
     justify-content:space-between;
     align-items:center;
     margin:20px 0 8px;
+}
+
+/* Tottus: lista de validación de picking (imprimir / exportar) */
+.pc-picking{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-bottom:8px;
+    padding:8px 10px;
+    border:1px solid #c7d2fe;
+    border-radius:10px;
+    background:#eef2ff;
+    color:#3730a3;
+    font-size:13px;
+    font-weight:bold;
 }
 
 .pc-falta-oc{

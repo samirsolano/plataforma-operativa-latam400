@@ -22,6 +22,64 @@ const COLORES_STATUS = {
     "AJUSTADO A 0": "st-ajustado"
 };
 
+// ----- Líneas de los viajes (Tottus) -----
+// Un viaje subido desde Procesar cliente en modo "lineas" se guarda
+// partido en md_viaje_lineas (negocio × rótulo × peso). Status
+// Pendiente y el Monitor muestran una fila por línea; los demás viajes,
+// una fila por viaje.
+
+async function cargarLineasViajes(fos){
+
+    const porFo = {};
+
+    for(let i = 0; i < fos.length; i += 150){
+        const lista = fos.slice(i, i + 150).map(function(fo){ return '"' + fo + '"'; }).join(",");
+        const lineas = await supabaseFetch(
+            "/md_viaje_lineas?fo=in.(" + encodeURIComponent(lista) + ")" +
+            "&select=id,fo,linea,cliente,rotulo,peso_kg,fase,canal_sistema,canal_fisico,status&order=fo,linea"
+        );
+        (lineas || []).forEach(function(l){ (porFo[l.fo] = porFo[l.fo] || []).push(l); });
+    }
+
+    return porFo;
+
+}
+
+// Cada viaje con líneas se vuelve una fila por línea, con el cliente,
+// rótulo, peso, fase, canales y status de la línea; el resto de datos
+// (cita, transportista, despacho...) son los del viaje.
+function filasConLineas(viajes, lineasPorFo){
+
+    const filas = [];
+
+    viajes.forEach(function(v){
+
+        const lineas = lineasPorFo[v.fo];
+
+        if(!lineas || !lineas.length){
+            filas.push(Object.assign({}, v, { linea: null }));
+            return;
+        }
+
+        lineas.forEach(function(l){
+            filas.push(Object.assign({}, v, {
+                linea: l,
+                cliente: l.cliente,
+                rotulo: l.rotulo,
+                peso_tn: (Number(l.peso_kg) || 0) / 1000,
+                fase: l.fase,
+                canal_sistema: l.canal_sistema,
+                canal_fisico: l.canal_fisico,
+                status: l.status
+            }));
+        });
+
+    });
+
+    return filas;
+
+}
+
 async function cargarStatusPendiente(){
 
     const contenido = document.getElementById("spContenido");
@@ -41,7 +99,9 @@ async function cargarStatusPendiente(){
             "&order=fecha_subida.asc&limit=2000"
         );
 
-        statusPendiente.viajes = viajes || [];
+        const lineas = await cargarLineasViajes((viajes || []).map(function(v){ return v.fo; }));
+
+        statusPendiente.viajes = filasConLineas(viajes || [], lineas);
         pintarStatusPendiente();
 
     }catch(error){
@@ -95,7 +155,7 @@ function pintarStatusPendiente(){
 
     const viajes = statusPendiente.viajes.filter(function(v){
         if(!texto) return true;
-        return [v.fo, v.cliente, v.transportista_nombre, v.gestion].some(function(c){
+        return [v.fo, v.cliente, v.rotulo, v.transportista_nombre, v.gestion].some(function(c){
             return limpiarTexto(c).indexOf(texto) !== -1;
         });
     });
@@ -122,8 +182,12 @@ function pintarStatusPendiente(){
 
     let total = 0;
 
+    const cantidadViajes = new Set(viajes.map(function(v){ return v.fo; })).size;
+    const cantidadLineas = viajes.filter(function(v){ return v.linea; }).length;
+
     let html =
-        '<div class="sp-resumen">' + textoCantidadViajes(viajes.length) + ' subidos</div>' +
+        '<div class="sp-resumen">' + textoCantidadViajes(cantidadViajes) + ' subidos' +
+            (cantidadLineas ? ' · ' + cantidadLineas + ' líneas de viajes partidos (Tottus)' : '') + '</div>' +
         '<div class="sp-contenedor"><table class="sp-tabla"><thead><tr>' +
             '<th>GESTIÓN</th><th>FECHA</th><th>FECHA DE CITA</th><th>HORA DE CITA</th>' +
             '<th>FO REAL</th><th>CLIENTE</th><th>TRANSPORTISTA</th>' +
@@ -149,7 +213,8 @@ function pintarStatusPendiente(){
                     '<td>' + (v.hora_cita ? escaparHtml(String(v.hora_cita).slice(0, 5)) : "-") + '</td>' +
                     '<td>' + escaparHtml(v.fo) + '</td>' +
                     '<td class="sp-izq">' + escaparHtml(v.cliente) +
-                        (v.pl_pendiente ? ' <span class="cv-chip-pl" title="Pendiente de enviar el packing list">📦 PL</span>' : '') + '</td>' +
+                        (v.pl_pendiente ? ' <span class="cv-chip-pl" title="Pendiente de enviar el packing list">📦 PL</span>' : '') +
+                        (v.rotulo ? '<div class="sp-rotulo">' + escaparHtml(v.rotulo) + '</div>' : '') + '</td>' +
                     '<td class="sp-izq">' + escaparHtml(v.transportista_nombre) + '</td>' +
                     '<td>' + celdaStatus(v.status) + '</td>' +
                     '<td>' + celdaStatus(v.status_modulado) + '</td>' +

@@ -6,7 +6,9 @@
 // se escriben directo en la tabla y el STATUS se elige de la lista;
 // cada cambio se guarda solo en md_viajes al salir de la celda. La
 // fecha y hora de cita solo se muestran (el Monitor no las cambia).
-// Por ahora una fase por viaje.
+// Un viaje partido en líneas (Tottus: md_viaje_lineas) sale una vez por
+// línea, cada una con su fase, canales y status; el status del viaje
+// queda como el de su línea más atrasada (así filtra bien).
 
 const monitor = { viajes: [] };
 
@@ -52,7 +54,9 @@ async function cargarMonitor(){
             "&order=fecha_cita.asc.nullslast,hora_cita.asc.nullslast,fecha_subida.asc&limit=2000"
         );
 
-        monitor.viajes = viajes || [];
+        const lineas = await cargarLineasViajes((viajes || []).map(function(v){ return v.fo; }));
+
+        monitor.viajes = filasConLineas(viajes || [], lineas);
         pintarMonitor();
 
     }catch(error){
@@ -77,7 +81,7 @@ function viajesMonitorFiltrados(){
         if(status && status !== "SIN_CERRAR" && v.status !== status) return false;
         if(!texto) return true;
 
-        return [v.fo, v.cliente, v.transportista_nombre, v.gestion, v.destino, v.fase, v.canal_sistema]
+        return [v.fo, v.cliente, v.rotulo, v.transportista_nombre, v.gestion, v.destino, v.fase, v.canal_sistema]
             .some(function(c){ return limpiarTexto(c).indexOf(texto) !== -1; });
 
     });
@@ -101,8 +105,12 @@ function pintarMonitor(){
         return;
     }
 
+    const cantidadViajes = new Set(viajes.map(function(v){ return v.fo; })).size;
+    const cantidadLineas = viajes.filter(function(v){ return v.linea; }).length;
+
     let html =
-        '<div class="sp-resumen">' + textoCantidadViajes(viajes.length) +
+        '<div class="sp-resumen">' + textoCantidadViajes(cantidadViajes) +
+            (cantidadLineas ? ' · ' + cantidadLineas + ' líneas de viajes partidos (Tottus)' : '') +
             ' · los cambios se guardan solos al salir de la celda</div>' +
         '<div class="sp-contenedor"><table class="sp-tabla mn-tabla"><thead><tr>' +
             '<th>FECHA DE CITA</th><th>HORA DE CITA</th><th>GESTIÓN</th><th>VIAJE</th>' +
@@ -116,10 +124,12 @@ function pintarMonitor(){
     viajes.forEach(function(v){
 
         const fo = escaparHtml(JSON.stringify(v.fo));
+        // La línea (si el viaje está partido) a la que va cada cambio.
+        const linea = v.linea ? v.linea.id : "null";
 
         function entrada(campo, tipo, valor, extra){
             return '<input type="' + tipo + '" class="mn-input" value="' + escaparHtml(valor || "") + '"' +
-                (extra || "") + ' onchange="guardarCampoMonitor(this, ' + fo + ', \'' + campo + '\')">';
+                (extra || "") + ' onchange="guardarCampoMonitor(this, ' + fo + ', \'' + campo + '\', ' + linea + ')">';
         }
 
         html +=
@@ -128,7 +138,7 @@ function pintarMonitor(){
                 '<td>' + (v.hora_cita ? escaparHtml(String(v.hora_cita).slice(0, 5)) : "-") + '</td>' +
                 '<td class="sp-izq sp-gestion">' + escaparHtml(v.gestion || "-") + '</td>' +
                 '<td>' + escaparHtml(v.fo) + '</td>' +
-                '<td class="sp-izq">' + escaparHtml(v.destino || "-") + '</td>' +
+                '<td class="sp-izq">' + escaparHtml(v.rotulo || v.destino || "-") + '</td>' +
                 '<td class="sp-izq">' + escaparHtml(v.cliente || "-") + '</td>' +
                 '<td class="sp-num">' + (Number(v.peso_tn) || 0).toFixed(3) + '</td>' +
                 '<td class="sp-izq">' + escaparHtml(v.transportista_nombre || "-") + '</td>' +
@@ -137,7 +147,7 @@ function pintarMonitor(){
                 '<td>' + entrada("canal_sistema", "text", v.canal_sistema, ' placeholder="CNL-OUT-"') + '</td>' +
                 '<td>' + entrada("canal_fisico", "text", v.canal_fisico, ' placeholder="Ej. 36 - 37"') + '</td>' +
                 '<td>' +
-                    '<select class="' + claseStatusMonitor(v.status) + '" onchange="guardarCampoMonitor(this, ' + fo + ', \'status\')">' +
+                    '<select class="' + claseStatusMonitor(v.status) + '" onchange="guardarCampoMonitor(this, ' + fo + ', \'status\', ' + linea + ')">' +
                         STATUS_MONITOR.map(function(s){
                             return '<option value="' + s + '"' + (s === v.status ? " selected" : "") + '>' + s + '</option>';
                         }).join("") +
@@ -204,10 +214,37 @@ function copiarFasesMonitor(){
 
 }
 
-// Guarda un solo campo del viaje. Si falla, la celda vuelve a su valor.
-async function guardarCampoMonitor(control, fo, campo){
+// Status del viaje partido = el de su línea más atrasada (el primero en
+// STATUS_MONITOR). Así el filtro "Sin cerrar" y Status Pendiente siguen
+// mostrando el viaje mientras alguna línea no esté cerrada.
+async function sincronizarStatusViaje(fo){
 
-    const viaje = monitor.viajes.find(function(v){ return v.fo === fo; });
+    const lineas = monitor.viajes.filter(function(v){ return v.fo === fo && v.linea; });
+
+    if(!lineas.length){
+        return;
+    }
+
+    const indice = Math.min.apply(null, lineas.map(function(v){
+        const i = STATUS_MONITOR.indexOf(v.status);
+        return i === -1 ? 0 : i;
+    }));
+
+    await supabaseFetch("/md_viajes?fo=eq." + encodeURIComponent(fo), {
+        method: "PATCH",
+        headers: { "Prefer": "return=minimal" },
+        body: JSON.stringify({ status: STATUS_MONITOR[indice], actualizado_en: new Date().toISOString() })
+    });
+
+}
+
+// Guarda un solo campo del viaje (o de su línea, si está partido). Si
+// falla, la celda vuelve a su valor.
+async function guardarCampoMonitor(control, fo, campo, lineaId){
+
+    const viaje = monitor.viajes.find(function(v){
+        return v.fo === fo && (lineaId ? v.linea && v.linea.id === lineaId : !v.linea);
+    });
     const anterior = viaje ? viaje[campo] : null;
     const valor = CAMPOS_MONITOR[campo](control.value);
     const ahora = new Date().toISOString();
@@ -224,13 +261,19 @@ async function guardarCampoMonitor(control, fo, campo){
 
     try{
 
-        await supabaseFetch("/md_viajes?fo=eq." + encodeURIComponent(fo), {
+        await supabaseFetch(lineaId
+            ? "/md_viaje_lineas?id=eq." + encodeURIComponent(lineaId)
+            : "/md_viajes?fo=eq." + encodeURIComponent(fo), {
             method: "PATCH",
             headers: { "Prefer": "return=minimal" },
             body: JSON.stringify(cambios)
         });
 
         if(viaje) viaje[campo] = valor;
+
+        if(lineaId && campo === "status"){
+            await sincronizarStatusViaje(fo);
+        }
 
         // Se muestra como quedó guardado (ej. canal en mayúsculas).
         if(campo === "canal_sistema") control.value = valor || "";
