@@ -2,8 +2,8 @@
 // CONFIGURACIÓN SUPABASE
 // ========================================
 
-const SUPABASE_URL = "https://rmlilqdhxbhpwkysucaz.supabase.co/rest/v1";
-const SUPABASE_KEY = "sb_publishable_xh4_NP7I2j1rUhCw1ckv4Q_H_s29G76";
+const SUPABASE_URL = "https://iaitqquphjohgsmelhcj.supabase.co/rest/v1";
+const SUPABASE_KEY = "sb_publishable_rvEz02miPj1MrBVgLd_auw_FlyrVscs";
 
 // Helper genérico para llamar a la API REST de Supabase
 async function supabaseFetch(ruta, opciones = {}){
