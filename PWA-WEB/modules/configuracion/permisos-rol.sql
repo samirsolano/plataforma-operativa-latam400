@@ -96,6 +96,7 @@ cross join (
         ('usuarios', '', false, false, false),
         ('usuarios-centro-proyectos', '', false, false, false),
         ('toma-lote-supermercados', '', false, false, false),
+        ('pl-mass', '', false, false, false),
         ('toma-lote-farmacia', '', false, false, false),
         ('inventario-paletas', '', false, false, false),
         ('inventario-picking', '', false, false, false),
