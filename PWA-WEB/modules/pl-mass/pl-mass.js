@@ -1,5 +1,5 @@
 // ========================================
-// PL MASS — Packing List CD MASS CALLAO
+// PL MASS — Packing List CD MASS
 // ========================================
 // Flujo (todo en memoria, en esta pestaña del navegador):
 //   1. Distribución (programación): F.O, RÓTULO, PEDIDO, O/C, ENTREGAS.
@@ -21,8 +21,8 @@
 //     la hoja FORMATO); el resto se informa como AJUSTE.
 //   - Cada línea toma HU de la Fase del mismo material (primero el que
 //     vence antes) hasta completar sus unidades.
-//   - LPN = "500000" + O/C + correlativo de 4 dígitos, en el orden del
-//     PL (entrega, posición).
+//   - LPN = "500000" + O/C + correlativo de 4 dígitos POR O/C (0001 la
+//     primera vez; si la O/C vuelve, continúa). Lo asigna Supabase.
 
 // ========================================
 // TOASTS
@@ -707,6 +707,7 @@ document.getElementById("btnCargarFase").addEventListener("click", async functio
 
         document.getElementById("cmbViajePl").value = fo;
         refrescarEstadoViajePl();
+        refrescarCorrelativo();
         mostrarToast("Fase del viaje " + fo + " cargada: " + hus.length + " HU.", "exito");
 
     }catch(err){
@@ -734,18 +735,52 @@ function usuarioActual(){
     return (sesion && (sesion.nombre_completo || sesion.usuario)) || "";
 }
 
-function rangoCorrelativo(inicio, cantidad){
-    const fmt = n => String(n % 10000).padStart(4, "0");
-    return cantidad > 1 ? fmt(inicio) + " – " + fmt(inicio + cantidad - 1) : fmt(inicio);
+function correlativo4(n){
+    return String(n).padStart(4, "0");
 }
 
+// Rangos de correlativo por O/C: "14794432: 0001–0005 · 14794433: 0001".
+function rangosPorOc(filas){
+
+    const porOc = {};
+
+    filas.forEach(function(f){
+        const r = porOc[f.oc] = porOc[f.oc] || { min: f.correlativo, max: f.correlativo };
+        r.min = Math.min(r.min, f.correlativo);
+        r.max = Math.max(r.max, f.correlativo);
+    });
+
+    return Object.keys(porOc).map(function(oc){
+        const r = porOc[oc];
+        return oc + ": " + correlativo4(r.min) + (r.max > r.min ? "–" + correlativo4(r.max) : "");
+    }).join(" · ") || "-";
+
+}
+
+// El correlativo es por O/C: se muestra el siguiente de cada O/C del
+// viaje elegido (O/C sin LPN previos empiezan en 0001).
 async function refrescarCorrelativo(){
 
     const el = document.getElementById("txtCorrelativo");
+    const fo = document.getElementById("cmbViajePl").value;
+    const ocs = [...new Set(_distribucion.filter(d => d.fo === fo).map(d => d.oc).filter(Boolean))];
+
+    if(!fo || !ocs.length){
+        el.textContent = "Selecciona un viaje";
+        return;
+    }
 
     try{
-        const filas = await supabaseFetch("/pl_mass_correlativo?select=siguiente&id=eq.1");
-        el.textContent = filas && filas.length ? String(filas[0].siguiente % 10000).padStart(4, "0") : "-";
+
+        const filas = await supabaseFetch(
+            "/pl_mass_oc_siguiente?select=oc,siguiente&oc=in.(" + ocs.map(encodeURIComponent).join(",") + ")"
+        );
+
+        const siguiente = {};
+        (filas || []).forEach(r => { siguiente[texto(r.oc)] = Number(r.siguiente); });
+
+        el.textContent = ocs.map(oc => oc + ": " + correlativo4(siguiente[oc] || 1)).join(" · ");
+
     }catch(err){
         console.error(err);
         el.textContent = "sin conexión";
@@ -778,11 +813,10 @@ async function refrescarEstadoViajePl(){
 
             const r = filas[0];
 
-            _plRegistrado = { fo: fo, cantidad: r.cantidad, inicio: Number(r.correlativo_inicio) };
+            _plRegistrado = { fo: fo, cantidad: r.cantidad };
 
             document.getElementById("txtPlRegistrado").textContent =
-                "El viaje " + fo + " ya tiene PL registrado: " + r.cantidad + " LPN (correlativo " +
-                rangoCorrelativo(_plRegistrado.inicio, r.cantidad) + ")" +
+                "El viaje " + fo + " ya tiene PL registrado: " + r.cantidad + " LPN" +
                 (r.generado_por ? ", por " + r.generado_por : "") +
                 (r.updated_at ? ", el " + new Date(r.updated_at).toLocaleString("es-PE") : "");
 
@@ -796,7 +830,10 @@ async function refrescarEstadoViajePl(){
 
 }
 
-document.getElementById("cmbViajePl").addEventListener("change", refrescarEstadoViajePl);
+document.getElementById("cmbViajePl").addEventListener("change", function(){
+    refrescarEstadoViajePl();
+    refrescarCorrelativo();
+});
 
 // Arma las filas del PL (sin LPN todavía) cruzando las líneas del
 // viaje con los HU de la Fase.
@@ -899,8 +936,7 @@ function pintarPl(fo, filas, advertencias){
     document.getElementById("plTotalLpn").textContent = filas.length;
     document.getElementById("plTotalUnidades").textContent =
         formatoNumero(filas.reduce((s, f) => s + f.cantidad, 0));
-    document.getElementById("plRango").textContent = filas.length
-        ? rangoCorrelativo(filas[0].correlativo, filas.length) : "-";
+    document.getElementById("plRango").textContent = rangosPorOc(filas);
 
     document.getElementById("bloqueAdvertenciasPl").classList.toggle("oculto", !advertencias.length);
     document.getElementById("lstAdvertenciasPl").innerHTML =
@@ -1109,7 +1145,7 @@ function descargarExcelPl(fo, filas){
 
     const libro = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(libro, hoja, "FORMATO");
-    XLSX.writeFile(libro, fo + "_CD_MASS_CALLAO.xlsx");
+    XLSX.writeFile(libro, fo + "_CD_MASS.xlsx");
 
 }
 
@@ -1136,18 +1172,17 @@ async function cargarHistorial(){
                 <tr>
                     <td>${escaparHtml(r.fo)}</td>
                     <td>${r.cantidad}</td>
-                    <td>${rangoCorrelativo(Number(r.correlativo_inicio), r.cantidad)}</td>
                     <td>${escaparHtml(r.generado_por || "-")}</td>
                     <td>${r.updated_at ? new Date(r.updated_at).toLocaleString("es-PE") : "-"}</td>
                     <td><button class="btn-secundario btn-hist-descargar" data-fo="${escaparHtml(r.fo)}">⬇ Descargar</button></td>
                 </tr>
             `).join("")
-            : `<tr><td colspan="6" class="sin-datos">Todavía no hay PL registrados.</td></tr>`;
+            : `<tr><td colspan="5" class="sin-datos">Todavía no hay PL registrados.</td></tr>`;
 
     }catch(err){
 
         console.error(err);
-        tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se pudo leer el historial.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="sin-datos">No se pudo leer el historial.</td></tr>`;
 
     }
 
