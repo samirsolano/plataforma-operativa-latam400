@@ -49,6 +49,9 @@ if(sesion){
         linkTomaLote: "toma-lote-supermercados",
         cardTomaLote: "toma-lote-supermercados",
 
+        linkPlMass: "pl-mass",
+        cardPlMass: "pl-mass",
+
         linkTomaLoteFarmacia: "toma-lote-farmacia",
         cardTomaLoteFarmacia: "toma-lote-farmacia",
 
