@@ -86,12 +86,26 @@ document.getElementById("btnCerrarSesion").addEventListener("click", function(e)
     cerrarSesion();
 });
 
-// Menú lateral: solo resalta el paso (los pasos están todos en la
-// misma página, el href="#pasoN" hace el scroll).
-document.querySelectorAll(".menu a").forEach(function(link){
-    link.addEventListener("click", function(){
-        document.querySelectorAll(".menu a").forEach(l => l.classList.remove("activo"));
-        link.classList.add("activo");
+// Menú lateral = pestañas: cada opción muestra solo su sección
+// (Distribución, VL06F, Viajes y Fase, Generar PL, Historial, MARA).
+function mostrarSeccion(id){
+
+    document.querySelectorAll(".pl-seccion").forEach(function(sec){
+        sec.classList.toggle("oculto", sec.id !== id);
+    });
+
+    document.querySelectorAll(".menu a[data-seccion]").forEach(function(l){
+        l.classList.toggle("activo", l.dataset.seccion === id);
+    });
+
+    window.scrollTo(0, 0);
+
+}
+
+document.querySelectorAll(".menu a[data-seccion]").forEach(function(link){
+    link.addEventListener("click", function(e){
+        e.preventDefault();
+        mostrarSeccion(link.dataset.seccion);
     });
 });
 
@@ -692,6 +706,7 @@ document.getElementById("btnCargarFase").addEventListener("click", async functio
         pintarViajes();
 
         document.getElementById("cmbViajePl").value = fo;
+        refrescarEstadoViajePl();
         mostrarToast("Fase del viaje " + fo + " cargada: " + hus.length + " HU.", "exito");
 
     }catch(err){
@@ -706,29 +721,86 @@ document.getElementById("btnCargarFase").addEventListener("click", async functio
 // ========================================
 // PASO 4: GENERAR PL
 // ========================================
+// El correlativo NO se escribe a mano: lo asigna Supabase con
+// pl_mass_registrar_pl() (ver pl-mass-correlativo.sql), que reserva el
+// bloque de forma atómica y guarda cada LPN en pl_mass_lpn (LPN único:
+// la base no deja que se repita). Un viaje que ya tiene PL no se
+// vuelve a generar: se descarga lo registrado, o se usa "Anular y
+// regenerar" (los LPN viejos quedan anulados y bloqueados para siempre).
 
-const CLAVE_CORRELATIVO = "plMass.siguienteCorrelativo";
+let _plRegistrado = null;   // { fo, cantidad, inicio, fin } del viaje elegido
 
-function leerCorrelativoGuardado(){
-    try{
-        const v = localStorage.getItem(CLAVE_CORRELATIVO);
-        return v === null ? "" : v;
-    }catch(e){
-        return "";
-    }
+function usuarioActual(){
+    return (sesion && (sesion.nombre_completo || sesion.usuario)) || "";
 }
 
-function guardarCorrelativo(n){
-    try{
-        localStorage.setItem(CLAVE_CORRELATIVO, String(n));
-    }catch(e){
-        // Sin almacenamiento (modo privado): el usuario lo escribe a mano.
-    }
+function rangoCorrelativo(inicio, cantidad){
+    const fmt = n => String(n % 10000).padStart(4, "0");
+    return cantidad > 1 ? fmt(inicio) + " – " + fmt(inicio + cantidad - 1) : fmt(inicio);
 }
 
-document.getElementById("txtCorrelativo").value = leerCorrelativoGuardado();
+async function refrescarCorrelativo(){
 
-function generarPl(fo, correlativoInicial, local){
+    const el = document.getElementById("txtCorrelativo");
+
+    try{
+        const filas = await supabaseFetch("/pl_mass_correlativo?select=siguiente&id=eq.1");
+        el.textContent = filas && filas.length ? String(filas[0].siguiente % 10000).padStart(4, "0") : "-";
+    }catch(err){
+        console.error(err);
+        el.textContent = "sin conexión";
+    }
+
+}
+
+// Estado del viaje elegido en el combo: ¿ya tiene PL registrado?
+async function refrescarEstadoViajePl(){
+
+    const fo = document.getElementById("cmbViajePl").value;
+    const bloque = document.getElementById("bloquePlRegistrado");
+
+    _plRegistrado = null;
+    bloque.classList.add("oculto");
+
+    if(!fo){
+        return;
+    }
+
+    try{
+
+        const filas = await supabaseFetch("/pl_mass_pl?select=*&fo=eq." + encodeURIComponent(fo));
+
+        if(document.getElementById("cmbViajePl").value !== fo){
+            return;   // el usuario cambió de viaje mientras se consultaba
+        }
+
+        if(filas && filas.length){
+
+            const r = filas[0];
+
+            _plRegistrado = { fo: fo, cantidad: r.cantidad, inicio: Number(r.correlativo_inicio) };
+
+            document.getElementById("txtPlRegistrado").textContent =
+                "El viaje " + fo + " ya tiene PL registrado: " + r.cantidad + " LPN (correlativo " +
+                rangoCorrelativo(_plRegistrado.inicio, r.cantidad) + ")" +
+                (r.generado_por ? ", por " + r.generado_por : "") +
+                (r.updated_at ? ", el " + new Date(r.updated_at).toLocaleString("es-PE") : "");
+
+            bloque.classList.remove("oculto");
+
+        }
+
+    }catch(err){
+        console.error(err);
+    }
+
+}
+
+document.getElementById("cmbViajePl").addEventListener("change", refrescarEstadoViajePl);
+
+// Arma las filas del PL (sin LPN todavía) cruzando las líneas del
+// viaje con los HU de la Fase.
+function armarFilasPl(fo, local){
 
     const { lineas, advertencias } = calcularLineasViaje(fo);
     const fase = _fasePorViaje[fo] || [];
@@ -745,7 +817,6 @@ function generarPl(fo, correlativoInicial, local){
     });
 
     const filas = [];
-    let correlativo = correlativoInicial;
 
     lineas.forEach(function(l){
 
@@ -767,16 +838,14 @@ function generarPl(fo, correlativoInicial, local){
             filas.push({
                 oc: l.oc,
                 pedido: l.pedido,
-                lpn: "500000" + l.oc + String(correlativo).padStart(4, "0"),
                 local: local,
                 sku: l.codigoSpsa,
+                material: l.sku,
                 cantidad: hu.cantidad,
                 lote: hu.lote,
                 fecha: hu.fecha,
                 hu: hu.hu
             });
-
-            correlativo++;
 
         }
 
@@ -794,25 +863,72 @@ function generarPl(fo, correlativoInicial, local){
         });
     });
 
-    if(correlativo - 1 > 9999){
-        advertencias.unshift("El correlativo pasa de 9999 (llega a " + (correlativo - 1) +
-            "): revisa el correlativo inicial, el LPN quedaría con más de 4 dígitos.");
-    }
-
     filas.forEach(function(f){
         if(!f.fecha) advertencias.push("HU " + f.hu + ": sin fecha de vencimiento en la Fase.");
         if(!f.sku) advertencias.push("HU " + f.hu + ": el material no tiene Código SPSA en MARA MASS.");
     });
 
-    return { filas, advertencias, siguiente: correlativo };
+    return { filas, advertencias };
 
 }
 
-document.getElementById("btnGenerarPl").addEventListener("click", function(){
+function fechaAIso(f){
+    return f ? f.y + "-" + String(f.m).padStart(2, "0") + "-" + String(f.d).padStart(2, "0") : "";
+}
+
+// Filas de pl_mass_lpn (Supabase) -> filas del PL para pantalla/Excel.
+function filasDesdeRegistro(registros){
+    return (registros || []).map(r => ({
+        oc: texto(r.oc),
+        pedido: texto(r.pedido),
+        lpn: texto(r.lpn),
+        local: texto(r.local_destino),
+        sku: texto(r.sku),
+        cantidad: Number(r.cantidad || 0),
+        lote: texto(r.lote),
+        fecha: leerFecha(r.fecha_vto),
+        correlativo: Number(r.correlativo)
+    }));
+}
+
+function pintarPl(fo, filas, advertencias){
+
+    _ultimoPl = { fo: fo, filas: filas };
+
+    document.getElementById("bloqueResultadoPl").classList.remove("oculto");
+    document.getElementById("plTotalLpn").textContent = filas.length;
+    document.getElementById("plTotalUnidades").textContent =
+        formatoNumero(filas.reduce((s, f) => s + f.cantidad, 0));
+    document.getElementById("plRango").textContent = filas.length
+        ? rangoCorrelativo(filas[0].correlativo, filas.length) : "-";
+
+    document.getElementById("bloqueAdvertenciasPl").classList.toggle("oculto", !advertencias.length);
+    document.getElementById("lstAdvertenciasPl").innerHTML =
+        advertencias.map(a => `<li>${escaparHtml(a)}</li>`).join("");
+
+    document.getElementById("tblPl").innerHTML = filas.map(f => `
+        <tr>
+            <td>${escaparHtml(f.oc)}</td>
+            <td>${escaparHtml(f.pedido)}</td>
+            <td>${escaparHtml(f.lpn)}</td>
+            <td>${escaparHtml(f.local)}</td>
+            <td>${escaparHtml(f.sku)}</td>
+            <td>${formatoNumero(f.cantidad)}</td>
+            <td>${escaparHtml(f.lote)}</td>
+            <td>${fechaATexto(f.fecha)}</td>
+            <td></td>
+        </tr>
+    `).join("");
+
+    document.getElementById("btnDescargarPl").disabled = !filas.length;
+
+}
+
+async function generarYRegistrar(reemplazar){
 
     const fo = document.getElementById("cmbViajePl").value;
-    const textoCorrelativo = document.getElementById("txtCorrelativo").value.trim();
     const local = texto(document.getElementById("txtLocal").value);
+    const boton = document.getElementById(reemplazar ? "btnRegenerarPl" : "btnGenerarPl");
 
     if(!_distribucion.length || !_vl06f.length){
         mostrarToast("Primero carga la Distribución y la VL06F.", "error");
@@ -829,69 +945,139 @@ document.getElementById("btnGenerarPl").addEventListener("click", function(){
         return;
     }
 
-    if(!/^\d{1,4}$/.test(textoCorrelativo)){
-        mostrarToast("Escribe el correlativo inicial (0 a 9999).", "error");
-        return;
-    }
-
     if(!Object.keys(_mara).length){
         mostrarToast("MARA MASS está vacía: impórtala abajo antes de generar.", "error");
         return;
     }
 
-    const resultado = generarPl(fo, Number(textoCorrelativo), local);
+    if(_plRegistrado && !reemplazar){
+        mostrarToast("El viaje " + fo + " ya tiene PL registrado. Descárgalo o usa \"Anular y regenerar\".", "error");
+        return;
+    }
 
-    _ultimoPl = Object.assign({ fo: fo }, resultado);
+    const { filas, advertencias } = armarFilasPl(fo, local);
 
-    document.getElementById("bloqueResultadoPl").classList.remove("oculto");
-    document.getElementById("plTotalLpn").textContent = resultado.filas.length;
-    document.getElementById("plTotalUnidades").textContent =
-        formatoNumero(resultado.filas.reduce((s, f) => s + f.cantidad, 0));
-    document.getElementById("plSiguiente").textContent = resultado.siguiente;
+    if(!filas.length){
+        pintarPl(fo, [], advertencias);
+        mostrarToast("No se generó ningún LPN: revisa las observaciones.", "error");
+        return;
+    }
 
-    const bloqueAdv = document.getElementById("bloqueAdvertenciasPl");
+    const aviso =
+        (reemplazar
+            ? "Se ANULARÁN los " + _plRegistrado.cantidad + " LPN registrados del viaje " + fo +
+              " (quedan bloqueados, no se reusan) y se registrarán " + filas.length + " LPN nuevos."
+            : "Se registrarán " + filas.length + " LPN para el viaje " + fo + ".") +
+        (advertencias.length ? "\n\nHay " + advertencias.length + " observación(es) — revísalas antes de continuar." : "") +
+        "\n\n¿Continuar?";
 
-    bloqueAdv.classList.toggle("oculto", !resultado.advertencias.length);
-    document.getElementById("lstAdvertenciasPl").innerHTML =
-        resultado.advertencias.map(a => `<li>${escaparHtml(a)}</li>`).join("");
+    if(!confirm(aviso)){
+        return;
+    }
 
-    document.getElementById("tblPl").innerHTML = resultado.filas.map(f => `
-        <tr>
-            <td>${escaparHtml(f.oc)}</td>
-            <td>${escaparHtml(f.pedido)}</td>
-            <td>${escaparHtml(f.lpn)}</td>
-            <td>${escaparHtml(f.local)}</td>
-            <td>${escaparHtml(f.sku)}</td>
-            <td>${formatoNumero(f.cantidad)}</td>
-            <td>${escaparHtml(f.lote)}</td>
-            <td>${fechaATexto(f.fecha)}</td>
-            <td></td>
-        </tr>
-    `).join("");
+    boton.disabled = true;
+    const textoBoton = boton.textContent;
+    boton.textContent = "Registrando...";
 
-    document.getElementById("btnDescargarPl").disabled = !resultado.filas.length;
+    try{
 
-    mostrarToast(
-        resultado.filas.length + " LPN generado(s)" +
-        (resultado.advertencias.length ? " con " + resultado.advertencias.length + " observación(es)." : "."),
-        resultado.advertencias.length ? "info" : "exito"
-    );
+        const registros = await supabaseFetch("/rpc/pl_mass_registrar_pl", {
+            method: "POST",
+            body: JSON.stringify({
+                p_fo: fo,
+                p_usuario: usuarioActual(),
+                p_reemplazar: !!reemplazar,
+                p_filas: filas.map(f => ({
+                    oc: f.oc,
+                    pedido: f.pedido,
+                    local: f.local,
+                    sku: f.sku,
+                    material: f.material,
+                    cantidad: f.cantidad,
+                    lote: f.lote,
+                    fecha: fechaAIso(f.fecha),
+                    hu: f.hu
+                }))
+            })
+        });
+
+        pintarPl(fo, filasDesdeRegistro(registros), advertencias);
+
+        mostrarToast(
+            (registros || []).length + " LPN registrado(s)" +
+            (advertencias.length ? " con " + advertencias.length + " observación(es)." : "."),
+            advertencias.length ? "info" : "exito"
+        );
+
+        await Promise.all([refrescarCorrelativo(), refrescarEstadoViajePl(), cargarHistorial()]);
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se registró el PL: " + mensajeSupabase(err), "error");
+
+    }finally{
+
+        boton.disabled = false;
+        boton.textContent = textoBoton;
+
+    }
+
+}
+
+// Los errores de PostgREST vienen como JSON {message, ...}.
+function mensajeSupabase(err){
+    try{
+        const j = JSON.parse(err.message);
+        return j.message || err.message;
+    }catch(e){
+        return err.message;
+    }
+}
+
+document.getElementById("btnGenerarPl").addEventListener("click", function(){
+    generarYRegistrar(false);
+});
+
+document.getElementById("btnRegenerarPl").addEventListener("click", function(){
+    generarYRegistrar(true);
+});
+
+async function traerPlRegistrado(fo){
+    return filasDesdeRegistro(await supabaseFetch(
+        "/pl_mass_lpn?select=*&anulado=eq.false&fo=eq." + encodeURIComponent(fo) + "&order=orden.asc"
+    ));
+}
+
+document.getElementById("btnVerPlRegistrado").addEventListener("click", async function(){
+
+    const fo = document.getElementById("cmbViajePl").value;
+
+    try{
+        const filas = await traerPlRegistrado(fo);
+        pintarPl(fo, filas, []);
+        descargarExcelPl(fo, filas);
+    }catch(err){
+        console.error(err);
+        mostrarToast("No se pudo leer el PL registrado: " + mensajeSupabase(err), "error");
+    }
 
 });
 
 // Mismo formato que el PL real (1000182095_CD_MASS_CALLAO.xlsx): hoja
 // FORMATO; OC, Pedido, SKU, Cantidad y Lote como número; LPN y Local
 // como texto; Fecha Vto. como fecha real; COSTO vacío.
-document.getElementById("btnDescargarPl").addEventListener("click", function(){
+function descargarExcelPl(fo, filas){
 
-    if(!_ultimoPl || !_ultimoPl.filas.length){
+    if(!filas || !filas.length){
+        mostrarToast("No hay LPN para descargar.", "error");
         return;
     }
 
     const encabezados = ["No. OC", "No. Fact.", "LPN", "LOCAL DESTINO", "SKU", "CANTIDAD", "No. Lote", "Fecha Vto.", "COSTO"];
     const hoja = XLSX.utils.aoa_to_sheet([encabezados]);
 
-    _ultimoPl.filas.forEach(function(f, i){
+    filas.forEach(function(f, i){
 
         const r = i + 1;
 
@@ -918,18 +1104,74 @@ document.getElementById("btnDescargarPl").addEventListener("click", function(){
 
     });
 
-    hoja["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: _ultimoPl.filas.length, c: 8 } });
+    hoja["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: filas.length, c: 8 } });
     hoja["!cols"] = [12, 12, 22, 14, 12, 11, 13, 12, 8].map(w => ({ wch: w }));
 
     const libro = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(libro, hoja, "FORMATO");
-    XLSX.writeFile(libro, _ultimoPl.fo + "_CD_MASS_CALLAO.xlsx");
+    XLSX.writeFile(libro, fo + "_CD_MASS_CALLAO.xlsx");
 
-    // El siguiente PL arranca donde terminó este.
-    guardarCorrelativo(_ultimoPl.siguiente);
-    document.getElementById("txtCorrelativo").value = _ultimoPl.siguiente;
+}
+
+document.getElementById("btnDescargarPl").addEventListener("click", function(){
+    if(_ultimoPl){
+        descargarExcelPl(_ultimoPl.fo, _ultimoPl.filas);
+    }
+});
+
+// ========================================
+// HISTORIAL DE PL (pl_mass_pl + pl_mass_lpn)
+// ========================================
+
+async function cargarHistorial(){
+
+    const tbody = document.getElementById("tblHistorial");
+
+    try{
+
+        const filas = await supabaseFetch("/pl_mass_pl?select=*&order=updated_at.desc&limit=100");
+
+        tbody.innerHTML = filas && filas.length
+            ? filas.map(r => `
+                <tr>
+                    <td>${escaparHtml(r.fo)}</td>
+                    <td>${r.cantidad}</td>
+                    <td>${rangoCorrelativo(Number(r.correlativo_inicio), r.cantidad)}</td>
+                    <td>${escaparHtml(r.generado_por || "-")}</td>
+                    <td>${r.updated_at ? new Date(r.updated_at).toLocaleString("es-PE") : "-"}</td>
+                    <td><button class="btn-secundario btn-hist-descargar" data-fo="${escaparHtml(r.fo)}">⬇ Descargar</button></td>
+                </tr>
+            `).join("")
+            : `<tr><td colspan="6" class="sin-datos">Todavía no hay PL registrados.</td></tr>`;
+
+    }catch(err){
+
+        console.error(err);
+        tbody.innerHTML = `<tr><td colspan="6" class="sin-datos">No se pudo leer el historial.</td></tr>`;
+
+    }
+
+}
+
+document.getElementById("tblHistorial").addEventListener("click", async function(e){
+
+    const btn = e.target.closest(".btn-hist-descargar");
+
+    if(!btn){
+        return;
+    }
+
+    try{
+        descargarExcelPl(btn.dataset.fo, await traerPlRegistrado(btn.dataset.fo));
+    }catch(err){
+        console.error(err);
+        mostrarToast("No se pudo descargar el PL: " + mensajeSupabase(err), "error");
+    }
 
 });
+
+refrescarCorrelativo();
+cargarHistorial();
 
 // ========================================
 // MARA MASS (tabla mara_mass en WMS Dashboard)
