@@ -143,3 +143,30 @@
 .contenido{
     min-width:0;
 }
+
+/* Correlativo: solo lectura, lo asigna el sistema. */
+.pl-correlativo{
+    padding:10px 12px;
+    border:1px dashed #d5dbe5;
+    border-radius:10px;
+    background:#f8fafc;
+    font-size:14px;
+    font-weight:700;
+    color:#374151;
+}
+
+.pl-registrado{
+    margin-top:16px;
+    padding:12px 16px;
+    border-radius:10px;
+    background:#eef6ff;
+    color:#1e3a8a;
+    font-size:13px;
+}
+
+.pl-registrado-acciones{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:10px;
+}
