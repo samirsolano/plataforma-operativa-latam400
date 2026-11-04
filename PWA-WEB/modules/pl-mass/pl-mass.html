@@ -59,11 +59,12 @@
 
             <nav class="menu">
 
-                <a href="#paso1" class="activo">1. Distribución</a>
-                <a href="#paso2">2. VL06F</a>
-                <a href="#paso3">3. Viajes y Fase</a>
-                <a href="#paso4">4. Generar PL</a>
-                <a href="#pasoMara">MARA MASS</a>
+                <a href="#" data-seccion="paso1" class="activo">1. Distribución</a>
+                <a href="#" data-seccion="paso2">2. VL06F</a>
+                <a href="#" data-seccion="paso3">3. Viajes y Fase</a>
+                <a href="#" data-seccion="paso4">4. Generar PL</a>
+                <a href="#" data-seccion="pasoHistorial">Historial de PL</a>
+                <a href="#" data-seccion="pasoMara">MARA MASS</a>
 
             </nav>
 
@@ -91,7 +92,7 @@
             <!-- PASO 1: DISTRIBUCIÓN -->
             <!-- ============================================ -->
 
-            <div class="card" id="paso1">
+            <div class="card pl-seccion" id="paso1">
 
                 <div class="card-header-flex">
                     <h2>1. DISTRIBUCIÓN (PROGRAMACIÓN)</h2>
@@ -149,7 +150,7 @@
             <!-- PASO 2: VL06F -->
             <!-- ============================================ -->
 
-            <div class="card" id="paso2">
+            <div class="card pl-seccion oculto" id="paso2">
 
                 <div class="card-header-flex">
                     <h2>2. VL06F</h2>
@@ -191,7 +192,7 @@
             <!-- PASO 3: VIAJES + FASE -->
             <!-- ============================================ -->
 
-            <div class="card" id="paso3">
+            <div class="card pl-seccion oculto" id="paso3">
 
                 <div class="card-header-flex">
                     <h2>3. VIAJES Y FASE</h2>
@@ -260,16 +261,17 @@
             <!-- PASO 4: GENERAR PL -->
             <!-- ============================================ -->
 
-            <div class="card" id="paso4">
+            <div class="card pl-seccion oculto" id="paso4">
 
                 <div class="card-header-flex">
                     <h2>4. GENERAR PL</h2>
                 </div>
 
                 <p class="nota-modulo">
-                    LPN = <b>500000 + O/C + correlativo de 4 dígitos</b>. El correlativo sigue
-                    el orden del PL (entrega y posición). La plataforma recuerda en este
-                    navegador cuál es el siguiente correlativo.
+                    LPN = <b>500000 + O/C + correlativo de 4 dígitos</b>. El correlativo lo asigna
+                    el sistema (no se puede escribir): sigue el orden del PL (entrega y posición)
+                    y cada LPN queda registrado, así que nunca se repite. Un viaje que ya tiene
+                    PL se descarga tal cual se registró.
                 </p>
 
                 <div class="pl-form-grid">
@@ -282,8 +284,8 @@
                     </div>
 
                     <div>
-                        <label for="txtCorrelativo">Correlativo inicial</label>
-                        <input type="number" id="txtCorrelativo" min="0" max="9999" placeholder="Ej. 9950">
+                        <label>Siguiente correlativo</label>
+                        <div class="pl-correlativo" id="txtCorrelativo" title="Lo asigna el sistema al registrar el PL">-</div>
                     </div>
 
                     <div>
@@ -293,14 +295,22 @@
 
                 </div>
 
-                <button class="btn-paso" id="btnGenerarPl">GENERAR PL</button>
+                <div class="pl-registrado oculto" id="bloquePlRegistrado">
+                    <p id="txtPlRegistrado"></p>
+                    <div class="pl-registrado-acciones">
+                        <button class="btn-primario" id="btnVerPlRegistrado">⬇ Descargar PL registrado</button>
+                        <button class="btn-secundario" id="btnRegenerarPl">Anular y regenerar</button>
+                    </div>
+                </div>
+
+                <button class="btn-paso" id="btnGenerarPl">GENERAR Y REGISTRAR PL</button>
 
                 <div class="oculto" id="bloqueResultadoPl">
 
                     <div class="detalle-archivo pl-resumen">
                         <p>LPN generados: <span id="plTotalLpn">-</span></p>
                         <p>Unidades: <span id="plTotalUnidades">-</span></p>
-                        <p>Siguiente correlativo: <span id="plSiguiente">-</span></p>
+                        <p>Correlativo: <span id="plRango">-</span></p>
                     </div>
 
                     <div id="bloqueAdvertenciasPl" class="pl-advertencias oculto">
@@ -336,10 +346,47 @@
             </div>
 
             <!-- ============================================ -->
+            <!-- HISTORIAL DE PL -->
+            <!-- ============================================ -->
+
+            <div class="card pl-seccion oculto" id="pasoHistorial">
+
+                <div class="card-header-flex">
+                    <h2>HISTORIAL DE PL</h2>
+                </div>
+
+                <p class="nota-modulo">
+                    Todos los PL registrados (tabla <b>pl_mass_lpn</b>). Los LPN anulados no se
+                    muestran ni se descargan, pero siguen guardados y nunca se vuelven a usar.
+                </p>
+
+                <div class="pl-tabla-scroll">
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>F.O</th>
+                                <th>LPN</th>
+                                <th>Correlativo</th>
+                                <th>Generado por</th>
+                                <th>Fecha</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblHistorial">
+                            <tr><td colspan="6" class="sin-datos">Cargando...</td></tr>
+                        </tbody>
+                    </table>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
             <!-- MARA MASS -->
             <!-- ============================================ -->
 
-            <div class="card" id="pasoMara">
+            <div class="card pl-seccion oculto" id="pasoMara">
 
                 <div class="card-header-flex">
                     <h2>MARA MASS</h2>
