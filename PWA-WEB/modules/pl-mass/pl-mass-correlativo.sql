@@ -189,7 +189,7 @@ revoke all on function public.pl_mass_registrar_pl(text, jsonb, text, boolean) f
 grant execute on function public.pl_mass_registrar_pl(text, jsonb, text, boolean) to anon, authenticated;
 
 insert into public.pl_mass_pl (fo, cantidad, generado_por)
-values ('1000182095', 24, 'Carga inicial (PL 1000182095_CD_MASS_CALLAO.xlsx)', false)
+values ('1000182095', 24, 'Carga inicial (PL 1000182095_CD_MASS_CALLAO.xlsx)')
 on conflict (fo) do nothing;
 
 -- PL real ya entregado de la FO 1000182095: queda registrado para que
