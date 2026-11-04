@@ -78,7 +78,7 @@
 
                 <div class="topbar-titulo">
 
-                    <h2>PL MASS — PACKING LIST CD MASS CALLAO</h2>
+                    <h2>PL MASS — PACKING LIST CD MASS</h2>
 
                     <p>Distribución → VL06F → Fase por viaje → PL</p>
 
@@ -268,10 +268,7 @@
                 </div>
 
                 <p class="nota-modulo">
-                    LPN = <b>500000 + O/C + correlativo de 4 dígitos</b>. El correlativo lo asigna
-                    el sistema (no se puede escribir): sigue el orden del PL (entrega y posición)
-                    y cada LPN queda registrado, así que nunca se repite. Un viaje que ya tiene
-                    PL se descarga tal cual se registró.
+                    LPN = <b>500000 + O/C + correlativo de 4 dígitos por O/C</b>: una O/C nueva empieza en 0001 y, si vuelve a salir, continúa desde su último número. Lo asigna el sistema (no se puede escribir) y cada LPN queda registrado, así que nunca se repite. Un viaje que ya tiene PL se descarga tal cual se registró.
                 </p>
 
                 <div class="pl-form-grid">
@@ -284,7 +281,7 @@
                     </div>
 
                     <div>
-                        <label>Siguiente correlativo</label>
+                        <label>Siguiente correlativo por O/C</label>
                         <div class="pl-correlativo" id="txtCorrelativo" title="Lo asigna el sistema al registrar el PL">-</div>
                     </div>
 
@@ -367,14 +364,13 @@
                             <tr>
                                 <th>F.O</th>
                                 <th>LPN</th>
-                                <th>Correlativo</th>
                                 <th>Generado por</th>
                                 <th>Fecha</th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody id="tblHistorial">
-                            <tr><td colspan="6" class="sin-datos">Cargando...</td></tr>
+                            <tr><td colspan="5" class="sin-datos">Cargando...</td></tr>
                         </tbody>
                     </table>
 
