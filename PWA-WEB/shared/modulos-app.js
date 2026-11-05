@@ -67,6 +67,7 @@ const MODULOS_APP = [
     { key: "inventario-paletas", nombre: "Inventario de Paletas", submodulos: [] },
     { key: "inventario-picking", nombre: "Inventario Picking", submodulos: [] },
     { key: "monitor-guias", nombre: "Monitor de Guías", submodulos: [] },
+    { key: "merma-turno", nombre: "Merma por Turno", submodulos: [] },
     { key: "configuracion", nombre: "Configuración", submodulos: [] }
 
 ];

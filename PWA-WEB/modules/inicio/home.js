@@ -64,6 +64,9 @@ if(sesion){
         linkMonitorGuias: "monitor-guias",
         cardMonitorGuias: "monitor-guias",
 
+        linkMermaTurno: "merma-turno",
+        cardMermaTurno: "merma-turno",
+
         linkConfiguracion: "configuracion",
         cardConfiguracion: "configuracion"
 
