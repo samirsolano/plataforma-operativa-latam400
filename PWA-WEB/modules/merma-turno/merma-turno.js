@@ -8,9 +8,10 @@
 //     terminar el turno, CERRAR MERMA (merma_cerrar_turno, no deja
 //     cerrar con cambios pendientes) pasa todo a un CIERRE y el turno
 //     de relevo sigue registrando en blanco.
-//   - 1. Cruce con SAP: sobre el cierre, se pega el stock físico de la
-//     unidad de manipulación de merma (p. ej. MERMAPENDI30.10) →
-//     merma_sap, y se compara Registro vs SAP por código.
+//   - 1. Cruce con SAP: en el turno abierto, SIN cerrar: se pega el
+//     stock físico de la unidad de manipulación de merma (p. ej.
+//     MERMAPENDI30.10) → merma_sap (cruce_id null) y se compara
+//     Registro vs SAP por código. Al cerrar, el SAP pasa al cierre.
 //   - 2. Validación física: conteo ciego (código + cantidad) por
 //     cierre → merma_validacion.
 //   - 3. Cruce final: Físico vs SAP.
@@ -332,7 +333,8 @@ async function cargarRegistros(){
 async function cargarCruceActivo(){
 
     if(!CRUCE){
-        SAP = [];
+        // Turno abierto: el SAP pegado sin cerrar (cruce_id null).
+        SAP = await supabaseFetchTodo("/merma_sap?select=*&cruce_id=is.null&order=id.asc");
         VALIDACION = [];
         return;
     }
@@ -421,9 +423,17 @@ document.getElementById("btnCerrarMerma").addEventListener("click", async functi
         return;
     }
 
+    const reg = sumarPorCodigo(REGISTROS, "codigo", "cantidad");
+    const sap = sumarPorCodigo(SAP, "producto", "ctd_uma");
+    const codigos = Array.from(new Set([...reg.keys(), ...sap.keys()]));
+    const conDif = codigos.filter(c => redondear((reg.get(c) || 0) - (sap.get(c) || 0)) !== 0).length;
+    const textoSap = !SAP.length
+        ? "Aún no pegaste el SAP (el cruce con SAP también se puede hacer después, sobre el cierre)."
+        : (conDif ? "Cruce con SAP: " + conDif + " código(s) con diferencia." : "Cruce con SAP: todo OK.");
+
     if(!(await mostrarConfirmacion(
-        "¿Cerrar la merma del turno?\n" + REGISTROS.length + " línea(s) pasan al cierre para el cruce con SAP, " +
-        "la validación física y el Monitor. El turno de relevo empieza en blanco."
+        "¿Cerrar la merma del turno?\n" + REGISTROS.length + " línea(s) pasan al cierre para la validación física, " +
+        "el cruce final y el Monitor. El turno de relevo empieza en blanco.\n\n" + textoSap
     ))){
         return;
     }
@@ -443,7 +453,7 @@ document.getElementById("btnCerrarMerma").addEventListener("click", async functi
         sessionStorage.setItem("merma_cruce_activo", String(cierre.id));
         await cargarCruces();
         await elegirCruce(cierre.id);
-        mostrarSeccion("secCruceSap");
+        mostrarSeccion("secValidacion");
 
     }catch(err){
 
@@ -550,9 +560,9 @@ function pintarCruce1(){
     const tbody = document.getElementById("tblCruce1");
     const estado = document.getElementById("estadoCruce1");
 
-    if(!CRUCE){
-        tbody.innerHTML = '<tr><td colspan="6" class="sin-datos">Primero cierra la merma del turno (CERRAR MERMA en Merma registrada) y luego pega SAP aquí.</td></tr>';
-        estado.textContent = "-";
+    if(!SAP.length){
+        tbody.innerHTML = '<tr><td colspan="6" class="sin-datos">Pega arriba el stock físico de SAP para cruzarlo con lo registrado.</td></tr>';
+        estado.textContent = "Sin SAP";
         estado.className = "pl-estado";
         return;
     }
@@ -769,15 +779,14 @@ document.getElementById("pegarSap").addEventListener("input", function(e){
 
     const um = filas[0].unidad_manipulacion;
     const info = leerUnidadManipulacion(um);
-    const existe = !!(CRUCE && CRUCE.unidad_manipulacion);
+    const existe = SAP.length > 0;
     const unidades = Array.from(new Set(filas.map(f => f.unidad_manipulacion)));
     const avisos = [];
 
-    if(existe){ avisos.push("Este cierre ya tiene SAP (" + CRUCE.unidad_manipulacion + "): al guardar se reemplazan sus líneas de SAP (los conteos físicos se mantienen)."); }
-    if(unidades.length > 1){ avisos.push("Hay varias unidades de manipulación (" + unidades.join(", ") + "): se guardan todas en este cierre."); }
+    if(existe){ avisos.push((CRUCE ? "Este cierre" : "El turno abierto") + " ya tiene SAP pegado: al guardar se reemplaza (los conteos físicos se mantienen)."); }
+    if(unidades.length > 1){ avisos.push("Hay varias unidades de manipulación (" + unidades.join(", ") + "): se guardan todas juntas."); }
     if(filas.some(f => !f._enMara)){ avisos.push("Hay códigos que no están en la MARA Merma: su cantidad no se pudo convertir a UMA."); }
     if(pegadoSap.noLeidas){ avisos.push(pegadoSap.noLeidas + " fila(s) no se pudieron leer."); }
-    if(!CRUCE){ avisos.push("Elige arriba el cierre al que corresponde este SAP (o cierra primero la merma del turno)."); }
 
     previa.innerHTML =
         '<div class="mt-resumen">' +
@@ -794,7 +803,7 @@ document.getElementById("pegarSap").addEventListener("input", function(e){
         ).join("") +
         "</tbody></table></div>";
 
-    btn.disabled = !CRUCE;
+    btn.disabled = false;
 
 });
 
@@ -804,18 +813,15 @@ document.getElementById("btnGuardarCruce").addEventListener("click", async funct
         return;
     }
 
-    if(!CRUCE){
-        mostrarToast("Primero cierra la merma del turno o elige un cierre arriba.", "error");
-        return;
-    }
-
     const btn = this;
     const filas = pegadoSap.filas;
     const um = filas[0].unidad_manipulacion || null;
-    const otro = um ? CRUCES.find(c => c.unidad_manipulacion === um && c.id !== CRUCE.id) : null;
+    const otro = um ? CRUCES.find(c => c.unidad_manipulacion === um && (!CRUCE || c.id !== CRUCE.id)) : null;
 
-    if(otro){
-        mostrarToast("La unidad de manipulación " + um + " ya está en el Cierre #" + otro.id + ". Elige ese cierre o revisa lo pegado.", "error");
+    if(otro && !(await mostrarConfirmacion(
+        "La unidad de manipulación " + um + " ya está en el Cierre #" + otro.id + ". ¿Guardar igual este SAP en " +
+        (CRUCE ? "el Cierre #" + CRUCE.id : "el turno abierto") + "?"
+    ))){
         return;
     }
 
@@ -824,23 +830,26 @@ document.getElementById("btnGuardarCruce").addEventListener("click", async funct
 
     try{
 
-        // El SAP se pega sobre el cierre elegido (la merma ya cerrada).
+        // Sin cerrar, el SAP va al turno abierto (cruce_id null) y al
+        // CERRAR MERMA pasa al cierre. Si hay un cierre elegido, se
+        // reemplaza el SAP de ese cierre.
         const cruce = CRUCE;
 
-        await supabaseFetch("/merma_cruces?id=eq." + cruce.id, {
-            method: "PATCH",
-            body: JSON.stringify({ unidad_manipulacion: um, cargado_por: usuarioActual })
-        });
+        if(cruce && um && !otro){
+            await supabaseFetch("/merma_cruces?id=eq." + cruce.id, {
+                method: "PATCH",
+                body: JSON.stringify({ unidad_manipulacion: um, cargado_por: usuarioActual })
+            });
+            cruce.unidad_manipulacion = um;
+        }
 
-        cruce.unidad_manipulacion = um;
-
-        await supabaseFetch("/merma_sap?cruce_id=eq." + cruce.id, { method: "DELETE" });
+        await supabaseFetch("/merma_sap?cruce_id=" + (cruce ? "eq." + cruce.id : "is.null"), { method: "DELETE" });
 
         await supabaseFetch("/merma_sap", {
             method: "POST",
             body: JSON.stringify(filas.map(function(f){
                 return {
-                    cruce_id: cruce.id,
+                    cruce_id: cruce ? cruce.id : null,
                     producto: f.producto,
                     descripcion: f.descripcion,
                     lote: f.lote,
@@ -855,15 +864,14 @@ document.getElementById("btnGuardarCruce").addEventListener("click", async funct
             }))
         });
 
-        mostrarToast("SAP guardado en el Cierre #" + cruce.id + " (" + filas.length + " líneas).", "exito");
+        mostrarToast("SAP guardado en " + (cruce ? "el Cierre #" + cruce.id : "el turno abierto") + " (" + filas.length + " líneas).", "exito");
 
         document.getElementById("pegarSap").value = "";
         document.getElementById("previaSap").innerHTML = "";
         pegadoSap = null;
 
         await cargarCruces();
-        document.getElementById("selCruce").value = String(cruce.id);
-        await elegirCruce(cruce.id);
+        await actualizarTodo();
 
     }catch(err){
 
