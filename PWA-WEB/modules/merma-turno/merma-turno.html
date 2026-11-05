@@ -60,7 +60,7 @@
 
             <nav class="menu">
 
-                <a href="#" data-seccion="secRegistros" class="activo">Merma registrada</a>
+                <a href="#" data-seccion="secRegistros" class="activo">Merma del turno</a>
                 <a href="#" data-seccion="secCruceSap">1. Cruce con SAP</a>
                 <a href="#" data-seccion="secValidacion">2. Validación física</a>
                 <a href="#" data-seccion="secCruceFinal">3. Cruce final</a>
@@ -89,32 +89,17 @@
 
             </header>
 
-            <!-- FILTRO COMÚN: cruce activo + qué registros entran -->
+            <!-- TURNO ABIERTO o CIERRE ELEGIDO: todo el módulo trabaja sobre esto -->
 
             <div class="card">
 
-                <div class="mt-filtros">
+                <div class="mt-filtros mt-filtros-turno">
 
                     <div>
-                        <label for="selCruce">Cruce activo (unidad de manipulación SAP)</label>
+                        <label for="selCruce">Turno / cierre</label>
                         <select id="selCruce">
-                            <option value="">Sin cruce — pega SAP en "1. Cruce con SAP"</option>
+                            <option value="">TURNO ABIERTO — registrando ahora</option>
                         </select>
-                    </div>
-
-                    <div>
-                        <label for="filtroDesde">Registros desde</label>
-                        <input type="date" id="filtroDesde">
-                    </div>
-
-                    <div>
-                        <label for="filtroHasta">Registros hasta</label>
-                        <input type="date" id="filtroHasta">
-                    </div>
-
-                    <div>
-                        <label for="filtroGrupo">Grupo / turno</label>
-                        <input type="text" id="filtroGrupo" placeholder="Todos" autocomplete="off">
                     </div>
 
                 </div>
@@ -130,11 +115,20 @@
             <div class="card mt-seccion" id="secRegistros">
 
                 <div class="card-header-flex">
-                    <h2>MERMA REGISTRADA EN CENTRO DE PROYECTOS</h2>
+                    <h2 id="tituloRegistros">MERMA DEL TURNO ABIERTO</h2>
                     <span class="pl-estado" id="estadoRegistros">-</span>
                 </div>
 
                 <div class="mt-resumen" id="resumenRegistros"></div>
+
+                <p class="nota-modulo">
+                    El cruce con SAP se hace en el turno abierto, sin cerrar. Al terminar el turno pulsa
+                    <b>CERRAR MERMA</b>: la merma y su SAP pasan a un cierre para la validación física,
+                    el cruce final y el Monitor, y el turno de relevo empieza en blanco. No deja cerrar si
+                    algún auxiliar tiene cambios pendientes en su ruta.
+                </p>
+
+                <button class="btn-paso" id="btnCerrarMerma">CERRAR MERMA</button>
 
                 <div class="pl-tabla-scroll">
                     <table>

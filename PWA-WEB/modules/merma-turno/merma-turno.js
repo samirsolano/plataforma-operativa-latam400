@@ -4,12 +4,16 @@
 // El auxiliar registra la merma en Centro de Proyectos (app
 // centro-proyectos-latam, módulo Merma por Turno) → tabla
 // merma_registros. Acá:
-//   - Merma registrada: lo que registraron, filtrado por fecha/grupo.
-//   - 1. Cruce con SAP: se pega el stock físico de SAP de la unidad
-//     de manipulación de merma (p. ej. MERMAPENDI30.10) → merma_cruces
-//     + merma_sap, y se compara Registro vs SAP por código.
+//   - Merma registrada: lo del TURNO ABIERTO (cruce_id null). Al
+//     terminar el turno, CERRAR MERMA (merma_cerrar_turno, no deja
+//     cerrar con cambios pendientes) pasa todo a un CIERRE y el turno
+//     de relevo sigue registrando en blanco.
+//   - 1. Cruce con SAP: en el turno abierto, SIN cerrar: se pega el
+//     stock físico de la unidad de manipulación de merma (p. ej.
+//     MERMAPENDI30.10) → merma_sap (cruce_id null) y se compara
+//     Registro vs SAP por código. Al cerrar, el SAP pasa al cierre.
 //   - 2. Validación física: conteo ciego (código + cantidad) por
-//     cruce → merma_validacion.
+//     cierre → merma_validacion.
 //   - 3. Cruce final: Físico vs SAP.
 //   - 4. Monitor: el formato MONITOR del Excel, listo para pegar en un
 //     correo (tabla con formato) o bajar en Excel.
@@ -238,17 +242,11 @@ function sumarPorCodigo(filas, campoCodigo, campoCantidad){
 
 let MARA = new Map();          // codigo -> fila merma_mara
 let MARA_EAN = new Map();      // ean14/ean13 -> fila
-let CRUCES = [];
-let CRUCE = null;              // cruce activo
-let SAP = [];                  // merma_sap del cruce activo
-let VALIDACION = [];           // merma_validacion del cruce activo
-let REGISTROS = [];            // merma_registros del filtro
-
-const filtro = {
-    desde: fechaIso(new Date()),
-    hasta: fechaIso(new Date()),
-    grupo: ""
-};
+let CRUCES = [];               // cierres de turno (merma_cruces)
+let CRUCE = null;              // cierre elegido; null = turno abierto
+let SAP = [];                  // merma_sap del cierre
+let VALIDACION = [];           // merma_validacion del cierre
+let REGISTROS = [];            // merma_registros del turno abierto o del cierre
 
 function buscarProducto(valor){
 
@@ -275,6 +273,19 @@ function descripcionDe(codigo){
 
 }
 
+function fechaHoraCorta(iso){
+    if(!iso){ return ""; }
+    const d = new Date(iso);
+    return dosDigitos(d.getDate()) + "/" + dosDigitos(d.getMonth() + 1) + " " + dosDigitos(d.getHours()) + ":" + dosDigitos(d.getMinutes());
+}
+
+function nombreCierre(c){
+    return "Cierre #" + c.id + " · " + fechaHoraCorta(c.cerrado_at || c.created_at) +
+        (c.grupo ? " · " + c.grupo : "") +
+        (c.lineas ? " · " + c.lineas + " lín." : "") +
+        (c.unidad_manipulacion ? " · " + c.unidad_manipulacion : " · sin SAP");
+}
+
 // ========================================
 // CARGA DE DATOS
 // ========================================
@@ -298,39 +309,32 @@ async function cargarMara(){
 
 async function cargarCruces(){
 
-    CRUCES = await supabaseFetchTodo("/merma_cruces?select=*&order=created_at.desc");
+    CRUCES = await supabaseFetchTodo("/merma_cruces?select=*&order=cerrado_at.desc");
 
     const sel = document.getElementById("selCruce");
     const actual = CRUCE ? String(CRUCE.id) : (sessionStorage.getItem("merma_cruce_activo") || "");
 
-    sel.innerHTML = '<option value="">Sin cruce — pega SAP en "1. Cruce con SAP"</option>' +
-        CRUCES.map(c =>
-            '<option value="' + c.id + '">' + escaparHtml(c.unidad_manipulacion) +
-            " · " + fechaDmy(c.fecha) + "</option>"
-        ).join("");
+    sel.innerHTML = '<option value="">TURNO ABIERTO — registrando ahora</option>' +
+        CRUCES.map(c => '<option value="' + c.id + '">' + escaparHtml(nombreCierre(c)) + "</option>").join("");
 
-    if(CRUCES.some(c => String(c.id) === actual)){
-        sel.value = actual;
-    }
+    sel.value = CRUCES.some(c => String(c.id) === actual) ? actual : "";
+    CRUCE = CRUCES.find(c => String(c.id) === sel.value) || null;
 
 }
 
 async function cargarRegistros(){
 
-    let ruta = "/merma_registros?select=*&order=created_at.asc";
-
-    if(filtro.desde){ ruta += "&fecha=gte." + filtro.desde; }
-    if(filtro.hasta){ ruta += "&fecha=lte." + filtro.hasta; }
-    if(filtro.grupo){ ruta += "&grupo=eq." + encodeURIComponent(filtro.grupo); }
-
-    REGISTROS = await supabaseFetchTodo(ruta);
+    REGISTROS = await supabaseFetchTodo(
+        "/merma_registros?select=*&order=created_at.asc&cruce_id=" + (CRUCE ? "eq." + CRUCE.id : "is.null")
+    );
 
 }
 
 async function cargarCruceActivo(){
 
     if(!CRUCE){
-        SAP = [];
+        // Turno abierto: el SAP pegado sin cerrar (cruce_id null).
+        SAP = await supabaseFetchTodo("/merma_sap?select=*&cruce_id=is.null&order=id.asc");
         VALIDACION = [];
         return;
     }
@@ -363,31 +367,15 @@ async function actualizarTodo(){
 }
 
 // ========================================
-// FILTRO / CRUCE ACTIVO
+// TURNO ABIERTO / CIERRE ELEGIDO
 // ========================================
-
-const inpDesde = document.getElementById("filtroDesde");
-const inpHasta = document.getElementById("filtroHasta");
-const inpGrupo = document.getElementById("filtroGrupo");
-
-function pintarFiltro(){
-    inpDesde.value = filtro.desde;
-    inpHasta.value = filtro.hasta;
-    inpGrupo.value = filtro.grupo;
-}
 
 async function elegirCruce(id){
 
     CRUCE = CRUCES.find(c => String(c.id) === String(id)) || null;
     sessionStorage.setItem("merma_cruce_activo", CRUCE ? String(CRUCE.id) : "");
+    document.getElementById("selCruce").value = CRUCE ? String(CRUCE.id) : "";
 
-    if(CRUCE){
-        filtro.desde = CRUCE.desde || CRUCE.fecha || filtro.desde;
-        filtro.hasta = CRUCE.hasta || CRUCE.fecha || filtro.hasta;
-        filtro.grupo = CRUCE.grupo_filtro || "";
-    }
-
-    pintarFiltro();
     await actualizarTodo();
 
 }
@@ -396,41 +384,99 @@ document.getElementById("selCruce").addEventListener("change", function(e){
     elegirCruce(e.target.value);
 });
 
-let temporizadorFiltro = null;
-
-[inpDesde, inpHasta, inpGrupo].forEach(function(inp){
-
-    inp.addEventListener("change", function(){
-
-        filtro.desde = inpDesde.value;
-        filtro.hasta = inpHasta.value;
-        filtro.grupo = texto(inpGrupo.value).toUpperCase();
-
-        actualizarTodo();
-
-        // El filtro queda guardado en el cruce, así quien lo abra
-        // después ve los mismos registros.
-        if(CRUCE){
-            clearTimeout(temporizadorFiltro);
-            const id = CRUCE.id;
-            temporizadorFiltro = setTimeout(function(){
-                supabaseFetch("/merma_cruces?id=eq." + id, {
-                    method: "PATCH",
-                    body: JSON.stringify({ desde: filtro.desde || null, hasta: filtro.hasta || null, grupo_filtro: filtro.grupo })
-                }).then(function(){
-                    CRUCE.desde = filtro.desde; CRUCE.hasta = filtro.hasta; CRUCE.grupo_filtro = filtro.grupo;
-                }).catch(console.error);
-            }, 500);
-        }
-
-    });
-
-});
-
 document.getElementById("btnActualizar").addEventListener("click", async function(){
     await cargarMara().catch(console.error);
+    await cargarCruces().catch(console.error);
     await actualizarTodo();
     mostrarToast("Datos actualizados.", "info");
+});
+
+// ========================================
+// CERRAR MERMA (fin de turno)
+// ========================================
+// merma_cerrar_turno() (merma-cierre-turno.sql) revisa que no quede
+// ningún cambio pendiente en la ruta de los auxiliares, crea el
+// cierre y le pasa todas las líneas del turno abierto, todo o nada.
+// El turno de relevo sigue registrando en blanco.
+
+document.getElementById("btnCerrarMerma").addEventListener("click", async function(){
+
+    const btn = this;
+
+    if(CRUCE){
+        return;
+    }
+
+    if(!REGISTROS.length){
+        mostrarToast("No hay merma registrada en el turno abierto.", "error");
+        return;
+    }
+
+    const pendientes = REGISTROS.filter(r => r.estado !== "HECHO");
+
+    if(pendientes.length){
+        const auxiliares = Array.from(new Set(pendientes.map(r => r.nombre || "DNI " + r.dni)));
+        await mostrarAlerta(
+            "No se puede cerrar la merma: hay " + pendientes.length + " cambio(s) pendiente(s) en la ruta de:\n" +
+            auxiliares.join("\n") + "\n\nCuando hagan los cambios en sus ubicaciones, vuelve a intentar."
+        );
+        return;
+    }
+
+    const reg = sumarPorCodigo(REGISTROS, "codigo", "cantidad");
+    const sap = sumarPorCodigo(SAP, "producto", "ctd_uma");
+    const codigos = Array.from(new Set([...reg.keys(), ...sap.keys()]));
+    const conDif = codigos.filter(c => redondear((reg.get(c) || 0) - (sap.get(c) || 0)) !== 0).length;
+    const textoSap = !SAP.length
+        ? "Aún no pegaste el SAP (el cruce con SAP también se puede hacer después, sobre el cierre)."
+        : (conDif ? "Cruce con SAP: " + conDif + " código(s) con diferencia." : "Cruce con SAP: todo OK.");
+
+    if(!(await mostrarConfirmacion(
+        "¿Cerrar la merma del turno?\n" + REGISTROS.length + " línea(s) pasan al cierre para la validación física, " +
+        "el cruce final y el Monitor. El turno de relevo empieza en blanco.\n\n" + textoSap
+    ))){
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "CERRANDO...";
+
+    try{
+
+        const cierre = await supabaseFetch("/rpc/merma_cerrar_turno", {
+            method: "POST",
+            body: JSON.stringify({ p_usuario: usuarioActual })
+        });
+
+        mostrarToast("Merma cerrada (Cierre #" + cierre.id + ", " + cierre.lineas + " líneas). El turno de relevo ya puede registrar.", "exito");
+
+        sessionStorage.setItem("merma_cruce_activo", String(cierre.id));
+        await cargarCruces();
+        await elegirCruce(cierre.id);
+        mostrarSeccion("secValidacion");
+
+    }catch(err){
+
+        console.error(err);
+        const msg = String(err && err.message || "");
+        const m = /PENDIENTES:(\d+)/.exec(msg);
+
+        if(m){
+            mostrarToast("No se cerró: aparecieron " + m[1] + " cambio(s) pendiente(s). Actualiza y revisa.", "error");
+            await actualizarTodo();
+        }else if(msg.includes("SIN_REGISTROS")){
+            mostrarToast("No hay merma registrada en el turno abierto.", "error");
+        }else{
+            mostrarToast("No se pudo cerrar la merma. Revisa la conexión.", "error");
+        }
+
+    }finally{
+
+        btn.disabled = false;
+        btn.textContent = "CERRAR MERMA";
+
+    }
+
 });
 
 // ========================================
@@ -440,10 +486,17 @@ document.getElementById("btnActualizar").addEventListener("click", async functio
 function pintarTodo(){
 
     const textoFiltro = document.getElementById("textoFiltro");
-    textoFiltro.textContent =
-        REGISTROS.length + " línea(s) de merma registradas entre " + fechaDmy(filtro.desde) +
-        " y " + fechaDmy(filtro.hasta) + (filtro.grupo ? " del grupo " + filtro.grupo : " (todos los grupos)") +
-        (CRUCE ? " · Cruce " + CRUCE.unidad_manipulacion + ": " + SAP.length + " línea(s) SAP, " + VALIDACION.length + " conteo(s)." : ".");
+
+    textoFiltro.textContent = CRUCE
+        ? nombreCierre(CRUCE) + " · cerrado por " + (CRUCE.cerrado_por || "-") + " · " +
+          SAP.length + " línea(s) SAP, " + VALIDACION.length + " conteo(s) físicos."
+        : "Turno abierto: " + REGISTROS.length + " línea(s) registradas, " +
+          REGISTROS.filter(r => r.estado !== "HECHO").length + " por cambiar. Al terminar, pulsa CERRAR MERMA.";
+
+    document.getElementById("btnCerrarMerma").classList.toggle("oculto", !!CRUCE);
+    document.getElementById("tituloRegistros").textContent = CRUCE
+        ? "MERMA DEL CIERRE #" + CRUCE.id
+        : "MERMA DEL TURNO ABIERTO";
 
     pintarRegistros();
     pintarCruce1();
@@ -475,7 +528,7 @@ function pintarRegistros(){
         Object.keys(porAuxiliar).map(k => '<span class="mt-chip">' + escaparHtml(k) + " · " + porAuxiliar[k] + "</span>").join("");
 
     if(!REGISTROS.length){
-        tbody.innerHTML = '<tr><td colspan="9" class="sin-datos">No hay merma registrada con este filtro.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="sin-datos">' + (CRUCE ? "Este cierre no tiene líneas." : "Aún no hay merma registrada en este turno.") + '</td></tr>';
         return;
     }
 
@@ -507,9 +560,9 @@ function pintarCruce1(){
     const tbody = document.getElementById("tblCruce1");
     const estado = document.getElementById("estadoCruce1");
 
-    if(!CRUCE){
-        tbody.innerHTML = '<tr><td colspan="6" class="sin-datos">Pega el stock de SAP arriba y guarda el cruce.</td></tr>';
-        estado.textContent = "-";
+    if(!SAP.length){
+        tbody.innerHTML = '<tr><td colspan="6" class="sin-datos">Pega arriba el stock físico de SAP para cruzarlo con lo registrado.</td></tr>';
+        estado.textContent = "Sin SAP";
         estado.className = "pl-estado";
         return;
     }
@@ -546,7 +599,7 @@ function pintarValidacion(){
     const estado = document.getElementById("estadoValidacion");
 
     if(!CRUCE){
-        tbody.innerHTML = '<tr><td colspan="7" class="sin-datos">Elige el cruce activo arriba para validar.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="sin-datos">Cierra la merma del turno o elige un cierre arriba para validar.</td></tr>';
         estado.textContent = "-";
         return;
     }
@@ -577,7 +630,7 @@ function pintarCruce2(){
     const estado = document.getElementById("estadoCruce2");
 
     if(!CRUCE){
-        tbody.innerHTML = '<tr><td colspan="7" class="sin-datos">Elige el cruce activo arriba.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="sin-datos">Cierra la merma del turno o elige un cierre arriba.</td></tr>';
         estado.textContent = "-";
         estado.className = "pl-estado";
         return;
@@ -726,15 +779,14 @@ document.getElementById("pegarSap").addEventListener("input", function(e){
 
     const um = filas[0].unidad_manipulacion;
     const info = leerUnidadManipulacion(um);
-    const existe = CRUCES.some(c => c.unidad_manipulacion === um);
+    const existe = SAP.length > 0;
     const unidades = Array.from(new Set(filas.map(f => f.unidad_manipulacion)));
     const avisos = [];
 
-    if(existe){ avisos.push("El cruce " + um + " ya existe: al guardar se reemplazan sus líneas de SAP (los conteos físicos se mantienen)."); }
-    if(unidades.length > 1){ avisos.push("Hay varias unidades de manipulación (" + unidades.join(", ") + "): se guardan todas en el cruce " + um + "."); }
+    if(existe){ avisos.push((CRUCE ? "Este cierre" : "El turno abierto") + " ya tiene SAP pegado: al guardar se reemplaza (los conteos físicos se mantienen)."); }
+    if(unidades.length > 1){ avisos.push("Hay varias unidades de manipulación (" + unidades.join(", ") + "): se guardan todas juntas."); }
     if(filas.some(f => !f._enMara)){ avisos.push("Hay códigos que no están en la MARA Merma: su cantidad no se pudo convertir a UMA."); }
     if(pegadoSap.noLeidas){ avisos.push(pegadoSap.noLeidas + " fila(s) no se pudieron leer."); }
-    if(!info){ avisos.push("La unidad de manipulación no tiene el formato MERMA + grupo + dd.mm: se usará la fecha de hoy."); }
 
     previa.innerHTML =
         '<div class="mt-resumen">' +
@@ -763,44 +815,41 @@ document.getElementById("btnGuardarCruce").addEventListener("click", async funct
 
     const btn = this;
     const filas = pegadoSap.filas;
-    const um = filas[0].unidad_manipulacion || ("SIN-UM-" + fechaIso(new Date()));
-    const info = leerUnidadManipulacion(um) || { grupo: "", fecha: fechaIso(new Date()) };
-    const existente = CRUCES.find(c => c.unidad_manipulacion === um);
+    const um = filas[0].unidad_manipulacion || null;
+    const otro = um ? CRUCES.find(c => c.unidad_manipulacion === um && (!CRUCE || c.id !== CRUCE.id)) : null;
+
+    if(otro && !(await mostrarConfirmacion(
+        "La unidad de manipulación " + um + " ya está en el Cierre #" + otro.id + ". ¿Guardar igual este SAP en " +
+        (CRUCE ? "el Cierre #" + CRUCE.id : "el turno abierto") + "?"
+    ))){
+        return;
+    }
 
     btn.disabled = true;
     btn.textContent = "GUARDANDO...";
 
     try{
 
-        let cruce = existente;
+        // Sin cerrar, el SAP va al turno abierto (cruce_id null) y al
+        // CERRAR MERMA pasa al cierre. Si hay un cierre elegido, se
+        // reemplaza el SAP de ese cierre.
+        const cruce = CRUCE;
 
-        if(!cruce){
-
-            const creado = await supabaseFetch("/merma_cruces", {
-                method: "POST",
-                headers: { "Prefer": "return=representation" },
-                body: JSON.stringify({
-                    unidad_manipulacion: um,
-                    grupo: info.grupo,
-                    fecha: info.fecha,
-                    desde: info.fecha,
-                    hasta: info.fecha,
-                    grupo_filtro: "",
-                    cargado_por: usuarioActual
-                })
+        if(cruce && um && !otro){
+            await supabaseFetch("/merma_cruces?id=eq." + cruce.id, {
+                method: "PATCH",
+                body: JSON.stringify({ unidad_manipulacion: um, cargado_por: usuarioActual })
             });
-
-            cruce = creado[0];
-
+            cruce.unidad_manipulacion = um;
         }
 
-        await supabaseFetch("/merma_sap?cruce_id=eq." + cruce.id, { method: "DELETE" });
+        await supabaseFetch("/merma_sap?cruce_id=" + (cruce ? "eq." + cruce.id : "is.null"), { method: "DELETE" });
 
         await supabaseFetch("/merma_sap", {
             method: "POST",
             body: JSON.stringify(filas.map(function(f){
                 return {
-                    cruce_id: cruce.id,
+                    cruce_id: cruce ? cruce.id : null,
                     producto: f.producto,
                     descripcion: f.descripcion,
                     lote: f.lote,
@@ -815,15 +864,14 @@ document.getElementById("btnGuardarCruce").addEventListener("click", async funct
             }))
         });
 
-        mostrarToast("Cruce " + um + " guardado (" + filas.length + " líneas).", "exito");
+        mostrarToast("SAP guardado en " + (cruce ? "el Cierre #" + cruce.id : "el turno abierto") + " (" + filas.length + " líneas).", "exito");
 
         document.getElementById("pegarSap").value = "";
         document.getElementById("previaSap").innerHTML = "";
         pegadoSap = null;
 
         await cargarCruces();
-        document.getElementById("selCruce").value = String(cruce.id);
-        await elegirCruce(cruce.id);
+        await actualizarTodo();
 
     }catch(err){
 
@@ -882,7 +930,7 @@ document.getElementById("formValidacion").addEventListener("submit", async funct
 
     const cantidad = numeroSap(valCantidad.value);
 
-    if(!CRUCE){ mostrarToast("Elige el cruce activo arriba.", "error"); return; }
+    if(!CRUCE){ mostrarToast("Elige un cierre arriba (o cierra la merma del turno).", "error"); return; }
     if(!productoValidacion){ mostrarToast("Escanea un código válido.", "error"); valCodigo.focus(); return; }
     if(!(cantidad > 0)){ mostrarToast("La cantidad debe ser mayor que 0.", "error"); valCantidad.focus(); return; }
 
@@ -1003,7 +1051,7 @@ function htmlMonitor(){
         "<tr>" + COLUMNAS_MONITOR.map(c => '<td style="' + cab + '">' + escaparHtml(c) + "</td>").join("") + "</tr>";
 
     if(!FILAS_MONITOR.length){
-        html += '<tr><td colspan="' + COLUMNAS_MONITOR.length + '" style="' + celda + 'text-align:center;color:#555555;">Sin merma registrada con este filtro.</td></tr>';
+        html += '<tr><td colspan="' + COLUMNAS_MONITOR.length + '" style="' + celda + 'text-align:center;color:#555555;">Sin merma en este turno.</td></tr>';
     }
 
     FILAS_MONITOR.forEach(function(fila){
@@ -1077,7 +1125,7 @@ document.getElementById("btnExcelMonitor").addEventListener("click", function(){
     const libro = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(libro, hoja, "MONITOR");
 
-    const nombre = "MONITOR_MERMA_" + (CRUCE ? CRUCE.unidad_manipulacion : filtro.desde) + ".xlsx";
+    const nombre = "MONITOR_MERMA_" + (CRUCE ? (CRUCE.unidad_manipulacion || "CIERRE_" + CRUCE.id) : "TURNO_ABIERTO_" + fechaIso(new Date())) + ".xlsx";
     XLSX.writeFile(libro, nombre.replace(/[^A-Za-z0-9_.-]/g, "_"));
 
 });
@@ -1396,8 +1444,6 @@ document.getElementById("btnImportarMara").addEventListener("click", async funct
 // ========================================
 
 (async function iniciar(){
-
-    pintarFiltro();
 
     try{
 

@@ -27,6 +27,15 @@
     font-size:14px;
 }
 
+.mt-filtros-turno{
+    grid-template-columns:1fr;
+    max-width:640px;
+}
+
+.oculto{
+    display:none !important;
+}
+
 .mt-escaneo{
     display:grid;
     grid-template-columns:2fr 1fr auto;
