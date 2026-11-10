@@ -70,6 +70,7 @@ $function$;
 -- ---------- 2) CRON: SOLO LAS TAREAS CUYO AUXILIAR CAMBIA ----------
 -- "set auxiliar = auxiliar" solo dispara el trigger, que recalcula.
 -- Revisar las ~26,000 filas cuesta ~0.2 s; antes se reescribían todas.
+select cron.alter_job(
     job_id := (select jobid from cron.job where jobname = 'refrescar-auxiliar-sap'),
     command := $cron$
     update public.tareas_almacen_sap t
