@@ -49,6 +49,9 @@ if(sesion){
         linkTomaLote: "toma-lote-supermercados",
         cardTomaLote: "toma-lote-supermercados",
 
+        linkPlMass: "pl-mass",
+        cardPlMass: "pl-mass",
+
         linkTomaLoteFarmacia: "toma-lote-farmacia",
         cardTomaLoteFarmacia: "toma-lote-farmacia",
 
@@ -60,6 +63,9 @@ if(sesion){
 
         linkMonitorGuias: "monitor-guias",
         cardMonitorGuias: "monitor-guias",
+
+        linkMermaTurno: "merma-turno",
+        cardMermaTurno: "merma-turno",
 
         linkConfiguracion: "configuracion",
         cardConfiguracion: "configuracion"

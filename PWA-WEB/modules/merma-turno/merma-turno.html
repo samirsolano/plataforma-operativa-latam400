@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Merma por Turno - Plataforma Operativa
+    </title>
+
+    <!-- Mismo estilo base que Toma de Lote Supermercados / PL MASS
+         (sidebar, cards, tablas, botones, toasts) + lo propio. -->
+    <link rel="stylesheet" href="../toma-lote-supermercados/toma-lote-supermercados.css">
+    <link rel="stylesheet" href="../pl-mass/pl-mass.css">
+    <link rel="stylesheet" href="merma-turno.css">
+
+</head>
+
+<body>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+
+                <h1>MERMA</h1>
+
+                <span>F-LAT-012 · POR TURNO</span>
+
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+
+                </div>
+
+            </div>
+
+            <nav class="menu">
+
+                <a href="#" data-seccion="secRegistros" class="activo">Merma del turno</a>
+                <a href="#" data-seccion="secCruceSap">1. Cruce con SAP</a>
+                <a href="#" data-seccion="secValidacion">2. Validación física</a>
+                <a href="#" data-seccion="secCruceFinal">3. Cruce final</a>
+                <a href="#" data-seccion="secMonitor">4. Monitor (correo)</a>
+                <a href="#" data-seccion="secMara">MARA Merma</a>
+
+            </nav>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="contenido">
+
+            <header class="topbar">
+
+                <div class="topbar-titulo">
+
+                    <h2>MERMA POR TURNO — CENTRO DE PROYECTOS</h2>
+
+                    <p>Registro del auxiliar → Cruce con SAP → Validación física → Monitor</p>
+
+                </div>
+
+                <button id="btnActualizar" class="btn-secundario">⟳ Actualizar</button>
+
+            </header>
+
+            <!-- TURNO ABIERTO o CIERRE ELEGIDO: todo el módulo trabaja sobre esto -->
+
+            <div class="card">
+
+                <div class="mt-filtros mt-filtros-turno">
+
+                    <div>
+                        <label for="selCruce">Turno / cierre</label>
+                        <select id="selCruce">
+                            <option value="">TURNO ABIERTO — registrando ahora</option>
+                        </select>
+                    </div>
+
+                </div>
+
+                <p class="nota-modulo" id="textoFiltro">-</p>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- MERMA REGISTRADA -->
+            <!-- ============================================ -->
+
+            <div class="card mt-seccion" id="secRegistros">
+
+                <div class="card-header-flex">
+                    <h2 id="tituloRegistros">MERMA DEL TURNO ABIERTO</h2>
+                    <span class="pl-estado" id="estadoRegistros">-</span>
+                </div>
+
+                <div class="mt-resumen" id="resumenRegistros"></div>
+
+                <p class="nota-modulo">
+                    El cruce con SAP se hace en el turno abierto, sin cerrar. Al terminar el turno pulsa
+                    <b>CERRAR MERMA</b>: la merma y su SAP pasan a un cierre para la validación física,
+                    el cruce final y el Monitor, y el turno de relevo empieza en blanco. No deja cerrar si
+                    algún auxiliar tiene cambios pendientes en su ruta.
+                </p>
+
+                <button class="btn-paso" id="btnCerrarMerma">CERRAR MERMA</button>
+
+                <div class="pl-tabla-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Auxiliar</th>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Ubicación</th>
+                                <th>Motivo</th>
+                                <th class="num">Ctd</th>
+                                <th>UM</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblRegistros"></tbody>
+                    </table>
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- 1. CRUCE CON SAP -->
+            <!-- ============================================ -->
+
+            <div class="card mt-seccion oculto" id="secCruceSap">
+
+                <div class="card-header-flex">
+                    <h2>1. PEGAR STOCK FÍSICO DE SAP</h2>
+                </div>
+
+                <p class="nota-modulo">
+                    Copia de SAP EWM las filas de la merma: <b>Producto, Descripción, Lote,
+                    FeCa, TS, CtdEmb, UM, Unidad manipulación, Ctd</b> (con o sin Tp y
+                    Ubicación) y pégalas. La cantidad se convierte a la UMA de la MARA, que es
+                    en lo que registra el auxiliar (ej. 12 UND de 6FCO = 2 CJA).
+                </p>
+
+                <textarea
+                    id="pegarSap"
+                    class="lpn-textarea"
+                    rows="6"
+                    placeholder="8305190	SAP.PROF.LAVAV. LIQ. LIMÓN 1.25L 6FCO	2610195060	19.10.2029	1F	2.000	CJA	MERMAPENDI30.10	12.000"
+                ></textarea>
+
+                <div id="previaSap"></div>
+
+                <button class="btn-paso" id="btnGuardarCruce" disabled>GUARDAR CRUCE</button>
+
+                <div class="pl-fase">
+
+                    <div class="card-header-flex">
+                        <h2>REGISTRO vs SAP</h2>
+                        <span class="pl-estado" id="estadoCruce1">-</span>
+                    </div>
+
+                    <div class="pl-tabla-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th class="num">Registro</th>
+                                    <th class="num">SAP (UMA)</th>
+                                    <th class="num">Dif.</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblCruce1"></tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- 2. VALIDACIÓN FÍSICA -->
+            <!-- ============================================ -->
+
+            <div class="card mt-seccion oculto" id="secValidacion">
+
+                <div class="card-header-flex">
+                    <h2>2. VALIDACIÓN FÍSICA (CONTEO CIEGO)</h2>
+                    <span class="pl-estado" id="estadoValidacion">-</span>
+                </div>
+
+                <p class="nota-modulo">
+                    Escanea cada producto de la merma física y escribe lo que cuentas, en la
+                    UMA del producto. Aquí no se muestra lo que dice SAP.
+                </p>
+
+                <form id="formValidacion" class="mt-escaneo" autocomplete="off">
+
+                    <div>
+                        <label for="valCodigo">Código / EAN</label>
+                        <input type="text" id="valCodigo" inputmode="numeric" placeholder="Escanea el producto">
+                    </div>
+
+                    <div>
+                        <label for="valCantidad">Cantidad <span id="valUma"></span></label>
+                        <input type="text" id="valCantidad" inputmode="decimal" placeholder="0">
+                    </div>
+
+                    <button type="submit" class="btn-primario">Guardar conteo</button>
+
+                </form>
+
+                <div class="mt-producto" id="valProducto"></div>
+
+                <div class="pl-tabla-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th class="num">Ctd</th>
+                                <th>UM</th>
+                                <th>Contó</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblValidacion"></tbody>
+                    </table>
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- 3. CRUCE FINAL -->
+            <!-- ============================================ -->
+
+            <div class="card mt-seccion oculto" id="secCruceFinal">
+
+                <div class="card-header-flex">
+                    <h2>3. CRUCE FINAL — FÍSICO vs SAP</h2>
+                    <span class="pl-estado" id="estadoCruce2">-</span>
+                </div>
+
+                <div class="pl-tabla-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th class="num">SAP (UMA)</th>
+                                <th class="num">Físico</th>
+                                <th class="num">Registro</th>
+                                <th class="num">Dif.</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblCruce2"></tbody>
+                    </table>
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- 4. MONITOR -->
+            <!-- ============================================ -->
+
+            <div class="card mt-seccion oculto" id="secMonitor">
+
+                <div class="card-header-flex">
+                    <h2>4. MONITOR — FORMATO PARA CORREO</h2>
+                    <span class="pl-estado" id="estadoMonitor">-</span>
+                </div>
+
+                <p class="nota-modulo">
+                    <b>Copiar para correo</b> y pega en el cuerpo del mensaje (Outlook / Gmail):
+                    se pega como tabla con formato. Lote y F.V. salen del cruce con SAP.
+                </p>
+
+                <div class="mt-acciones">
+                    <button class="btn-primario" id="btnCopiarMonitor">📋 Copiar para correo</button>
+                    <button class="btn-secundario" id="btnExcelMonitor">⬇ Descargar Excel</button>
+                </div>
+
+                <div class="pl-tabla-scroll mt-monitor" id="vistaMonitor"></div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- MARA MERMA -->
+            <!-- ============================================ -->
+
+            <div class="card mt-seccion oculto" id="secMara">
+
+                <div class="card-header-flex">
+                    <h2>MARA MERMA — UBICACIONES DE PICKING</h2>
+                    <span class="pl-estado" id="estadoMara">-</span>
+                </div>
+
+                <p class="nota-modulo">
+                    Es lo que ve el auxiliar en Centro de Proyectos al escanear (ubicación,
+                    descripción, UMA, base). Importa el Excel F-LAT-012 (hojas <b>MARA</b> y
+                    <b>BASES</b>) o pega dos columnas <b>Código · Ubicación</b> para actualizar
+                    solo ubicaciones.
+                </p>
+
+                <div class="pl-mara-acciones">
+                    <input type="file" id="archivoMara" accept=".xlsx,.xls,.xlsm">
+                    <button class="btn-primario" id="btnImportarMara">Importar Excel</button>
+                    <input type="search" id="buscadorMara" placeholder="Buscar código, EAN, descripción o ubicación...">
+                </div>
+
+                <textarea
+                    id="pegarUbicaciones"
+                    class="lpn-textarea"
+                    rows="4"
+                    placeholder="8305190	PP-15-009-1"
+                ></textarea>
+
+                <div id="previaUbicaciones"></div>
+
+                <button class="btn-paso" id="btnGuardarUbicaciones" disabled>ACTUALIZAR UBICACIONES</button>
+
+                <div class="pl-tabla-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Ubicación</th>
+                                <th>UMA</th>
+                                <th class="num">Conv.</th>
+                                <th>EAN14</th>
+                                <th>EAN13</th>
+                                <th>Base</th>
+                                <th>Categoría</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblMara"></tbody>
+                    </table>
+                </div>
+
+                <p class="nota-modulo" id="paginaMara"></p>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="../../shared/modal.js"></script>
+    <script src="merma-turno.js"></script>
+
+</body>
+
+</html>

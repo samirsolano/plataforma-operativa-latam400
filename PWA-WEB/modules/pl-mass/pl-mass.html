@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        PL MASS - Plataforma Operativa
+    </title>
+
+    <!-- Mismo estilo base que Toma de Lote Supermercados (sidebar,
+         cards, tablas, botones, toasts) + lo propio del módulo. -->
+    <link rel="stylesheet" href="../toma-lote-supermercados/toma-lote-supermercados.css">
+    <link rel="stylesheet" href="pl-mass.css">
+
+</head>
+
+<body>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <a href="../inicio/home.html" class="volver-plataforma">
+                ← Volver a la Plataforma
+            </a>
+
+            <div class="logo">
+
+                <h1>PL MASS</h1>
+
+                <span>LATAM 400 CL</span>
+
+            </div>
+
+            <div class="perfil-sidebar" id="btnPerfil">
+
+                <div class="nombre-sidebar" id="nombreUsuario">-</div>
+                <div class="rol-sidebar" id="rolUsuario">-</div>
+
+                <div class="menu-usuario" id="menuUsuario">
+
+                    <a href="#">Cambiar Contraseña</a>
+                    <a href="#" id="btnCerrarSesion">Cerrar Sesión</a>
+
+                </div>
+
+            </div>
+
+            <nav class="menu">
+
+                <a href="#" data-seccion="paso1" class="activo">1. Distribución</a>
+                <a href="#" data-seccion="paso2">2. VL06F</a>
+                <a href="#" data-seccion="paso3">3. Viajes y Fase</a>
+                <a href="#" data-seccion="paso4">4. Generar PL</a>
+                <a href="#" data-seccion="pasoHistorial">Historial de PL</a>
+                <a href="#" data-seccion="pasoMara">MARA MASS</a>
+
+            </nav>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="contenido">
+
+            <header class="topbar">
+
+                <div class="topbar-titulo">
+
+                    <h2>PL MASS — PACKING LIST CD MASS</h2>
+
+                    <p>Distribución → VL06F → Fase por viaje → PL</p>
+
+                </div>
+
+                <button id="btnReiniciar" class="btn-secundario">↺ Empezar de nuevo</button>
+
+            </header>
+
+            <!-- ============================================ -->
+            <!-- PASO 1: DISTRIBUCIÓN -->
+            <!-- ============================================ -->
+
+            <div class="card pl-seccion" id="paso1">
+
+                <div class="card-header-flex">
+                    <h2>1. DISTRIBUCIÓN (PROGRAMACIÓN)</h2>
+                    <span class="pl-estado" id="estadoDistribucion">Pendiente</span>
+                </div>
+
+                <p class="nota-modulo">
+                    La tabla de la programación: <b>F.O, RÓTULO, PEDIDO, O/C, ENTREGAS</b>.
+                    Puedes subir el Excel o copiar la tabla (del correo o de Excel) y pegarla.
+                </p>
+
+                <div class="lpn-fuente">
+
+                    <div class="lpn-fuente-header">
+                        <label>Distribución</label>
+                        <div class="lpn-fuente-tabs">
+                            <button type="button" class="lpn-fuente-tab activo" data-fuente="distribucion" data-modo="archivo">📁 Archivo</button>
+                            <button type="button" class="lpn-fuente-tab" data-fuente="distribucion" data-modo="pegar">📋 Pegar</button>
+                        </div>
+                    </div>
+
+                    <input type="file" id="archivo-distribucion" accept=".xlsx,.xls,.xlsm,.csv">
+
+                    <textarea
+                        id="pegar-distribucion"
+                        class="lpn-textarea oculto"
+                        rows="6"
+                        placeholder="F.O	RÓTULO	PEDIDO	O/C	ENTREGAS&#10;1000182095	Almacenaje	11926743	14794538	85998549"
+                    ></textarea>
+
+                </div>
+
+                <button class="btn-paso" id="btnCargarDistribucion">CARGAR DISTRIBUCIÓN</button>
+
+                <div class="pl-tabla-scroll oculto" id="bloqueDistribucion">
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>F.O</th>
+                                <th>Rótulo</th>
+                                <th>Pedido</th>
+                                <th>O/C</th>
+                                <th>Entrega</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblDistribucion"></tbody>
+                    </table>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- PASO 2: VL06F -->
+            <!-- ============================================ -->
+
+            <div class="card pl-seccion oculto" id="paso2">
+
+                <div class="card-header-flex">
+                    <h2>2. VL06F</h2>
+                    <span class="pl-estado" id="estadoVl06f">Pendiente</span>
+                </div>
+
+                <p class="nota-modulo">
+                    Export de la VL06F: <b>Entrega, Posición, Material, Cantidad entrega,
+                    Un.medida venta, Documento compras</b>. Solo se usan las entregas que
+                    están en la Distribución.
+                </p>
+
+                <div class="lpn-fuente">
+
+                    <div class="lpn-fuente-header">
+                        <label>VL06F</label>
+                        <div class="lpn-fuente-tabs">
+                            <button type="button" class="lpn-fuente-tab activo" data-fuente="vl06f" data-modo="archivo">📁 Archivo</button>
+                            <button type="button" class="lpn-fuente-tab" data-fuente="vl06f" data-modo="pegar">📋 Pegar</button>
+                        </div>
+                    </div>
+
+                    <input type="file" id="archivo-vl06f" accept=".xlsx,.xls,.xlsm,.csv">
+
+                    <textarea
+                        id="pegar-vl06f"
+                        class="lpn-textarea oculto"
+                        rows="6"
+                        placeholder="Entrega	Posición	Material	Cantidad entrega	Un.medida venta	Documento compras"
+                    ></textarea>
+
+                </div>
+
+                <button class="btn-paso" id="btnCargarVl06f">CARGAR VL06F</button>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- PASO 3: VIAJES + FASE -->
+            <!-- ============================================ -->
+
+            <div class="card pl-seccion oculto" id="paso3">
+
+                <div class="card-header-flex">
+                    <h2>3. VIAJES Y FASE</h2>
+                </div>
+
+                <p class="nota-modulo">
+                    Aquí aparecen los viajes (F.O) de la Distribución. Selecciona un viaje y
+                    sube su <b>Fase</b> (export de EWM: Producto, FeCaduc/FePreferCons, Lote,
+                    UMp destino, Ctd.real dest.UMB). Cada HU de la Fase es un LPN del PL.
+                </p>
+
+                <div class="pl-tabla-scroll">
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>F.O</th>
+                                <th>Entregas</th>
+                                <th>Líneas VL06F</th>
+                                <th>Paletas esperadas</th>
+                                <th>Fase</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblViajes">
+                            <tr><td colspan="6" class="sin-datos">Carga la Distribución para ver los viajes.</td></tr>
+                        </tbody>
+                    </table>
+
+                </div>
+
+                <div class="pl-fase oculto" id="bloqueFase">
+
+                    <h3 class="subtitulo-validacion">
+                        Fase del viaje <span id="faseViajeSeleccionado">-</span>
+                    </h3>
+
+                    <div class="lpn-fuente">
+
+                        <div class="lpn-fuente-header">
+                            <label>Fase (EWM)</label>
+                            <div class="lpn-fuente-tabs">
+                                <button type="button" class="lpn-fuente-tab activo" data-fuente="fase" data-modo="archivo">📁 Archivo</button>
+                                <button type="button" class="lpn-fuente-tab" data-fuente="fase" data-modo="pegar">📋 Pegar</button>
+                            </div>
+                        </div>
+
+                        <input type="file" id="archivo-fase" accept=".xlsx,.xls,.xlsm,.csv">
+
+                        <textarea
+                            id="pegar-fase"
+                            class="lpn-textarea oculto"
+                            rows="6"
+                            placeholder="Producto	Descripción producto	FeCaduc/FePreferCons	Lote	...	UMp destino	Ctd.real dest.UMB"
+                        ></textarea>
+
+                    </div>
+
+                    <button class="btn-paso" id="btnCargarFase">CARGAR FASE DEL VIAJE</button>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- PASO 4: GENERAR PL -->
+            <!-- ============================================ -->
+
+            <div class="card pl-seccion oculto" id="paso4">
+
+                <div class="card-header-flex">
+                    <h2>4. GENERAR PL</h2>
+                </div>
+
+                <p class="nota-modulo">
+                    LPN = <b>500000 + O/C + correlativo de 4 dígitos por O/C</b>: una O/C nueva empieza en 0001 y, si vuelve a salir, continúa desde su último número. Lo asigna el sistema (no se puede escribir) y cada LPN queda registrado, así que nunca se repite. Un viaje que ya tiene PL se descarga tal cual se registró.
+                </p>
+
+                <div class="pl-form-grid">
+
+                    <div>
+                        <label for="cmbViajePl">Viaje (F.O)</label>
+                        <select id="cmbViajePl">
+                            <option value="">Seleccione viaje</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label>Siguiente correlativo por O/C</label>
+                        <div class="pl-correlativo" id="txtCorrelativo" title="Lo asigna el sistema al registrar el PL">-</div>
+                    </div>
+
+                    <div>
+                        <label for="txtLocal">Local destino</label>
+                        <input type="text" id="txtLocal" value="917">
+                    </div>
+
+                </div>
+
+                <div class="pl-registrado oculto" id="bloquePlRegistrado">
+                    <p id="txtPlRegistrado"></p>
+                    <div class="pl-registrado-acciones">
+                        <button class="btn-primario" id="btnVerPlRegistrado">⬇ Descargar PL registrado</button>
+                        <button class="btn-secundario" id="btnRegenerarPl">Anular y regenerar</button>
+                    </div>
+                </div>
+
+                <button class="btn-paso" id="btnGenerarPl">GENERAR Y REGISTRAR PL</button>
+
+                <div class="oculto" id="bloqueResultadoPl">
+
+                    <div class="detalle-archivo pl-resumen">
+                        <p>LPN generados: <span id="plTotalLpn">-</span></p>
+                        <p>Unidades: <span id="plTotalUnidades">-</span></p>
+                        <p>Correlativo: <span id="plRango">-</span></p>
+                    </div>
+
+                    <div id="bloqueAdvertenciasPl" class="pl-advertencias oculto">
+                        <h3 class="subtitulo-validacion">⚠ Observaciones</h3>
+                        <ul id="lstAdvertenciasPl"></ul>
+                    </div>
+
+                    <button class="btn-primario" id="btnDescargarPl" disabled>⬇ Descargar PL</button>
+
+                    <div class="pl-tabla-scroll">
+
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>No. OC</th>
+                                    <th>No. Fact.</th>
+                                    <th>LPN</th>
+                                    <th>LOCAL DESTINO</th>
+                                    <th>SKU</th>
+                                    <th>CANTIDAD</th>
+                                    <th>No. Lote</th>
+                                    <th>Fecha Vto.</th>
+                                    <th>COSTO</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblPl"></tbody>
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- HISTORIAL DE PL -->
+            <!-- ============================================ -->
+
+            <div class="card pl-seccion oculto" id="pasoHistorial">
+
+                <div class="card-header-flex">
+                    <h2>HISTORIAL DE PL</h2>
+                </div>
+
+                <p class="nota-modulo">
+                    Todos los PL registrados (tabla <b>pl_mass_lpn</b>). Los LPN anulados no se
+                    muestran ni se descargan, pero siguen guardados y nunca se vuelven a usar.
+                </p>
+
+                <div class="pl-tabla-scroll">
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>F.O</th>
+                                <th>LPN</th>
+                                <th>Generado por</th>
+                                <th>Fecha</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblHistorial">
+                            <tr><td colspan="5" class="sin-datos">Cargando...</td></tr>
+                        </tbody>
+                    </table>
+
+                </div>
+
+            </div>
+
+            <!-- ============================================ -->
+            <!-- MARA MASS -->
+            <!-- ============================================ -->
+
+            <div class="card pl-seccion oculto" id="pasoMara">
+
+                <div class="card-header-flex">
+                    <h2>MARA MASS</h2>
+                    <span class="pl-estado" id="estadoMara">Cargando...</span>
+                </div>
+
+                <p class="nota-modulo">
+                    Maestro propio del PL MASS (tabla <b>mara_mass</b>), distinto del Catálogo MARA
+                    de Toma de Lote. Para actualizarlo, importa la plantilla <b>.xlsm</b> (se lee la
+                    hoja <b>MARA</b>) o un Excel con las mismas columnas: Material EWM, Material S4H,
+                    Des. de Material, Codigo SPSA, Unidad de Venta, Unidad base, Conversion por UND,
+                    EAN14, EAN13, Ctd por palet. Los SKU que ya existen se actualizan.
+                </p>
+
+                <div class="pl-mara-acciones">
+                    <input type="file" id="archivoMara" accept=".xlsx,.xls,.xlsm">
+                    <button class="btn-primario" id="btnImportarMara">Importar MARA</button>
+                    <input type="search" id="buscadorMara" placeholder="Buscar SKU, SPSA o descripción...">
+                </div>
+
+                <div class="pl-tabla-scroll">
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Material S4H</th>
+                                <th>Descripción</th>
+                                <th>Código SPSA</th>
+                                <th>U. Venta</th>
+                                <th>U. Base</th>
+                                <th>Conversión</th>
+                                <th>EAN14</th>
+                                <th>EAN13</th>
+                                <th>Ctd por palet</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblMara"></tbody>
+                    </table>
+
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="../../shared/supabase-config.js"></script>
+    <script src="../../shared/auth.js"></script>
+    <script src="pl-mass.js"></script>
+
+</body>
+
+</html>

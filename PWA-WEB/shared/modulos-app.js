@@ -62,10 +62,12 @@ const MODULOS_APP = [
     { key: "usuarios", nombre: "Usuarios", submodulos: [] },
     { key: "usuarios-centro-proyectos", nombre: "Usuarios Centro de Proyectos", submodulos: [] },
     { key: "toma-lote-supermercados", nombre: "Toma de Lote Supermercados", submodulos: [] },
+    { key: "pl-mass", nombre: "PL MASS", submodulos: [] },
     { key: "toma-lote-farmacia", nombre: "Toma de Lote Farmacia", submodulos: [] },
     { key: "inventario-paletas", nombre: "Inventario de Paletas", submodulos: [] },
     { key: "inventario-picking", nombre: "Inventario Picking", submodulos: [] },
     { key: "monitor-guias", nombre: "Monitor de Guías", submodulos: [] },
+    { key: "merma-turno", nombre: "Merma por Turno", submodulos: [] },
     { key: "configuracion", nombre: "Configuración", submodulos: [] }
 
 ];
