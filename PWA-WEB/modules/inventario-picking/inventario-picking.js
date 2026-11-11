@@ -1816,7 +1816,13 @@ async function cargarDiscrepancias(){
         _paginaActualAuditoria = 1;
         pintarAuditoria();
 
-        _catalogoReconteo = _catalogoAuditoria.filter(f => f.claseEstado === "revisado");
+        // Mismo criterio que el Reporte (obtenerDatosAuditoria → tieneDiferencia):
+        // toda diferencia real, se haya revisado o no en Revalidar —
+        // antes solo entraban las ya revisadas ("Reconteo"), dejando
+        // afuera las que seguían como "Segundo Conteo" sin revisar, y
+        // esta tabla terminaba sin mostrar diferencias que sí salían
+        // en el Reporte.
+        _catalogoReconteo = _catalogoAuditoria.filter(f => f.claseEstado === "revisado" || f.claseEstado === "segundo-conteo");
         _paginaActualReconteo = 1;
         pintarReconteo();
 
