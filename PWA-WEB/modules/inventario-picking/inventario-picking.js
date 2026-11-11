@@ -2497,6 +2497,48 @@ document.getElementById("btnCopiarReporte").addEventListener("click", async func
 
 });
 
+// Un mailto: solo puede llevar texto plano en el cuerpo (pierde las
+// tablas con colores) — así que acá se copia el reporte con formato
+// al portapapeles (igual que "Copiar") y se abre el cliente de correo
+// con el asunto ya puesto, para que el usuario solo pegue el cuerpo.
+document.getElementById("btnEnviarCorreoReporte").addEventListener("click", async function(){
+
+    const boton = document.getElementById("btnEnviarCorreoReporte");
+    const textoOriginal = boton.textContent;
+
+    try{
+
+        const html = htmlCopiarReporte();
+        const texto = textoCopiarReporte();
+
+        if(window.ClipboardItem){
+            await navigator.clipboard.write([
+                new ClipboardItem({
+                    "text/html": new Blob([html], { type: "text/html" }),
+                    "text/plain": new Blob([texto], { type: "text/plain" })
+                })
+            ]);
+        } else {
+            await navigator.clipboard.writeText(texto);
+        }
+
+        const fechaHoy = new Date().toLocaleDateString("es-PE");
+        const asunto = encodeURIComponent("Resultado del inventario del turno - " + fechaHoy);
+
+        window.location.href = "mailto:?subject=" + asunto;
+
+        mostrarToast("Reporte copiado — pégalo (Ctrl+V) en el cuerpo del correo que se abrió.", "exito");
+
+    } catch(e){
+
+        console.error(e);
+        boton.textContent = "✗ No se pudo copiar";
+        setTimeout(function(){ boton.textContent = textoOriginal; }, 1800);
+
+    }
+
+});
+
 // Observación es manual — la plataforma no tiene los datos de viajes/
 // HU de planta para calcularla sola. Se guarda por (semana, ubicación,
 // código) en picking_reporte_observaciones.
