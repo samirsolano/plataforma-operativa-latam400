@@ -2497,6 +2497,61 @@ document.getElementById("btnCopiarReporte").addEventListener("click", async func
 
 });
 
+// Manda el reporte por correo de verdad: una función en Supabase
+// (enviar-reporte-picking) lo envía por Gmail a un único destinatario
+// fijo en Alicorp — de ahí ellos ya lo redistribuyen por Outlook/Teams.
+document.getElementById("btnEnviarCorreoReporte").addEventListener("click", async function(){
+
+    const boton = document.getElementById("btnEnviarCorreoReporte");
+    const textoOriginal = boton.textContent;
+
+    boton.disabled = true;
+    boton.textContent = "Enviando...";
+
+    try{
+
+        const html = htmlCopiarReporte();
+        const texto = textoCopiarReporte();
+        const fechaHoy = new Date().toLocaleDateString("es-PE");
+
+        const respuesta = await fetch(SUPABASE_URL.replace("/rest/v1", "") + "/functions/v1/enviar-reporte-picking", {
+            method: "POST",
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: "Bearer " + SUPABASE_KEY,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                subject: "Resultado del inventario del turno - " + fechaHoy,
+                html: html,
+                text: texto
+            })
+        });
+
+        const resultado = await respuesta.json();
+
+        if(!respuesta.ok || !resultado.ok){
+            throw new Error(resultado.error || "No se pudo enviar el correo.");
+        }
+
+        boton.textContent = "✓ Enviado";
+        mostrarToast("Correo enviado.", "exito");
+
+    } catch(e){
+
+        console.error(e);
+        boton.textContent = "✗ No se pudo enviar";
+        mostrarToast("No se pudo enviar el correo: " + e.message, "error");
+
+    } finally {
+
+        boton.disabled = false;
+        setTimeout(function(){ boton.textContent = textoOriginal; }, 2500);
+
+    }
+
+});
+
 // Observación es manual — la plataforma no tiene los datos de viajes/
 // HU de planta para calcularla sola. Se guarda por (semana, ubicación,
 // código) en picking_reporte_observaciones.
