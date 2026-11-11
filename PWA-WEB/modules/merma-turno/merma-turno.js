@@ -528,7 +528,7 @@ function pintarRegistros(){
         Object.keys(porAuxiliar).map(k => '<span class="mt-chip">' + escaparHtml(k) + " · " + porAuxiliar[k] + "</span>").join("");
 
     if(!REGISTROS.length){
-        tbody.innerHTML = '<tr><td colspan="9" class="sin-datos">' + (CRUCE ? "Este cierre no tiene líneas." : "Aún no hay merma registrada en este turno.") + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="sin-datos">' + (CRUCE ? "Este cierre no tiene líneas." : "Aún no hay merma registrada en este turno.") + '</td></tr>';
         return;
     }
 
@@ -549,11 +549,56 @@ function pintarRegistros(){
             '<td class="num">' + formatoNumero(r.cantidad) + "</td>" +
             "<td>" + escaparHtml(r.uma) + "</td>" +
             "<td>" + estadoFila + "</td>" +
+            '<td><button class="btn-fila-mara mt-btn-eliminar" data-eliminar-registro="' + r.id + '">Eliminar</button></td>' +
             "</tr>";
 
     }).join("");
 
 }
+
+// Eliminar una línea de merma (turno abierto o cierre), directo y sin
+// confirmación. Se borra de merma_registros; si era de un cierre, se
+// descuenta de sus líneas.
+document.getElementById("tblRegistros").addEventListener("click", async function(e){
+
+    const boton = e.target.closest("[data-eliminar-registro]");
+
+    if(!boton){
+        return;
+    }
+
+    const r = REGISTROS.find(x => String(x.id) === boton.dataset.eliminarRegistro);
+
+    if(!r){
+        return;
+    }
+
+    boton.disabled = true;
+
+    try{
+
+        await supabaseFetch("/merma_registros?id=eq." + r.id, { method: "DELETE" });
+
+        if(CRUCE && CRUCE.lineas){
+            CRUCE.lineas = Math.max(0, CRUCE.lineas - 1);
+            await supabaseFetch("/merma_cruces?id=eq." + CRUCE.id, {
+                method: "PATCH",
+                body: JSON.stringify({ lineas: CRUCE.lineas })
+            }).catch(console.error);
+        }
+
+        mostrarToast("Línea eliminada: " + r.codigo + ".", "exito");
+        await actualizarTodo();
+
+    }catch(err){
+
+        console.error(err);
+        mostrarToast("No se pudo eliminar la línea.", "error");
+        boton.disabled = false;
+
+    }
+
+});
 
 function pintarCruce1(){
 
