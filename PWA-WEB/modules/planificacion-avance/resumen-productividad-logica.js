@@ -1,7 +1,7 @@
 // =========================================================
 // RESUMEN DE PRODUCTIVIDAD - Lógica
-// Top de colaboradores por PROMEDIO de TN por día trabajado (no
-// total acumulado — así no premia solo por asistir más días), para
+// Todos los colaboradores ordenados por TN total (mayor a menor),
+// mostrando además el promedio por día y por hora, para
 // un rango de fechas y una función (proceso) elegida. Usa la función
 // resumen_productividad_sap (ver resumen-productividad-sap.sql)
 // sobre "tareas_almacen_sap" — agrupa del lado del servidor porque
@@ -48,24 +48,46 @@ async function obtenerResumenProductividad(desde, hasta){
 }
 
 function prodNormalizarNombre(n){
-    return String(n || "").trim().toUpperCase();
+    return String(n || "").trim().toUpperCase().replace(/\s+/g, " ");
 }
 
-// nombre (auxiliar) -> supervisor, desde "colaboradores_activos" —
-// misma tabla/proyecto Supabase que usa Check List 5S (ver
-// construirMapaSupervisores en reporte-checklist.js) para el filtro
-// de Supervisor.
+// nombre (auxiliar, tal como viene de SAP) -> supervisor. El nombre de
+// tareas_almacen_sap coincide con "colaboradores.nombre_completo", pero
+// NO con "colaboradores_activos.nombre" (allí está en otro orden, p.ej.
+// "Jaime Amador Morello Fernandez" vs "MORELLO FERNANDEZ JAIME AMADOR").
+// Por eso se cruza por DNI: colaboradores (nombre SAP -> dni) +
+// colaboradores_activos (dni -> supervisor vigente). Si no está activo,
+// se usa el supervisor guardado en colaboradores.
 async function obtenerMapaSupervisoresProductividad(){
 
-    const filas = await planifFetch(
-        "/colaboradores_activos?select=nombre,supervisor&activo=eq.true"
-    ) || [];
+    const resultados = await Promise.all([
+        planifFetch("/colaboradores?select=nombre_completo,dni,supervisor"),
+        planifFetch("/colaboradores_activos?select=nombre,dni,supervisor&activo=eq.true")
+    ]);
 
+    const colaboradores = resultados[0] || [];
+    const activos = resultados[1] || [];
+
+    const supervisorPorDni = {};
     const mapa = {};
 
-    filas.forEach(function(f){
+    activos.forEach(function(f){
+        if(f.dni){
+            supervisorPorDni[String(f.dni).trim()] = f.supervisor || "Sin asignar";
+        }
         if(f.nombre){
             mapa[prodNormalizarNombre(f.nombre)] = f.supervisor || "Sin asignar";
+        }
+    });
+
+    colaboradores.forEach(function(f){
+        if(!f.nombre_completo){
+            return;
+        }
+        const dni = String(f.dni || "").trim();
+        const supervisor = supervisorPorDni[dni] || f.supervisor;
+        if(supervisor){
+            mapa[prodNormalizarNombre(f.nombre_completo)] = supervisor;
         }
     });
 
@@ -73,7 +95,7 @@ async function obtenerMapaSupervisoresProductividad(){
 
 }
 
-// Arma el top ya ordenado por promedio (TN/día) para UNA función,
+// Arma la lista completa ordenada por TN total (mayor a menor) para UNA función,
 // opcionalmente filtrado por supervisor (mapa nombre->supervisor de
 // obtenerMapaSupervisoresProductividad).
 function prodTopPorFuncion(porAuxiliar, funcion, supervisorMapa, supervisorFiltro){
@@ -105,6 +127,6 @@ function prodTopPorFuncion(porAuxiliar, funcion, supervisorMapa, supervisorFiltr
 
         })
         .filter(Boolean)
-        .sort(function(a, b){ return b.promedio - a.promedio; });
+        .sort(function(a, b){ return b.tnTotal - a.tnTotal || b.promedio - a.promedio; });
 
 }

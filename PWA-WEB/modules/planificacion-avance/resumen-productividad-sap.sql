@@ -22,6 +22,15 @@
 create index if not exists idx_tareas_almacen_sap_fecha
     on public.tareas_almacen_sap (fecha);
 
+-- Índice "cubriente": con rangos largos (agosto → hoy = media tabla)
+-- Postgres igual barría la tabla completa (~6 s, por encima del
+-- statement_timeout de anon → la pantalla se quedaba en "Cargando...").
+-- Con este índice la función se resuelve solo leyendo el índice
+-- (Index Only Scan, ~0.7 s).
+create index if not exists idx_tareas_almacen_sap_productividad
+    on public.tareas_almacen_sap (fecha) include (auxiliar, proceso, hora, tn)
+    where auxiliar is not null;
+
 -- "dias" = cantidad de fechas distintas en las que ese colaborador
 -- tuvo tareas de ese proceso dentro del rango — sirve para calcular
 -- el promedio de TN por día trabajado en vez de solo el total
