@@ -556,8 +556,9 @@ function pintarRegistros(){
 
 }
 
-// Eliminar una línea de merma (turno abierto o cierre). Se borra de
-// merma_registros; si era de un cierre, se descuenta de sus líneas.
+// Eliminar una línea de merma (turno abierto o cierre), directo y sin
+// confirmación. Se borra de merma_registros; si era de un cierre, se
+// descuenta de sus líneas.
 document.getElementById("tblRegistros").addEventListener("click", async function(e){
 
     const boton = e.target.closest("[data-eliminar-registro]");
@@ -569,14 +570,6 @@ document.getElementById("tblRegistros").addEventListener("click", async function
     const r = REGISTROS.find(x => String(x.id) === boton.dataset.eliminarRegistro);
 
     if(!r){
-        return;
-    }
-
-    if(!(await mostrarConfirmacion(
-        "¿Eliminar esta línea de merma?\n" + r.codigo + " · " + (r.descripcion || "") + "\n" +
-        formatoNumero(r.cantidad) + " " + (r.uma || "") + " · " + (r.motivo || "") + " · " + (r.nombre || "DNI " + r.dni) +
-        "\n\nSe borra definitivamente y deja de aparecerle al auxiliar."
-    ))){
         return;
     }
 
