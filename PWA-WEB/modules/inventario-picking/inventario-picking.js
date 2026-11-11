@@ -2497,43 +2497,56 @@ document.getElementById("btnCopiarReporte").addEventListener("click", async func
 
 });
 
-// Un mailto: solo puede llevar texto plano en el cuerpo (pierde las
-// tablas con colores) — así que acá se copia el reporte con formato
-// al portapapeles (igual que "Copiar") y se abre el cliente de correo
-// con el asunto ya puesto, para que el usuario solo pegue el cuerpo.
+// Manda el reporte por correo de verdad: una función en Supabase
+// (enviar-reporte-picking) lo envía por Gmail a un único destinatario
+// fijo en Alicorp — de ahí ellos ya lo redistribuyen por Outlook/Teams.
 document.getElementById("btnEnviarCorreoReporte").addEventListener("click", async function(){
 
     const boton = document.getElementById("btnEnviarCorreoReporte");
     const textoOriginal = boton.textContent;
 
+    boton.disabled = true;
+    boton.textContent = "Enviando...";
+
     try{
 
         const html = htmlCopiarReporte();
         const texto = textoCopiarReporte();
+        const fechaHoy = new Date().toLocaleDateString("es-PE");
 
-        if(window.ClipboardItem){
-            await navigator.clipboard.write([
-                new ClipboardItem({
-                    "text/html": new Blob([html], { type: "text/html" }),
-                    "text/plain": new Blob([texto], { type: "text/plain" })
-                })
-            ]);
-        } else {
-            await navigator.clipboard.writeText(texto);
+        const respuesta = await fetch(SUPABASE_URL.replace("/rest/v1", "") + "/functions/v1/enviar-reporte-picking", {
+            method: "POST",
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: "Bearer " + SUPABASE_KEY,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                subject: "Resultado del inventario del turno - " + fechaHoy,
+                html: html,
+                text: texto
+            })
+        });
+
+        const resultado = await respuesta.json();
+
+        if(!respuesta.ok || !resultado.ok){
+            throw new Error(resultado.error || "No se pudo enviar el correo.");
         }
 
-        const fechaHoy = new Date().toLocaleDateString("es-PE");
-        const asunto = encodeURIComponent("Resultado del inventario del turno - " + fechaHoy);
-
-        window.location.href = "mailto:?subject=" + asunto;
-
-        mostrarToast("Reporte copiado — pégalo (Ctrl+V) en el cuerpo del correo que se abrió.", "exito");
+        boton.textContent = "✓ Enviado";
+        mostrarToast("Correo enviado.", "exito");
 
     } catch(e){
 
         console.error(e);
-        boton.textContent = "✗ No se pudo copiar";
-        setTimeout(function(){ boton.textContent = textoOriginal; }, 1800);
+        boton.textContent = "✗ No se pudo enviar";
+        mostrarToast("No se pudo enviar el correo: " + e.message, "error");
+
+    } finally {
+
+        boton.disabled = false;
+        setTimeout(function(){ boton.textContent = textoOriginal; }, 2500);
 
     }
 
