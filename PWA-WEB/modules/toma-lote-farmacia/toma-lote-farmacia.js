@@ -3315,6 +3315,48 @@ function ocsDelFormularioStock(){
         .map(input => Number(input.dataset.oc));
 }
 
+// Si dos OC del mismo viaje tienen el mismo Canal, mapaCanalPorUbicacion
+// (canal -> OC) solo puede quedarse con una: la otra OC pierde todo su
+// stock físico sin que se note ningún error. Se bloquea antes de guardar
+// o subir nada.
+function encontrarCanalesDuplicados(filas){
+
+    const ocsPorCanal = new Map(); // canal normalizado -> [oc, oc, ...]
+
+    filas.forEach(function(f){
+
+        if(!f.canal){
+            return;
+        }
+
+        const clave = sinTildes(f.canal).trim().toLowerCase();
+
+        if(!ocsPorCanal.has(clave)){
+            ocsPorCanal.set(clave, []);
+        }
+
+        ocsPorCanal.get(clave).push(f.oc);
+
+    });
+
+    const duplicados = [];
+
+    ocsPorCanal.forEach(function(ocs, canal){
+        if(ocs.length > 1){
+            duplicados.push({ canal: canal, ocs: ocs });
+        }
+    });
+
+    return duplicados;
+
+}
+
+function mensajeCanalesDuplicados(duplicados){
+    return "No se guardó/subió nada: el mismo Canal está asignado a más de una OC (" +
+        duplicados.map(d => "\"" + d.canal + "\" en OC " + d.ocs.join(" y ")).join(" · ") +
+        "). Cada OC del viaje debe tener un Canal distinto.";
+}
+
 async function guardarCanalesActuales(){
 
     const filas = Array.from(listaOcCanalStock.querySelectorAll(".input-canal-oc"))
@@ -3410,6 +3452,13 @@ btnGuardarCanalesStock.addEventListener("click", async function(){
 
     if(!filas.length){
         mostrarToast("Escribe al menos un Canal para guardar.", "error");
+        return;
+    }
+
+    const canalesDuplicados = encontrarCanalesDuplicados(filas);
+
+    if(canalesDuplicados.length){
+        mostrarToast(mensajeCanalesDuplicados(canalesDuplicados), "error");
         return;
     }
 
@@ -3535,6 +3584,16 @@ archivoStock.addEventListener("change", async function(e){
             ". Todas las OC del viaje deben tener Canal antes de subir el archivo.",
             "error"
         );
+        archivoStock.value = "";
+        return;
+    }
+
+    const canalesDuplicadosAlSubir = encontrarCanalesDuplicados(
+        inputsCanal.map(input => ({ oc: Number(input.dataset.oc), canal: input.value.trim() }))
+    );
+
+    if(canalesDuplicadosAlSubir.length){
+        mostrarToast(mensajeCanalesDuplicados(canalesDuplicadosAlSubir), "error");
         archivoStock.value = "";
         return;
     }
