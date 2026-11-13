@@ -6223,6 +6223,13 @@ if(window.pdfjsLib){
 const archivoEtiquetasPdf = document.getElementById("archivoEtiquetasPdf");
 const resultadoSeparacion = document.getElementById("resultadoSeparacion");
 
+// MARA Alicorp guarda EAN-13. Las etiquetas a veces traen el GTIN-14
+// con un 0 adelante ("07751851025003"): se le quita para que coincida.
+function normalizarEan(ean){
+    const texto = String(ean || "").trim();
+    return texto.length === 14 && texto.startsWith("0") ? texto.slice(1) : texto;
+}
+
 // Arma las líneas del texto de una página (ítems agrupados por altura
 // y ordenados de izquierda a derecha) y saca los campos por su rótulo.
 function leerCamposEtiqueta(items){
@@ -6269,7 +6276,7 @@ function leerCamposEtiqueta(items){
     }
 
     return {
-        ean: (todo.match(/Art\s*:\s*(\d{8,14})/i) || [])[1] || "",
+        ean: normalizarEan((todo.match(/Art\s*:\s*(\d{8,14})/i) || [])[1]),
         lote: (todo.match(/Lote\s*:\s*([A-Za-z0-9\-]+)/i) || [])[1] || "",
         fv: (todo.match(/(?:FV|Exp)\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i) || [])[1] || "",
         descripcion: descripcion.trim()
@@ -6307,7 +6314,7 @@ function resolverCodigoGrupo(g, ctx){
     const mara = ctx.maraPorEan[g.ean];
 
     if(mara){
-        return { codigo: String(mara.codigo).trim(), descripcion: mara.descripcion || g.descripcion };
+        return { codigo: String(mara.codigo).trim(), descripcion: mara.descripcion || g.descripcion, porDescripcion: false };
     }
 
     const lote = String(g.lote || "").trim().toUpperCase();
@@ -6330,9 +6337,12 @@ function resolverCodigoGrupo(g, ctx){
 
     const codigo = primero.pr.codigo;
 
+    // Deducido (no confirmado por EAN): se marca en pantalla y en el
+    // separador para que alguien lo verifique contra la etiqueta.
     return {
         codigo: codigo,
-        descripcion: (ctx.maraPorCodigo[codigo] && ctx.maraPorCodigo[codigo].descripcion) || primero.pr.descripcion || g.descripcion
+        descripcion: (ctx.maraPorCodigo[codigo] && ctx.maraPorCodigo[codigo].descripcion) || primero.pr.descripcion || g.descripcion,
+        porDescripcion: true
     };
 
 }
@@ -6353,9 +6363,12 @@ async function leerPdfEtiquetas(archivo){
         paginas.push(campos);
     }
 
-    const ocTexto = (archivo.name.match(/(\d{6,})/) || [])[1] || "";
+    // Números largos del nombre del archivo que podrían ser la OC (ej:
+    // "20261113_1000450430.pdf" trae dos). Se elige después la que
+    // exista en "Carga y Viajes" (ver elegirOcDelPdf).
+    const ocCandidatas = archivo.name.match(/\d{6,}/g) || [];
 
-    return { archivo: archivo.name, oc: ocTexto, bytes: bytes, pdf: pdf, paginas: paginas };
+    return { archivo: archivo.name, oc: ocCandidatas[0] || "", ocCandidatas: ocCandidatas, bytes: bytes, pdf: pdf, paginas: paginas };
 
 }
 
@@ -6410,7 +6423,7 @@ async function leerEanDeCodigo2D(pdf, numeroPagina){
             // Con paréntesis "(02)775...(10)..." o crudo "02775...".
             const ean = (texto.match(/\(02\)\s*(\d{8,14})/) || texto.match(/^\D*02(\d{13,14})/) || [])[1];
             if(ean){
-                return ean.length === 14 && ean.startsWith("0") ? ean.slice(1) : ean;
+                return normalizarEan(ean);
             }
         }catch(e){
             // no se encontró en esta zona; se prueba la siguiente
@@ -6493,14 +6506,17 @@ function dibujarSeparador(pagina, fuente, fuenteNegrita, g, oc){
         });
     }
 
-    rotuloValor("CODIGO", textoPdfSeguro(g.codigo), u * 13);
+    // Rótulo corto: en la misma línea, a la derecha, va el "OC ...".
+    rotuloValor(g.porDescripcion ? "CODIGO - VERIFICAR" : "CODIGO", textoPdfSeguro(g.codigo), u * 13);
     rotuloValor("DESCRIPCION", textoPdfSeguro(g.descripcionFinal || "-"), u * 6.5);
     rotuloValor("LOTE", textoPdfSeguro(g.lote || "-"), u * 10);
     rotuloValor("CANTIDAD DE ETIQUETAS", String(g.indices.length), u * 13);
 
 }
 
-async function armarPdfSeparado(p, ctx){
+// avisarProgreso(texto): opcional, para mostrar en pantalla en qué va
+// (leer el código 2D de las etiquetas ASN tarda unos segundos por lote).
+async function armarPdfSeparado(p, ctx, avisarProgreso){
 
     const original = await PDFLib.PDFDocument.load(p.bytes);
     const nuevo = await PDFLib.PDFDocument.create();
@@ -6512,11 +6528,15 @@ async function armarPdfSeparado(p, ctx){
 
     // Grupos sin EAN en el texto (etiquetas ASN): se lee del código 2D
     // de su primera etiqueta (todas las del grupo son el mismo producto).
-    for(const g of grupos){
-        if(!g.ean){
-            g.ean = await leerEanDeCodigo2D(p.pdf, g.indices[0] + 1);
-            g.eanDeCodigo2D = !!g.ean;
+    const gruposSinEan = grupos.filter(g => !g.ean);
+
+    for(let i = 0; i < gruposSinEan.length; i++){
+        const g = gruposSinEan[i];
+        if(avisarProgreso){
+            avisarProgreso("leyendo código 2D, lote " + (i + 1) + " de " + gruposSinEan.length);
         }
+        g.ean = await leerEanDeCodigo2D(p.pdf, g.indices[0] + 1);
+        g.eanDeCodigo2D = !!g.ean;
     }
 
     grupos.forEach(function(g){
@@ -6525,17 +6545,23 @@ async function armarPdfSeparado(p, ctx){
         g.codigo = resuelto ? resuelto.codigo : (g.ean ? "EAN " + g.ean : "SIN CODIGO");
         g.descripcionFinal = resuelto ? resuelto.descripcion : g.descripcion;
         g.sinCodigo = !resuelto;
+        g.porDescripcion = !!(resuelto && resuelto.porDescripcion);
 
         // Solo para la pantalla (no va en el PDF): el lote de la
         // etiqueta contra los lotes registrados de ese código en la OC.
         const registrados = resuelto ? [...(ctx.lotesPorCodigo[resuelto.codigo] || [])] : [];
         const lote = String(g.lote || "").trim().toUpperCase();
-        g.observacion = "";
-        if(resuelto && lote && !registrados.includes(lote)){
-            g.observacion = registrados.length
-                ? "Lote no registrado en esta OC (registrado: " + registrados.join(", ") + ")"
-                : "Este código no tiene lecturas en esta OC";
+        const observaciones = [];
+        if(g.porDescripcion){
+            observaciones.push("Código deducido por descripción (sin EAN): verifícalo con la etiqueta");
         }
+        // Sin OC válida no hay contra qué comparar (ya se avisa arriba).
+        if(ctx.ocValida !== false && resuelto && lote && !registrados.includes(lote)){
+            observaciones.push(registrados.length
+                ? "Lote no registrado en esta OC (registrado: " + registrados.join(", ") + ")"
+                : "Este código no tiene lecturas en esta OC");
+        }
+        g.observacion = observaciones.join(" · ");
 
         // El separador tiene el mismo tamaño que la primera etiqueta del lote.
         const tamano = copiadas[g.indices[0]].getSize();
@@ -6581,17 +6607,59 @@ archivoEtiquetasPdf.addEventListener("change", async function(e){
         return;
     }
 
-    resultadoSeparacion.innerHTML = `<div class="sin-datos">Procesando ${archivos.length} PDF...</div>`;
+    resultadoSeparacion.innerHTML = `<div class="sin-datos" id="sepProgreso">Procesando ${archivos.length} PDF...</div>`;
+
+    function avisarProgreso(texto){
+        const caja = document.getElementById("sepProgreso");
+        if(caja){
+            caja.textContent = texto;
+        }
+    }
+
+    // Sin la librería del código 2D, las etiquetas ASN (sin EAN en el
+    // texto) no se pueden identificar por EAN: se avisa en vez de fallar
+    // en silencio.
+    const sinLector2D = !window.ZXing;
 
     try{
 
+        // Cada PDF se lee por separado: si uno está dañado, se avisa
+        // de ese y se siguen procesando los demás.
         const pdfs = [];
+        const fallidos = [];
 
-        for(const archivo of archivos){
-            pdfs.push(await leerPdfEtiquetas(archivo));
+        for(let i = 0; i < archivos.length; i++){
+            avisarProgreso("Leyendo " + archivos[i].name + " (" + (i + 1) + " de " + archivos.length + ")...");
+            try{
+                pdfs.push(await leerPdfEtiquetas(archivos[i]));
+            }catch(errPdf){
+                console.error(errPdf);
+                fallidos.push({ archivo: archivos[i].name, motivo: errPdf.message || "no se pudo leer" });
+            }
         }
 
-        const ocs = [...new Set(pdfs.map(p => p.oc).filter(Boolean))];
+        avisarProgreso("Consultando lo registrado...");
+
+        // Se valida la OC del nombre contra "Carga y Viajes": se toma la
+        // primera candidata que exista; si ninguna existe, se avisa.
+        const candidatas = [...new Set(pdfs.flatMap(p => p.ocCandidatas))];
+
+        const ocsExistentes = new Set(
+            candidatas.length
+                ? (await supabaseFetchTodo("/farmacia_data?select=orden_compra&orden_compra=in.(" + candidatas.join(",") + ")"))
+                    .map(f => String(f.orden_compra))
+                : []
+        );
+
+        pdfs.forEach(function(p){
+            const valida = p.ocCandidatas.find(c => ocsExistentes.has(c));
+            p.ocValida = !!valida;
+            if(valida){
+                p.oc = valida;
+            }
+        });
+
+        const ocs = [...new Set(pdfs.filter(p => p.ocValida).map(p => p.oc))];
 
         const [maraFilas, lecturasFilas, dataFilas] = await Promise.all([
             supabaseFetchTodo("/mara_alicorp?select=ean,codigo,descripcion"),
@@ -6637,19 +6705,42 @@ archivoEtiquetasPdf.addEventListener("change", async function(e){
             lotesPorOc[oc][c].add(lote);
         });
 
-        resultadoSeparacion.innerHTML = "";
+        const bloques = [];
 
-        for(const p of pdfs){
+        for(let i = 0; i < pdfs.length; i++){
 
-            const resultado = await armarPdfSeparado(p, {
-                maraPorEan: maraPorEan,
-                maraPorCodigo: maraPorCodigo,
-                programados: Object.values(programadosPorOc[p.oc] || {}),
-                lotesPorCodigo: lotesPorOc[p.oc] || {}
-            });
-            resultadoSeparacion.appendChild(renderResultadoSeparacion(p, resultado));
+            const p = pdfs[i];
+            const prefijo = "OC " + (p.oc || p.archivo) + " (" + (i + 1) + " de " + pdfs.length + "): ";
+
+            try{
+
+                avisarProgreso(prefijo + "armando el PDF...");
+
+                const resultado = await armarPdfSeparado(p, {
+                    maraPorEan: maraPorEan,
+                    maraPorCodigo: maraPorCodigo,
+                    programados: Object.values(programadosPorOc[p.oc] || {}),
+                    lotesPorCodigo: lotesPorOc[p.oc] || {},
+                    ocValida: p.ocValida
+                }, function(texto){ avisarProgreso(prefijo + texto + "..."); });
+
+                bloques.push(renderResultadoSeparacion(p, resultado, { sinLector2D: sinLector2D }));
+
+            }catch(errArmado){
+                console.error(errArmado);
+                fallidos.push({ archivo: p.archivo, motivo: errArmado.message || "no se pudo armar" });
+            }finally{
+                // Libera la memoria del lector (cada PDF puede tener cientos de páginas).
+                p.pdf.destroy();
+            }
 
         }
+
+        resultadoSeparacion.innerHTML = fallidos.length
+            ? `<div class="sep-aviso">No se pudo procesar: ${fallidos.map(f => escaparHtmlFarmacia(f.archivo + " (" + f.motivo + ")")).join(", ")}</div>`
+            : "";
+
+        bloques.forEach(b => resultadoSeparacion.appendChild(b));
 
     }catch(err){
 
@@ -6664,14 +6755,42 @@ archivoEtiquetasPdf.addEventListener("change", async function(e){
 
 });
 
-function renderResultadoSeparacion(p, resultado){
+function renderResultadoSeparacion(p, resultado, opciones){
+
+    opciones = opciones || {};
 
     const bloque = document.createElement("div");
     bloque.className = "sep-oc";
 
     const sinLeer = p.paginas.filter(pg => !pg.lote).length;
     const sinCodigo = resultado.grupos.filter(g => g.sinCodigo);
+    const porDescripcion = resultado.grupos.filter(g => g.porDescripcion);
+    const sinEan = resultado.grupos.filter(g => !g.ean);
+    // Lotes cuyas etiquetas no venían seguidas en el PDF: se juntaron
+    // detrás de un solo separador (cambia el orden de esas páginas).
+    const juntados = resultado.grupos.filter(g => g.indices.some((v, i) => i > 0 && v !== g.indices[i - 1] + 1));
     const nombre = nombreArchivoSeparado(p.archivo);
+
+    const avisos = [];
+
+    if(!p.ocValida){
+        avisos.push(p.oc
+            ? "La OC " + p.oc + " (tomada del nombre del archivo) no está en \"Carga y Viajes\": no se pudo cruzar con lo registrado ni deducir códigos por descripción. Revisa el nombre del archivo."
+            : "El nombre del archivo no trae el número de OC: no se pudo cruzar con lo registrado. Renómbralo con la OC (ej: 1000450430.pdf).");
+    }
+
+    if(opciones.sinLector2D && sinEan.length){
+        avisos.push("No cargó el lector de códigos 2D: " + sinEan.length + " lote(s) sin EAN en el texto no se pudieron identificar por EAN. Recarga la página y vuelve a subir el PDF.");
+    }
+
+    if(porDescripcion.length){
+        avisos.push(porDescripcion.length + " lote(s) tienen el código deducido por descripción (sin EAN): verifícalos con la etiqueta. En su hoja sale \"CODIGO - VERIFICAR\".");
+    }
+
+    if(juntados.length){
+        avisos.push("Las etiquetas de " + juntados.length + " lote(s) no venían seguidas en el PDF (" +
+            juntados.map(g => g.lote || "-").join(", ") + "): se juntaron detrás de un solo separador.");
+    }
 
     bloque.innerHTML = `
         <div class="sep-oc-cab">
@@ -6684,6 +6803,7 @@ function renderResultadoSeparacion(p, resultado){
 
         ${sinLeer ? `<div class="sep-aviso">${sinLeer} página(s) no se pudieron leer (sin Lote): quedaron en su propio grupo.</div>` : ""}
         ${sinCodigo.length ? `<div class="sep-aviso">No se encontró el código de ${sinCodigo.length} lote(s) (ni por EAN ni por descripción entre los códigos de esta OC): ${escaparHtmlFarmacia(sinCodigo.map(g => g.lote).join(", "))}. En su hoja sale "SIN CODIGO".</div>` : ""}
+        ${avisos.map(a => `<div class="sep-aviso">${escaparHtmlFarmacia(a)}</div>`).join("")}
 
         <table>
             <thead>
