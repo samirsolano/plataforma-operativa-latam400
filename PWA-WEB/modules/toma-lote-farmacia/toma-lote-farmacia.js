@@ -1607,12 +1607,13 @@ async function evaluarRequisitosViaje(viaje){
     // vuelva lento a medida que se cargan más OC.
     const listaOcs = ocsDelViaje.join(",");
 
-    const [lecturasFilas, ocPortalFilas, maraFilas, stockFilas, dataFinalFilas] = await Promise.all([
+    const [lecturasFilas, ocPortalFilas, maraFilas, stockFilas, dataFinalFilas, canalFilas] = await Promise.all([
         supabaseFetchTodo("/farmacia_lecturas?select=oc,codigo,lote,fv,cantidad_cajas&viaje=eq." + viaje),
         supabaseFetchTodo("/oc_portal_cliente?select=oc,ean,cantidad_sku_solicitada,descripcion_producto&oc=in.(" + listaOcs + ")"),
         supabaseFetchTodo("/mara_alicorp?select=ean,codigo,descripcion,factor_unidad_alm,tvu"),
         supabaseFetchTodo("/stock_fisico_sap?select=oc,producto,lote,cantidad_embalada&viaje=eq." + viaje),
-        supabaseFetchTodo("/data_final_generada?select=oc&oc=in.(" + listaOcs + ")")
+        supabaseFetchTodo("/data_final_generada?select=oc&oc=in.(" + listaOcs + ")"),
+        supabaseFetchTodo("/oc_canal?select=oc,canal&oc=in.(" + listaOcs + ")")
     ]);
 
     const tvuPorCodigo = {};
@@ -1747,6 +1748,12 @@ async function evaluarRequisitosViaje(viaje){
     }
 
     // ---- 5. Cruce Lotes SAP vs Físico sin observaciones ----
+    // Las OC que comparten Canal (misma ubicación física en SAP) se
+    // cruzan juntas, igual que en buscarCruceLotesSap/
+    // calcularCruceLotesSnapshot — no hay que repartir el stock entre
+    // ellas, Ctd. SAP y Ctd. Registrada se suman entre todo el grupo.
+
+    const grupoPorOcStock = construirGruposPorCanal(canalFilas);
 
     const porGrupoSap = {};
 
@@ -1754,9 +1761,10 @@ async function evaluarRequisitosViaje(viaje){
         if(!f.producto){
             return;
         }
-        const clave = f.oc + "|" + f.producto;
+        const grupoOc = resolverGrupoDeOc(f.oc, grupoPorOcStock);
+        const clave = grupoOc.clave + "|" + f.producto;
         if(!porGrupoSap[clave]){
-            porGrupoSap[clave] = { oc: f.oc, codigo: f.producto, ctdSap: 0, filas: [] };
+            porGrupoSap[clave] = { ocs: grupoOc.ocs, codigo: f.producto, ctdSap: 0, filas: [] };
         }
         porGrupoSap[clave].ctdSap += Number(f.cantidad_embalada || 0);
         porGrupoSap[clave].filas.push(f);
@@ -1780,17 +1788,26 @@ async function evaluarRequisitosViaje(viaje){
     Object.keys(porGrupoSap).forEach(function(clave){
 
         const g = porGrupoSap[clave];
-        const lotesEscaneados = lotesPorOcCodigo[clave] || new Set();
-        const ctdPistoleada = escaneadoCajasPorOcCodigo[clave] || 0;
+
+        const lotesEscaneados = new Set();
+        let ctdPistoleada = 0;
+
+        g.ocs.forEach(function(oc){
+            const claveOc = oc + "|" + g.codigo;
+            ctdPistoleada += escaneadoCajasPorOcCodigo[claveOc] || 0;
+            (lotesPorOcCodigo[claveOc] || new Set()).forEach(l => lotesEscaneados.add(l));
+        });
+
+        const ocsTexto = g.ocs.join(", ");
 
         if(g.ctdSap !== ctdPistoleada){
-            razones.push("Cruce Lotes SAP OC " + g.oc + " código " + g.codigo + ": la cantidad no coincide.");
+            razones.push("Cruce Lotes SAP OC " + ocsTexto + " código " + g.codigo + ": la cantidad no coincide.");
         }
 
         const lotesSinCoincidir = g.filas.filter(f => f.lote && !lotesEscaneados.has(String(f.lote).trim()));
 
         if(lotesSinCoincidir.length){
-            razones.push("Cruce Lotes SAP OC " + g.oc + " código " + g.codigo + ": hay un Lote que no coincide.");
+            razones.push("Cruce Lotes SAP OC " + ocsTexto + " código " + g.codigo + ": hay un Lote que no coincide.");
         }
 
     });
@@ -3315,15 +3332,19 @@ function ocsDelFormularioStock(){
         .map(input => Number(input.dataset.oc));
 }
 
-// Si dos OC del mismo viaje tienen el mismo Canal, mapaCanalPorUbicacion
-// (canal -> OC) solo puede quedarse con una: la otra OC pierde todo su
-// stock físico sin que se note ningún error. Se bloquea antes de guardar
-// o subir nada.
-function encontrarCanalesDuplicados(filas){
+// Dos o más OC del mismo viaje SÍ pueden compartir el mismo Canal (es la
+// misma ubicación física en SAP): en ese caso no hay que repartir el
+// stock entre ellas, se tratan como un solo grupo al cruzar — Ctd. SAP y
+// Ctd. Registrada se suman entre todas las OC del grupo (ver
+// buscarCruceLotesSap / calcularCruceLotesSnapshot).
+// canalFilas: filas de oc_canal ({oc, canal}). Devuelve un Map
+// oc -> {clave, ocs} SOLO para las OC que comparten Canal con alguna
+// otra (las que tienen Canal propio no aparecen en el Map).
+function construirGruposPorCanal(canalFilas){
 
     const ocsPorCanal = new Map(); // canal normalizado -> [oc, oc, ...]
 
-    filas.forEach(function(f){
+    (canalFilas || []).forEach(function(f){
 
         if(!f.canal){
             return;
@@ -3339,22 +3360,29 @@ function encontrarCanalesDuplicados(filas){
 
     });
 
-    const duplicados = [];
+    const grupoPorOc = new Map();
 
     ocsPorCanal.forEach(function(ocs, canal){
-        if(ocs.length > 1){
-            duplicados.push({ canal: canal, ocs: ocs });
+
+        if(ocs.length < 2){
+            return;
         }
+
+        const ocsOrdenados = [...new Set(ocs)].sort((a, b) => a - b);
+        const grupo = { clave: "canal:" + canal, ocs: ocsOrdenados };
+
+        ocsOrdenados.forEach(function(oc){
+            grupoPorOc.set(oc, grupo);
+        });
+
     });
 
-    return duplicados;
+    return grupoPorOc;
 
 }
 
-function mensajeCanalesDuplicados(duplicados){
-    return "No se guardó/subió nada: el mismo Canal está asignado a más de una OC (" +
-        duplicados.map(d => "\"" + d.canal + "\" en OC " + d.ocs.join(" y ")).join(" · ") +
-        "). Cada OC del viaje debe tener un Canal distinto.";
+function resolverGrupoDeOc(oc, grupoPorOc){
+    return grupoPorOc.get(oc) || { clave: "oc:" + oc, ocs: [oc] };
 }
 
 async function guardarCanalesActuales(){
@@ -3452,13 +3480,6 @@ btnGuardarCanalesStock.addEventListener("click", async function(){
 
     if(!filas.length){
         mostrarToast("Escribe al menos un Canal para guardar.", "error");
-        return;
-    }
-
-    const canalesDuplicados = encontrarCanalesDuplicados(filas);
-
-    if(canalesDuplicados.length){
-        mostrarToast(mensajeCanalesDuplicados(canalesDuplicados), "error");
         return;
     }
 
@@ -3584,16 +3605,6 @@ archivoStock.addEventListener("change", async function(e){
             ". Todas las OC del viaje deben tener Canal antes de subir el archivo.",
             "error"
         );
-        archivoStock.value = "";
-        return;
-    }
-
-    const canalesDuplicadosAlSubir = encontrarCanalesDuplicados(
-        inputsCanal.map(input => ({ oc: Number(input.dataset.oc), canal: input.value.trim() }))
-    );
-
-    if(canalesDuplicadosAlSubir.length){
-        mostrarToast(mensajeCanalesDuplicados(canalesDuplicadosAlSubir), "error");
         archivoStock.value = "";
         return;
     }
@@ -4538,7 +4549,7 @@ cmbViajeCruceLotes.addEventListener("change", async function(){
 async function buscarCruceLotesSap(){
 
     const viaje = cmbViajeCruceLotes.value;
-    const oc = filtroOcCruceLotes.value;
+    const ocFiltro = filtroOcCruceLotes.value;
     const estadoFiltro = filtroEstadoCruceLotes.value;
 
     const tbody = document.getElementById("tblCruceLotesSap");
@@ -4552,29 +4563,39 @@ async function buscarCruceLotesSap(){
 
     try{
 
-        let rutaSap = "/stock_fisico_sap?select=viaje,oc,producto,descripcion_producto,ubicacion,lote,cantidad_embalada&viaje=eq." + viaje;
-        let rutaLecturas = "/farmacia_lecturas?select=viaje,oc,codigo,descripcion,lote,fv,cantidad_cajas&viaje=eq." + viaje;
-
-        if(oc){
-            rutaSap += "&oc=eq." + oc;
-            rutaLecturas += "&oc=eq." + oc;
-        }
+        // Siempre se trae el viaje completo (todas sus OC): si dos OC
+        // comparten Canal hay que cruzarlas juntas, y filtrar por una
+        // sola OC antes de agrupar rompería ese cruce.
+        const rutaSap = "/stock_fisico_sap?select=viaje,oc,producto,descripcion_producto,ubicacion,lote,cantidad_embalada&viaje=eq." + viaje;
+        const rutaLecturas = "/farmacia_lecturas?select=viaje,oc,codigo,descripcion,lote,fv,cantidad_cajas&viaje=eq." + viaje;
 
         const [sapFilas, lecturasFilas] = await Promise.all([
             supabaseFetchTodo(rutaSap),
             supabaseFetchTodo(rutaLecturas)
         ]);
 
+        const ocsDelViaje = [...new Set([
+            ...(sapFilas || []).map(f => f.oc),
+            ...(lecturasFilas || []).map(f => f.oc)
+        ])].filter(v => v !== null && v !== undefined);
+
+        const canalFilas = ocsDelViaje.length
+            ? await supabaseFetchTodo("/oc_canal?select=oc,canal&oc=in.(" + ocsDelViaje.join(",") + ")")
+            : [];
+
+        const grupoPorOc = construirGruposPorCanal(canalFilas);
+
         const porGrupo = {};
 
-        function obtenerGrupo(viajeGrupo, ocGrupo, codigo, descripcion){
+        function obtenerGrupo(viajeGrupo, ocOriginal, codigo, descripcion){
 
-            const clave = viajeGrupo + "|" + ocGrupo + "|" + codigo;
+            const grupoOc = resolverGrupoDeOc(ocOriginal, grupoPorOc);
+            const clave = viajeGrupo + "|" + grupoOc.clave + "|" + codigo;
 
             if(!porGrupo[clave]){
                 porGrupo[clave] = {
                     viaje: viajeGrupo,
-                    oc: ocGrupo,
+                    ocs: grupoOc.ocs,
                     codigo: codigo,
                     descripcion: descripcion || "",
                     ctdSap: 0,
@@ -4655,7 +4676,7 @@ async function buscarCruceLotesSap(){
 
             return {
                 viaje: g.viaje,
-                oc: g.oc,
+                ocs: g.ocs,
                 codigo: g.codigo,
                 descripcion: g.descripcion,
                 ctdSap: g.ctdSap,
@@ -4671,6 +4692,10 @@ async function buscarCruceLotesSap(){
 
         }).filter(function(f){
 
+            if(ocFiltro && !f.ocs.includes(Number(ocFiltro))){
+                return false;
+            }
+
             if(!estadoFiltro){
                 return true;
             }
@@ -4680,8 +4705,11 @@ async function buscarCruceLotesSap(){
 
         }).sort(function(a, b){
 
-            if(String(a.oc) !== String(b.oc)){
-                return String(a.oc).localeCompare(String(b.oc));
+            const ocA = a.ocs.join(",");
+            const ocB = b.ocs.join(",");
+
+            if(ocA !== ocB){
+                return ocA.localeCompare(ocB);
             }
             return String(a.codigo).localeCompare(String(b.codigo));
 
@@ -4704,7 +4732,7 @@ async function buscarCruceLotesSap(){
 
             trResumen.innerHTML = `
                 <td>${f.viaje || "-"}</td>
-                <td>${f.oc || "-"}</td>
+                <td>${f.ocs.join(", ")}</td>
                 <td><span class="flecha-resumen">▸</span>${f.codigo}</td>
                 <td>${f.descripcion || "-"}</td>
                 <td>${formatearNumeroFarmacia(f.ctdSap)}</td>
@@ -5033,16 +5061,20 @@ function calcularDataFinalSnapshot(ocs, lecturasFilas, ocPortalFilas, alicorpFil
 
 }
 
-// Mismo cálculo que "Cruce Lotes SAP vs Físico" (buscarCruceLotesSap).
-function calcularCruceLotesSnapshot(stockFilas, lecturasFilas){
+// Mismo cálculo que "Cruce Lotes SAP vs Físico" (buscarCruceLotesSap):
+// las OC que comparten Canal (canalFilas, de oc_canal) se cruzan juntas.
+function calcularCruceLotesSnapshot(stockFilas, lecturasFilas, canalFilas){
+
+    const grupoPorOc = construirGruposPorCanal(canalFilas);
 
     const porGrupo = {};
 
-    function grupo(oc, codigo, descripcion){
-        const clave = oc + "|" + codigo;
+    function grupo(ocOriginal, codigo, descripcion){
+        const grupoOc = resolverGrupoDeOc(ocOriginal, grupoPorOc);
+        const clave = grupoOc.clave + "|" + codigo;
         if(!porGrupo[clave]){
             porGrupo[clave] = {
-                oc: oc, codigo: codigo, descripcion: descripcion || "",
+                ocs: grupoOc.ocs, codigo: codigo, descripcion: descripcion || "",
                 ctdSap: 0, ctdFisico: 0, filasSap: [], lotesFisicos: new Set()
             };
         }
@@ -5089,7 +5121,7 @@ function calcularCruceLotesSnapshot(stockFilas, lecturasFilas){
         const lotesSap = [...new Set(g.filasSap.map(f => f.lote).filter(Boolean))];
 
         return [
-            g.oc, g.codigo, g.descripcion, g.ctdSap, g.ctdFisico,
+            g.ocs.join(", "), g.codigo, g.descripcion, g.ctdSap, g.ctdFisico,
             lotesSap.join(", "), [...g.lotesFisicos].join(", "),
             observaciones.length ? "Con observaciones" : "Completo", observaciones.join(" · ")
         ];
@@ -5265,7 +5297,7 @@ async function armarSnapshotViaje(viaje){
         hojaSnapshot("Cruce Lotes SAP vs Físico",
             ["OC", "Código", "Descripción", "Ctd. SAP (Cajas)", "Ctd. Registrada (Cajas)",
              "Lotes SAP", "Lotes físicos", "Estado", "Observaciones"],
-            calcularCruceLotesSnapshot(stock, lecturas)
+            calcularCruceLotesSnapshot(stock, lecturas, canalFilas)
         )
 
     ];
