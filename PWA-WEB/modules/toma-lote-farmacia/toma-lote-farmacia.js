@@ -4602,6 +4602,7 @@ async function buscarCruceLotesSap(){
                     ctdPistoleada: 0,
                     filasSap: [],
                     lotesPistoleados: [],
+                    cantidadPorLoteFisico: {},
                     fvPorLote: {}
                 };
             }
@@ -4630,9 +4631,12 @@ async function buscarCruceLotesSap(){
             const grupo = obtenerGrupo(f.viaje, f.oc, f.codigo, f.descripcion);
             grupo.ctdPistoleada += Number(f.cantidad_cajas || 0);
             if(f.lote){
+                const loteTexto = String(f.lote).trim();
                 grupo.lotesPistoleados.push(f.lote);
-                if(f.fv && !grupo.fvPorLote[String(f.lote).trim()]){
-                    grupo.fvPorLote[String(f.lote).trim()] = f.fv;
+                grupo.cantidadPorLoteFisico[loteTexto] =
+                    (grupo.cantidadPorLoteFisico[loteTexto] || 0) + Number(f.cantidad_cajas || 0);
+                if(f.fv && !grupo.fvPorLote[loteTexto]){
+                    grupo.fvPorLote[loteTexto] = f.fv;
                 }
             }
         });
@@ -4684,6 +4688,7 @@ async function buscarCruceLotesSap(){
                 lotesSapUnicos: lotesSapUnicos,
                 filasSap: g.filasSap,
                 lotesPistoleadosSet: lotesPistoleadosSet,
+                cantidadPorLoteFisico: g.cantidadPorLoteFisico,
                 fvPorLote: g.fvPorLote,
                 observaciones: observaciones,
                 estadoClase: estadoClase,
@@ -4751,6 +4756,21 @@ async function buscarCruceLotesSap(){
                 ? [...f.lotesPistoleadosSet].join(", ")
                 : "Sin registros de este código";
 
+            // Cuánto le "sobra" a cada Lote físico escaneado frente a lo
+            // que SAP ya le tiene asignado a ese mismo Lote — si un Lote
+            // de SAP no coincide con ningún Lote físico, el candidato es
+            // el Lote físico cuyo sobrante calza (idealmente exacto) con
+            // la cantidad de esa fila, en vez de mostrar todos los Lotes
+            // físicos del código mezclados sin indicar a cuál corregirlo.
+            const cantidadPorLoteSap = {};
+
+            f.filasSap.forEach(function(s){
+                if(s.lote){
+                    const l = String(s.lote).trim();
+                    cantidadPorLoteSap[l] = (cantidadPorLoteSap[l] || 0) + Number(s.cantidad_embalada || 0);
+                }
+            });
+
             const filasSapDetalle = f.filasSap.map(function(s){
 
                 const loteTexto = s.lote ? String(s.lote).trim() : "";
@@ -4761,14 +4781,42 @@ async function buscarCruceLotesSap(){
                 // escaneó, no hay F.V. de lo físico que mostrar.
                 const fv = loteTexto ? (f.fvPorLote[loteTexto] || "-") : "-";
 
+                let loteFisicoTexto = loteTexto || lotesFisicosTexto;
+                let observacionTexto = "-";
+
+                if(noCoincide){
+
+                    const cantidadFila = Number(s.cantidad_embalada || 0);
+
+                    const candidatos = [...f.lotesPistoleadosSet].map(function(lf){
+                        const sobrante = (f.cantidadPorLoteFisico[lf] || 0) - (cantidadPorLoteSap[lf] || 0);
+                        return { lote: lf, sobrante: sobrante };
+                    }).filter(c => c.sobrante > 0);
+
+                    const exacto = candidatos.find(c => c.sobrante === cantidadFila);
+
+                    if(exacto){
+                        loteFisicoTexto = exacto.lote;
+                        observacionTexto = "No coincide — cambiar a " + exacto.lote + " en SAP " +
+                            "(a ese Lote le sobran exactamente " + exacto.sobrante + " caja(s))";
+                    }else if(candidatos.length){
+                        loteFisicoTexto = candidatos.map(c => c.lote + " (+" + c.sobrante + ")").join(", ");
+                        observacionTexto = "No coincide — revisar a cuál de estos Lotes corresponde";
+                    }else{
+                        loteFisicoTexto = lotesFisicosTexto;
+                        observacionTexto = "No coincide con lo registrado — cambiar en SAP";
+                    }
+
+                }
+
                 return `
                     <tr>
                         <td>${s.ubicacion || "-"}</td>
                         <td class="${noCoincide ? "lote-a-cambiar" : ""}">${s.lote || "-"}</td>
-                        <td>${lotesFisicosTexto}</td>
+                        <td>${loteFisicoTexto}</td>
                         <td>${formatearNumeroFarmacia(s.cantidad_embalada)}</td>
                         <td>${fv}</td>
-                        <td>${noCoincide ? "No coincide con lo registrado — cambiar en SAP" : "-"}</td>
+                        <td>${observacionTexto}</td>
                     </tr>
                 `;
 
